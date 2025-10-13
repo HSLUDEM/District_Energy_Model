@@ -4,7 +4,7 @@ Multi-energy system model for mixed-use districts and communities developped [HS
 
 ### Documentation
 
-Documentatino is available on [Read The Docs](https://dem-documentation.readthedocs.io/en/latest/).
+Documentation is available on [Read The Docs](https://dem-documentation.readthedocs.io/en/latest/).
 
 ### Short Description
 
