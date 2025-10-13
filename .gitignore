@@ -2,8 +2,8 @@
 *.log
 *.xlxs
 *.pdf
-*.png
-*.jpg
+#*.png
+#*.jpg
 
 # ignore specific files:
 src/dem_OLD.py
