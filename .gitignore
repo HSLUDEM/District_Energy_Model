@@ -1,0 +1,32 @@
+# ignore file types:
+*.log
+*.xlxs
+*.pdf
+*.png
+*.jpg
+
+# ignore specific files:
+src/dem_OLD.py
+#src/paths.py
+src/temp*
+src/tmp*
+src/postprocess_df_scen.py
+doc/documentation.md
+tests/tmp*
+
+# ignore directories
+tmp*/
+src/tmp*/
+src/00_superseded/
+doc/other/
+data/community_data/superseded*/
+tests/__pycache__/
+tests/.pytest_cache/
+tests/tmp*/
+bkp/
+00_superseded/
+__pycache__/
+results*/
+Results*/
+.gitignore
+.gitignore
