@@ -1,12 +1,14 @@
 # District Energy Model (DEM)
 
-Multi-energy system model for mixed-use districts and communities developped [HSLU CC TES](https://www.hslu.ch/cctes) in the framework of the [SWEET EDGE](https://www.sweet-edge.ch/en/work-packages/wp-1) project.
+A multi-energy system model for mixed-use districts and communities developped at [HSLU CC TES](https://www.hslu.ch/cctes) in the framework of the [SWEET EDGE](https://www.sweet-edge.ch/en/work-packages/wp-1) project.
 
-### Documentation
+---
+## Documentation
 
 Documentation is available on [Read The Docs](https://dem-documentation.readthedocs.io/en/latest/).
 
-### Short Description
+
+## Short Description
 
 The District Energy Model (DEM) is a Python-based linear multi-energy system model designed to simulate energy flows at the district scale with hourly resolution. A “district” in this context can refer to anything from a small group of buildings to an entire municipality or city.
 
@@ -26,7 +28,8 @@ The typical workflow consists of:
 
 In addition to simulation, DEM also supports MILP optimization of design and operation.
 
-### License
+
+## License
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
