@@ -187,7 +187,8 @@ class WindPower(TechCore):
         # Installed capacity per munic [kW]:
         wp_path_p = (self.wind_power_data_dir + self.wind_power_cap_file)
         
-        df_p_e_wp = pd.read_csv(wp_path_p)
+        # df_p_e_wp = pd.read_csv(wp_path_p)
+        df_p_e_wp = pd.read_feather(wp_path_p)
         
         self.p_e_wp = float(
                 df_p_e_wp.loc[df_p_e_wp['Municipality']==self.com_name,'p_kW']
@@ -221,8 +222,10 @@ class WindPower(TechCore):
                 f"of {repl_munic} instead.", UserWarning
                 )
             
-            self.wind_power_profile_file_annual = f"{repl_munic}.csv"
-            self.wind_power_profile_file_winter = f"{repl_munic}_winter.csv"
+            # self.wind_power_profile_file_annual = f"{repl_munic}.csv"
+            # self.wind_power_profile_file_winter = f"{repl_munic}_winter.csv"
+            self.wind_power_profile_file_annual = f"{repl_munic}.feather"
+            self.wind_power_profile_file_winter = f"{repl_munic}_winter.feather"
         # ---------------------------------------------------------------------
         
         # Wind power profiles:
@@ -231,8 +234,11 @@ class WindPower(TechCore):
         wp_path_winter = (self.wind_power_profiles_dir
                               + self.wind_power_profile_file_winter)
         # Hourly profiles:
-        self.df_profiles_annual = self.__csv_to_df_profiles(wp_path_annual)
-        self.df_profiles_winter = self.__csv_to_df_profiles(wp_path_winter)
+        # self.df_profiles_annual = self.__csv_to_df_profiles(wp_path_annual)
+        # self.df_profiles_winter = self.__csv_to_df_profiles(wp_path_winter)
+        
+        self.df_profiles_annual = self.__feather_to_df_profiles(wp_path_annual)
+        self.df_profiles_winter = self.__feather_to_df_profiles(wp_path_winter)
         
         # ---------------------------------------------------------------------
         # TENORARY FIX (continued)
@@ -256,6 +262,48 @@ class WindPower(TechCore):
                 wind_power_data_dir=self.wind_power_data_dir,
                 wind_power_national_profile_file=self.wind_power_national_profile_file
                 )
+            
+    def __feather_to_df_profiles(self, file_path):
+        """
+        Read wind power data from feather file and convert to dataframe.
+        The input file format is the same as for the CSV version:
+            - Each column represents a bin for a specific installation capacity
+            - Row 0: Percentage values (will be ignored)
+            - Row 1: Installation capacity [W] for specific bin
+            - Row 2 and following: Capacity factor for each hour [-]
+        """
+    
+        import os
+        import pandas as pd
+    
+        if not os.path.isfile(file_path):
+            raise Exception("No wind power data found. Check for file or correct file name.")
+    
+        # Read feather file (contains same content as CSV)
+        df_raw = pd.read_feather(file_path)
+    
+        # If the file has a single string column (space-delimited), split it into separate columns
+        if df_raw.shape[1] == 1:
+            df_profiles = df_raw.iloc[:, 0].str.split(" ", expand=True)
+            df_profiles = df_profiles.apply(pd.to_numeric, errors="coerce")
+        else:
+            df_profiles = df_raw.copy()
+    
+        # Check if there is only one row and it is full of zeroes
+        if len(df_profiles) == 1 and (df_profiles.iloc[0] == 0).all():
+            additional_rows = pd.DataFrame(0, index=range(8760), columns=df_profiles.columns)
+            df_profiles = pd.concat([df_profiles, additional_rows])
+            df_profiles.reset_index(inplace=True, drop=True)
+    
+        # If profile contains leap year (i.e. 8784h), remove last 24h
+        if len(df_profiles) == 8785:
+            df_profiles = df_profiles.iloc[:-24]
+    
+        # Replace NaN values with zeroes
+        df_profiles.fillna(0, inplace=True)
+    
+        return df_profiles
+
     
     # @staticmethod
     def __csv_to_df_profiles(self, file_path):
@@ -503,8 +551,10 @@ class WindPower(TechCore):
         else:
             for i in range(len(self.com_percent)):
                 self.com_name = self.com_percent.index[i]
-                self.wind_power_profile_file_annual = f"{self.com_name}.csv" # csv-file containing generation profiles of wind power
-                self.wind_power_profile_file_winter = f"{self.com_name}_winter.csv"
+                # self.wind_power_profile_file_annual = f"{self.com_name}.csv" # csv-file containing generation profiles of wind power
+                # self.wind_power_profile_file_winter = f"{self.com_name}_winter.csv"
+                self.wind_power_profile_file_annual = f"{self.com_name}.feather" # feather-file containing generation profiles of wind power
+                self.wind_power_profile_file_winter = f"{self.com_name}_winter.feather"
                 self.data_preprocessing(self.tech_dict)
                 
                 # Profiles:
@@ -745,8 +795,11 @@ class WindPower(TechCore):
                 df_p_e_wp_red.loc[df_p_e_wp_red['Municipality']==munic,'p_kW']
                 )
             
-            wind_power_profile_file_annual = f"{munic}.csv" # csv-file containing generation profiles of wind power
-            wind_power_profile_file_winter = f"{munic}_winter.csv" # csv-file containing generation profiles of wind power, with profiles favored for winter-production
+            # wind_power_profile_file_annual = f"{munic}.csv" # csv-file containing generation profiles of wind power
+            # wind_power_profile_file_winter = f"{munic}_winter.csv" # csv-file containing generation profiles of wind power, with profiles favored for winter-production
+            
+            wind_power_profile_file_annual = f"{munic}.feather" # feather-file containing generation profiles of wind power
+            wind_power_profile_file_winter = f"{munic}_winter.feather" # feather-file containing generation profiles of wind power, with profiles favored for winter-production
             
             # Wind power profiles:
             wp_path_annual = (wind_power_profiles_dir
@@ -775,12 +828,18 @@ class WindPower(TechCore):
             # # =====================================================================
             
             # Hourly profiles (capacity factors):
-            df_profiles_annual = self.__csv_to_df_profiles(
+            df_profiles_annual = self.__feather_to_df_profiles(
                 wp_path_annual
                 )
-            df_profiles_winter = self.__csv_to_df_profiles(
+            df_profiles_winter = self.__feather_to_df_profiles(
                 wp_path_winter
                 )
+            # df_profiles_annual = self.__csv_to_df_profiles(
+            #     wp_path_annual
+            #     )
+            # df_profiles_winter = self.__csv_to_df_profiles(
+            #     wp_path_winter
+            #     )
                 
             df_v_e_base_munic['v_e_wp'] = WindPower(
                 df_profiles_annual,

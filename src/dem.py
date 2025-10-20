@@ -163,7 +163,7 @@ class DistrictEnergyModel:
         # self.electricity_profile_dir = paths.electricity_profile_dir # location of electr. load profile files
         # self.biomass_data_dir = paths.biomass_data_dir
         self.wind_power_data_dir = paths.wind_power_data_dir # location of wind power data (e.g. installed capacities per municipality)
-        self.wind_power_profiles_dir = paths.wind_power_profiles_dir  # location of wind power hourly profile csv files
+        self.wind_power_profiles_dir = paths.wind_power_profiles_dir  # location of wind power hourly profile files
         self.ev_profiles_dir = paths.ev_profiles_dir # location of electric vehicle (ev) charging profiles
         self.results_path = paths.results_path
         
@@ -181,8 +181,10 @@ class DistrictEnergyModel:
         # self.electricity_profile_file = paths.electricity_profile_file # csv-file containing load profile from smart meter data
         # self.electricity_profile_industry_file = paths.electricity_profile_industry_file
         self.wind_power_cap_file = paths.wind_power_cap_file # installed wind power capacity [kW] per municipality
-        self.wind_power_profile_file_annual = f"{self.com_name_}.csv" # csv-file containing generation profiles of wind power
-        self.wind_power_profile_file_winter = f"{self.com_name_}_winter.csv" # csv-file containing generation profiles of wind power, with profiles favored for winter-production
+        # self.wind_power_profile_file_annual = f"{self.com_name_}.csv" # csv-file containing generation profiles of wind power
+        # self.wind_power_profile_file_winter = f"{self.com_name_}_winter.csv" # csv-file containing generation profiles of wind power, with profiles favored for winter-production
+        self.wind_power_profile_file_annual = f"{self.com_name_}.feather" # feather-file containing generation profiles of wind power
+        self.wind_power_profile_file_winter = f"{self.com_name_}_winter.feather" # feather-file containing generation profiles of wind power, with profiles favored for winter-production
         self.wind_power_national_profile_file = paths.wind_power_national_profile_file # Hourly profile of national wind power generation [kWh]
         # self.hydro_profile_file = paths.hydro_profile_file
         self.ev_profile_cp_file = paths.ev_profile_cp_file # hourly charging load [kW]
