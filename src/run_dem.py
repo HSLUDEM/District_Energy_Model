@@ -36,9 +36,6 @@ scen_techs = dem_helper.update_scen_techs_from_yaml(
     inp.scen_techs
     )
 
-print(scen_techs.keys())
-
-
 # Create instance of district energy model (dem):
 dem_inst = dem.DistrictEnergyModel(
     arg_com_nr = scen_techs['simulation']['district_number'],

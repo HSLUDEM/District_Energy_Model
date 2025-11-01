@@ -22,6 +22,139 @@ import dem_constants as C
 # os.chdir(wdir)
 # print(os.getcwd())
 
+
+import yaml
+from pathlib import Path
+
+
+def update_scen_techs_from_yaml(input_files_dir, scen_techs):
+    """
+    Update entries in scen_techs based on YAML files in input_files_dir.
+
+    Behaviour:
+    1) If a file named 'technologies.yaml' (or .yml) exists, its top-level keys are
+       interpreted as technology names (i.e., top keys in scen_techs). For each such
+       key, only the listed subkeys are replaced/added in scen_techs[top_key].
+    2) Individual files named after a top-level key in scen_techs (e.g., 'simulation.yaml')
+       are then applied, again only replacing/adding the listed subkeys in
+       scen_techs[top_key]. These per-technology files override values from 'technologies.yaml'.
+
+    Parameters
+    ----------
+    input_files_dir : str or Path
+        Directory containing the YAML files.
+    scen_techs : dict
+        Dictionary to update in-place.
+
+    Returns
+    -------
+    scen_techs : dict
+        Updated dictionary (same object).
+    """
+
+    def deep_merge(dst, src):
+        """Recursively merge src into dst."""
+        for k, v in src.items():
+            if isinstance(v, dict) and isinstance(dst.get(k), dict):
+                deep_merge(dst[k], v)
+            else:
+                dst[k] = v
+
+    input_dir = Path(input_files_dir)
+    if not input_dir.exists():
+        raise FileNotFoundError(f"Directory not found: {input_dir}")
+
+    # 1) Apply 'technologies.yaml' (or .yml) first, if present.
+    for techs_filename in ("technologies.yaml", "technologies.yml"):
+        techs_path = input_dir / techs_filename
+        if techs_path.exists():
+            with open(techs_path, "r", encoding="utf-8") as f:
+                technologies_content = yaml.safe_load(f) or {}
+            if not isinstance(technologies_content, dict):
+                raise ValueError(
+                    f"YAML file {techs_path.name} must contain a dictionary at top level."
+                )
+            # Each top-level key acts like a per-technology file; merge into scen_techs[top_key].
+            for top_key, subcontent in technologies_content.items():
+                if not isinstance(subcontent, dict):
+                    raise ValueError(
+                        f"In {techs_path.name}, top-level key '{top_key}' must map to a dictionary."
+                    )
+                if top_key not in scen_techs or not isinstance(scen_techs.get(top_key), dict):
+                    scen_techs[top_key] = {}
+                deep_merge(scen_techs[top_key], subcontent)
+            break  # Only one of .yaml/.yml is needed
+
+    # 2) Apply individual per-technology files (override technologies.yaml where overlapping).
+    for file in input_dir.glob("*.y*ml"):
+        # Skip the technologies file(s) - already handled
+        if file.name in ("technologies.yaml", "technologies.yml"):
+            continue
+
+        top_key = file.stem
+        with open(file, "r", encoding="utf-8") as f:
+            content = yaml.safe_load(f) or {}
+
+        if not isinstance(content, dict):
+            raise ValueError(f"YAML file {file.name} must contain a dictionary at top level.")
+
+        if top_key not in scen_techs or not isinstance(scen_techs.get(top_key), dict):
+            scen_techs[top_key] = {}
+
+        deep_merge(scen_techs[top_key], content)
+
+    return scen_techs
+
+
+# def update_scen_techs_from_yaml(input_files_dir, scen_techs):
+#     """
+#     Update entries in scen_techs based on YAML files in input_files_dir.
+    
+#     Each YAML file must be named after a top-level key in scen_techs
+#     (e.g., 'heat_pump.yaml'). If the file exists, only the listed subkeys
+#     are replaced or added in scen_techs[top_key].
+    
+#     Parameters
+#     ----------
+#     input_files_dir : str or Path
+#         Directory containing the YAML files.
+#     scen_techs : dict
+#         Dictionary to update in-place.
+    
+#     Returns
+#     -------
+#     scen_techs : dict
+#         Updated dictionary (same object).
+#     """
+
+#     def deep_merge(dst, src):
+#         """Recursively merge src into dst."""
+#         for k, v in src.items():
+#             if isinstance(v, dict) and isinstance(dst.get(k), dict):
+#                 deep_merge(dst[k], v)
+#             else:
+#                 dst[k] = v
+
+#     input_dir = Path(input_files_dir)
+#     if not input_dir.exists():
+#         raise FileNotFoundError(f"Directory not found: {input_dir}")
+
+#     for file in input_dir.glob("*.y*ml"):
+#         top_key = file.stem
+#         with open(file, "r", encoding="utf-8") as f:
+#             content = yaml.safe_load(f) or {}
+
+#         if not isinstance(content, dict):
+#             raise ValueError(f"YAML file {file.name} must contain a dictionary at top level.")
+
+#         if top_key not in scen_techs:
+#             scen_techs[top_key] = {}
+
+#         deep_merge(scen_techs[top_key], content)
+
+#     return scen_techs
+
+
 def update_df_results(energy_demand, supply, tech_instances, df_results):
     
     # Setting all values to 0

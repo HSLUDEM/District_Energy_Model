@@ -38,7 +38,7 @@ master_data_dir = '../data/master_data/'
 com_data_dir = '../data/community_data/'
 
 # results_path = 'C:/Users/UeliSchilt/Hochschule Luzern/CC TES - EDGE/Modelling/Results/District_Energy_Model/Multi_obj_opt/Allschwil/v20240312_with_tes_5_weights'
-results_path = 'tmp_results_for_testing'
+# results_path = 'tmp_results_for_testing'
 # results_path = 'tmp_results_for_testing/TEST_BALANCE/ISSUE_20240408_electricity_balance'
 # results_path = 'C:/Users/UeliSchilt/Hochschule Luzern/CC TES - EDGE/Modelling/Results/District_Energy_Model/Multi_obj_opt/Sirnach'
 # results_path = 'C:/Users/UeliSchilt/Hochschule Luzern/CC TES - EDGE/Modelling/Results/District_Energy_Model/Multi_obj_opt/0_tmp_new_results'
@@ -52,6 +52,8 @@ results_path = 'tmp_results_for_testing'
 # -----------------------------------------------------------------------------
 # dem.py:
 # -------
+
+input_files_dir = '../config/input_files'
 
 # Input data directories:
 weather_data_dir = path_strt1 + '/data/heat_demand/weather_data/' # location of meteostat files
