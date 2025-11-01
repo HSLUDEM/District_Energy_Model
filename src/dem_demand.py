@@ -1270,11 +1270,11 @@ class EnergyDemand:
                 df_meta.loc[
                     df_meta['GGDENR']==GGDENR, systemtype
                     ] = (
-                        df_com_yr.loc[df_com_yr['Hot_Water_System'] == systemtype, 'dhw_estimatin_kWh_combined']
+                        df_com_yr.loc[df_com_yr['Hot_Water_System'] == systemtype, 'dhw_estimation_kWh_combined']
                         *(1.0-df_com_yr.loc[df_com_yr['Hot_Water_System'] == systemtype, 'total_renovation_flag'])
                         ).sum() + reassignment_dict_dhw[systemtype]*(
                     sum(
-                        [(df_com_yr.loc[df_com_yr['Hot_Water_System'] == k, 'dhw_estimatin_kWh_combined']
+                        [(df_com_yr.loc[df_com_yr['Hot_Water_System'] == k, 'dhw_estimation_kWh_combined']
                           *(df_com_yr.loc[df_com_yr['Hot_Water_System'] == k, 'total_renovation_flag'])).sum() 
                           for k in reassignment_dict_dhw.keys()]
                         )
@@ -1334,7 +1334,7 @@ class EnergyDemand:
                 heat_generators_total_power_up_for_renovation[k] = (
                     (df_com_yr.loc[df_com_yr['Heating_System'] == k, new_header]
                      *(df_com_yr.loc[df_com_yr['Heating_System'] == k, 'heat_generator_replacement_flag'])).sum() 
-                     + (df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'dhw_estimatin_kWh_combined']
+                     + (df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'dhw_estimation_kWh_combined']
                         *(df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'heat_generator_replacement_flag'])).sum())
                 heat_generators_total_power[k] = (df_meta.loc[df_meta['GGDENR']==GGDENR, k]
                                                   + df_meta.loc[df_meta['GGDENR']==GGDENR, k.replace("_h_", "_hw_")])

@@ -780,6 +780,10 @@ scen_techs = {
     
     'simulation':{
         'number_of_days':365, # Simulation timeframe, starting on 1 Jan
+        'district_number':com_nr,
+        'generate_plots':toggle_plot,
+        'save_results':toggle_save_results,
+        'results_dir':''
         # 'timeframe':['2050-01-01', '2050-01-31'], # NOT YET IMPLEMENTED
         # 'ts_resolution':60 # [min] timestep resolution # NOT YET IMPLEMENTED
         },

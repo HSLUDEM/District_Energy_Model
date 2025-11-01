@@ -1,0 +1,5 @@
+number_of_days: 365
+district_number: 2762
+generate_plots: true
+save_results: true
+results_dir: tmp_results_for_testing

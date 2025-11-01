@@ -279,7 +279,7 @@ def calculateCOPs(df_com_yr,
 
 
       energy_array = probability_array*(df_com_yr["d_h_s_yr_future_renov_adjusted"].to_numpy()[:, np.newaxis, np.newaxis, np.newaxis, np.newaxis])
-      energy_array_dhw = probability_array_dhw*(df_com_yr["dhw_estimatin_kWh_combined"].to_numpy()[:, np.newaxis, np.newaxis])
+      energy_array_dhw = probability_array_dhw*(df_com_yr["dhw_estimation_kWh_combined"].to_numpy()[:, np.newaxis, np.newaxis])
             
       energy_vals = np.nansum(energy_array, axis=0)
       energy_vals_dhw = np.nansum(energy_array_dhw, axis = 0)

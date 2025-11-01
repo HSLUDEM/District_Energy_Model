@@ -53,11 +53,11 @@ class DistrictHeating(TechCore):
                 ].sum()
             +df_com_yr.loc[
                 df_com_yr['Heating_System'] == 'v_h_dh', 
-                'dhw_estimatin_kWh_combined'
+                'dhw_estimation_kWh_combined'
                 ].sum())
         dh_new_categories_energy = [(df_com_yr.loc[(df_com_yr['Heating_System'] != 'v_h_dh') & (df_com_yr['dh_distance_cat'] == i), 
                                                    column_name_for_heat_demand_space_heating].sum()
-            +df_com_yr.loc[(df_com_yr['Heating_System'] != 'v_h_dh') & (df_com_yr['dh_distance_cat'] == i), 'dhw_estimatin_kWh_combined'].sum())
+            +df_com_yr.loc[(df_com_yr['Heating_System'] != 'v_h_dh') & (df_com_yr['dh_distance_cat'] == i), 'dhw_estimation_kWh_combined'].sum())
                                         for i in range(self.num_dh_categories+1)]
         
         dh_already_existing_share_length = df_com_yr.loc[

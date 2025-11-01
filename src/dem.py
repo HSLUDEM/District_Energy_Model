@@ -114,7 +114,7 @@ class DistrictEnergyModel:
         -------
         n/a
         """
-        
+    
         
         """--------------------------------------------------------------------
         Prepare input:
@@ -165,7 +165,8 @@ class DistrictEnergyModel:
         self.wind_power_data_dir = paths.wind_power_data_dir # location of wind power data (e.g. installed capacities per municipality)
         self.wind_power_profiles_dir = paths.wind_power_profiles_dir  # location of wind power hourly profile files
         self.ev_profiles_dir = paths.ev_profiles_dir # location of electric vehicle (ev) charging profiles
-        self.results_path = paths.results_path
+        # self.results_path = paths.results_path
+        self.results_path = scen_techs['simulation']['results_dir']
         
         # Input data files:
         self.profiles_file = pd.read_feather(self.simulation_data_dir + paths.profiles_file)
@@ -214,7 +215,7 @@ class DistrictEnergyModel:
         #----------------------------------------------------------------------
         # Heat demand info:
         self.yearly_heat_demand_col='heat_energy_demand_estimate_kWh_combined' # df column used for annual heat demand
-        self.yearly_hot_water_demand_col='dhw_estimatin_kWh_combined' # df column used for annual hot_water demand
+        self.yearly_hot_water_demand_col='dhw_estimation_kWh_combined' # df column used for annual hot_water demand
         
         """--------------------------------------------------------------------
         Read and prepare data:
@@ -1576,7 +1577,7 @@ class DistrictEnergyModel:
                     com_name=self.com_name_,
                     scen_techs=scen_techs,
                     # opt_metrics=scen_techs['optimisation'],
-                    files_path = paths.results_path
+                    files_path = self.results_path
                     )
                 opt_results, model = optimiser.run_optimisation()
                 dict_total_costs =\
@@ -1741,7 +1742,7 @@ class DistrictEnergyModel:
                 supply=self.supply,
                 com_name=self.com_name_,
                 opt_metrics=scen_techs['optimisation'],
-                files_path=paths.results_path
+                files_path=self.results_path
                 )
             
             return df_scen, optimiser
