@@ -8,7 +8,7 @@ Created on Wed Mar 13 14:39:11 2024
 # -----------------------------------------------------------------------------
 # recommender tool:
 if True:
-    path_strt1 = '..'
+    path_strt1 = '../..'
 else:
     path_strt1 = '../../district_energy_model'
 
@@ -19,7 +19,7 @@ else:
     geojsons = '../GeoJsons'
 # -----------
 
-simulation_data_dir = '../data/master_data/simulation_data/'
+simulation_data_dir = '../../data/master_data/simulation_data/'
 
 master_file = 'df_master_sim.feather'
 meta_file = 'meta_file_2.feather'
@@ -31,14 +31,14 @@ profiles_file = 'simulation_profiles_file.feather'
 # -----------
     
 # Directory paths:
-master_data_dir = '../data/master_data/'
-com_data_dir = '../data/community_data/'
+master_data_dir = '../../data/master_data/'
+com_data_dir = '../../data/community_data/'
 
 # -----------------------------------------------------------------------------
 # dem.py:
 # -------
 
-input_files_dir = '../config/input_files'
+input_files_dir = '../../config/input_files'
 
 # Input data directories:
 weather_data_dir = path_strt1 + '/data/heat_demand/weather_data/' # location of meteostat files
