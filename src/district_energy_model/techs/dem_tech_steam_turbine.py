@@ -11,7 +11,8 @@ Takes steam as input and generates electricity and heat (on temperature level
 for space heating, i.e. <100degC) as output.
 """
 import numpy as np
-from techs.dem_tech_core import TechCore
+
+from district_energy_model.techs.dem_tech_core import TechCore
 
 class SteamTurbine(TechCore):
     

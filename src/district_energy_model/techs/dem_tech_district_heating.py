@@ -6,7 +6,8 @@ Created on Wed Apr 10 16:27:46 2024
 """
 import numpy as np
 import pandas as pd
-from techs.dem_tech_core import TechCore
+
+from district_energy_model.techs.dem_tech_core import TechCore
 
 NUM_DH_CATEGORIES = 3 # includes category "already built", does not include category "too expensive to build"
 

@@ -835,7 +835,7 @@ def plot_electricity_balance_hourly(df_scen,
     colors = [color for color, nz in zip(electricity_balance_colors_, nonzero_mask) if nz]
     
     # Ensure the index is in datetime format
-    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='H')
+    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
     
     fig = px.bar(
         df_plot, 
@@ -1004,7 +1004,7 @@ def plot_electricity_balance_hourly(df_scen,
 #     df_plot = df_scen.copy()
     
 #     # Ensure index is datetime
-#     df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='H')
+#     df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
     
 #     # Define electricity source columns
 #     electricity_sources = [
@@ -1160,7 +1160,7 @@ def plot_electricity_balance_hourly(df_scen,
 #     # colors = electricity_balance_colors
     
 #     # Ensure the index is in datetime format
-#     df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='H')
+#     df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
     
 #     # Stacked area chart:
 #     fig = px.area(
@@ -1699,7 +1699,7 @@ def plot_electricity_balance_weekly(df_scen,
 #     legend_labels = [label for label, nz in zip(heat_balance_legend_labels, nonzero_mask) if nz]
 #     colors = [color for color, nz in zip(heat_balance_colors, nonzero_mask) if nz]
 
-#     df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='H')
+#     df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
 
 #     patterns = ['/', '\\', '|', '-', '+', 'x', 'o', '.']
 #     pattern_index = 0
@@ -1843,7 +1843,7 @@ def plot_heat_balance_hourly(df_scen,
     # colors = heat_balance_colors
     
     # Ensure the index is in datetime format
-    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='H')
+    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
 
     # patterns = ['/', '\\', '|', '-', '+', 'x', 'o', '.']
     # pattern_index = 1    
@@ -2615,7 +2615,7 @@ def plot_tes_sos_hourly(df_scen,
     df_plot = df_plot/1000
     
     # Ensure the index is in datetime format
-    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='H')
+    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
     
     if 'q_h_tes' in df_plot.columns:
         pass
@@ -2753,7 +2753,7 @@ def plot_tes_cyclecount_hourly(df_scen,
 
     df_plot = pd.DataFrame(data = data, index = df_scen.index[1:])
     
-    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='H')
+    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
     
     fig = px.line(
         df_plot, 
@@ -2896,7 +2896,7 @@ def plot_tes_and_bes_cumsum_hourly(df_scen,
     df_plot = pd.DataFrame(data = data, index = df_scen.index[1:])
     
     # Ensure the index is in datetime format
-    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='H')
+    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
     
     # y=['q_h_tesdc', 'q_h_tes', 'q_e_bes']
 
@@ -3016,7 +3016,7 @@ def plot_tesdc_sos_hourly(
     df_plot = df_plot/1000
     
     # Ensure the index is in datetime format
-    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='H')
+    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
     
     if 'q_h_tesdc' in df_plot.columns:
         pass
@@ -3138,7 +3138,7 @@ def plot_bes_sos_hourly(df_scen,
     df_plot = df_plot/1000
     
     # Ensure the index is in datetime format
-    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='H')
+    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
     
     if 'q_e_bes' in df_plot.columns:
         pass
@@ -3260,7 +3260,7 @@ def plot_gtes_sos_hourly(df_scen,
     df_plot = df_plot/1000
     
     # Ensure the index is in datetime format
-    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='H')
+    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
     
     if 'q_gas_gtes' in df_plot.columns:
         pass
@@ -3382,7 +3382,7 @@ def plot_hes_sos_hourly(df_scen,
     df_plot = df_plot/1000
     
     # Ensure the index is in datetime format
-    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='H')
+    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
     
     if 'q_hyd_hes' in df_plot.columns:
         pass
@@ -4161,7 +4161,7 @@ def plot_bes_cyclecount_hourly(df_scen,
     df_plot = pd.DataFrame(data = {'bes_cyclecount' : dt}, index = df_scen.index[1:])
     
     # Ensure the index is in datetime format
-    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='H')
+    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
     
     y=['bes_cyclecount']
 

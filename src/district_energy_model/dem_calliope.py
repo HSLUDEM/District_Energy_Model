@@ -23,8 +23,8 @@ CHANGES THAT MUST BE REVERTED EVENTUALLY:
 
 import pandas as pd
 import numpy as np
-import calliope
-import dem_calliope_cc
+
+from district_energy_model import dem_calliope_cc
 
 class CalliopeOptimiser:
     
@@ -49,7 +49,7 @@ class CalliopeOptimiser:
         opt_results : xarray.core.dataset.Dataset
             Resulting timeseries from optimisation.
     
-        """   
+        """
         
         self.tech_list = tech_list
         self.energy_demand = energy_demand
@@ -214,6 +214,8 @@ class CalliopeOptimiser:
 
         print('------------------------------------------------------------')
         print('****OPTIMISATION****')
+        
+        import calliope
         
         ''' -------------------------------------------------------------------
         0. Get some parameters:

@@ -12,7 +12,8 @@ Gas Turbine (GT) Central Plant (CP)
  meaning it must be coupled with the steam_turbine tech to produce heat.)
 """
 import numpy as np
-from techs.dem_tech_core import TechCore
+
+from district_energy_model.techs.dem_tech_core import TechCore
 
 class GasTurbineCP(TechCore):
     

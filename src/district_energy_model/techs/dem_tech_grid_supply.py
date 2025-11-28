@@ -7,9 +7,8 @@ Created on Wed Apr 10 16:00:15 2024
 
 import numpy as np
 import pandas as pd
-import paths
 
-from techs.dem_tech_core import TechCore
+from district_energy_model.techs.dem_tech_core import TechCore
 
 class GridSupply(TechCore):
     
@@ -17,7 +16,7 @@ class GridSupply(TechCore):
     Generation technology: grid supply.
     """
     
-    def __init__(self, tech_dict):
+    def __init__(self, paths, tech_dict):
         
         """
         Initialise grid supply parameters.
@@ -34,6 +33,8 @@ class GridSupply(TechCore):
         """
         
         super().__init__(tech_dict)
+        
+        self.paths = paths
         
         # Initialize properties:
         self.update_tech_properties(tech_dict)
@@ -129,7 +130,7 @@ class GridSupply(TechCore):
             # ):
         self.len_test(self._m_e)
         
-        el_mix_path = paths.energy_mix_CH_dir + paths.electricity_mix_file
+        el_mix_path = self.paths.energy_mix_CH_dir + self.paths.electricity_mix_file
         el_mix_file = pd.read_feather(el_mix_path)
         
         el_gen_imp = pd.DataFrame(index = range(8760))

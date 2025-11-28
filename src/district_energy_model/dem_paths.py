@@ -32,8 +32,9 @@ Created on Wed Mar 13 14:39:11 2024
 class DEMPaths:
     
     def __init__(self, root_dir):
-    
+
         path_strt1 = root_dir
+        self.root_dir = root_dir
     
         # simulation_data_dir = '../../data/master_data/simulation_data/'
         self.simulation_data_dir = path_strt1 + '/data/master_data/simulation_data/'
@@ -58,7 +59,8 @@ class DEMPaths:
         # -------
         
         # input_files_dir = '../../config/input_files'
-        self.input_files_dir = path_strt1 + '/config/input_files'
+        # self.input_files_dir = path_strt1 + '/config/input_files'
+        self.input_files_dir = path_strt1 + '/config/config_files'
         
         # Input data directories:
         self.weather_data_dir = path_strt1 + '/data/heat_demand/weather_data/' # location of meteostat files
@@ -91,3 +93,6 @@ class DEMPaths:
         self.ev_profile_pd_file = 'profile_PD_y4.feather' # hourly upper power bound [kW]
         self.ev_profile_pu_file = 'profile_PU_y4.feather' # hourly lower power bound [kW]
         self.ev_munic_name_nr_file = 'ev_munic_name_nr.feather' # municipalities and BFS numnbers for ev data
+        
+        # Output directory:
+        self.output_dir_name = 'dem_output'

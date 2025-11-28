@@ -1,0 +1,42 @@
+Required:
+- python (<3.9)
+- numpy
+- pandas
+- meteostat
+- yaml
+- pyarrow=11.0.0
+
+For plotting:
+- plotly
+- plotly-express
+- 
+
+Only for optimisation:
+- calliope
+
+Only for clustering:
+- triangle
+- concave_hull
+- scipy
+
+------------------------------------------
+Packages to install prior to installing DEM:
+- numpy
+- pandas
+- meteostat
+- calliope (<6.9)
+- plotly
+- plotly-express
+
+----------------------------------------------
+Packages to remove:
+- matplotlib
+- scipy
+
+
+==============================================================
+What to uninstall from current conda env:
+- scipy (env1)
+- scikit-learn
+- matplotlib 
+- spyder

@@ -23,9 +23,9 @@ import numpy as np
 import pandas as pd
 import meteostat
 from datetime import datetime
-import paths
-import dem_constants as C
-import dem_helper
+
+from district_energy_model import dem_constants as C
+from district_energy_model import dem_helper
 
 """----------------------------------------------------------------------------
 ELECTRICITY DEMAND:
@@ -69,7 +69,9 @@ ELECTRICITY DEMAND:
 
 class EnergyDemand:
     
-    def __init__(self, com_nr):
+    def __init__(self, paths, com_nr):
+        
+        self.paths = paths
                 
         # Properties:
         self.com_nr = com_nr
@@ -1194,7 +1196,7 @@ class EnergyDemand:
                 ):
 
 
-        print("Adjustment of demand to renovation, marking of old heat generators as up for renewal")
+        print("\nAdjustment of demand to renovation, marking of old heat generators as up for renewal")
 
         df_com_yr['total_renovation_flag'] = False #Likelyhood of a specific building having been totally renovated
         #This can be a float between 0 and 1! 0=False, 1=True
@@ -1338,8 +1340,8 @@ class EnergyDemand:
                         *(df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'heat_generator_replacement_flag'])).sum())
                 heat_generators_total_power[k] = (df_meta.loc[df_meta['GGDENR']==GGDENR, k]
                                                   + df_meta.loc[df_meta['GGDENR']==GGDENR, k.replace("_h_", "_hw_")])
-                heat_generators_replacement_rates[k] = (float(heat_generators_total_power_up_for_renovation[k] / heat_generators_total_power[k]) 
-                                                        if float(heat_generators_total_power[k])>0 else 0.0)
+                heat_generators_replacement_rates[k] = (float(heat_generators_total_power_up_for_renovation[k] / heat_generators_total_power[k].iloc[0]) 
+                                                        if float(heat_generators_total_power[k].iloc[0])>0 else 0.0)
         
             scen_techs['demand_side']['heat_generator_replacement_rates'] = heat_generators_replacement_rates
             
@@ -1379,8 +1381,8 @@ class EnergyDemand:
             raise ValueError(msg)
         
         # Scaling factor for future demand:
-        hdd_munic_file_current = paths.master_data_dir + 'HDD_and_HDH_profiles/HDD_Municipality_2023.feather'
-        hdd_munic_file_future = paths.master_data_dir + f'HDD_and_HDH_profiles/HDD_Municipality_{str(year)}.feather'
+        hdd_munic_file_current = self.paths.master_data_dir + 'HDD_and_HDH_profiles/HDD_Municipality_2023.feather'
+        hdd_munic_file_future = self.paths.master_data_dir + f'HDD_and_HDH_profiles/HDD_Municipality_{str(year)}.feather'
         
         df_hdd_current = pd.read_feather(hdd_munic_file_current)
         df_hdd_future = pd.read_feather(hdd_munic_file_future)
@@ -1482,9 +1484,9 @@ class EnergyDemand:
         # Inputs:
         temp_base = 12.0 # Basis Temperatur [°C]
         # hwb =  d_h_yr # Heizwärmebedarf [kWh/y]
-        weather_data_dir = paths.weather_data_dir
+        weather_data_dir = self.paths.weather_data_dir
     
-        weather_data_dir_delta = paths.weather_data_delta_method_dir
+        weather_data_dir_delta = self.paths.weather_data_delta_method_dir
 
         df_hour_all = pd.read_feather(weather_data_dir_delta + str(com_nr_original) + ".feather")
 
@@ -1503,8 +1505,8 @@ class EnergyDemand:
         #     )
         
 
-        dhw_profile_dir = paths.dhw_profile_dir
-        dhw_profile_file = paths.dhw_profile_file
+        dhw_profile_dir = self.paths.dhw_profile_dir
+        dhw_profile_file = self.paths.dhw_profile_file
         
         dhw_profile = pd.read_feather(dhw_profile_dir + dhw_profile_file)
     
@@ -1519,8 +1521,10 @@ class EnergyDemand:
         df_hour = df_hour.rename(columns={base_year: "temp"})
         df_hour.index = df_hour.index.set_names("datetime")
 
-        df_hour["hdd"] = np.nan
-        df_hour["hdh"] = np.nan
+        # df_hour["hdd"] = np.nan
+        # df_hour["hdh"] = np.nan
+        df_hour["hdd"] = pd.Series(False, index=df_hour.index, dtype="boolean")
+        df_hour["hdh"] = pd.Series(False, index=df_hour.index, dtype="boolean")
     
         df_hour["tmp_diffT"] = np.nan
         df_hour["d_h_hr"] = np.nan # [kWh] 

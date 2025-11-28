@@ -1,4 +1,4 @@
-name: calliope
+name: dem_0_1_0_rc0
 channels:
   - conda-forge
   - defaults
@@ -306,4 +306,3 @@ dependencies:
       - statsmodels==0.14.0
       - tenacity==8.2.3
       - triangle==20230923
-prefix: C:\Users\UeliSchilt\.conda\envs\calliope

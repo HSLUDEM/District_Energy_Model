@@ -14,7 +14,7 @@ import math
 # import dem_techs
 # from meteostat import Point, Hourly, Daily
 from datetime import datetime
-import dem_constants as C
+from district_energy_model import dem_constants as C
 
 # cdir = os.getcwd()
 # print(cdir)
@@ -615,13 +615,15 @@ def create_results_directory(arg_path, arg_results_dir_name):
     Creates a new directory and returns the path to the directory.
     """
     
+    arg_path = arg_path + '\\'
+    
     tmp_i = 0
     tmp_results_dir = arg_results_dir_name
     
-    while tmp_i < 1000:
+    while tmp_i < 10000:
         if os.path.isdir(arg_path + tmp_results_dir) == True:
             # directory already exists
-            tmp_results_dir = arg_results_dir_name + '_' +str(tmp_i+1)
+            tmp_results_dir = arg_results_dir_name + ' (' +str(tmp_i+1) + ')'
             tmp_i += 1
             
         else:

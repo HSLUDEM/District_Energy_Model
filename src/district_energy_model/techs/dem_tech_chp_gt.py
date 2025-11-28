@@ -8,7 +8,8 @@ Created on Wed Oct  2 13:04:38 2024
 Combined Heat and Power (CHP) from Gas Turbine (GT)
 """
 import numpy as np
-from techs.dem_tech_core import TechCore
+
+from district_energy_model.techs.dem_tech_core import TechCore
 
 class CHPGasTurbine(TechCore):
     

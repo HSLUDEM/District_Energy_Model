@@ -6,11 +6,11 @@ Created on Wed Feb 26 16:32:35 2025
 """
 
 import pandas as pd
-import paths
 import numpy as np
-import dem_helper
 
-def create_district(scen_techs):
+from district_energy_model import dem_helper
+
+def create_district(paths, scen_techs):
     
     df_meta = pd.read_feather(paths.simulation_data_dir + paths.meta_file)
     # print(df_meta.columns)

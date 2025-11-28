@@ -10,15 +10,15 @@ import numpy as np
 import sys
 import os
 
-from techs.dem_tech_core import TechCore
+from district_energy_model.techs.dem_tech_core import TechCore
 
 # Add modules from parent directory:
-abspath = os.path.abspath(__file__)
-dname = os.path.dirname(abspath)
-parent_dir_path = os.path.dirname(dname)
-sys.path.insert(0, parent_dir_path)
+# abspath = os.path.abspath(__file__)
+# dname = os.path.dirname(abspath)
+# parent_dir_path = os.path.dirname(dname)
+# sys.path.insert(0, parent_dir_path)
 
-import dem_helper
+from district_energy_model import dem_helper
 
 class SolarPV(TechCore):
     

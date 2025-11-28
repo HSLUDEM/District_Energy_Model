@@ -9,7 +9,8 @@ Technology that uses low temperature heat as an input and converts it into usabl
 
 import numpy as np
 import pandas as pd
-from techs.dem_tech_core import TechCore
+
+from district_energy_model.techs.dem_tech_core import TechCore
 
 class HeatPumpCPLT(TechCore):
     

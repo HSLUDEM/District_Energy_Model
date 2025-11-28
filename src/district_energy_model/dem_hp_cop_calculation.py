@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import paths
 
 kelvin_offset = 273.15
 
@@ -71,7 +70,8 @@ COP_MAX_FACTOR = 20.0 #COP of individual systems is capped at 20 * quality_facto
 
 # tempfunctions_radiators = 
 
-def calculateHPCP_COP(tech_instance,
+def calculateHPCP_COP(paths,
+                      tech_instance,
                       weather_year,
                       com_nr):
       weather_data = pd.read_feather(paths.weather_data_delta_method_dir + str(com_nr) + ".feather")[weather_year].to_numpy()
@@ -87,27 +87,29 @@ def calculateHPCP_COP(tech_instance,
 
 
 
-def calculateCOPs(df_com_yr, 
-                          quality_factor_ashp_new, 
-                          quality_factor_ashp_old,
-                          quality_factor_gshp_new, 
-                          quality_factor_gshp_old, 
-                          com_nr, 
-                          dem_demand, 
-                          weather_year,
-                          consider_renovation_effects = False,
-                          total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios = {
-                                    'v_h_eh' : 0.0,
-                                    'v_h_hp' : 0.8, 'v_h_dh' : 0.05, 'v_h_gb' : 0.05, 
-                                    'v_h_ob' : 0.05, 'v_h_wb' : 0.05, 'v_h_solar' : 0.0, 
-                                    'v_h_other' : 0.0 }, 
-                          total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios = {
-                                    'v_hw_eh' : 0.1,
-                                    'v_hw_hp' : 0.7, 'v_hw_dh' : 0.05, 'v_hw_gb' : 0.05,
-                                    'v_hw_ob' : 0.05,'v_hw_wb' : 0.05,'v_hw_solar' : 0.0,
-                                    'v_hw_other' : 0.0 },
-                          optimisation_enabled = True,
-                          ):
+def calculateCOPs(
+        paths,
+        df_com_yr, 
+        quality_factor_ashp_new, 
+        quality_factor_ashp_old,
+        quality_factor_gshp_new, 
+        quality_factor_gshp_old, 
+        com_nr, 
+        dem_demand, 
+        weather_year,
+        consider_renovation_effects = False,
+        total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios = {
+                  'v_h_eh' : 0.0,
+                  'v_h_hp' : 0.8, 'v_h_dh' : 0.05, 'v_h_gb' : 0.05, 
+                  'v_h_ob' : 0.05, 'v_h_wb' : 0.05, 'v_h_solar' : 0.0, 
+                  'v_h_other' : 0.0 }, 
+        total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios = {
+                  'v_hw_eh' : 0.1,
+                  'v_hw_hp' : 0.7, 'v_hw_dh' : 0.05, 'v_hw_gb' : 0.05,
+                  'v_hw_ob' : 0.05,'v_hw_wb' : 0.05,'v_hw_solar' : 0.0,
+                  'v_hw_other' : 0.0 },
+        optimisation_enabled = True,
+        ):
       
 
       if not consider_renovation_effects:
@@ -274,8 +276,8 @@ def calculateCOPs(df_com_yr,
 
             )
 
-            print("SHARES (SF) = ", np.sum(probability_array[:,:,:,:,:], axis = (0,1,2,4)))
-            print("SHARES (DHW) = ", np.sum(probability_array_dhw[:,:,:], axis = (0,1)))
+            # print("SHARES (SF) = ", np.sum(probability_array[:,:,:,:,:], axis = (0,1,2,4)))
+            # print("SHARES (DHW) = ", np.sum(probability_array_dhw[:,:,:], axis = (0,1)))
 
 
       energy_array = probability_array*(df_com_yr["d_h_s_yr_future_renov_adjusted"].to_numpy()[:, np.newaxis, np.newaxis, np.newaxis, np.newaxis])
@@ -394,13 +396,14 @@ def calculateCOPs(df_com_yr,
             )
 
 
-      print("JAZ (existing) = ", np.sum(total_heat_produced_existing_hps)/np.sum(electricity_consumed_existing_hps))
-      print("JAZ (new) = ", np.sum(total_heat_produced_new_hps)/np.sum(electricity_consumed_new_hps))
-      print("JAZ (one-to-one replacement) = ", np.sum(total_heat_produced_one_to_one_replacement_hps)/np.sum(electricity_consumed_one_to_one_replacement_hps))
+      # print("JAZ (existing) = ", np.sum(total_heat_produced_existing_hps)/np.sum(electricity_consumed_existing_hps))
+      # print("JAZ (new) = ", np.sum(total_heat_produced_new_hps)/np.sum(electricity_consumed_new_hps))
+      # print("JAZ (one-to-one replacement) = ", np.sum(total_heat_produced_one_to_one_replacement_hps)/np.sum(electricity_consumed_one_to_one_replacement_hps))
 
       cops_existing = total_heat_produced_existing_hps/electricity_consumed_existing_hps
       cops_new = total_heat_produced_new_hps/electricity_consumed_new_hps
-      cops_one_to_one = total_heat_produced_one_to_one_replacement_hps/electricity_consumed_one_to_one_replacement_hps
+      with np.errstate(invalid='ignore', divide='ignore'):
+          cops_one_to_one = total_heat_produced_one_to_one_replacement_hps/electricity_consumed_one_to_one_replacement_hps
 
       df_com_yr = df_com_yr.drop(columns = ['heat_pump_share_air_to_water', 
                                 'heat_pump_share_brine_to_water', 

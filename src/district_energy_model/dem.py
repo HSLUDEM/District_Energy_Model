@@ -50,23 +50,21 @@ import pandas as pd
 import sys
 import numpy as np
 # import matplotlib.pylab as plt
-import paths
 import time
 import copy
 
-
-import dem_techs
-import dem_demand
-import dem_hp_cop_calculation
-import dem_helper
-import dem_energy_balance as dem_eb
-import dem_output
-import dem_scenarios
-import dem_supply
-import dem_constants as C
-import dem_clustering
-import dem_emissions
-import dem_create_custom_district
+from district_energy_model import dem_techs
+from district_energy_model import dem_demand
+from district_energy_model import dem_hp_cop_calculation
+from district_energy_model import dem_helper
+from district_energy_model import dem_energy_balance as dem_eb
+from district_energy_model import dem_output
+from district_energy_model import dem_scenarios
+from district_energy_model import dem_supply
+from district_energy_model import dem_constants as C
+from district_energy_model import dem_clustering
+from district_energy_model import dem_emissions
+from district_energy_model import dem_create_custom_district
 
 
 from warnings import simplefilter
@@ -84,6 +82,7 @@ class DistrictEnergyModel:
     """
        
     def __init__(self,
+                 paths,
                  arg_com_nr,
                  # base_tech_data,
                  scen_techs,
@@ -119,6 +118,7 @@ class DistrictEnergyModel:
         """--------------------------------------------------------------------
         Prepare input:
         """
+        self.paths = paths
         
         # Selected community/ custom scenario:
         self.com_nr = arg_com_nr
@@ -132,6 +132,7 @@ class DistrictEnergyModel:
 
         if scen_techs['meta_data']['custom_district']['implemented'] == True:
             self.com_nr, self.com_nr_majority, self.com_name_, self.com_kt, self.df_meta, self.df_com_yr, self.com_percent,self.com_percent_2 = dem_create_custom_district.create_district(
+                self.paths,
                 scen_techs
                 )
         
@@ -165,8 +166,19 @@ class DistrictEnergyModel:
         self.wind_power_data_dir = paths.wind_power_data_dir # location of wind power data (e.g. installed capacities per municipality)
         self.wind_power_profiles_dir = paths.wind_power_profiles_dir  # location of wind power hourly profile files
         self.ev_profiles_dir = paths.ev_profiles_dir # location of electric vehicle (ev) charging profiles
+        
+        sim_plt = scen_techs['simulation']['generate_plots']
+        sim_res = scen_techs['simulation']['save_results']
+        if sim_plt or sim_res:
+            self.results_path = dem_helper.create_results_directory(
+                paths.root_dir,
+                paths.output_dir_name
+                )
+        else:
+            self.results_path = 0
+            
         # self.results_path = paths.results_path
-        self.results_path = scen_techs['simulation']['results_dir']
+        # self.results_path = scen_techs['simulation']['results_dir']
         
         # Input data files:
         self.profiles_file = pd.read_feather(self.simulation_data_dir + paths.profiles_file)
@@ -296,7 +308,7 @@ class DistrictEnergyModel:
         Create demand instance:
         """
         
-        self.energy_demand = dem_demand.EnergyDemand(com_nr=self.com_nr)
+        self.energy_demand = dem_demand.EnergyDemand(paths=self.paths, com_nr=self.com_nr)
         
         """--------------------------------------------------------------------
         Create resource supply instance:
@@ -329,21 +341,23 @@ class DistrictEnergyModel:
             tf_end=C.tf_meteostat_end
             )
 
-        hps_existings_cops, hps_new_cops, hps_one_to_one_replacement_cops, tot_heat_existing, tot_heat_new, tot_heat_one_to_one = dem_hp_cop_calculation.calculateCOPs(df_com_yr=self.df_com_yr, 
-                                                     quality_factor_ashp_new = scen_techs['heat_pump']['quality_factor_ashp_new'], 
-                                                     quality_factor_ashp_old = scen_techs['heat_pump']['quality_factor_ashp_old'],
-                                                     quality_factor_gshp_new = scen_techs['heat_pump']['quality_factor_gshp_new'], 
-                                                     quality_factor_gshp_old = scen_techs['heat_pump']['quality_factor_gshp_old'],
-                                                     com_nr = self.com_nr_majority,
-                                                     dem_demand = self.energy_demand,
-                                                     weather_year = C.METEO_YEAR,
-                                                     consider_renovation_effects=False,
-                                                     total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios =\
-                                                        scen_techs['demand_side']['total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios'],
-                                                     total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios =\
-                                                        scen_techs['demand_side']['total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios'],
-                                                     optimisation_enabled = scen_techs['optimisation']['enabled']
-                                                     )
+        hps_existings_cops, hps_new_cops, hps_one_to_one_replacement_cops, tot_heat_existing, tot_heat_new, tot_heat_one_to_one = dem_hp_cop_calculation.calculateCOPs(
+            paths=self.paths,
+            df_com_yr=self.df_com_yr, 
+            quality_factor_ashp_new = scen_techs['heat_pump']['quality_factor_ashp_new'], 
+            quality_factor_ashp_old = scen_techs['heat_pump']['quality_factor_ashp_old'],
+            quality_factor_gshp_new = scen_techs['heat_pump']['quality_factor_gshp_new'], 
+            quality_factor_gshp_old = scen_techs['heat_pump']['quality_factor_gshp_old'],
+            com_nr = self.com_nr_majority,
+            dem_demand = self.energy_demand,
+            weather_year = C.METEO_YEAR,
+            consider_renovation_effects=False,
+            total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios =\
+               scen_techs['demand_side']['total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios'],
+            total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios =\
+               scen_techs['demand_side']['total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios'],
+            optimisation_enabled = scen_techs['optimisation']['enabled']
+            )
         
         """--------------------------------------------------------------------
         Create base tech instances:
@@ -403,7 +417,10 @@ class DistrictEnergyModel:
         self.tech_biomass = dem_techs.Biomass(scen_techs['biomass'])
         self.tech_instances['biomass'] = self.tech_biomass
         
-        self.tech_grid_supply = dem_techs.GridSupply(scen_techs['grid_supply'])
+        self.tech_grid_supply = dem_techs.GridSupply(
+            self.paths,
+            scen_techs['grid_supply']
+            )
         self.tech_instances['grid_supply'] = self.tech_grid_supply
         
         self.tech_other = dem_techs.Other(0)
@@ -801,6 +818,7 @@ class DistrictEnergyModel:
             self.tech_heat_pump_cp =\
                 dem_techs.HeatPumpCP(scen_techs['heat_pump_cp'])
             self.tech_heat_pump_cp.set_temperature_based_cop(dem_hp_cop_calculation.calculateHPCP_COP(
+                self.paths,
                 self.tech_heat_pump_cp,
                 scen_techs['demand_side']['year'],
                 self.com_nr_majority
@@ -1034,21 +1052,23 @@ class DistrictEnergyModel:
 
 
 
-            hps_existings_cops, hps_new_cops, hps_one_to_one_replacement_cops, tot_heat_existing, tot_heat_new, tot_heat_one_to_one = dem_hp_cop_calculation.calculateCOPs(df_com_yr=self.df_com_yr, 
-                                                     quality_factor_ashp_new = scen_techs['heat_pump']['quality_factor_ashp_new'], 
-                                                     quality_factor_ashp_old = scen_techs['heat_pump']['quality_factor_ashp_old'],
-                                                     quality_factor_gshp_new = scen_techs['heat_pump']['quality_factor_gshp_new'], 
-                                                     quality_factor_gshp_old = scen_techs['heat_pump']['quality_factor_gshp_old'],
-                                                     com_nr = self.com_nr_majority,
-                                                     dem_demand = self.energy_demand,
-                                                     weather_year = scen_techs['demand_side']['year'],
-                                                     consider_renovation_effects=True,
-                                                     total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios =\
-                                                        scen_techs['demand_side']['total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios'],
-                                                     total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios =\
-                                                        scen_techs['demand_side']['total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios'],
-                                                     optimisation_enabled = scen_techs['optimisation']['enabled'],
-                                                     )
+            hps_existings_cops, hps_new_cops, hps_one_to_one_replacement_cops, tot_heat_existing, tot_heat_new, tot_heat_one_to_one = dem_hp_cop_calculation.calculateCOPs(
+                paths=self.paths,
+                df_com_yr=self.df_com_yr, 
+                quality_factor_ashp_new = scen_techs['heat_pump']['quality_factor_ashp_new'], 
+                quality_factor_ashp_old = scen_techs['heat_pump']['quality_factor_ashp_old'],
+                quality_factor_gshp_new = scen_techs['heat_pump']['quality_factor_gshp_new'], 
+                quality_factor_gshp_old = scen_techs['heat_pump']['quality_factor_gshp_old'],
+                com_nr = self.com_nr_majority,
+                dem_demand = self.energy_demand,
+                weather_year = scen_techs['demand_side']['year'],
+                consider_renovation_effects=True,
+                total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios =\
+                   scen_techs['demand_side']['total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios'],
+                total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios =\
+                   scen_techs['demand_side']['total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios'],
+                optimisation_enabled = scen_techs['optimisation']['enabled'],
+                )
             self.tech_heat_pump.set_cops_existing(hps_existings_cops)
             self.tech_heat_pump.set_cops_new(hps_new_cops)
             self.tech_heat_pump.set_cops_one_to_one_replacement(hps_one_to_one_replacement_cops)
@@ -1556,7 +1576,7 @@ class DistrictEnergyModel:
                 df_scen_clustering = self.df_base_clustering.loc[:ts_num, (slice(None), slice(None))]
                 # print(df_scen_clustering)
                 
-                import dem_calliope_clustering
+                from district_energy_model import dem_calliope_clustering
                 optimiser = dem_calliope_clustering.CalliopeOptimiser(
                     tech_list=self.tech_list,
                     scen_techs=scen_techs,
@@ -1568,7 +1588,7 @@ class DistrictEnergyModel:
                 return
             
             else:
-                import dem_calliope
+                from district_energy_model import dem_calliope
                 optimiser = dem_calliope.CalliopeOptimiser(
                     tech_list=self.tech_list,
                     tech_instances=self.tech_instances,
@@ -1707,7 +1727,7 @@ class DistrictEnergyModel:
         
         # ENERGY-BALANCE TEST AFTER EACH RUN!!!
         
-        import dem_calliope
+        from district_energy_model import dem_calliope
         
         # =====================================================================
         # DELETE IF NOT USED

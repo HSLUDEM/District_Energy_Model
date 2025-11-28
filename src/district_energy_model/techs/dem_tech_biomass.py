@@ -14,7 +14,7 @@ Implementation of the Biomass class
 import numpy as np
 import pandas as pd
 
-from techs.dem_tech_core import TechCore
+from district_energy_model.techs.dem_tech_core import TechCore
 
 
 class Biomass(TechCore):

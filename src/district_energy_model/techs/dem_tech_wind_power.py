@@ -10,7 +10,7 @@ import pandas as pd
 import os
 import numbers
 
-from techs.dem_tech_core import TechCore
+from district_energy_model.techs.dem_tech_core import TechCore
 
 # How to handle different paths? --> this module is not only called from
 # src dir, but also from tests dir
@@ -191,7 +191,7 @@ class WindPower(TechCore):
         df_p_e_wp = pd.read_feather(wp_path_p)
         
         self.p_e_wp = float(
-                df_p_e_wp.loc[df_p_e_wp['Municipality']==self.com_name,'p_kW']
+                df_p_e_wp.loc[df_p_e_wp['Municipality']==self.com_name,'p_kW'].iloc[0]
                 )
         
         # ---------------------------------------------------------------------

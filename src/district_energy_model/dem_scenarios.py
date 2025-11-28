@@ -12,8 +12,9 @@ Functions to create scenarios for the district energy model.
 
 import numpy as np
 import pandas as pd
-import dem_helper
-import dem_energy_balance as dem_eb
+
+from district_energy_model import dem_helper
+from district_energy_model import dem_energy_balance as dem_eb
 
 # pd.options.mode.chained_assignment = None
 

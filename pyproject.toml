@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling==1.26.3", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "district_energy_model"
+version = "0.1.0-rc0"
+authors = [
+  { name="Ueli Schilt", email="ueli.schilt@hslu.ch" },
+]
+description = "District Energy Model"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "Apache-2.0"
+license-files = ["LICEN[CS]E*"]
+
+dependencies = [
+#  "numpy==1.20.3",
+#  "pandas==1.3.5",
+#  "meteostat==1.6.7",
+#  "plotly==5.18.0",
+#  "plotly-express==0.4.1",
+#  "pyyaml>=0.2.5",
+#  "pyarrow==11.0.0",
+#  "calliope==0.6.8",
+#  "python==3.8.16",
+]
+
+[project.scripts]
+district_energy_model = "district_energy_model.cli:cli"
+
+[project.optional-dependencies]
+dev = [
+#  "calliope==0.6.8",
+#  "scipy==1.9.3",
+#  "triangle==20230923",
+#  "concave-hull==0.0.7",
+]
+
+
+[project.urls]
+Homepage = "https://https://github.com/HSLUDEM/District_Energy_Model"
+Issues = "https://https://github.com/HSLUDEM/District_Energy_Model/issues"

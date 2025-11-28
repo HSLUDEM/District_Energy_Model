@@ -7,7 +7,8 @@ Created on Wed Apr 10 16:20:25 2024
 
 import numpy as np
 import pandas as pd
-from techs.dem_tech_core import TechCore
+
+from district_energy_model.techs.dem_tech_core import TechCore
 
 class HeatPumpCore(TechCore):
     

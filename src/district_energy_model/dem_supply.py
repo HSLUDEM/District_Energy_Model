@@ -9,8 +9,8 @@ import pandas as pd
 import numpy as np
 import datetime as dt
 
-from techs.dem_tech_core import TechCore
-import dem_constants as C
+from district_energy_model.techs.dem_tech_core import TechCore
+from district_energy_model import dem_constants as C
 
 file_path = 'C:/Users/Somesh/OneDrive - Hochschule Luzern/Dokumente/Assessment/Biomasse/50_Code/district_energy_model-dem_somesh/data/biomass_data/'
 
@@ -376,9 +376,9 @@ class Supply(TechCore):
         s_hydroS_y = data.loc[arg, 'LocalHydroPotential_Speicherkraftwerk']
         s_hydroP_y = data.loc[arg, 'LocalHydroPotential_Pumpspeicherkraftwerk']
         
-        self._s_hydroL_yr = float(s_hydroL_y)
-        self._s_hydroS_yr = float(s_hydroS_y)
-        self._s_hydroP_yr = float(s_hydroP_y)
+        self._s_hydroL_yr = float(s_hydroL_y.iloc[0])
+        self._s_hydroS_yr = float(s_hydroS_y.iloc[0])
+        self._s_hydroP_yr = float(s_hydroP_y.iloc[0])
         
         # return s_hydroL_y, s_hydroS_y, s_hydroP_y
     

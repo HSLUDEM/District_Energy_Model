@@ -7,14 +7,15 @@ Created on Thu Sep  5 09:29:04 2024
 
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.cluster.hierarchy import average, complete, fcluster
-from scipy.spatial.distance import pdist
-import scipy.spatial.distance as sps
-import triangle as tr
-import concave_hull as ch
+# import matplotlib.pyplot as plt
+
+# import scipy.spatial.distance as sps
+
 
 def get_clusters_complete(com_file, max_distance):
+    
+    from scipy.cluster.hierarchy import complete, fcluster
+    from scipy.spatial.distance import pdist
     
     # arg = com_file['GKAT'].isin([1020, 1030, 1040])
     # com_file_clustering = com_file.loc[arg]
@@ -39,6 +40,9 @@ def get_clusters_complete(com_file, max_distance):
     return com_file, cluster_num, points
 
 def get_cluster_vertices(com_file):
+    
+    import triangle as tr
+    import concave_hull as ch
     
     x = com_file.groupby('cluster_number')['GKODE'].mean().round().astype(int)
     y = com_file.groupby('cluster_number')['GKODN'].mean().round().astype(int)

@@ -5,7 +5,8 @@ Created on Wed Apr 10 16:29:27 2024
 @author: UeliSchilt
 """
 import numpy as np
-from techs.dem_tech_core import TechCore
+
+from district_energy_model.techs.dem_tech_core import TechCore
 
 class ThermalEnergyStorage(TechCore):
     

@@ -11,8 +11,9 @@ does not generate steam.
 
 import pandas as pd
 import numpy as np
-import dem_constants as C
-from techs.dem_tech_core import TechCore
+
+from district_energy_model import dem_constants as C
+from district_energy_model.techs.dem_tech_core import TechCore
 
 class WoodBoilerCP(TechCore):
     

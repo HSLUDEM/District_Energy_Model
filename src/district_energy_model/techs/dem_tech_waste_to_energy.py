@@ -8,7 +8,8 @@ Created on Mon Feb 24 2025
 Waste-to-energy plant (WtE).
 """
 import numpy as np
-from techs.dem_tech_core import TechCore
+
+from district_energy_model.techs.dem_tech_core import TechCore
 
 class WasteToEnergy(TechCore):
     

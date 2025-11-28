@@ -11,8 +11,9 @@ import numpy as np
 # import sys
 # import os
 # import math
-import dem_techs
-import dem_helper
+
+from district_energy_model import dem_techs
+from district_energy_model import dem_helper
 
 # from datetime import datetime
 
@@ -107,9 +108,9 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
         tmp_v_e = dict_v_e[tech_key]
         
         # Temporary dataframe for vectorised calculations:
-        df_calc = pd.DataFrame({'v_e_cons': [0] * ds_n})
-        df_calc['v_e_exp'] = [0] * ds_n
-        df_calc['d_e_remain'] = [0] * ds_n
+        df_calc = pd.DataFrame({'v_e_cons': [0.0] * ds_n})
+        df_calc['v_e_exp'] = [0.0] * ds_n
+        df_calc['d_e_remain'] = [0.0] * ds_n
         
         # Calculate difference between production and demand:
         df_calc['dP'] = tmp_v_e - d_e_remain

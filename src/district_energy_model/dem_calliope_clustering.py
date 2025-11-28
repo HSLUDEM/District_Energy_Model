@@ -23,13 +23,12 @@ CHANGES THAT MUST BE REVERTED EVENTUALLY:
 
 import pandas as pd
 import numpy as np
-import calliope
-import dem_supply
-import json
-import paths
-import dem_techs
-import dem_energy_balance as dem_eb
-import dem_clustering
+# import json
+
+from district_energy_model import dem_supply
+from district_energy_model import dem_techs
+from district_energy_model import dem_energy_balance as dem_eb
+from district_energy_model import dem_clustering
 
 class CalliopeOptimiser:
     
@@ -84,6 +83,8 @@ class CalliopeOptimiser:
             Resulting timeseries from optimisation.
             
         """
+        
+        import calliope
 
         print('------------------------------------------------------------')
         print('****OPTIMISATION****')

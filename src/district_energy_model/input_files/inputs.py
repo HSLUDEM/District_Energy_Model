@@ -4,11 +4,9 @@ Created on Thu Mar 14 15:02:00 2024
 
 @author: UeliSchilt
 """
-import paths
+
 import pandas as pd
 import numpy as np
-
-
 
 # Community:
 com_nr = 2762 # Allschwil (Switzerland)
@@ -79,12 +77,12 @@ no_force_asynchronous_storage_export_subsidy = 1e-5
 coptest = np.zeros((24*365))+30.0
 coptest[20] = 1.0
 
-master_path = paths.simulation_data_dir + paths.master_file
-master_file = pd.read_feather(master_path)
+# master_path = paths.simulation_data_dir + paths.master_file
+# master_file = pd.read_feather(master_path)
 
 # EGID_List = master_file.loc[:100000, 'EGID']
 # EGID_List = []
-EGID_List = master_file.loc[:9000, 'EGID']
+# EGID_List = master_file.loc[:9000, 'EGID']
 # EGID_List = []
 
 # Scenario input:
@@ -93,7 +91,8 @@ scen_techs = {
     'meta_data':{
         'custom_district':{
             'implemented': False,
-            'EGID_List': EGID_List,
+            # 'EGID_List': EGID_List,
+            'EGID_List': 0,
             'custom_district_name':'Test_Scenario',
             
             }
@@ -783,7 +782,7 @@ scen_techs = {
         'district_number':com_nr,
         'generate_plots':toggle_plot,
         'save_results':toggle_save_results,
-        'results_dir':''
+        # 'results_dir':''
         # 'timeframe':['2050-01-01', '2050-01-31'], # NOT YET IMPLEMENTED
         # 'ts_resolution':60 # [min] timestep resolution # NOT YET IMPLEMENTED
         },

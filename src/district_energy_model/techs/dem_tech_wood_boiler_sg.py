@@ -9,16 +9,17 @@ temperature) from wood-burning. The tech must be coupled with steam_turbine
 to generate electricitsy and heat.
 """
 
-import sys
-import os
+# import sys
+# import os
 
-project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.insert(0, project_dir)
+# project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+# sys.path.insert(0, project_dir)
 
 # import pandas as pd
 import numpy as np
-import dem_constants as C
-from techs.dem_tech_core import TechCore
+
+from district_energy_model import dem_constants as C
+from district_energy_model.techs.dem_tech_core import TechCore
 
 class WoodBoilerSG(TechCore):
     
