@@ -9,6 +9,9 @@
 data/* linguist-vendored=false
 data/* linguist-generated=false
 
+# Detect Markdown in data directory:
+data/*.md linguist-detectable=true
+
 # Treat YAML, CSV, Feather etc. as code/data (not binary blobs)
 *.yaml linguist-language=YAML
 *.yml linguist-language=YAML
