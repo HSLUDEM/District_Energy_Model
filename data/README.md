@@ -8,7 +8,7 @@ For Switzerland, a complete dataset package is available on Zenodo (https://doi.
 
 
 
-More info can be found on the documentation site: https://dem-documentation.readthedocs.io/en/latest/how\_to\_use\_the\_model/input\_data.html
+More info can be found on the documentation site (https://dem-documentation.readthedocs.io/en/latest/index.html).
 
 
 
