@@ -1,0 +1,20 @@
+# -------------------------------
+# GitHub Linguist configuration
+# -------------------------------
+
+# Ensure Markdown is rendered everywhere
+*.md linguist-detectable=true
+
+# Do not treat any data folders as vendored/generated
+data/* linguist-vendored=false
+data/* linguist-generated=false
+
+# Treat YAML, CSV, Feather etc. as code/data (not binary blobs)
+*.yaml linguist-language=YAML
+*.yml linguist-language=YAML
+*.csv linguist-language=CSV
+*.feather linguist-language=Binary
+
+# Ignore OS-specific junk (not tracked anyway, just for consistency)
+*.DS_Store linguist-vendored=true
+Thumbs.db linguist-vendored=true
