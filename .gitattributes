@@ -6,8 +6,8 @@
 *.md linguist-detectable=true
 
 # Do not treat any data folders as vendored/generated
-data/* linguist-vendored=false
-data/* linguist-generated=false
+data/* linguist-vendored=true
+data/* linguist-generated=true
 
 # Detect Markdown in data directory:
 data/*.md linguist-detectable=true
