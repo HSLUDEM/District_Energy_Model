@@ -15,6 +15,8 @@ doc/documentation.md
 tests/tmp*
 
 # ignore directories
+dem_output*/
+dist*/
 tmp*/
 src/tmp*/
 src/00_superseded/
