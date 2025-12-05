@@ -1528,6 +1528,7 @@ class DistrictEnergyModel:
             
         if scen_techs['scenarios']['nuclear_phaseout'] == True:
             print('\nnuclear_phaseout')
+            print("WARNING: Nuclear phaseout scenario is not yet available in DEM.")
             
             # el_mix_filename_path = (self.energy_mix_CH_dir +
             #                         self.electricity_mix_file
@@ -1538,29 +1539,29 @@ class DistrictEnergyModel:
             #                           )
             
             # Reset unmet demands (must be met through scenario):
-            self.energy_demand.reset_d_e_unmet()
-            self.energy_demand.reset_d_h_unmet()
+            # self.energy_demand.reset_d_e_unmet()
+            # self.energy_demand.reset_d_h_unmet()
             
-            dem_scenarios.scenario_nuclear_phaseout(
-                scen_techs=scen_techs,
-                df_scen=df_scen,
-                # el_mix_filename_path = el_mix_filename_path,
-                # e_import_filename_path = e_import_filename_path
-                energy_mix_CH_dir=self.energy_mix_CH_dir,
-                strom_profiles_2050_file=self.strom_profiles_2050_file,
-                electricity_mix_file=self.electricity_mix_file,
-                electricity_mix_totals_file=self.electricity_mix_totals_file,
-                electricity_import_file=self.electricity_import_file
-                )
+            # dem_scenarios.scenario_nuclear_phaseout(
+            #     scen_techs=scen_techs,
+            #     df_scen=df_scen,
+            #     # el_mix_filename_path = el_mix_filename_path,
+            #     # e_import_filename_path = e_import_filename_path
+            #     energy_mix_CH_dir=self.energy_mix_CH_dir,
+            #     strom_profiles_2050_file=self.strom_profiles_2050_file,
+            #     electricity_mix_file=self.electricity_mix_file,
+            #     electricity_mix_totals_file=self.electricity_mix_totals_file,
+            #     electricity_import_file=self.electricity_import_file
+            #     )
             
-            # -----------------------------------------------------------------
-            # Update df_scen:
-            dem_helper.update_df_results(
-                self.energy_demand,
-                self.supply,
-                self.tech_instances,
-                df_scen
-                )
+            # # -----------------------------------------------------------------
+            # # Update df_scen:
+            # dem_helper.update_df_results(
+            #     self.energy_demand,
+            #     self.supply,
+            #     self.tech_instances,
+            #     df_scen
+            #     )
             
         """--------------------------------------------------------------------
         Apply optimisation:

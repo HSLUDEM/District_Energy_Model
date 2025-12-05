@@ -41,7 +41,18 @@ dev = [
 #  "concave-hull==0.0.7",
 ]
 
-
 [project.urls]
 Homepage = "https://https://github.com/HSLUDEM/District_Energy_Model"
 Issues = "https://https://github.com/HSLUDEM/District_Energy_Model/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/district_energy_model"]
+
+
+
+# [tool.hatch.build.targets.sdist]
+# include = [
+  # "src/district_energy_model",
+  # "README.md",
+  # "LICENSE",
+# ]
