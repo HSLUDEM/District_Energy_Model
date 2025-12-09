@@ -27,7 +27,7 @@ from district_energy_model import dem_paths
 # import input_files.inputs as inp
 from district_energy_model.input_files import inputs as inp
 
-def main(root_dir=None) -> None:
+def launch(root_dir=None, config_files=True, config_dict=''):
     """
     root_dir: directory where the user provides `data/` and `config/` folders
     If None: use current working directory.
@@ -40,17 +40,25 @@ def main(root_dir=None) -> None:
     print("\n==============================")
     print("Process started ...")
     print("------------------------------")
-    print('\nModel Start')
+    print('\nGenerate model ...')
     
     paths = dem_paths.DEMPaths(root_dir)
     
     # Read input files and update scen_techs:
     paths.input_files_dir
     
-    scen_techs = dem_helper.update_scen_techs_from_yaml(
-        paths.input_files_dir,
-        inp.scen_techs
-        )
+    if config_files == True:
+        # Read configurations from YAML files:
+        scen_techs = dem_helper.update_scen_techs_from_yaml(
+            paths.input_files_dir,
+            inp.scen_techs
+            )
+    elif config_files == False:
+        # Read configurations within Python API:
+        scen_techs = dem_helper.update_scen_techs_from_config(
+            inp.scen_techs,
+            config_dict
+            )
     
     # Create instance of district energy model (dem):
     dem_inst = dem.DistrictEnergyModel(
@@ -59,6 +67,11 @@ def main(root_dir=None) -> None:
         scen_techs=scen_techs,
         toggle_energy_balance_tests = inp.toggle_energy_balance_tests
         )
+    
+    print("------------------------------")
+    print('\nModel instance generated.')
+    print("------------------------------")
+    print('\nStart model run ...')
     
     dem_inst.run(
         scen_techs = scen_techs,
@@ -77,6 +90,8 @@ def main(root_dir=None) -> None:
         print(f"\nOutput files saved to: {p_}")
         print("------------------------------")
     # print("==============================")
+    
+    return dem_inst
 
 if __name__ == "__main__":
-    main()
+    launch()

@@ -5,46 +5,6 @@ Created on Fri Aug 18 12:43:27 2023
 @author: UeliSchilt
 """
 
-"""
-df_base: contains all the data of the as-is scenario (i.e. base scenario)
-df_scen: contains the scenario data. If no scenario is applied, it's equal to the base scenario'
-
-list_input_data: list where all the input data is saved, so that it can later be written to a file
-
-Idea:
-    - select technologies for scenarios (later to be selected with a loop, so that multiple instances of the same tech can be created)
-    - run scenario simulations (--> connect optimisation here!!!)
-    - save results in df_scen
-    
-    Technologies selection:
-        - for base scenario: technologies are created based on current state (no user input)
-        - based on user input: 'scen_factors', which is an input to 'generate scenario'
-
-ISSUES TO SOLVE:
-    - Issue with encoding (ü,ä,...)
-    - Issue with communities with whitespace (e.g. Berg (TG))
-        --> get_d_e_yr() cannot find the community
-
-NEXT:
-    - Add members to GridSupply (m_e_ch, m_e_chbimport, ... )
-        - create function to calculate new input
-    - Create metafile to store information about which technologies are implemented
-    - implement storage (thermal + electrical)
-    - Implement PV model
-    - delete redundant functions in dem_helper.py
-
-OPEN POINTS / TO DO'S:
-
-    - are u,v,m energy flows or just inputs & outputs?
-    - convert some u's to m's (imports)?
-    - To be added to input data list (where should it be done?):
-        - d_e_yr (energy demand of base scenario and scenario)
-    - Split between space heating and dhw
-    - helper function for allocating technology outputs to heat sources
-      (e.g. oil + gas = fossil heating). This function can then be used for
-      plotting the graphs.
-"""
-
 import pandas as pd
 # import os
 import sys
@@ -2135,7 +2095,7 @@ class DistrictEnergyModel:
         if self.generate_scenario == False:
             raise(Exception('No Scenario Results Exist!'))
         else:
-            df_scen_d = pd.DataFrame(indx = range(365))
+            df_scen_d = pd.DataFrame(index = range(365))
             
             for column in self.df_scen.columns:
                 # print(column)
@@ -2149,6 +2109,15 @@ class DistrictEnergyModel:
                 df_scen_d[column] += result_temp
             
             return df_scen_d
+        
+    def hourly_results(self):
+        return self.df_scen
+    
+    def annual_results(self):
+        return self.dict_yr_scen
+    
+    def total_cost(self):
+        return self.dict_total_costs
         
     def get_plot_infos_RT(self):
         return dem_helper.get_plot_infos_RT()

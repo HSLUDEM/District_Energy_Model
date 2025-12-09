@@ -26,6 +26,64 @@ from district_energy_model import dem_constants as C
 import yaml
 from pathlib import Path
 
+from typing import List, Dict, Any
+
+
+def update_scen_techs_from_config(scen_techs: Dict[str, Any],
+                                  config_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Update a nested scen_techs dict with values from config_dict.
+
+    - Only replaces values where the full key path exists in scen_techs.
+    - If a key or downstream key in config_dict does not exist in scen_techs,
+      prints a warning.
+    - If an upstream key exists, only the specified downstream keys are updated;
+      other downstream keys in scen_techs are kept as-is.
+
+    Parameters
+    ----------
+    scen_techs : dict
+        Original nested configuration, modified in-place and also returned.
+    config_dict : dict
+        Nested configuration with override values.
+
+    Returns
+    -------
+    dict
+        The updated scen_techs (same object, for convenience).
+    """
+
+    def _update_recursive(scen_node: Dict[str, Any],
+                          cfg_node: Dict[str, Any],
+                          path: List[str]) -> None:
+        for key, cfg_value in cfg_node.items():
+            new_path = path + [str(key)]
+            path_str = " -> ".join(new_path)
+
+            if isinstance(cfg_value, dict):
+                # Expect a nested dict in scen_node at the same key
+                if key not in scen_node:
+                    print(f"Warning: key path '{path_str}' from config_dict not found in scen_techs")
+                    continue
+                if not isinstance(scen_node[key], dict):
+                    print(
+                        f"Warning: key path '{path_str}' in scen_techs is not a dict; "
+                        f"cannot apply nested overrides from config_dict"
+                    )
+                    continue
+
+                _update_recursive(scen_node[key], cfg_value, new_path)
+
+            else:
+                # Leaf value: only update if the key exists in scen_node
+                if key not in scen_node:
+                    print(f"Warning: key path '{path_str}' from config_dict not found in scen_techs")
+                else:
+                    scen_node[key] = cfg_value
+
+    _update_recursive(scen_techs, config_dict, [])
+    return scen_techs
+
 
 def update_scen_techs_from_yaml(input_files_dir, scen_techs):
     """

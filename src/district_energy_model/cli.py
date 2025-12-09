@@ -8,7 +8,7 @@ Created on Thu Nov 27 09:13:01 2025
 # src/district_energy_model/cli.py
 import argparse
 # from pathlib import Path
-from district_energy_model.run_dem import main  # or from . import main if main() is in same file
+from district_energy_model.model import launch  # or from . import main if main() is in same file
 
 def cli():
     parser = argparse.ArgumentParser(
@@ -28,4 +28,4 @@ def cli():
     )
 
     args = parser.parse_args()
-    main(root_dir=args.project_dir)
+    launch(root_dir=args.project_dir)
