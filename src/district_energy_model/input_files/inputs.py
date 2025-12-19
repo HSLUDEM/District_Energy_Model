@@ -92,7 +92,7 @@ scen_techs = {
         'custom_district':{
             'implemented': False,
             # 'EGID_List': EGID_List,
-            'EGID_List': 0,
+            'EGID_List': [],
             'custom_district_name':'Test_Scenario',
             
             }
@@ -214,16 +214,16 @@ scen_techs = {
         # 'capex':10000 # NOT YET IMPLEMENTED
         'heat_sources':{ # only applies to optimisation scenario
             'import':True,
-            'chp_gt':True, # if True, tech chp_gt must be deployed
-            'steam_turbine':True, # if True, tech steam_turbine must be deployed
-            'waste_to_energy':True, # if True, tech waste_to_energy must be deployed,
-            'heat_pump_cp':True, # if True, tech heat_pump_cp must be deployed !!! TECH NOT YET IMPLEMENTED !!!
-            'heat_pump_cp_lt':True, # 
-            'oil_boiler_cp' :True,
-            'wood_boiler_cp' :True,
-            'gas_boiler_cp' :True,
-            'waste_heat': True,
-            'biomass': True
+            'chp_gt':False, # if True, tech chp_gt must be deployed
+            'steam_turbine':False, # if True, tech steam_turbine must be deployed
+            'waste_to_energy':False, # if True, tech waste_to_energy must be deployed,
+            'heat_pump_cp':False, # if True, tech heat_pump_cp must be deployed !!! TECH NOT YET IMPLEMENTED !!!
+            'heat_pump_cp_lt':False, # 
+            'oil_boiler_cp' :False,
+            'wood_boiler_cp' :False,
+            'gas_boiler_cp' :False,
+            'waste_heat':False,
+            'biomass':False
             },
         },
     
@@ -232,7 +232,7 @@ scen_techs = {
         # 'deployment':False,
         'kW_th_max':'inf',
         'eta_overall':0.7,
-        'co2_intensity': 0.025,
+        'co2_intensity': 0.0,
         'lifetime':25,
         'interest_rate':interest_rate,
         'capex': 2857, # [CHF/kW_th]
@@ -245,7 +245,7 @@ scen_techs = {
         # 'deployment':False,
         'kWp_max':'inf', # NOT CONSIDERED IN OPTIMISATION
         'eta_overall':0.15,
-        'co2_intensity': 0.0157, # [kgCO2/kWh]
+        'co2_intensity': 0.0, # [kgCO2/kWh]
         'lifetime':25,
         'capex':3000,
         'maintenance_cost': 6.45, # [CHF/kW/year]
@@ -299,7 +299,7 @@ scen_techs = {
         },
               
     'tes':{ # tes (thermal energy storage) (large scale, connected to District Heating Network)
-        'deployment':True,
+        'deployment':False,
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg': 0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
@@ -332,7 +332,7 @@ scen_techs = {
         },
     
     'tes_decentralised':{ # tesdc
-        'deployment':True,
+        'deployment':False,
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg': 0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
@@ -353,7 +353,7 @@ scen_techs = {
         },
               
     'bes':{ # bes (battery energy storage)
-        'deployment':True,
+        'deployment':False,
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
@@ -370,7 +370,7 @@ scen_techs = {
         },
     
     'gtes':{ # gtes (gas tank energy storage) (large tank with gas)
-        'deployment':True,
+        'deployment':False,
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
@@ -387,7 +387,7 @@ scen_techs = {
         },
 
     'hes':{ # hes (hydrogen energy storage) (large tank with hydrogen?)
-        'deployment':True,
+        'deployment':False,
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
@@ -413,7 +413,7 @@ scen_techs = {
 
     
     'hydrothermal_gasification':{ # hg
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'color': '#3A880A',
         'efficiancy': 0.6,
@@ -427,7 +427,7 @@ scen_techs = {
         },
     
     'anaerobic_digestion_upgrade':{ # agu
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'color': '#FF00FF',
         'efficiancy': 0.3,
@@ -441,7 +441,7 @@ scen_techs = {
         },
     
     'anaerobic_digestion_upgrade_hydrogen':{ # aguh
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'color': '#90037F',
         'fluid': False,
@@ -458,7 +458,7 @@ scen_techs = {
         },
     
     'anaerobic_digestion_chp':{ # aguc
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'color': '#90037F',
         'efficiancy_electricity': 0.13,
@@ -519,7 +519,7 @@ scen_techs = {
         },
     
     'hydrogen_production':{ # hydp
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'color': '#1A8FD2',
         'efficiancy': 0.8,
@@ -609,7 +609,7 @@ scen_techs = {
         },
 
     'oil_boiler_cp':{ # obcp
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'kW_th_max':'inf',
         'hv_oil_MJpkg':hv_oil, # 42.9, # [MJ/kg] Heating value (lower) of oil
@@ -623,7 +623,7 @@ scen_techs = {
         },
 
     'wood_boiler_cp':{ # wbcp
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'kW_th_max': 'inf',
         'hv_wood_MJpkg':hv_wood, # [MJ/kg] Heating value (lower) of wood
@@ -660,7 +660,7 @@ scen_techs = {
 
     
     'gas_boiler_cp':{ # gbcp
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'kW_th_max':'inf',
         'hv_gas_MJpkg':hv_gas, # 46.0, # [MJ/kg] Heating value (lower) of gas
@@ -698,7 +698,7 @@ scen_techs = {
     
     'heat_pump_cp_lt':{ # hpcplt
         # 'deployment':True,
-        'deployment':True,
+        'deployment':False,
         'kW_th_max': 'inf',#tech_cap_default,
         'force_cap_max':False, # implement max. capacity (kW)
         'cap_min_use':0.0, # [-] Share of capacity to be forced [0.0-1.0]; Default: 0.0
@@ -712,7 +712,7 @@ scen_techs = {
 
     'heat_pump_cp':{ # hpcp
         # 'deployment':True,
-        'deployment':True,
+        'deployment':False,
         'kW_th_max': 'inf',#tech_cap_default,
         'force_cap_max':False, # implement max. capacity (kW)
         'cap_min_use':0.0, # [-] Share of capacity to be forced [0.0-1.0]; Default: 0.0
