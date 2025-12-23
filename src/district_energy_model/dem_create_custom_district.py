@@ -64,14 +64,14 @@ def create_district(paths, scen_techs):
         
         Total_Heating = v_h_eh + v_h_hp + v_h_dh + v_h_gb + v_h_ob + v_h_wb + v_h_solar + v_h_other
         
-        v_hw_eh = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_eh', 'dhw_estimatin_kWh_combined'].sum()
-        v_hw_hp = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_hp', 'dhw_estimatin_kWh_combined'].sum()
-        v_hw_dh = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_dh', 'dhw_estimatin_kWh_combined'].sum()
-        v_hw_gb = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_gb', 'dhw_estimatin_kWh_combined'].sum()
-        v_hw_ob = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_ob', 'dhw_estimatin_kWh_combined'].sum()
-        v_hw_wb = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_wb', 'dhw_estimatin_kWh_combined'].sum()
-        v_hw_solar = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_solar', 'dhw_estimatin_kWh_combined'].sum()
-        v_hw_other = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_other', 'dhw_estimatin_kWh_combined'].sum()
+        v_hw_eh = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_eh', 'dhw_estimation_kWh_combined'].sum()
+        v_hw_hp = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_hp', 'dhw_estimation_kWh_combined'].sum()
+        v_hw_dh = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_dh', 'dhw_estimation_kWh_combined'].sum()
+        v_hw_gb = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_gb', 'dhw_estimation_kWh_combined'].sum()
+        v_hw_ob = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_ob', 'dhw_estimation_kWh_combined'].sum()
+        v_hw_wb = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_wb', 'dhw_estimation_kWh_combined'].sum()
+        v_hw_solar = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_solar', 'dhw_estimation_kWh_combined'].sum()
+        v_hw_other = df_com_yr.loc[df_com_yr['Hot_Water_System'] == 'v_hw_other', 'dhw_estimation_kWh_combined'].sum()
         
         Total_Hot_Water = v_hw_eh + v_hw_hp + v_hw_dh + v_hw_gb + v_hw_ob + v_hw_wb + v_hw_solar + v_hw_other
         
@@ -84,20 +84,31 @@ def create_district(paths, scen_techs):
         Electricity_Industry = df_com_yr['Electricity_Industry'].sum()
         Electricity_Service = df_com_yr['Electricity_Service'].sum()
         
-        pv_meta_file_path = paths.pv_data_dir + paths.pv_data_meta_file
-        df_pv_meta = pd.read_csv(pv_meta_file_path)
-        tmp_df_pv_meta = df_pv_meta.copy()
+        # Solar PV data:
+        com_nr_majority = df_com_yr.groupby('GGDENR').size().sort_values(ascending = False).index[0]
+            
+        pv_filename = df_meta.loc[df_meta['GGDENR'] == com_nr_majority, 'PV_Filename'].values[0]
         
-        # add column with distances to each pv-simulation location in temp. df
-        tmp_df_pv_meta['dist_km'] = \
-            tmp_df_pv_meta.apply(lambda row: dem_helper.distance_between_coord(Coord_lat_median, Coord_long_median, row['coord_lat_median'], row['coord_long_median']), axis=1)
+        # ================
+        # SUPERSEDED:
+        # ----------
+        # pv_meta_file_path = paths.pv_data_dir + paths.pv_data_meta_file
+        # df_pv_meta = pd.read_csv(pv_meta_file_path)
+        # tmp_df_pv_meta = df_pv_meta.copy()
         
-        min_dist = tmp_df_pv_meta['dist_km'].min()
+        # # add column with distances to each pv-simulation location in temp. df
+        # tmp_df_pv_meta['dist_km'] = \
+        #     tmp_df_pv_meta.apply(lambda row: dem_helper.distance_between_coord(Coord_lat_median, Coord_long_median, row['coord_lat_median'], row['coord_long_median']), axis=1)
         
-        pv_file = tmp_df_pv_meta.loc[tmp_df_pv_meta['dist_km'] == min_dist].index[0]
-        pv_filename = str(pv_file)
+        # min_dist = tmp_df_pv_meta['dist_km'].min()
         
-        del tmp_df_pv_meta
+        # pv_file = tmp_df_pv_meta.loc[tmp_df_pv_meta['dist_km'] == min_dist].index[0]
+        # pv_filename = str(pv_file)
+        
+        # del tmp_df_pv_meta
+        # ================
+        
+        
         
         #Add dh Data
         avg_dist_class_1 = df_com_yr.loc[df_com_yr['dh_distance_cat'] == 1, 'avg_dh_connection_distance'].mean()
@@ -105,18 +116,18 @@ def create_district(paths, scen_techs):
         avg_dist_class_3 = df_com_yr.loc[df_com_yr['dh_distance_cat'] == 3, 'avg_dh_connection_distance'].mean()
         
         cap_class_1 = df_com_yr.loc[df_com_yr['dh_distance_cat'] == 1, 'heat_energy_demand_estimate_kWh_combined'].sum() +\
-            df_com_yr.loc[df_com_yr['dh_distance_cat'] == 1, 'dhw_estimatin_kWh_combined'].sum()
+            df_com_yr.loc[df_com_yr['dh_distance_cat'] == 1, 'dhw_estimation_kWh_combined'].sum()
         cap_class_2 = df_com_yr.loc[df_com_yr['dh_distance_cat'] == 2, 'heat_energy_demand_estimate_kWh_combined'].sum() +\
-            df_com_yr.loc[df_com_yr['dh_distance_cat'] == 2, 'dhw_estimatin_kWh_combined'].sum()
+            df_com_yr.loc[df_com_yr['dh_distance_cat'] == 2, 'dhw_estimation_kWh_combined'].sum()
         cap_class_3 = df_com_yr.loc[df_com_yr['dh_distance_cat'] == 3, 'heat_energy_demand_estimate_kWh_combined'].sum() +\
-            df_com_yr.loc[df_com_yr['dh_distance_cat'] == 3, 'dhw_estimatin_kWh_combined'].sum()
+            df_com_yr.loc[df_com_yr['dh_distance_cat'] == 3, 'dhw_estimation_kWh_combined'].sum()
             
         cap_class_1_renov = df_com_yr.loc[df_com_yr['dh_distance_cat'] == 1, 'heat_energy_demand_renov_estimate_kWh'].sum() +\
-            df_com_yr.loc[df_com_yr['dh_distance_cat'] == 1, 'dhw_estimatin_kWh_combined'].sum()
+            df_com_yr.loc[df_com_yr['dh_distance_cat'] == 1, 'dhw_estimation_kWh_combined'].sum()
         cap_class_2_renov = df_com_yr.loc[df_com_yr['dh_distance_cat'] == 2, 'heat_energy_demand_renov_estimate_kWh'].sum() +\
-            df_com_yr.loc[df_com_yr['dh_distance_cat'] == 2, 'dhw_estimatin_kWh_combined'].sum()
+            df_com_yr.loc[df_com_yr['dh_distance_cat'] == 2, 'dhw_estimation_kWh_combined'].sum()
         cap_class_3_renov = df_com_yr.loc[df_com_yr['dh_distance_cat'] == 3, 'heat_energy_demand_renov_estimate_kWh'].sum() +\
-            df_com_yr.loc[df_com_yr['dh_distance_cat'] == 3, 'dhw_estimatin_kWh_combined'].sum()
+            df_com_yr.loc[df_com_yr['dh_distance_cat'] == 3, 'dhw_estimation_kWh_combined'].sum()
         
         m_per_kWh_class_1_renov = (df_com_yr['dh_distance_cat'] == 1).sum()*avg_dist_class_1/cap_class_1_renov
         m_per_kWh_class_2_renov = (df_com_yr['dh_distance_cat'] == 2).sum()*avg_dist_class_2/cap_class_2_renov
@@ -154,7 +165,7 @@ def create_district(paths, scen_techs):
         if '/' in com_name:
             com_name = com_name.replace('/', '_')
         
-        com_nr_majority = df_com_yr.groupby('GGDENR').size().sort_values(ascending = False).index[0]
+        # com_nr_majority = df_com_yr.groupby('GGDENR').size().sort_values(ascending = False).index[0]
 
         com_percentages = pd.DataFrame(index = range(len(df_com_yr['GGDENAME'].unique())))
         com_percentages['GGDENAME'] = df_com_yr['GGDENAME'].unique()

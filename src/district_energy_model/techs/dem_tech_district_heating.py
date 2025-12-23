@@ -76,10 +76,24 @@ class DistrictHeating(TechCore):
         kW_per_category = ([dh_already_existing_share_energy*energy_to_power_conversion_factor]
                            +[dh_new_categories_energy[i+1]*energy_to_power_conversion_factor 
                              for i in range(self.num_dh_categories)])
-        length_per_kW = ([dh_already_existing_share_length/(dh_already_existing_share_energy*energy_to_power_conversion_factor)]
-                           +[dh_new_categories_length[i+1]/(dh_new_categories_energy[i+1]*energy_to_power_conversion_factor) 
-                             for i in range(self.num_dh_categories)])
         
+        if dh_already_existing_share_length > 0:
+            length_per_kW_existing = [
+                dh_already_existing_share_length/(dh_already_existing_share_energy*energy_to_power_conversion_factor)
+                ]
+        else:
+            length_per_kW_existing = [0.0]
+        
+        length_per_kW_new = [
+            dh_new_categories_length[i+1]/(dh_new_categories_energy[i+1]*energy_to_power_conversion_factor)
+            for i in range(self.num_dh_categories)
+            ]
+        length_per_kW = length_per_kW_existing + length_per_kW_new
+        
+        # length_per_kW = ([dh_already_existing_share_length/(dh_already_existing_share_energy*energy_to_power_conversion_factor)]
+        #                  +[dh_new_categories_length[i+1]/(dh_new_categories_energy[i+1]*energy_to_power_conversion_factor) 
+        #                      for i in range(self.num_dh_categories)])
+
         if self._grid_kW_th_max != 'inf':
             dists_kw_per_category = np.array([0]+[sum(kW_per_category[:i+1]) for i in range(len(kW_per_category))])
             dists_kw_per_category[dists_kw_per_category > self._grid_kW_th_max] = self._grid_kW_th_max

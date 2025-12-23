@@ -86,15 +86,17 @@ class DistrictEnergyModel:
         # Switch energy balance tests ON/OFF:
         self.toggle_energy_balance_tests = toggle_energy_balance_tests
 
-        self.com_nr_original = copy.deepcopy(self.com_nr)
+        # self.com_nr_original = copy.deepcopy(self.com_nr)
 
         self.com_nr_majority = copy.deepcopy(self.com_nr)
 
         if scen_techs['meta_data']['custom_district']['implemented'] == True:
+            custom_district_name = scen_techs['meta_data']['custom_district']['custom_district_name']
             self.com_nr, self.com_nr_majority, self.com_name_, self.com_kt, self.df_meta, self.df_com_yr, self.com_percent,self.com_percent_2 = dem_create_custom_district.create_district(
                 self.paths,
                 scen_techs
                 )
+            print(f"\nCustom district: {custom_district_name} (part of {self.com_name_})")
         
         else:
             self.com_name_, self.com_kt, self.df_meta, self.df_com_yr = dem_helper.get_com_files(
@@ -107,7 +109,7 @@ class DistrictEnergyModel:
             self.com_percent = []
             self.com_percent_2 = []
         
-        print(f"\n{self.com_name_}")
+            print(f"\n{self.com_name_}")
         
         # Stop execution if munic is on the list to be omitted:
         if self.com_nr in C.munics_omit:
@@ -293,7 +295,8 @@ class DistrictEnergyModel:
         # Hourly heat demand:
         self.energy_demand.compute_d_h_hr(
             com_name=self.com_name_,
-            com_nr_original=self.com_nr_original,
+            # com_nr_original=self.com_nr_original,
+            com_nr_original=self.com_nr_majority, # changed: 23.12.2025
             com_lat=self.com_lat,
             com_lon=self.com_lon,
             com_alt=self.com_alt,
@@ -1049,7 +1052,8 @@ class DistrictEnergyModel:
             # Hourly heat demand:
             self.energy_demand.compute_d_h_hr(
                 com_name=self.com_name_,
-                com_nr_original=self.com_nr_original,
+                # com_nr_original=self.com_nr_original,
+                com_nr_original=self.com_nr_majority, # changed: 23.12.2025
                 com_lat=self.com_lat,
                 com_lon=self.com_lon,
                 com_alt=self.com_alt,
