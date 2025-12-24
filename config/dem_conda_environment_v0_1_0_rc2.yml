@@ -1,4 +1,4 @@
-name: dem_0_1_0_rc0
+name: dem_0_1_0_rc2
 channels:
   - conda-forge
   - defaults
