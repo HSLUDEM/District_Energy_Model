@@ -19,8 +19,8 @@ from district_energy_model.techs.dem_tech_grid_supply import GridSupply
   
 #------------------------------------------------------------------------------
 # Conversion
-from district_energy_model.techs.dem_tech_solar_pv import SolarPV
-from district_energy_model.techs.dem_tech_solar_thermal import SolarThermal
+from district_energy_model.techs.dem_tech_solar_pv_type import SolarPVType
+from district_energy_model.techs.dem_tech_solar_thermal_type import SolarThermalType
 from district_energy_model.techs.dem_tech_wind_power import WindPower
 from district_energy_model.techs.dem_tech_hydro_power import HydroPower
 from district_energy_model.techs.dem_tech_heat_pump import HeatPump
@@ -47,6 +47,7 @@ from district_energy_model.techs.dem_tech_waste_to_energy import WasteToEnergy
 from district_energy_model.techs.dem_tech_heat_pump_cp import HeatPumpCP
 from district_energy_model.techs.dem_tech_heat_pump_cp_lt import HeatPumpCPLT
 from district_energy_model.techs.dem_tech_oil_boiler_cp import OilBoilerCP
+from district_energy_model.techs.dem_tech_electric_heater_cp import ElectricHeaterCP
 from district_energy_model.techs.dem_tech_wood_boiler_cp import WoodBoilerCP
 from district_energy_model.techs.dem_tech_gas_boiler_cp import GasBoilerCP
 from district_energy_model.techs.dem_tech_waste_heat import WasteHeat
@@ -58,6 +59,7 @@ from district_energy_model.techs.dem_tech_thermal_energy_storage import ThermalE
 from district_energy_model.techs.dem_tech_thermal_energy_storage_dc import ThermalEnergyStorageDC
 from district_energy_model.techs.dem_tech_battery_energy_storage import BatteryEnergyStorage
 from district_energy_model.techs.dem_tech_gas_tank_energy_storage import GasTankEnergyStorage
+from district_energy_model.techs.dem_tech_wood_storage import WoodStorage
 from district_energy_model.techs.dem_tech_hydrogen_energy_storage import HydrogenEnergyStorage
 
 from district_energy_model.techs.dem_tech_pile_of_berries import PileOfBerries

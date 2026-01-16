@@ -71,7 +71,6 @@ class ThermalEnergyStorage(TechCore):
         self._lifetime = tech_dict['lifetime']
         self._capex = tech_dict['capex']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._maintenance_cost = tech_dict['maintenance_cost']
         self._force_asynchronous_prod_con = tech_dict['force_asynchronous_prod_con']
 
@@ -91,6 +90,8 @@ class ThermalEnergyStorage(TechCore):
             tech_dict['connections']['heat_pump_cp_lt']
         self._connection_oil_boiler_cp =\
             tech_dict['connections']['oil_boiler_cp']
+        self._connection_electric_heater_cp =\
+            tech_dict['connections']['electric_heater_cp']
         self._connection_wood_boiler_cp =\
             tech_dict['connections']['wood_boiler_cp']
         self._connection_gas_boiler_cp =\
@@ -330,9 +331,6 @@ class ThermalEnergyStorage(TechCore):
                     'om_annual': self._maintenance_cost,
                     'interest_rate':self._interest_rate
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity + 0.0000
-                    }
                 }
             }
         if self._force_asynchronous_prod_con:
@@ -365,9 +363,6 @@ class ThermalEnergyStorage(TechCore):
         #                 'om_con': 0.0, # costs are reflected in supply techs
         #                 'interest_rate':0.0,
         #                 },
-        #             'emissions_co2':{
-        #                 'om_prod':0.0, # emissions are reflected in supply techs
-        #                 }
         #             } 
         #         }
         #     tes_techs_label_list.append('conv_hp_tes') 
@@ -390,9 +385,6 @@ class ThermalEnergyStorage(TechCore):
         #                 'om_con': 0.0, # costs are reflected in supply techs
         #                 'interest_rate':0.0,
         #                 },
-        #             'emissions_co2':{
-        #                 'om_prod':0.0, # emissions are reflected in supply techs
-        #                 }
         #             } 
         #         }
         #     tes_techs_label_list.append('conv_tes_hp')
@@ -419,9 +411,6 @@ class ThermalEnergyStorage(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             tes_techs_label_list.append('conv_tes_dh')
@@ -445,9 +434,6 @@ class ThermalEnergyStorage(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             tes_techs_label_list.append('conv_dhimp_tes')
@@ -471,9 +457,6 @@ class ThermalEnergyStorage(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             tes_techs_label_list.append('conv_chpgt_tes')
@@ -497,9 +480,6 @@ class ThermalEnergyStorage(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             tes_techs_label_list.append('conv_st_tes')
@@ -523,9 +503,6 @@ class ThermalEnergyStorage(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             tes_techs_label_list.append('conv_wte_tes')
@@ -549,9 +526,6 @@ class ThermalEnergyStorage(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             tes_techs_label_list.append('conv_hpcp_tes')
@@ -575,9 +549,6 @@ class ThermalEnergyStorage(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             tes_techs_label_list.append('conv_hpcplt_tes')
@@ -601,14 +572,34 @@ class ThermalEnergyStorage(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             tes_techs_label_list.append('conv_obcp_tes')
 
-        # Oil boiler central plant (obcp):
+        # Electric heater central plant (ehcp):
+        if self._connection_electric_heater_cp:
+            techs_dict['conv_ehcp_tes'] = {
+                'essentials':{
+                    'name':'Conversion: EHCP to TES',
+                    'parent':'conversion',
+                    'carrier_in':'heat_ehcp',
+                    'carrier_out':'heat_tes',
+                    },
+                'constraints':{
+                    'energy_cap_max':'inf',
+                    'energy_eff':1.0, # Here we could account for transmission losses
+                    'lifetime':self._lifetime,
+                    },
+                'costs':{
+                    'monetary':{
+                        'om_con': 0.0, # costs are reflected in supply techs
+                        'interest_rate':0.0,
+                        },
+                    } 
+                }
+            tes_techs_label_list.append('conv_ehcp_tes')
+
+        # Biomass to TES:
         if self._connection_biomass:
             techs_dict['conv_biomass_tes'] = {
                 'essentials':{
@@ -627,9 +618,6 @@ class ThermalEnergyStorage(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             tes_techs_label_list.append('conv_biomass_tes')
@@ -654,9 +642,6 @@ class ThermalEnergyStorage(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             tes_techs_label_list.append('conv_wbcp_tes')
@@ -680,9 +665,6 @@ class ThermalEnergyStorage(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             tes_techs_label_list.append('conv_wh_tes')
@@ -706,9 +688,6 @@ class ThermalEnergyStorage(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             tes_techs_label_list.append('conv_gbcp_tes')

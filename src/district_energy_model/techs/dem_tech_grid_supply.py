@@ -195,6 +195,8 @@ class GridSupply(TechCore):
     #     return np.array(df['m_e_diff'])
 
     
+
+
     def update_m_e(self, m_e_updated):
         self._m_e = np.array(m_e_updated)
         
@@ -436,3 +438,10 @@ class GridSupply(TechCore):
     def update_m_e_i(self, i, val):
         self.num_test(val)
         self._m_e[i] = float(val)
+
+    def set_m_e_ch_nuclear(self, val):
+        self._m_e_ch_nuclear = val
+
+    def set_m_e_ch(self, val):
+        self._m_e_ch = val
+

@@ -146,11 +146,11 @@ def create_district(paths, scen_techs):
             v_hw_eh, v_hw_hp, v_hw_dh, v_hw_gb, v_hw_ob, v_hw_wb, v_hw_solar, v_hw_other, Total_Hot_Water, 
             PV_Pot, TotalEnergy, 
             kWh_household_sfh, kWh_household_mfh, 
-            s_wd_bm, s_wet_bm, 
             Electricity_Industry, Electricity_Service,
+            s_wd_bm, s_wet_bm, 
             pv_filename,
-            cap_class_1_renov, cap_class_2_renov, cap_class_3_renov,
             cap_class_1, cap_class_2, cap_class_3,
+            cap_class_1_renov, cap_class_2_renov, cap_class_3_renov,
             avg_dist_class_1, avg_dist_class_2, avg_dist_class_3,
             m_per_kWh_class_1_renov, m_per_kWh_class_2_renov, m_per_kWh_class_3_renov,
             m_per_kWh_class_1, m_per_kWh_class_2, m_per_kWh_class_3
@@ -165,7 +165,7 @@ def create_district(paths, scen_techs):
         if '/' in com_name:
             com_name = com_name.replace('/', '_')
         
-        # com_nr_majority = df_com_yr.groupby('GGDENR').size().sort_values(ascending = False).index[0]
+        com_nr_majority = df_com_yr.groupby('GGDENR').size().sort_values(ascending = False).index[0]
 
         com_percentages = pd.DataFrame(index = range(len(df_com_yr['GGDENAME'].unique())))
         com_percentages['GGDENAME'] = df_com_yr['GGDENAME'].unique()

@@ -44,7 +44,6 @@ class WasteToEnergy(TechCore):
         self._v_h = [] # [kWh_th] output - heat
         self._v_h_con = [] # [kWh_th] consumed heat
         self._v_h_waste = [] # [kWh_th] waste heat
-        self._v_co2 = [] # [kg] output - CO2 emissions
         
     def update_tech_properties(self, tech_dict):
         
@@ -66,18 +65,17 @@ class WasteToEnergy(TechCore):
         self._htp_ratio = tech_dict['htp_ratio']
         self._force_cap_max = tech_dict['force_cap_max']
         self._cap_min_use = tech_dict['cap_min_use']
-        self._annual_msw_supply_kg = tech_dict['annual_msw_supply']
+        # self._annual_msw_supply_kg = tech_dict['annual_msw_supply']
         self._kW_el_max = tech_dict['kW_el_max'] # [kW_el] Max. electric power output
         self._hv_msw = tech_dict['hv_msw_MJpkg']
         self._price_msw = tech_dict['msw_price_CHFpkg']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._capex = tech_dict['capital_cost']
         self._maintenance_cost = tech_dict['maintenance_cost']
         
         # Computed properties:
-        self.__compute_annual_msw_supply_kWh()
+        # self.__compute_annual_msw_supply_kWh()
         
         # Update tech dict:
         self.__tech_dict = tech_dict
@@ -90,7 +88,6 @@ class WasteToEnergy(TechCore):
         df['v_h_wte'] = self.get_v_h()
         df['v_h_wte_con'] = self.get_v_h_con()
         df['v_h_wte_waste'] = self.get_v_h_waste()
-        df['v_co2_wte'] = self.get_v_co2()
         
         return df
     
@@ -117,7 +114,6 @@ class WasteToEnergy(TechCore):
         self._v_h = self._v_h[:n_hours]
         self._v_h_con = self._v_h_con[:n_hours]
         self._v_h_waste = self._v_h_waste[:n_hours]
-        self._v_co2 = self._v_co2[:n_hours]
         
     def initialise_zero(self, n_days):
         n_hours = n_days*24
@@ -132,7 +128,6 @@ class WasteToEnergy(TechCore):
         self._v_h_waste = init_vals.copy()
         
         
-        self._v_co2 = init_vals.copy() # [kg] output - CO2 emissions
     
     def update_v_e(self, v_e_updated):
         if len(v_e_updated) != len(self._v_e):
@@ -140,7 +135,6 @@ class WasteToEnergy(TechCore):
         self._v_e = np.array(v_e_updated)
         self.__compute_u_msw()
         # self.__compute_v_h()
-        self.__compute_v_co2()      
         
     def update_v_h(self, v_h_updated):
         if len(v_h_updated) != len(self._v_h):
@@ -171,16 +165,13 @@ class WasteToEnergy(TechCore):
         self._u_msw = np.array(self._v_e)/self._eta_el # [kWh]
         self._u_msw_kg = self._u_msw*3600/hv_msw_kJpkg # [kg]
         
-    def __compute_v_co2(self):        
-        self._v_co2 = self._v_e*self._co2_intensity
-        
-    def __compute_annual_msw_supply_kWh(self):
-        if self._annual_msw_supply_kg == 'inf':
-            self._annual_msw_supply_kWh = 'inf'
-        else:
-            CONV_MJ_to_kWh = 1000/3600 # Conversion from [MJ] to [kWh]        
-            supp_MJ = self._annual_msw_supply_kg*self._hv_msw    
-            self._annual_msw_supply_kWh = supp_MJ*CONV_MJ_to_kWh
+    # def __compute_annual_msw_supply_kWh(self):
+    #     if self._annual_msw_supply_kg == 'inf':
+    #         self._annual_msw_supply_kWh = 'inf'
+    #     else:
+    #         CONV_MJ_to_kWh = 1000/3600 # Conversion from [MJ] to [kWh]        
+    #         supp_MJ = self._annual_msw_supply_kg*self._hv_msw    
+    #         self._annual_msw_supply_kWh = supp_MJ*CONV_MJ_to_kWh
         
     def create_tech_groups_dict(self, tech_groups_dict):
         
@@ -201,9 +192,6 @@ class WasteToEnergy(TechCore):
                     'om_con': 0.0, # cost/revenue is reflected in MSW supply
                     'interest_rate':self._interest_rate,
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity,
-                    }
                 } 
             }
 
@@ -259,14 +247,14 @@ class WasteToEnergy(TechCore):
         self.num_test(self._htp_ratio)
         return self._htp_ratio
     
-    def get_annual_msw_supply_kg(self):
-        return self._annual_msw_supply_kg
+    # def get_annual_msw_supply_kg(self):
+    #     return self._annual_msw_supply_kg
     
-    def get_annual_msw_supply_kWh(self):
-        if self._annual_msw_supply_kWh == None:
-            raise ValueError("annual_msw_supply_kWh not defined.")
-        else:
-            return self._annual_msw_supply_kWh
+    # def get_annual_msw_supply_kWh(self):
+    #     if self._annual_msw_supply_kWh == None:
+    #         raise ValueError("annual_msw_supply_kWh not defined.")
+    #     else:
+    #         return self._annual_msw_supply_kWh
     
     def get_kW_el_max(self):
         self.num_test(self._kW_el_max)
@@ -295,8 +283,4 @@ class WasteToEnergy(TechCore):
     def get_v_h_waste(self):
         self.len_test(self._v_h_waste)
         return self._v_h_waste
-    
-    def get_v_co2(self):
-        self.len_test(self._v_co2)
-        return self._v_co2
     

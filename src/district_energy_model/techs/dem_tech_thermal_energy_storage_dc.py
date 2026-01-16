@@ -70,7 +70,6 @@ class ThermalEnergyStorageDC(TechCore):
         self._lifetime = tech_dict['lifetime']
         self._capex = tech_dict['capex']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._maintenance_cost = tech_dict['maintenance_cost']
         self._force_asynchronous_prod_con = tech_dict['force_asynchronous_prod_con']
         
@@ -323,9 +322,6 @@ class ThermalEnergyStorageDC(TechCore):
                     'interest_rate':self._interest_rate,
                     'om_annual': self._maintenance_cost
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity
-                    }
                 }
             }
         if self._force_asynchronous_prod_con:
@@ -355,9 +351,6 @@ class ThermalEnergyStorageDC(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             tes_techs_label_list.append('conv_hp_tesdc') 
@@ -380,9 +373,6 @@ class ThermalEnergyStorageDC(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             tes_techs_label_list.append('conv_tesdc_hp')
@@ -438,6 +428,10 @@ class ThermalEnergyStorageDC(TechCore):
     def get_cap(self):
         self.num_test_inf(self._cap)
         return self._cap
+    
+    def set_cap(self, val):
+        self.num_test_inf(val)
+        self._cap = val
     
     def get_ic(self):
         self.num_test(self._ic)

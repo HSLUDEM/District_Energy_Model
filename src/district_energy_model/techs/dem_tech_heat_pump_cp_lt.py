@@ -44,7 +44,6 @@ class HeatPumpCPLT(TechCore):
         self._u_e = [] # heat pump input - electricity
         self._u_hlt = [] # heat pump input - heat from low temperature heat source (e.g. waste heat)
         self._v_h = [] # heat pump output (heat)
-        self._v_co2 = []
         
     def update_tech_properties(self, tech_dict):
         
@@ -72,7 +71,6 @@ class HeatPumpCPLT(TechCore):
         self._cap_min_use = tech_dict['cap_min_use']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._capex = tech_dict['capital_cost']
         self._maintenance_cost = tech_dict['maintenance_cost']
         
@@ -85,7 +83,6 @@ class HeatPumpCPLT(TechCore):
         df['u_e_hpcplt'] = self.get_u_e()
         df['u_hlt_hpcplt'] = self.get_u_hlt()
         df['v_h_hpcplt'] = self.get_v_h()
-        df['v_co2_hpcplt'] = self.get_v_co2()
         
         return df
     
@@ -109,7 +106,6 @@ class HeatPumpCPLT(TechCore):
         self._u_e = self._u_e[:n_hours]
         self._u_hlt = self._u_hlt[:n_hours]
         self._v_h = self._v_h[:n_hours]
-        self._v_co2 = self._v_co2[:n_hours]
         
     def initialise_zero(self, n_days):
         n_hours = n_days*24
@@ -119,7 +115,6 @@ class HeatPumpCPLT(TechCore):
         self._u_e = init_vals.copy()
         self._u_hlt = init_vals.copy()
         self._v_h = init_vals.copy()
-        self._v_co2 = init_vals.copy()
         
     
     # def compute_v_h(self, src_h_yr, d_h_profile):
@@ -133,7 +128,6 @@ class HeatPumpCPLT(TechCore):
     #     # Re-calculate:
     #     self.__compute_u_e()
     #     self.__compute_u_h()
-    #     self.__compute_v_co2()
 
         
     def update_v_h(self, v_h_updated):
@@ -144,7 +138,6 @@ class HeatPumpCPLT(TechCore):
         
         self.__compute_u_e()
         self.__compute_u_hlt()
-        self.__compute_v_co2()
         
     
     def get_hpcplt_cop(self):
@@ -165,12 +158,7 @@ class HeatPumpCPLT(TechCore):
         if len(self._u_hlt)==0:
             raise ValueError()
         return self._u_hlt
-    
-    def get_v_co2(self):
-        if len(self._v_co2)==0:
-            raise ValueError()
-        return self._v_co2
-            
+                
     def __compute_u_e(self):
         
         """
@@ -188,10 +176,7 @@ class HeatPumpCPLT(TechCore):
         """
         
         self._u_hlt = self._v_h*(1-1/self._hpcplt_cop)
-        
-    def __compute_v_co2(self):
-        self._v_co2 = self._v_h*self.__tech_dict['co2_intensity']
-                
+                        
     
     def create_tech_groups_dict(self, tech_groups_dict):
         
@@ -222,9 +207,6 @@ class HeatPumpCPLT(TechCore):
                     'om_con': 0.0, # this is reflected in the cost of the electricity
                     'interest_rate':self._interest_rate
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity
-                    }
                 } 
             }
         

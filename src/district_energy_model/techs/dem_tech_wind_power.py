@@ -99,7 +99,6 @@ class WindPower(TechCore):
         self._v_e_pot_annual_kWhpkW = [] # [kWh/kW]
         self._v_e_pot_winter = [] # [kWh] Total wind power potential (installed + additional potential) using 'winter' profile (geared towards winter production)
         self._v_e_pot_winter_kWhpkW = [] # [kWh/kW]
-        self._v_co2 = []
         
         '''
         - max capacity [GW]
@@ -124,10 +123,8 @@ class WindPower(TechCore):
         # Properties:
         self._kWp_max = tech_dict['kWp_max']
         self._kWp_max_systemwide = tech_dict['kWp_max_systemwide']
-        self._pot_integration_factor = tech_dict['potential_integration_factor']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._capex = tech_dict['capex_CHFpkWp']
         self._installed_allocation = tech_dict['wind_power_installed_allocation']
         self._maintenance_cost = tech_dict['maintenance_cost']
@@ -148,7 +145,6 @@ class WindPower(TechCore):
         df['v_e_wp_pot_annual_kWhpkW'] = self.get_v_e_pot_annual_kWhpkW()
         df['v_e_wp_pot_winter'] = self.get_v_e_pot_winter()
         df['v_e_wp_pot_winter_kWhpkW'] = self.get_v_e_pot_winter_kWhpkW()
-        df['v_co2_wp'] = self.get_v_co2()
         
         return df
     
@@ -179,7 +175,6 @@ class WindPower(TechCore):
         self._v_e_pot_annual_kWhpkW = self._v_e_pot_annual_kWhpkW[:n_hours]
         self._v_e_pot_winter = self._v_e_pot_winter[:n_hours]
         self._v_e_pot_winter_kWhpkW = self._v_e_pot_winter_kWhpkW[:n_hours]
-        self._v_co2 = self._v_co2[:n_hours]
     
     def data_preprocessing(self, tech_dict):
         # Preprocess wind power data:
@@ -543,9 +538,7 @@ class WindPower(TechCore):
                 
             self._v_e = np.array(df_v_e)
             self._v_e_ch = np.array(df_v_e_ch)
-            
-            self.__compute_v_co2()
-            
+                        
                 
             return df_v_e
         else:
@@ -620,9 +613,7 @@ class WindPower(TechCore):
             
             self.df_profiles_annual = df_profiles_a_tot
             self.df_profiles_winter = df_profiles_w_tot
-            
-            self.__compute_v_co2()
-            
+                        
             return df_v_e
                 
     
@@ -898,9 +889,6 @@ class WindPower(TechCore):
                         'interest_rate':self._interest_rate,
                         'om_con':0.0
                         },
-                    'emissions_co2':{
-                        'om_prod':self._co2_intensity,
-                        }
                     }
                 }
         
@@ -978,9 +966,6 @@ class WindPower(TechCore):
                     'energy_cap':0.0,
                     'purchase':0.0
                     },
-                'emissions_co2':{
-                    'om_prod':0.0
-                    }
                 }
             }
         
@@ -1136,9 +1121,6 @@ class WindPower(TechCore):
     def __compute_v_e_pot_remain(self):        
         self._v_e_pot_remain = (self._v_e_pot - self._v_e - self._v_e_ch)
         
-    def __compute_v_co2(self):
-        self._v_co2 = self._v_e*self.__tech_dict['co2_intensity']
-
     def update_v_e(self, v_e_updated):
         
         if len(v_e_updated) != len(self._v_e):
@@ -1148,8 +1130,6 @@ class WindPower(TechCore):
         
         self.__compute_v_e_pot_remain()
         
-        self.__compute_v_co2()
-
     def update_v_e_cons(self, v_e_cons_updated):
         if len(v_e_cons_updated) != len(self._v_e):
             raise ValueError()        
@@ -1312,12 +1292,5 @@ class WindPower(TechCore):
     def get_v_e_pot_winter_kWhpkW(self):
         self.len_test(self._v_e_pot_winter_kWhpkW)
         return self._v_e_pot_winter_kWhpkW    
-    
-    def get_v_co2(self):
-        self.len_test(self._v_co2)
-        return self._v_co2
-    
-    def get_pot_integration_factor(self):
-        return self._pot_integration_factor
-    
+            
     

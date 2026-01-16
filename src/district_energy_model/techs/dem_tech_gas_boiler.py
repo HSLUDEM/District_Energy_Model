@@ -40,7 +40,6 @@ class GasBoiler(TechCore):
         self._u_gas = [] # gas input [kWh]
         self._u_gas_kg = [] # gas input [kg]
         self._v_h = [] # heat output [kWh]
-        self._v_co2 =[]
         
         #----------------------------------------------------------------------
         # Tests:
@@ -73,7 +72,6 @@ class GasBoiler(TechCore):
         self._replacement_factor = tech_dict['replacement_factor']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._capex = tech_dict['capex']
         self._capex_one_to_one_replacement = tech_dict['capex_one_to_one_replacement']
         self._fixed_demand_share = tech_dict['fixed_demand_share']
@@ -90,7 +88,6 @@ class GasBoiler(TechCore):
         df['u_gas_gb'] = self.get_u_gas()
         df['u_gas_gb_kg'] = self.get_u_gas_kg()
         df['v_h_gb'] = self.get_v_h()
-        df['v_co2_gb'] = self.get_v_co2()
         
         return df
     
@@ -114,7 +111,6 @@ class GasBoiler(TechCore):
         self._u_gas = self._u_gas[:n_hours]
         self._u_gas_kg = self._u_gas_kg[:n_hours]
         self._v_h = self._v_h[:n_hours]
-        self._v_co2 = self._v_co2[:n_hours]
     
     def compute_v_h(self, src_h_yr, d_h_profile):
 
@@ -126,10 +122,7 @@ class GasBoiler(TechCore):
         
         # Compute respective gas input:
         self.__compute_u_gas()
-        
-        # Compute co2:
-        self.__compute_v_co2()
-        
+                
     def update_v_h(self, v_h_updated):
         
         if len(v_h_updated) != len(self._v_h):
@@ -138,9 +131,7 @@ class GasBoiler(TechCore):
         self._v_h = np.array(v_h_updated)
         
         self.__compute_u_gas()
-        
-        self.__compute_v_co2()
- 
+         
     def __compute_u_gas(self):
         """
         Computes the required gas input based on heat output (kWh).
@@ -151,10 +142,7 @@ class GasBoiler(TechCore):
                 
         self._u_gas = np.array(self._v_h)/self._eta # [kWh]
         self._u_gas_kg = np.array(self._v_h)*3600/(self._eta*hv_gas_kJpkg) # [kg]
-        
-    def __compute_v_co2(self):        
-        self._v_co2 = self._v_h*self.__tech_dict['co2_intensity']
-        
+                
     # @staticmethod
     # def get_u_gas(hv_gas_MJpkg, v_h_gb):
     #     """
@@ -231,9 +219,6 @@ class GasBoiler(TechCore):
                     'om_con':0.0, # costs are reflected in gas_supply
                     'interest_rate':self._interest_rate,
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity,
-                    }
                 }
             }
         
@@ -306,9 +291,6 @@ class GasBoiler(TechCore):
                     'interest_rate':self._interest_rate,
                     'energy_cap': capex
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity,
-                    }
                 }
             }
         
@@ -335,9 +317,6 @@ class GasBoiler(TechCore):
     #                 'om_con':self._gas_price_CHFpkWh,
     #                 'interest_rate':0.0
     #                 },
-    #             'emissions_co2':{
-    #                 'om_prod':0.0 # this is reflected in the emissions of gas_boiler
-    #                 }
     #             }
     #         }
         
@@ -357,18 +336,7 @@ class GasBoiler(TechCore):
         if len(self._u_gas_kg)==0:
             raise ValueError()
         return self._u_gas_kg
-    
-    def get_v_co2(self):        
-        if len(self._v_co2)==0:
-            raise ValueError("v_co2_gb has not yet been computed!")            
-        return self._v_co2
-    
-    def get_replacement_factor(self):
-        return self._replacement_factor
-    
-    def set_replacement_factor(self, value):
-        self._replacement_factor = value
-
+            
     def get_fixed_demand_share(self):
         return self._fixed_demand_share
     

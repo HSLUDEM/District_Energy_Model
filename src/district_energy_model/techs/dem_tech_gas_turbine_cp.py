@@ -52,7 +52,6 @@ class GasTurbineCP(TechCore):
         self._v_steam = [] # [kWh] output - steam
         self._v_steam_con = [] # [kWh] steam consumed
         self._v_steam_surp = [] # [kWh]
-        self._v_co2 = [] # [kg] output - emissions
         
     def update_tech_properties(self, tech_dict):
         
@@ -78,7 +77,6 @@ class GasTurbineCP(TechCore):
         self._hv_gas = tech_dict['hv_gas_MJpkg']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._capex = tech_dict['capital_cost']
         self._maintenance_cost = tech_dict['maintenance_cost']
 
@@ -93,7 +91,6 @@ class GasTurbineCP(TechCore):
         df['v_steam_gtcp'] = self.get_v_steam()
         df['v_steam_gtcp_con'] = self.get_v_steam_con()
         df['v_steam_gtcp_surp'] = self.get_v_steam_surp()
-        df['v_co2_gtcp'] = self.get_v_co2()
         
         return df
     
@@ -120,7 +117,6 @@ class GasTurbineCP(TechCore):
         self._v_steam = self._v_steam[:n_hours]
         self._v_steam_con = self._v_steam_con[:n_hours]
         self._v_steam_surp = self._v_steam_surp[:n_hours]
-        self._v_co2 = self._v_co2[:n_hours]
         
     def initialise_zero(self, n_days):
         n_hours = n_days*24
@@ -133,7 +129,6 @@ class GasTurbineCP(TechCore):
         self._v_steam = init_vals.copy() # [kWh_th] output - high temperature steam total
         self._v_steam_con = init_vals.copy() # [kWh_th] output - high temperature steam consumed
         self._v_steam_surp = init_vals.copy() # [kWh_th] output - high temperature steam surplus
-        self._v_co2 = init_vals.copy() # [kg] CHP output - CO2 emissions
     
     def update_v_e(self, v_e_updated):
         if len(v_e_updated) != len(self._v_e):
@@ -141,7 +136,6 @@ class GasTurbineCP(TechCore):
         self._v_e = np.array(v_e_updated)
         self.__compute_u_gas()
         # self.__compute_v_steam()
-        self.__compute_v_co2()  
         
     def update_v_steam(self, v_steam_updated):
          if len(v_steam_updated) != len(self._v_steam):
@@ -171,10 +165,7 @@ class GasTurbineCP(TechCore):
         
         self._u_gas = np.array(self._v_e)/self._eta_el # [kWh]
         self._u_gas_kg = self._u_gas*3600/hv_gas_kJpkg # [kg]
-        
-    def __compute_v_co2(self):        
-        self._v_co2 = self._v_e*self._co2_intensity
-        
+                
     def create_tech_groups_dict(self, tech_groups_dict):
         
         tech_groups_dict['gas_turbine_cp'] = {
@@ -195,9 +186,6 @@ class GasTurbineCP(TechCore):
                     'interest_rate':self._interest_rate,
                     'om_annual': self._maintenance_cost
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity,
-                    }
                 } 
             }
 
@@ -280,6 +268,3 @@ class GasTurbineCP(TechCore):
         self.len_test(self._v_steam_surp)
         return self._v_steam_surp
     
-    def get_v_co2(self):
-        self.len_test(self._v_co2)
-        return self._v_co2

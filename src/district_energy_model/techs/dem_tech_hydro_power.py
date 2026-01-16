@@ -48,7 +48,6 @@ class HydroPower(TechCore):
         self._v_e_exp = []
         self._v_e_pot = []
         self._v_e_pot_remain = []
-        self._v_co2 = []
         
         '''
         - max capacity [GW]
@@ -84,7 +83,6 @@ class HydroPower(TechCore):
         df['v_e_hydro_exp'] = self.get_v_e_exp()
         df['v_e_hydro_pot'] = self.get_v_e_pot()
         df['v_e_hydro_pot_remain'] = self.get_v_e_pot_remain()        
-        df['v_co2_hydro'] = self.get_v_co2()
         
         return df
     
@@ -110,7 +108,6 @@ class HydroPower(TechCore):
         self._v_e_exp = self._v_e_exp[:n_hours]
         self._v_e_pot = self._v_e_pot[:n_hours]
         self._v_e_pot_remain = self._v_e_pot_remain[:n_hours]
-        self._v_co2 = self._v_co2[:n_hours]
         
     def create_techs_dict(self,
                           techs_dict,
@@ -150,9 +147,6 @@ class HydroPower(TechCore):
                     'om_annual': self._maintenance_cost,
                     'export': -self._export_subsidy,
                     },
-                'emissions_co2':{
-                    'om_prod':0.0
-                    }
                 }
             }
         return techs_dict
@@ -169,9 +163,7 @@ class HydroPower(TechCore):
         self._v_e = np.array(v_e_updated)
         
         self.__compute_v_e_pot_remain()
-        
-        self.__compute_v_co2()
-        
+                
     def update_v_e_cons(self, v_e_cons_updated):
         if len(v_e_cons_updated) != len(self._v_e):
             raise ValueError()        
@@ -186,10 +178,7 @@ class HydroPower(TechCore):
         if len(self._v_e_pot)==0:
             raise ValueError()
         self._v_e_pot_remain = self._v_e_pot - self._v_e
-        
-    def __compute_v_co2(self):
-        self._v_co2 = self._v_e*self.__tech_dict['co2_intensity']
-        
+                
     def get_v_e(self):
         self.len_test(self._v_e)
         return self._v_e
@@ -209,11 +198,7 @@ class HydroPower(TechCore):
     def get_v_e_pot_remain(self):
         self.len_test(self._v_e_pot_remain)
         return self._v_e_pot_remain
-    
-    def get_v_co2(self):
-        self.len_test(self._v_co2)
-        return self._v_co2
-    
+        
     # @staticmethod
     # def get_v_e_pot_remain(v_e_hydro, v_e_hydro_pot):
     #     """

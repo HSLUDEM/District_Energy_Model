@@ -157,6 +157,8 @@ class DistrictHeating(TechCore):
         self._source_heat_pump_cp = tech_dict['heat_sources']['heat_pump_cp']
         self._source_heat_pump_cp_lt = tech_dict['heat_sources']['heat_pump_cp_lt']
         self._source_oil_boiler_cp = tech_dict['heat_sources']['oil_boiler_cp']
+        self._source_electric_heater_cp = tech_dict['heat_sources']['electric_heater_cp']
+
         self._source_wood_boiler_cp = tech_dict['heat_sources']['wood_boiler_cp']
         self._source_gas_boiler_cp = tech_dict['heat_sources']['gas_boiler_cp']
         self._source_waste_heat = tech_dict['heat_sources']['waste_heat']
@@ -287,9 +289,6 @@ class DistrictHeating(TechCore):
                         'om_annual': self._maintenance_cost_grid_categories[i] if self._kW_th_max_grid_categories[i]>0 else 0,
                         # 'export': -1e-5,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
         
@@ -346,9 +345,6 @@ class DistrictHeating(TechCore):
                     'om_con': 0.0, # costs are reflected in supply techs
                     'interest_rate':0.0,
                     },
-                'emissions_co2':{
-                    'om_prod':0.0, # emissions are reflected in supply techs
-                    }
                 } 
             }
         dh_techs_label_list.append('conv_dhimp_dh')
@@ -372,9 +368,6 @@ class DistrictHeating(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             dh_techs_label_list.append('conv_chpgt_dh')
@@ -398,9 +391,6 @@ class DistrictHeating(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             dh_techs_label_list.append('conv_st_dh')
@@ -424,9 +414,6 @@ class DistrictHeating(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             dh_techs_label_list.append('conv_wte_dh')
@@ -450,9 +437,6 @@ class DistrictHeating(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             dh_techs_label_list.append('conv_hpcp_dh')
@@ -476,9 +460,6 @@ class DistrictHeating(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             dh_techs_label_list.append('conv_hpcplt_dh')
@@ -502,12 +483,32 @@ class DistrictHeating(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             dh_techs_label_list.append('conv_obcp_dh')
+
+        # Electric heater central plant (ehcp):
+        if self._source_electric_heater_cp:
+            techs_dict['conv_ehcp_dh'] = {
+                'essentials':{
+                    'name':'Conversion: EHCP to DH',
+                    'parent':'conversion',
+                    'carrier_in':'heat_ehcp',
+                    'carrier_out':'heat_dh',
+                    },
+                'constraints':{
+                    'energy_cap_max':'inf',
+                    'energy_eff':1.0, # Here we could account for transmission losses
+                    'lifetime':self._lifetime,
+                    },
+                'costs':{
+                    'monetary':{
+                        'om_con': 0.0, # costs are reflected in supply techs
+                        'interest_rate':0.0,
+                        },
+                    } 
+                }
+            dh_techs_label_list.append('conv_ehcp_dh')
 
         # Wood boiler central plant (wbcp):
         if self._source_wood_boiler_cp:
@@ -528,9 +529,6 @@ class DistrictHeating(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             dh_techs_label_list.append('conv_wbcp_dh')
@@ -554,9 +552,6 @@ class DistrictHeating(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             dh_techs_label_list.append('conv_wh_dh')
@@ -581,9 +576,6 @@ class DistrictHeating(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             dh_techs_label_list.append('conv_gbcp_dh')
@@ -607,9 +599,6 @@ class DistrictHeating(TechCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             dh_techs_label_list.append('conv_biomass_dh')

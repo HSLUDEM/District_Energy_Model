@@ -2,10 +2,16 @@
 """
 Created on Tue Sep 24 08:49:07 2024
 
-@author: UeliSchilt
+@author: pascalvecsei
+
+The sole purpose of this class is to ensure 
+that when rerunning the model 
+(which happens when including manual
+constraints that are included to simulate
+the flexibility of electric vehicles )
+it does not crash due to a Calliope bug.
 """
 import numpy as np
-
 from district_energy_model.techs.dem_tech_core import TechCore
 
 class PileOfBerries(TechCore):
@@ -71,7 +77,6 @@ class PileOfBerries(TechCore):
         self._lifetime = 20.0
         self._capex = 1.0
         self._interest_rate = 0.2
-        self._co2_intensity = 0.2
         self._maintenance_cost = 0.00
         self._force_asynchronous_prod_con = False
         
@@ -229,9 +234,6 @@ class PileOfBerries(TechCore):
                     'interest_rate':self._interest_rate,
                     'om_annual': self._maintenance_cost
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity + 0.0000
-                    }
                 }
             }
         if self._force_asynchronous_prod_con:
