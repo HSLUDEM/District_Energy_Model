@@ -1276,7 +1276,7 @@ class DistrictEnergyModel:
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
                     diff_sum_accepted = C.DIFF_SUM_ACC,
-                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                     )
 
         #Adjust fossil heater retrofit to renovation rate of heat generators. This is only done if 'demand_side''act_on_fossil_heater_retrofit' is True

@@ -586,7 +586,10 @@ class CalliopeOptimiser:
         self.custom_constraint_ev_flexibility = (self.scen_techs['scenarios']['demand_side']
                                         and self.scen_techs['demand_side']['ev_integration']
                                         and self.scen_techs['demand_side']['ev_flexibility'])
-        self.custom_constraint_tes_sites = self.tech_tes_sites.get_custom_constraints_required()
+        if self.scen_techs['tes_sites']['deployment']:
+            self.custom_constraint_tes_sites = self.tech_tes_sites.get_custom_constraints_required()
+        else:
+            self.custom_constraint_tes_sites = False
 
 
         if (
