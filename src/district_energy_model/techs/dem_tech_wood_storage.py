@@ -1,4 +1,4 @@
-#hydrogen tank energy storage
+#Wood storage
 
 # -*- coding: utf-8 -*-
 """
@@ -7,10 +7,9 @@ Created on Tue Sep 24 08:49:07 2024
 @author: PascalVecsei
 """
 import numpy as np
+from techs.dem_tech_core import TechCore
 
-from district_energy_model.techs.dem_tech_core import TechCore
-
-class HydrogenEnergyStorage(TechCore):
+class WoodStorage(TechCore):
     
     def __init__(self, tech_dict):
         
@@ -33,16 +32,16 @@ class HydrogenEnergyStorage(TechCore):
         self.update_tech_properties(tech_dict)
 
         # Carrier types:
-        self.input_carrier = 'hydrogen' 
-        self.output_carrier = 'hydrogen'
+        self.input_carrier = 'wood' 
+        self.output_carrier = 'wood'
         
         # Accounting:
-        self._u_hyd = [] # electricity input [hydrogen unit]
-        self._v_hyd = [] # electricity output [hydrogen unit]
-        self._q_hyd = [] # stored energy [hydrogen unit]
-        self._l_u_hyd = [] # charging losses [hydrogen unit]
-        self._l_v_hyd = [] # discharging losses [hydrogen unit]
-        self._l_q_hyd = [] # storage losses [hydrogen unit]
+        self._u_wd = [] # electricity input [wood unit]
+        self._v_wd = [] # electricity output [wood unit]
+        self._q_wd = [] # stored energy [wood unit]
+        self._l_u_wd = [] # charging losses [wood unit]
+        self._l_v_wd = [] # discharging losses [wood unit]
+        self._l_q_wd = [] # storage losses [wood unit]
         self._sos = [] # state of charge [-]
         
         #----------------------------------------------------------------------
@@ -65,7 +64,7 @@ class HydrogenEnergyStorage(TechCore):
         
         # Properties:
         self._eta_chg_dchg = tech_dict['eta_chg_dchg']
-        self._gamma = tech_dict['hes_gamma']
+        self._gamma = tech_dict['ws_gamma']
         self._cap = tech_dict['capacity_kWh']
         self._ic = tech_dict['initial_charge']
         self._optimized_initial_charge = tech_dict['optimized_initial_charge']
@@ -85,20 +84,20 @@ class HydrogenEnergyStorage(TechCore):
                         )
             raise Exception(printout)
         if self._eta_chg_dchg > 1:
-            printout = ('Error in hydrogen tank input: '
+            printout = ('Error in wood storage input: '
                         'charging/discharging efficiency (eta_chg_dchg) cannot'
                         ' be larger than 1!'
                         )
             raise Exception(printout)
         if self._eta_chg_dchg <= 0:
-            printout = ('Error in hydrogen tank input: '
+            printout = ('Error in wood storage input: '
                         'charging/discharging efficiency (eta_chg_dchg) must'
                         ' be larger than 0!'
                         )
             raise Exception(printout)
         if self._gamma > 1:
-            printout = ('Error in hydrogen tank input: '
-                        'loss factor (hes_gamma) cannot be larger than 1!'
+            printout = ('Error in wood storage input: '
+                        'loss factor (ws_gamma) cannot be larger than 1!'
                         )
             raise Exception(printout)
 
@@ -107,13 +106,13 @@ class HydrogenEnergyStorage(TechCore):
         
     def update_df_results(self, df):
         
-        df['u_hyd_hes'] = self.get_u_hyd() # hydrogen input [hydrogen unit]
-        df['v_hyd_hes'] = self.get_v_hyd() # hydrogen output [hydrogen unit]
-        df['q_hyd_hes'] = self.get_q_hyd() # stored hydrogen [hydrogen unit]
-        df['l_u_hyd_hes'] = self.get_l_u_hyd() # charging losses [hydrogen unit]
-        df['l_v_hyd_hes'] = self.get_l_v_hyd() # discharging losses [hydrogen unit]
-        df['l_q_hyd_hes'] = self.get_l_q_hyd() # storage losses [hydrogen unit]
-        df['sos_hes'] = self.get_sos() # state of charge [-]
+        df['u_wd_ws'] = self.get_u_wd() # wood input [wood unit]
+        df['v_wd_ws'] = self.get_v_wd() # wood output [wood unit]
+        df['q_wd_ws'] = self.get_q_wd() # stored wood [wood unit]
+        df['l_u_wd_ws'] = self.get_l_u_wd() # charging losses [wood unit]
+        df['l_v_wd_ws'] = self.get_l_v_wd() # discharging losses [wood unit]
+        df['l_q_wd_ws'] = self.get_l_q_wd() # storage losses [wood unit]
+        df['sos_ws'] = self.get_sos() # state of charge [-]
         
         return df
     
@@ -133,12 +132,12 @@ class HydrogenEnergyStorage(TechCore):
         """        
         n_hours = n_days*24
         
-        self._u_hyd = self._u_hyd[:n_hours]
-        self._v_hyd = self._v_hyd[:n_hours]
-        self._q_hyd = self._q_hyd[:n_hours]
-        self._l_u_hyd = self._l_u_hyd[:n_hours]
-        self._l_v_hyd = self._l_v_hyd[:n_hours]
-        self._l_q_hyd = self._l_q_hyd[:n_hours]
+        self._u_wd = self._u_wd[:n_hours]
+        self._v_wd = self._v_wd[:n_hours]
+        self._q_wd = self._q_wd[:n_hours]
+        self._l_u_wd = self._l_u_wd[:n_hours]
+        self._l_v_wd = self._l_v_wd[:n_hours]
+        self._l_q_wd = self._l_q_wd[:n_hours]
         self._sos = self._sos[:n_hours]
         
     def initialise_zero(self, n_days):
@@ -146,31 +145,31 @@ class HydrogenEnergyStorage(TechCore):
         
         init_vals = np.array([0.0]*n_hours)
         
-        self._u_hyd = init_vals.copy() # electricity input [kWh]
-        self._v_hyd = init_vals.copy() # electricity output [kWh]
-        self._q_hyd = init_vals.copy() # stored energy [kWh]
-        self._l_u_hyd = init_vals.copy() # charging losses [kWh]
-        self._l_v_hyd = init_vals.copy() # discharging losses [kWh]
-        self._l_q_hyd = init_vals.copy() # storage losses [kWh]
+        self._u_wd = init_vals.copy() # electricity input [kWh]
+        self._v_wd = init_vals.copy() # electricity output [kWh]
+        self._q_wd = init_vals.copy() # stored energy [kWh]
+        self._l_u_wd = init_vals.copy() # charging losses [kWh]
+        self._l_v_wd = init_vals.copy() # discharging losses [kWh]
+        self._l_q_wd = init_vals.copy() # storage losses [kWh]
         self._sos = init_vals.copy() # state of charge [-]
         
-    def update_u_hyd(self, u_hyd_updated):
-        if len(u_hyd_updated) != len(self._u_hyd):
+    def update_u_wd(self, u_wd_updated):
+        if len(u_wd_updated) != len(self._u_wd):
             raise ValueError()        
-        self._u_hyd = np.array(u_hyd_updated)        
-        self.__compute_l_u_hyd()
+        self._u_wd = np.array(u_wd_updated)        
+        self.__compute_l_u_wd()
         
-    def update_v_hyd(self, v_hyd_updated):
-        if len(v_hyd_updated) != len(self._v_hyd):
+    def update_v_wd(self, v_wd_updated):
+        if len(v_wd_updated) != len(self._v_wd):
             raise ValueError()        
-        self._v_hyd = np.array(v_hyd_updated)        
-        self.__compute_l_v_hyd()
+        self._v_wd = np.array(v_wd_updated)        
+        self.__compute_l_v_wd()
         
-    def update_q_hyd(self, q_hyd_updated):
-        if len(q_hyd_updated) != len(self._q_hyd):
+    def update_q_wd(self, q_wd_updated):
+        if len(q_wd_updated) != len(self._q_wd):
             raise ValueError()        
-        self._q_hyd = np.array(q_hyd_updated)        
-        self.__compute_l_q_hyd()
+        self._q_wd = np.array(q_wd_updated)        
+        self.__compute_l_q_wd()
 
     def update_sos(self, sos_updated):
         if len(sos_updated) != len(self._sos):
@@ -181,7 +180,7 @@ class HydrogenEnergyStorage(TechCore):
         self.num_test(cap_updated)
         self._cap = cap_updated      
 
-    def __compute_l_u_hyd(self):
+    def __compute_l_u_wd(self):
         """
         Compute the charging losses for each time step.
 
@@ -193,11 +192,11 @@ class HydrogenEnergyStorage(TechCore):
 
         """
         
-        l_u_hyd_hes = self._u_hyd*(1-self._eta_chg_dchg)
+        l_u_wd_ws = self._u_wd*(1-self._eta_chg_dchg)
         
-        self._l_u_hyd = np.array(l_u_hyd_hes)
+        self._l_u_wd = np.array(l_u_wd_ws)
         
-    def __compute_l_v_hyd(self):
+    def __compute_l_v_wd(self):
         """
         Compute the discharging losses for each time step.
 
@@ -207,12 +206,11 @@ class HydrogenEnergyStorage(TechCore):
         -------
         """
         
-        l_v_hyd_hes = self._v_hyd*(1/self._eta_chg_dchg - 1)
+        l_v_wd_ws = self._v_wd*(1/self._eta_chg_dchg - 1)
         
-        self._l_v_hyd = np.array(l_v_hyd_hes)
+        self._l_v_wd = np.array(l_v_wd_ws)
         
-    def __compute_l_q_hyd(self):
-    # def get_storage_losses(q_e_hes, hes_gamma):    
+    def __compute_l_q_wd(self):
         """
         Compute the storage losses for each time step.
 
@@ -223,20 +221,20 @@ class HydrogenEnergyStorage(TechCore):
 
         """
         
-        l_q_hyd_hes = self._q_hyd*self._gamma
+        l_q_wd_ws = self._q_wd*self._gamma
         
-        self._l_q_hyd = np.array(l_q_hyd_hes)
+        self._l_q_wd = np.array(l_q_wd_ws)
         
     
     def create_techs_dict(self, techs_dict, color):
 
-        techs_dict['hes'] = {
+        techs_dict['ws'] = {
             'essentials':{
-                'name':'Hydrogen Tank Energy Storage',
+                'name':'Wood Storage',
                 'color':color,
                 'parent':'storage',
-                'carrier_in':'hydrogen',
-                'carrier_out':'hydrogen'
+                'carrier_in':'wood',
+                'carrier_out':'wood'
                 },
             'constraints':{
                 'storage_initial':self._ic if not self._optimized_initial_charge else None,
@@ -258,33 +256,33 @@ class HydrogenEnergyStorage(TechCore):
                 }
             }
         if self._force_asynchronous_prod_con:
-            techs_dict['hes']['constraints']['force_asynchronous_prod_con']= True
+            techs_dict['ws']['constraints']['force_asynchronous_prod_con']= True
 
         return techs_dict
     
-    def get_u_hyd(self):
-        self.len_test(self._u_hyd)
-        return self._u_hyd
+    def get_u_wd(self):
+        self.len_test(self._u_wd)
+        return self._u_wd
     
-    def get_v_hyd(self):
-        self.len_test(self._v_hyd)
-        return self._v_hyd
+    def get_v_wd(self):
+        self.len_test(self._v_wd)
+        return self._v_wd
     
-    def get_q_hyd(self):
-        self.len_test(self._q_hyd)
-        return self._q_hyd
+    def get_q_wd(self):
+        self.len_test(self._q_wd)
+        return self._q_wd
     
-    def get_l_u_hyd(self):
-        self.len_test(self._l_u_hyd)
-        return self._l_u_hyd
+    def get_l_u_wd(self):
+        self.len_test(self._l_u_wd)
+        return self._l_u_wd
     
-    def get_l_v_hyd(self):
-        self.len_test(self._l_v_hyd)
-        return self._l_v_hyd
+    def get_l_v_wd(self):
+        self.len_test(self._l_v_wd)
+        return self._l_v_wd
     
-    def get_l_q_hyd(self):
-        self.len_test(self._l_q_hyd)
-        return self._l_q_hyd
+    def get_l_q_wd(self):
+        self.len_test(self._l_q_wd)
+        return self._l_q_wd
     
     def get_sos(self):
         self.len_test(self._sos)
@@ -307,40 +305,40 @@ class HydrogenEnergyStorage(TechCore):
         return self._ic
     
     
-    def initialise_q_hyd_0(self):
-        self._q_hyd[0] = self.get_ic()*self.get_cap()
+    def initialise_q_wd_0(self):
+        self._q_wd[0] = self.get_ic()*self.get_cap()
 
-    def update_q_hyd_i(self, i, val):
+    def update_q_wd_i(self, i, val):
         self.num_test(val)
-        self._q_hyd[i] = float(val)
+        self._q_wd[i] = float(val)
 
     def get_chg_dchg_per_cap_max(self):
         self.num_test(self._chg_dchg_per_cap_max)
         return self._chg_dchg_per_cap_max
     
-    def update_u_hyd_i(self, i, val):
+    def update_u_wd_i(self, i, val):
         self.num_test(val)
-        self._u_hyd[i] = float(val)
+        self._u_wd[i] = float(val)
         
-    def update_v_hyd_i(self, i, val):
+    def update_v_wd_i(self, i, val):
         self.num_test(val)
-        self._v_hyd[i] = float(val)
+        self._v_wd[i] = float(val)
         
-    def update_q_hyd_i(self, i, val):
+    def update_q_wd_i(self, i, val):
         self.num_test(val)
-        self._q_hyd[i] = float(val)
+        self._q_wd[i] = float(val)
 
-    def update_l_u_hyd_i(self, i, val):
+    def update_l_u_wd_i(self, i, val):
         self.num_test(val)
-        self._l_u_hyd[i] = float(val)
+        self._l_u_wd[i] = float(val)
 
-    def update_l_v_hyd_i(self, i, val):
+    def update_l_v_wd_i(self, i, val):
         self.num_test(val)
-        self._l_v_hyd[i] = float(val)
+        self._l_v_wd[i] = float(val)
 
-    def update_l_q_hyd_i(self, i, val):
+    def update_l_q_wd_i(self, i, val):
         self.num_test(val)
-        self._l_q_hyd[i] = float(val)
+        self._l_q_wd[i] = float(val)
 
     def update_sos_i(self, i, val):
         self.num_test(val)

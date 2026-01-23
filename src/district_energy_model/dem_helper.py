@@ -1507,6 +1507,9 @@ def get_plot_infos_RT():
     col_bes_dchg = f'rgba(34, 153, 84,{opac})' # '#EF008C'
     col_gtes_chg = f'rgba(0, 0, 0,{opac*opac_red_factor})' # '#EF008C'
     col_gtes_dchg = f'rgba(0, 0, 0,{opac})' # '#EF008C'
+    col_ws_chg = f'rgba(0, 0, 0,{opac*opac_red_factor})' # '#EF008C'
+    col_ws_dchg = f'rgba(0, 0, 0,{opac})' # '#EF008C'
+
     col_hes_chg = f'rgba(135, 206, 235,{opac*opac_red_factor})' # '#EF008C'
     col_hes_dchg = f'rgba(135, 206, 235,{opac})' # '#EF008C'
 

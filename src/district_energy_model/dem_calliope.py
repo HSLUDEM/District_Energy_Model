@@ -70,6 +70,8 @@ class CalliopeOptimiser:
         
         self.tech_list_new = []
         self.tech_list_old = []
+        self.tech_list_pv = []
+        self.tech_list_solarthermal = [] #Always same length as pv!
         
         # Unpack tech instances:
         if 'heat_pump' in self.tech_list:
@@ -90,12 +92,12 @@ class CalliopeOptimiser:
         if 'district_heating' in self.tech_list:
             self.tech_district_heating = tech_instances['district_heating']
             
-        if 'solar_thermal' in self.tech_list:
-            self.tech_solar_thermal = tech_instances['solar_thermal']
-        
-        if 'solar_pv' in self.tech_list:
-            self.tech_solar_pv = tech_instances['solar_pv']
-        
+        if 'solarthermal_rooftop' in self.tech_list:
+            self.tech_solarthermal_rooftop = tech_instances['solarthermal_rooftop']
+
+        if 'solar_pvrooftop' in self.tech_list:
+            self.tech_solar_pvrooftop = tech_instances['solar_pvrooftop']
+
         if 'wind_power' in self.tech_list:
             self.tech_wind_power = tech_instances['wind_power']
         
@@ -113,7 +115,10 @@ class CalliopeOptimiser:
 
         if 'tes' in self.tech_list:
             self.tech_tes = tech_instances['tes']
-            
+
+        if 'tes_sites' in self.tech_list:
+            self.tech_tes_sites = tech_instances['tes_sites']
+
         if 'tes_decentralised' in self.tech_list:
             self.tech_tes_decentralised = tech_instances['tes_decentralised']
             
@@ -125,6 +130,9 @@ class CalliopeOptimiser:
 
         if 'gtes' in self.tech_list:
             self.tech_gtes = tech_instances['gtes']
+
+        if 'ws' in self.tech_list:
+            self.tech_ws = tech_instances['ws']
 
         if 'hes' in self.tech_list:
             self.tech_hes = tech_instances['hes']
@@ -176,6 +184,9 @@ class CalliopeOptimiser:
 
         if 'oil_boiler_cp' in self.tech_list:
             self.tech_oil_boiler_cp = tech_instances['oil_boiler_cp']
+
+        if 'electric_heater_cp' in self.tech_list:
+            self.tech_electric_heater_cp = tech_instances['electric_heater_cp']
 
         if 'wood_boiler_cp' in self.tech_list:
             self.tech_wood_boiler_cp = tech_instances['wood_boiler_cp']
@@ -328,43 +339,51 @@ class CalliopeOptimiser:
         n_hours = len(self.energy_demand.get_d_e())
         null_array = np.array([0.0]*n_hours)
         
-        if 'solar_pv' in self.tech_list:
-            pv_resource_old = self.tech_solar_pv.get_v_e()
-            pv_resource_new = self.tech_solar_pv.get_v_e_pot_remain()
-            eta_pv=self.tech_solar_pv.get_eta_overall()
+        # if 'solar_pv' in self.tech_list:
+        #     pv_resource_old = self.tech_solar_pv.get_v_e()
+        #     pv_resource_new = self.tech_solar_pv.get_v_e_pot_remain()
+        #     eta_pv=self.tech_solar_pv.get_eta_overall()
+        # else:
+        #     pv_resource_old = null_array.copy()
+        #     pv_resource_new = null_array.copy()
+        #     eta_pv = 1
+
+        if 'solar_pvrooftop' in self.tech_list:
+            pv_rooftop_resources = [np.array(x) for x in self.tech_solar_pvrooftop.get_resources()]
         else:
-            pv_resource_old = null_array.copy()
-            pv_resource_new = null_array.copy()
-            eta_pv = 1
+            pv_rooftop_resources = [null_array.copy()]
+
+        if 'solarthermal_rooftop' in self.tech_list:
+            solarthermal_rooftop_resources = [np.array(x) for x in self.tech_solarthermal_rooftop.get_resources()]
+        else:
+            solarthermal_rooftop_resources = [null_array.copy()]
 
 
-        # solar_th_resource_old = self.tech_solar_thermal.convert_pv_to_thermal(
-            # df_pv_kWh=(self.tech_solar_pv.get_v_e_pot() -
-            #             self.tech_solar_pv.get_v_e_pot_remain() -
-            #             self.tech_solar_pv.get_v_e()),
-        #     eta_pv=self.tech_solar_pv.get_eta_overall(),
-        #     eta_thermal=self.tech_solar_thermal.get_eta_overall()
-        #     )
-        
-        if 'solar_thermal' in self.tech_list:
-            solar_th_resource_old = null_array.copy() # TEMPORARY FIX: assumption: currently no solar thermal installed
+        # if 'solar_thermal' in self.tech_list:
+        #     solar_th_resource_old = null_array.copy() # TEMPORARY FIX: assumption: currently no solar thermal installed
             
-            solar_th_resource_new = self.tech_solar_thermal.convert_pv_to_thermal(
-                # df_pv_kWh=self.tech_solar_pv.get_v_e_pot_remain(),
-                df_pv_kWh=pv_resource_new,
-                # eta_pv=self.tech_solar_pv.get_eta_overall(),
-                eta_pv = eta_pv,
-                eta_thermal=self.tech_solar_thermal.get_eta_overall()
-                )
-        else:
-            solar_th_resource_old = null_array.copy()
-            solar_th_resource_new = null_array.copy()
+        #     solar_th_resource_new = self.tech_solar_thermal.convert_pv_to_thermal(
+        #         # df_pv_kWh=self.tech_solar_pv.get_v_e_pot_remain(),
+        #         df_pv_kWh=pv_resource_new,
+        #         # eta_pv=self.tech_solar_pv.get_eta_overall(),
+        #         eta_pv = eta_pv,
+        #         eta_thermal=self.tech_solar_thermal.get_eta_overall()
+        #         )
+        # else:
+        #     solar_th_resource_old = null_array.copy()
+        #     solar_th_resource_new = null_array.copy()
         
-        pv_resource_old = pv_resource_old/self.available_area_scaling
-        pv_resource_new = pv_resource_new/self.available_area_scaling
-        solar_th_resource_old = solar_th_resource_old/self.available_area_scaling
-        solar_th_resource_new = solar_th_resource_new/self.available_area_scaling
+        # pv_resource_old = pv_resource_old/self.available_area_scaling
+        # pv_resource_new = pv_resource_new/self.available_area_scaling
+
+        # solar_th_resource_old = solar_th_resource_old/self.available_area_scaling
+        # solar_th_resource_new = solar_th_resource_new/self.available_area_scaling
         
+
+        
+        pv_rooftop_resources = [x / self.available_area_scaling for x in pv_rooftop_resources]
+
+        solarthermal_rooftop_resources = [x / self.available_area_scaling for x in solarthermal_rooftop_resources]
         # ---------------------------------------------------------------------
         # TEMPORARY
         # UN-COMMENT for saving resource to yaml:
@@ -430,10 +449,18 @@ class CalliopeOptimiser:
         demand_power_ev_pd = pd.Series(demand_power_ev_pd, index=date_index)
         demand_power_ev_pu = pd.Series(demand_power_ev_pu, index=date_index)
         demand_power_ev_delta = pd.Series(demand_power_ev_delta, index=date_index)
-        pv_resource_old = pd.Series(pv_resource_old, index=date_index)
-        pv_resource_new = pd.Series(pv_resource_new, index=date_index)
-        solar_th_resource_old = pd.Series(solar_th_resource_old, index=date_index)
-        solar_th_resource_new = pd.Series(solar_th_resource_new, index=date_index)
+
+        # pv_resource_old = pd.Series(pv_resource_old, index=date_index)
+        # pv_resource_new = pd.Series(pv_resource_new, index=date_index)
+
+        
+        
+        pv_rooftop_resources = [pd.Series(x, index=date_index) for x in pv_rooftop_resources]
+        solarthermal_rooftop_resources = [pd.Series(x, index=date_index) for x in solarthermal_rooftop_resources]
+
+        # solar_th_resource_old = pd.Series(solar_th_resource_old, index=date_index)
+        # solar_th_resource_new = pd.Series(solar_th_resource_new, index=date_index)
+
         supply_wet_biomass = pd.Series(supply_wet_biomass, index=date_index)
         supply_wood = pd.Series(supply_wood, index=date_index)
         wp_resource_annual = pd.Series(wp_resource_annual, index=date_index)
@@ -457,10 +484,21 @@ class CalliopeOptimiser:
         df_demand_power_ev_pd = demand_power_ev_pd.to_frame('d_e_ev_pd')
         df_demand_power_ev_pu = demand_power_ev_pu.to_frame('d_e_ev_pu')
         df_demand_power_ev_delta = demand_power_ev_delta.to_frame('d_e_ev_delta')
-        df_pv_resource_old = pv_resource_old.to_frame('v_e_pv')
-        df_pv_resource_new = pv_resource_new.to_frame('v_e_pv')
-        df_solar_th_resource_old = solar_th_resource_old.to_frame('v_h_solar_th')
-        df_solar_th_resource_new = solar_th_resource_new.to_frame('v_h_solar_th')
+
+        # df_pv_resource_old = pv_resource_old.to_frame('v_e_pv')
+        # df_pv_resource_new = pv_resource_new.to_frame('v_e_pv')
+
+        # df_pv_rooftop_resource = [pv_rooftop_resources[i].to_frame('v_e_pvrooftop_'+str(i)) for i in range(len(pv_rooftop_resources))]
+        df_pv_rooftop_resource = pd.concat(pv_rooftop_resources, axis = 1)
+        df_pv_rooftop_resource.columns = ['v_e_pvrooftop_'+str(i) for i in range(len(pv_rooftop_resources))]
+
+        df_solarthermal_rooftop_resource = pd.concat(solarthermal_rooftop_resources, axis = 1)
+        df_solarthermal_rooftop_resource.columns = ['v_h_solarthermalrooftop_'+str(i) for i in range(len(solarthermal_rooftop_resources))]
+
+
+        # df_solar_th_resource_old = solar_th_resource_old.to_frame('v_h_solar_th')
+        # df_solar_th_resource_new = solar_th_resource_new.to_frame('v_h_solar_th')
+
         df_supply_wet_biomass = supply_wet_biomass.to_frame('s_wet_bm')
         df_supply_wood = supply_wood.to_frame('s_wd')
         df_wp_resource_annual = wp_resource_annual.to_frame('v_e_wp')
@@ -488,10 +526,15 @@ class CalliopeOptimiser:
             'demand_power_ev_pd':df_demand_power_ev_pd,
             'demand_power_ev_pu':df_demand_power_ev_pu,
             'demand_power_ev_delta':df_demand_power_ev_delta,            
-            'pv_resource_old':df_pv_resource_old,
-            'pv_resource_new':df_pv_resource_new,
-            'solar_th_resource_old':df_solar_th_resource_old,
-            'solar_th_resource_new':df_solar_th_resource_new,            
+            # 'pv_resource_old':df_pv_resource_old,
+            # 'pv_resource_new':df_pv_resource_new,
+
+            'pvrooftop_resource':df_pv_rooftop_resource,
+
+            'solarthermalrooftop_resource':df_solarthermal_rooftop_resource,
+
+            # 'solar_th_resource_old':df_solar_th_resource_old,
+            # 'solar_th_resource_new':df_solar_th_resource_new,            
             'wet_biomass_resource':df_supply_wet_biomass,
             'wood_resource':df_supply_wood,
             'wp_resource_annual':df_wp_resource_annual,
@@ -506,6 +549,8 @@ class CalliopeOptimiser:
 
             }
         
+        
+        # dftpv = timeseries_dataframes['pvrooftop_resource']
         # for key in timeseries_dataframes.keys():
         #     if timeseries_dataframes[key].isna().sum().sum() > 0:
         #         timeseries_dataframes[key] = timeseries_dataframes[key].fillna(0)
@@ -538,10 +583,17 @@ class CalliopeOptimiser:
         # Run model:
         calliope.set_log_verbosity('INFO')
 
+        self.custom_constraint_ev_flexibility = (self.scen_techs['scenarios']['demand_side']
+                                        and self.scen_techs['demand_side']['ev_integration']
+                                        and self.scen_techs['demand_side']['ev_flexibility'])
+        if self.scen_techs['tes_sites']['deployment']:
+            self.custom_constraint_tes_sites = self.tech_tes_sites.get_custom_constraints_required()
+        else:
+            self.custom_constraint_tes_sites = False
+
+
         if (
-            self.scen_techs['scenarios']['demand_side']
-            and self.scen_techs['demand_side']['ev_integration']
-            and self.scen_techs['demand_side']['ev_flexibility']
+            self.custom_constraint_ev_flexibility or self.custom_constraint_tes_sites
                 ):
             self.custom_constraints = True
 
@@ -553,20 +605,40 @@ class CalliopeOptimiser:
         
         if self.custom_constraints:
         
-            ts_len = len(demand_heat)
-            n_days = int(ts_len/24.0) # assuming hourly timesteps and full days
-            
-            # Add custom constraints for EV flexibility:
+            if self.custom_constraint_tes_sites:
 
-            # print(model.backend)
-            # exit()
+                ts_len = len(demand_heat)
 
-            model = dem_calliope_cc.ev_flexibility_constraints(
-                model=model,
-                ts_len=ts_len,
-                n_days=n_days,
-                energy_demand=self.energy_demand,
-                )
+                #Custom constraints and costs for TES Sites
+
+                model = dem_calliope_cc.tes_sites_lt_no_conversion_without_charging_constraint(model, ts_len, self.tech_tes_sites.get_sites_list())
+                
+                model = dem_calliope_cc.tes_sites_size_ratios_constraints(model, ts_len, self.tech_tes_sites.get_sites_list())
+
+                model = dem_calliope_cc.tes_sites_minimum_size_constraints(model, ts_len, self.tech_tes_sites.get_sites_list())
+
+                model = dem_calliope_cc.tes_sites_minimum_size_cost(model, ts_len, self.tech_tes_sites.get_sites_list())
+                
+                model = dem_calliope_cc.tes_sites_charge_constraints(model, ts_len, self.tech_tes_sites.get_sites_list())
+
+                
+
+                
+            if self.custom_constraint_ev_flexibility:
+                ts_len = len(demand_heat)
+                n_days = int(ts_len/24.0) # assuming hourly timesteps and full days
+                
+                # Add custom constraints for EV flexibility:
+
+                # print(model.backend)
+                # exit()
+
+                model = dem_calliope_cc.ev_flexibility_constraints(
+                    model=model,
+                    ts_len=ts_len,
+                    n_days=n_days,
+                    energy_demand=self.energy_demand,
+                    )
         
         #----------------------------------------------------------------------
         # Save LP file: (prints file with human-readable mathematical formulation of the model)
@@ -749,45 +821,128 @@ class CalliopeOptimiser:
 
         # -------------------
         # Solar PV:
-        if 'solar_pv' in self.tech_list:
-            if self.tech_solar_pv.get_only_use_installed():
-                v_e_pv =\
-                    opt_results['carrier_prod'].loc['Old_Solar_PV::solar_pv_old::electricity'].values
-                v_e_pv_cons = (
-                    v_e_pv
-                    -opt_results['carrier_export'].loc['Old_Solar_PV::solar_pv_old::electricity'].values
-                    )
-                v_e_pv_exp =\
-                    opt_results['carrier_export'].loc['Old_Solar_PV::solar_pv_old::electricity'].values
+        # if 'solar_pv' in self.tech_list:
+        #     if self.tech_solar_pv.get_only_use_installed():
+        #         v_e_pv =\
+        #             opt_results['carrier_prod'].loc['Old_Solar_PV::solar_pv_old::electricity'].values
+        #         v_e_pv_cons = (
+        #             v_e_pv
+        #             -opt_results['carrier_export'].loc['Old_Solar_PV::solar_pv_old::electricity'].values
+        #             )
+        #         v_e_pv_exp =\
+        #             opt_results['carrier_export'].loc['Old_Solar_PV::solar_pv_old::electricity'].values
+                
+        #     else:
+        #         v_e_pv = (
+        #             opt_results['carrier_prod'].loc['New_Techs::solar_pv_new::electricity'].values +
+        #             opt_results['carrier_prod'].loc['Old_Solar_PV::solar_pv_old::electricity'].values
+        #             )
+        #         v_e_pv_cons = (
+        #             v_e_pv
+        #             -opt_results['carrier_export'].loc['New_Techs::solar_pv_new::electricity'].values
+        #             -opt_results['carrier_export'].loc['Old_Solar_PV::solar_pv_old::electricity'].values
+        #             )
+        #         v_e_pv_exp = (
+        #             opt_results['carrier_export'].loc['New_Techs::solar_pv_new::electricity'].values + 
+        #             opt_results['carrier_export'].loc['Old_Solar_PV::solar_pv_old::electricity'].values
+        #             )
+        #     if 'solar_thermal' in self.tech_list:
+        #         self.tech_solar_pv.update_v_e(
+        #                 v_e_updated=v_e_pv,
+        #                 tech_solar_thermal=self.tech_solar_thermal,
+        #                 consider_solar_thermal=True
+        #                 )
+        #     else:
+        #         self.tech_solar_pv.update_v_e(
+        #                 v_e_updated=v_e_pv,
+        #                 consider_solar_thermal=False
+        #                 )
+                
+        #     self.tech_solar_pv.update_v_e_cons(v_e_pv_cons)
+        #     self.tech_solar_pv.update_v_e_exp(v_e_pv_exp)
+
+
+        # -------------------
+        # Solar PV rooftop:
+        if 'solar_pvrooftop' in self.tech_list:
+
+            pvrooftop_cats = self.tech_solar_pvrooftop.get_num_installations()
+
+            if self.tech_solar_pvrooftop.get_only_use_installed():
+
+                v_e_pvrooftop_s = [opt_results['carrier_prod'].loc['solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_occupied'+'::electricity'].values 
+                           for i in range(pvrooftop_cats)]
+
+                v_e_pvrooftop_s_cons = [v_e_pvrooftop_s[i] - opt_results['carrier_export'].loc['solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_occupied'+'::electricity'].values 
+                           for i in range(pvrooftop_cats)]
+
+                v_e_pvrooftop_s_exp = [opt_results['carrier_export'].loc['solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_occupied'+'::electricity'].values 
+                           for i in range(pvrooftop_cats)]
                 
             else:
-                v_e_pv = (
-                    opt_results['carrier_prod'].loc['New_Techs::solar_pv_new::electricity'].values +
-                    opt_results['carrier_prod'].loc['Old_Solar_PV::solar_pv_old::electricity'].values
-                    )
-                v_e_pv_cons = (
-                    v_e_pv
-                    -opt_results['carrier_export'].loc['New_Techs::solar_pv_new::electricity'].values
-                    -opt_results['carrier_export'].loc['Old_Solar_PV::solar_pv_old::electricity'].values
-                    )
-                v_e_pv_exp = (
-                    opt_results['carrier_export'].loc['New_Techs::solar_pv_new::electricity'].values + 
-                    opt_results['carrier_export'].loc['Old_Solar_PV::solar_pv_old::electricity'].values
-                    )
-            if 'solar_thermal' in self.tech_list:
-                self.tech_solar_pv.update_v_e(
-                        v_e_updated=v_e_pv,
-                        tech_solar_thermal=self.tech_solar_thermal,
-                        consider_solar_thermal=True
-                        )
-            else:
-                self.tech_solar_pv.update_v_e(
-                        v_e_updated=v_e_pv,
-                        consider_solar_thermal=False
-                        )
+
+                v_e_pvrooftop_s = [opt_results['carrier_prod'].loc['solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_occupied'+'::electricity'].values 
+                           + opt_results['carrier_prod'].loc['solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_unoccupied'+'::electricity'].values
+                           for i in range(pvrooftop_cats)]
+
+                v_e_pvrooftop_s_cons = [v_e_pvrooftop_s[i] - opt_results['carrier_export'].loc['solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_occupied'+'::electricity'].values 
+                                - opt_results['carrier_export'].loc['solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_unoccupied'+'::electricity'].values 
+                           for i in range(pvrooftop_cats)]
+
+                v_e_pvrooftop_s_exp = [opt_results['carrier_export'].loc['solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_occupied'+'::electricity'].values 
+                               + opt_results['carrier_export'].loc['solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_unoccupied'+'::electricity'].values
+                           for i in range(pvrooftop_cats)]
+            
+            self.tech_solar_pvrooftop.update_v_e(v_e_pvrooftop_s)
+            self.tech_solar_pvrooftop.update_v_e_cons(v_e_pvrooftop_s_cons)
+            self.tech_solar_pvrooftop.update_v_e_exp(v_e_pvrooftop_s_exp)
+
+        if 'solarthermal_rooftop' in self.tech_list:
+
+            solarthermal_rooftop_cats = self.tech_solarthermal_rooftop.get_num_installations()
+
+            # if self.tech_solarthermal_rooftop.get_only_use_installed():
+
+                # v_h_solarthermalrooftop_s = [opt_results['carrier_prod'].loc['solarthermal_rooftop_installation_'+str(i)+'::solarthermal_rooftop_installation_'+str(i)+'_occupied'+'::heat_hp'].values 
+                #            for i in range(solarthermal_rooftop_cats)]
+
+                # v_h_solarthermalrooftop_s_cons = [v_h_pvrooftop_s[i] - opt_results['carrier_export'].loc['solarthermal_rooftop_installation_'+str(i)+'::solarthermal_rooftop_installation_'+str(i)+'_occupied'+'::heat_hp'].values 
+                #            for i in range(solarthermal_rooftop_cats)]
+
+                # v_h_solarthermalrooftop_s_exp = [opt_results['carrier_export'].loc['solarthermal_rooftop_installation_'+str(i)+'::solarthermal_rooftop_installation_'+str(i)+'_occupied'+'::heat_hp'].values 
+                #            for i in range(solarthermal_rooftop_cats)]
                 
-            self.tech_solar_pv.update_v_e_cons(v_e_pv_cons)
-            self.tech_solar_pv.update_v_e_exp(v_e_pv_exp)
+            # else:
+            if True:
+
+                # print(opt_results['carrier_prod']['loc_tech_carriers_prod'])
+                # print(type(opt_results['carrier_prod']))
+                # exit()
+
+                v_h_solarthermalrooftop_s = [opt_results['carrier_prod'].loc['solar_pvrooftop_installation_'+str(i)+'::solar_solarthermalrooftop_installation_'+str(i)+'_occupied'+'::heat_hp'].values 
+                           + opt_results['carrier_prod'].loc['solar_pvrooftop_installation_'+str(i)+'::solar_solarthermalrooftop_installation_'+str(i)+'_unoccupied'+'::heat_hp'].values
+                           for i in range(solarthermal_rooftop_cats)]
+
+                v_h_solarthermalrooftop_s_cons = [v_h_solarthermalrooftop_s[i] - opt_results['carrier_export'].loc['solar_pvrooftop_installation_'+str(i)+'::solar_solarthermalrooftop_installation_'+str(i)+'_occupied'+'::heat_hp'].values 
+                                - opt_results['carrier_export'].loc['solar_pvrooftop_installation_'+str(i)+'::solar_solarthermalrooftop_installation_'+str(i)+'_unoccupied'+'::heat_hp'].values 
+                           for i in range(solarthermal_rooftop_cats)]
+
+                v_h_solarthermalrooftop_s_exp = [opt_results['carrier_export'].loc['solar_pvrooftop_installation_'+str(i)+'::solar_solarthermalrooftop_installation_'+str(i)+'_occupied'+'::heat_hp'].values 
+                               + opt_results['carrier_export'].loc['solar_pvrooftop_installation_'+str(i)+'::solar_solarthermalrooftop_installation_'+str(i)+'_unoccupied'+'::heat_hp'].values
+                           for i in range(solarthermal_rooftop_cats)]
+            
+            self.tech_solarthermal_rooftop.update_v_h(v_h_solarthermalrooftop_s)
+            self.tech_solarthermal_rooftop.update_v_h_cons(v_h_solarthermalrooftop_s_cons)
+            self.tech_solarthermal_rooftop.update_v_h_exp(v_h_solarthermalrooftop_s_exp)   
+
+        else:
+            raise Exception("Not implemented")
+
+
+
+
+
+
 
         # -----------
         # Wind power:
@@ -1090,6 +1245,15 @@ class CalliopeOptimiser:
             # u_oil_obcp = null_array.copy()
 
         # -------------------
+        # Electric heater (central plant):
+        if 'electric_heater_cp' in self.tech_list:
+            v_h_ehcp = opt_results['carrier_prod'].loc['X1::electric_heater_cp_exist::heat_ehcp'].values
+            self.tech_electric_heater_cp.update_v_h(v_h_ehcp)
+            u_e_ehcp = self.tech_electric_heater_cp.get_u_e()
+        else:
+            u_e_ehcp = null_array.copy()
+
+        # -------------------
         # Wood boiler (central plant):
         if 'wood_boiler_cp' in self.tech_list:
             v_h_wbcp = opt_results['carrier_prod'].loc['X1::wood_boiler_cp_exist::heat_wbcp'].values
@@ -1168,6 +1332,7 @@ class CalliopeOptimiser:
             + d_e_ev
             + u_e_hp
             + u_e_eh
+            + u_e_ehcp
             + u_e_hpcp
             + u_e_hpcplt
             + u_e_aguh
@@ -1178,7 +1343,7 @@ class CalliopeOptimiser:
         d_e_hh = (
             -opt_results['carrier_con'].loc['X1::demand_electricity_hh::electricity'].values
             )        
-        d_e_h = u_e_hp + u_e_eh + u_e_hpcp + u_e_hpcplt
+        d_e_h = u_e_hp + u_e_eh + u_e_hpcp + u_e_hpcplt + u_e_ehcp
         d_h = -opt_results['carrier_con'].loc['X1::demand_heat::heat'].values        
         self.energy_demand.update_d_e(d_e)
         self.energy_demand.update_d_e_hh(d_e_hh)
@@ -1187,17 +1352,23 @@ class CalliopeOptimiser:
         self.energy_demand.update_d_h(d_h)
         
         # Unmet demand:
-        if 'solar_pv' in self.tech_list:
-            d_e_unmet = (
-                opt_results['unmet_demand'].loc['X1::electricity'].values
-                + opt_results['unmet_demand'].loc['Old_Solar_PV::electricity'].values
-                + opt_results['unmet_demand'].loc['New_Techs::electricity'].values
-                )
-        else:
-            d_e_unmet = (
-                opt_results['unmet_demand'].loc['X1::electricity'].values
-                + opt_results['unmet_demand'].loc['New_Techs::electricity'].values
-                )
+
+        d_e_unmet = (
+            opt_results['unmet_demand'].loc['X1::electricity'].values
+            + opt_results['unmet_demand'].loc['New_Techs::electricity'].values
+            )
+
+        # if 'solar_pv' in self.tech_list:
+        #     d_e_unmet = (
+        #         opt_results['unmet_demand'].loc['X1::electricity'].values
+        #         + opt_results['unmet_demand'].loc['Old_Solar_PV::electricity'].values
+        #         + opt_results['unmet_demand'].loc['New_Techs::electricity'].values
+        #         )
+        # else:
+        #     d_e_unmet = (
+        #         opt_results['unmet_demand'].loc['X1::electricity'].values
+        #         + opt_results['unmet_demand'].loc['New_Techs::electricity'].values
+        #         )
             
         d_h_unmet = (
             opt_results['unmet_demand'].loc['X1::heat'].values
@@ -1218,7 +1389,14 @@ class CalliopeOptimiser:
             
         if 'tes' in self.tech_list:
             d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_tes'].values
-            
+
+        if 'tes_sites' in self.tech_list:
+
+            for loc in self.tech_tes_sites.get_list_of_sitekeys():
+                for x in loc:
+                    if x.endswith("ht"):
+                        d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_'+x].values
+
         if 'waste_to_energy' in self.tech_list:
             d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_wte'].values
             
@@ -1230,6 +1408,9 @@ class CalliopeOptimiser:
 
         if 'oil_boiler_cp' in self.tech_list:
             d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_obcp'].values
+
+        if 'electric_heater_cp' in self.tech_list:
+            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_ehcp'].values
 
         if 'wood_boiler_cp' in self.tech_list:
             d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_wbcp'].values
@@ -1269,6 +1450,55 @@ class CalliopeOptimiser:
             else:
                 self.tech_tes.update_sos(q_h_tes *0)
             self.tech_tes.update_cap(cap_tes)
+
+# -------------------
+        # Thermal energy storage sites: # LOSSES TO BE ADDED
+        if 'tes_sites' in self.tech_list:
+
+            list_of_sitekeys = self.tech_tes_sites.get_list_of_sitekeys()
+            sites_list = self.tech_tes_sites.get_sites_list()
+
+
+            for site_indexval in range(len(list_of_sitekeys)):
+                sitekeys = list_of_sitekeys[site_indexval]
+                for subsite in sitekeys:
+                    t = subsite.split("_")[-1]
+
+                    v_h_tessite = opt_results['carrier_prod'].loc['X1::'+subsite+'::heat_'+subsite].values
+                    u_h_tessite = -opt_results['carrier_con'].loc['X1::'+subsite+'::heat_'+subsite].values
+                    q_h_tessite = opt_results['storage'].loc['X1::'+subsite].values
+
+                    cap_tessite = float(opt_results['storage_cap'].loc['X1::'+subsite].values)
+
+                    
+
+                    self.tech_tes_sites.set_u_h_site_type(u_h_tessite, site_indexval, t)
+                    self.tech_tes_sites.set_v_h_site_type(v_h_tessite, site_indexval, t)
+                    self.tech_tes_sites.set_q_h_site_type(q_h_tessite, site_indexval, t)
+
+                    self.tech_tes_sites.set_cap_site_type(cap_tessite, site_indexval, t)
+                    if subsite[-4:] == 'ltlt':
+
+                        name = sites_list[site_indexval]['name']
+                        u_hht_to_hlt = (opt_results['carrier_prod'].loc['X1::conv_'+name+'_htht_to_'+name+'_ltlt::heat_'+subsite]
+                         +opt_results['carrier_prod'].loc['X1::conv_'+name+'_htlt_to_'+name+'_ltlt::heat_'+subsite])
+                        self.tech_tes_sites.set_u_hht_to_hlt(
+                            u_hht_to_hlt+self.tech_tes_sites.get_u_hht_to_hlt(site_indexval)
+                            , site_indexval)
+                    if subsite[-4:] == 'htlt':
+                        name = sites_list[site_indexval]['name']
+                        
+                        u_hht_to_hlt = opt_results['carrier_prod'].loc['X1::conv_'+name+'_lt_to_'+'heatlt_htlt::heatlt']-v_h_tessite
+                        self.tech_tes_sites.set_u_hht_to_hlt(
+                            u_hht_to_hlt+self.tech_tes_sites.get_u_hht_to_hlt(site_indexval)
+                            , site_indexval)
+
+
+
+                    self.tech_tes_sites.update_soc_site_type(site_indexval, t)
+                    self.tech_tes_sites.update_losses_site_type(site_indexval, t)
+
+
         # -------------------
         # Thermal energy storage - decentralised: # LOSSES TO BE ADDED
         if 'tes_decentralised' in self.tech_list:
@@ -1318,6 +1548,24 @@ class CalliopeOptimiser:
             else:
                 self.tech_gtes.update_sos(q_gas_gtes * 0)
             self.tech_gtes.update_cap(cap_gtes)
+
+        # -------------------
+        # Wood storage:
+        if 'ws' in self.tech_list:
+            v_wd_ws = opt_results['carrier_prod'].loc['X1::ws::wood'].values
+            u_wd_ws = -opt_results['carrier_con'].loc['X1::ws::wood'].values
+            q_wd_ws = opt_results['storage'].loc['X1::ws'].values
+            cap_ws = float(opt_results['storage_cap'].loc['X1::ws'].values)
+
+            self.tech_ws.update_v_wd(v_wd_ws)
+            self.tech_ws.update_u_wd(u_wd_ws)
+            self.tech_ws.update_q_wd(q_wd_ws)
+            if cap_ws > 0:
+                self.tech_ws.update_sos(q_wd_ws / cap_ws)
+            else:
+                self.tech_ws.update_sos(q_wd_ws * 0)
+            self.tech_ws.update_cap(cap_ws)
+
 
         # -------------------
         # Hydrogen energy storage:
@@ -1466,15 +1714,27 @@ class CalliopeOptimiser:
                     tech_groups_dict
                     )
                     
-        if 'solar_thermal' in self.tech_list:
-            tech_groups_dict = self.tech_solar_thermal.create_tech_groups_dict(
-                tech_groups_dict
-                )
+        # if 'solar_thermal' in self.tech_list:
+        #     tech_groups_dict = self.tech_solar_thermal.create_tech_groups_dict(
+        #         tech_groups_dict
+        #         )
             
-        if 'solar_pv' in self.tech_list:
-            tech_groups_dict = self.tech_solar_pv.create_tech_groups_dict(
+        if 'solarthermal_rooftop' in self.tech_list:
+            tech_groups_dict = self.tech_solarthermal_rooftop.create_tech_groups_dict(
                 tech_groups_dict
                 )
+
+            
+        # if 'solar_pv' in self.tech_list:
+        #     tech_groups_dict = self.tech_solar_pv.create_tech_groups_dict(
+        #         tech_groups_dict
+        #         )
+            
+        if 'solar_pvrooftop' in self.tech_list:
+            tech_groups_dict = self.tech_solar_pvrooftop.create_tech_groups_dict(
+                tech_groups_dict
+                )
+
             
         if 'wind_power' in self.tech_list:
             tech_groups_dict = self.tech_wind_power.create_tech_groups_dict(
@@ -1546,6 +1806,13 @@ class CalliopeOptimiser:
                 self.tech_oil_boiler_cp.create_tech_groups_dict(
                     tech_groups_dict
                     )
+            
+        if 'electric_heater_cp' in self.tech_list:
+            tech_groups_dict =\
+                self.tech_electric_heater_cp.create_tech_groups_dict(
+                    tech_groups_dict
+                    )
+
 
         if 'wood_boiler_cp' in self.tech_list:
             tech_groups_dict =\
@@ -1581,9 +1848,10 @@ class CalliopeOptimiser:
             'demand_electricity':'#072486',
             'demand_heat':'#660507',
             'heat_pump':'#860720',
-            'electric_heater':'#F27D52',
+            'electric_heater':"#F27D52",
             'oil_boiler':'#8E2999',
             'oil_boiler_cp':'#8E2999',
+            'electric_heater_cp':'#F27D52',
             'wood_boiler_cp':'#af3420',
             'oil_supply':'#8E2999',
             'gas_boiler':'#001A1A',
@@ -1598,9 +1866,11 @@ class CalliopeOptimiser:
             'wind_power': '#3333FF',
             'grid_supply':'#C5ABE3',
             'tes':'#EF008C',
+            'tes_sites':'#EF008C',
             'tes_decentralised':'#EF008C',
             'bes': '#229954',
             'gtes': '#000000',
+            'ws': "#DFA12E",
             'hes': '#87CEEB',
             'chp_gt':'#16FFCA',
             'gas_turbine_cp':'#FFCC00',
@@ -1719,11 +1989,11 @@ class CalliopeOptimiser:
         techs_dict = self.supply.create_supply_dict_wood_import(techs_dict)
         
         if 'waste_to_energy' in self.tech_list:
-            resource_msw = self.tech_waste_to_energy.get_annual_msw_supply_kWh()
+            # resource_msw = self.tech_waste_to_energy.get_annual_msw_supply_kWh()
             techs_dict = self.supply.create_supply_dict_msw(
                 techs_dict,
                 color=colors['waste_to_energy'],
-                resource=resource_msw
+                # resource=resource_msw
                 )
             self.tech_list_old.append('msw_supply')
         
@@ -1964,60 +2234,87 @@ class CalliopeOptimiser:
             
             self.tech_list_old = self.tech_list_old + dh_techs_label_list
             
-        if 'solar_thermal' in self.tech_list:            
-            energy_cap_old = self.tech_solar_thermal.get_v_h().max()
+        # if 'solar_thermal' in self.tech_list:            
+        #     energy_cap_old = self.tech_solar_thermal.get_v_h().max()
             
-            techs_dict = self.tech_solar_thermal.create_techs_dict(techs_dict,
-                                  header = 'solar_thermal_old',
-                                  name = 'Solar Thermal Old', 
-                                  color = colors['solar_thermal'], 
-                                  resource = 'df=solar_th_resource_old:v_h_solar_th',
-                                  energy_cap = energy_cap_old,
-                                  capex_0 = True
-                                  )
+        #     techs_dict = self.tech_solar_thermal.create_techs_dict(techs_dict,
+        #                           header = 'solar_thermal_old',
+        #                           name = 'Solar Thermal Old', 
+        #                           color = colors['solar_thermal'], 
+        #                           resource = 'df=solar_th_resource_old:v_h_solar_th',
+        #                           energy_cap = energy_cap_old,
+        #                           capex_0 = True
+        #                           )
             
-            techs_dict = self.tech_solar_thermal.create_techs_dict(techs_dict,
-                                  header = 'solar_thermal_new',
-                                  name = 'Solar Thermal New', 
-                                  color = colors['solar_thermal'], 
-                                  resource = 'df=solar_th_resource_new:v_h_solar_th',
-                                  energy_cap = 'inf',
-                                  )
+        #     techs_dict = self.tech_solar_thermal.create_techs_dict(techs_dict,
+        #                           header = 'solar_thermal_new',
+        #                           name = 'Solar Thermal New', 
+        #                           color = colors['solar_thermal'], 
+        #                           resource = 'df=solar_th_resource_new:v_h_solar_th',
+        #                           energy_cap = 'inf',
+        #                           )
             
-            self.tech_list_old.append('solar_thermal_old')
-            self.tech_list_new.append('solar_thermal_new')
+        #     self.tech_list_old.append('solar_thermal_old')
+        #     self.tech_list_new.append('solar_thermal_new')
             
-        if 'solar_pv' in self.tech_list:            
-            energy_cap_old = self.tech_solar_pv.get_v_e().max()
+        # if 'solar_pv' in self.tech_list:            
+        #     energy_cap_old = self.tech_solar_pv.get_v_e().max()
             
-            techs_dict = self.tech_solar_pv.create_techs_dict(techs_dict,
-                                  header = 'solar_pv_old',
-                                  name = 'Solar PV Old', 
-                                  color = colors['solar_pv'], 
-                                  resource = 'df=pv_resource_old:v_e_pv',
-                                  energy_cap = energy_cap_old,
-                                  capex_0 = True
-                                  )
+        #     techs_dict = self.tech_solar_pv.create_techs_dict(techs_dict,
+        #                           header = 'solar_pv_old',
+        #                           name = 'Solar PV Old', 
+        #                           color = colors['solar_pv'], 
+        #                           resource = 'df=pv_resource_old:v_e_pv',
+        #                           energy_cap = energy_cap_old,
+        #                           capex_0 = True
+        #                           )
             
-            # Force deployment of currently installed systems:
-            techs_dict['solar_pv_old']['constraints.energy_cap_equals'] =\
-                energy_cap_old
+        #     # Force deployment of currently installed systems:
+        #     techs_dict['solar_pv_old']['constraints.energy_cap_equals'] =\
+        #         energy_cap_old
             
-            self.tech_list_old.append('solar_pv_old')
+        #     self.tech_list_old.append('solar_pv_old')
             
-            if self.tech_solar_pv.get_only_use_installed():
-                pass
-            else:      
-                techs_dict = self.tech_solar_pv.create_techs_dict(techs_dict,
-                                      header = 'solar_pv_new',
-                                      name = 'Solar PV New',
-                                      color = colors['solar_pv'],
-                                      resource = 'df=pv_resource_new:v_e_pv',
-                                      energy_cap = 'inf',
-                                      )
+        #     if self.tech_solar_pv.get_only_use_installed():
+        #         pass
+        #     else:      
+        #         techs_dict = self.tech_solar_pv.create_techs_dict(techs_dict,
+        #                               header = 'solar_pv_new',
+        #                               name = 'Solar PV New',
+        #                               color = colors['solar_pv'],
+        #                               resource = 'df=pv_resource_new:v_e_pv',
+        #                               energy_cap = 'inf',
+        #                               )
                 
-                self.tech_list_new.append('solar_pv_new')
+        #         self.tech_list_new.append('solar_pv_new')
+
+        if 'solar_pvrooftop' in self.tech_list:
             
+            print(self.tech_solar_pvrooftop.get_num_installations())
+
+            techs_dict, headers = self.tech_solar_pvrooftop.create_techs_dict(techs_dict,
+                                                                              color = colors['solar_pv'],
+                                                                              resources = [
+                                                                                  'df='+'pvrooftop_resource'+':'+'v_e_pvrooftop_'+str(i) 
+                                                                                  for i in range(self.tech_solar_pvrooftop.get_num_installations())]
+                                                                              )
+            
+            self.tech_list_pv.append(headers)
+
+        if 'solarthermal_rooftop' in self.tech_list:
+            
+            print(self.tech_solarthermal_rooftop.get_num_installations())
+
+            techs_dict, headers = self.tech_solarthermal_rooftop.create_techs_dict(techs_dict,
+                                                                              color = colors['solar_thermal'],
+                                                                              resources = [
+                                                                                  'df='+'solarthermalrooftop_resource'+':'+'v_h_solarthermalrooftop_'+str(i) 
+                                                                                  for i in range(self.tech_solarthermal_rooftop.get_num_installations())]
+                                                                              )
+            
+            self.tech_list_solarthermal.append(headers)
+
+
         if 'wind_power' in self.tech_list:
             
             techs_dict = self.tech_wind_power.create_techs_dict_unit(
@@ -2080,7 +2377,15 @@ class CalliopeOptimiser:
                 )
             
             self.tech_list_old = self.tech_list_old + tes_techs_label_list
+
+        if 'tes_sites' in self.tech_list:
+            techs_dict, tes_sites_techs_label_list = self.tech_tes_sites.create_techs_dict(
+                techs_dict,
+                colors['tes']
+                )
             
+            self.tech_list_old = self.tech_list_old + tes_sites_techs_label_list
+
         if 'tes_decentralised' in self.tech_list:
             techs_dict, tesdc_techs_label_list = self.tech_tes_decentralised.create_techs_dict(
                 techs_dict,
@@ -2108,6 +2413,14 @@ class CalliopeOptimiser:
                 colors['gtes']
                 )
             self.tech_list_old.append('gtes')
+
+        if 'ws' in self.tech_list:
+            techs_dict = self.tech_ws.create_techs_dict(
+                techs_dict,
+                colors['ws']
+                )
+            self.tech_list_old.append('ws')
+
 
         if 'hes' in self.tech_list:
             techs_dict = self.tech_hes.create_techs_dict(
@@ -2237,6 +2550,16 @@ class CalliopeOptimiser:
             
             self.tech_list_old.append('oil_boiler_cp_exist')
  
+        if 'electric_heater_cp' in self.tech_list:
+            techs_dict = self.tech_electric_heater_cp.create_techs_dict(
+                techs_dict=techs_dict,
+                header='electric_heater_cp_exist',
+                name='Electric Heater (central plant)',
+                color=colors['electric_heater_cp'],
+                )
+            
+            self.tech_list_old.append('electric_heater_cp_exist')
+
         if 'wood_boiler_cp' in self.tech_list:
             techs_dict = self.tech_wood_boiler_cp.create_techs_dict(
                 techs_dict=techs_dict,
@@ -2293,7 +2616,7 @@ class CalliopeOptimiser:
     def __create_location_dict(self):
         
         # Techs with separate locations:
-        tech_locs = ['wind_power_old', 'wind_power_new', 'solar_thermal_old', 'solar_pv_old']
+        tech_locs = ['wind_power_old', 'wind_power_new']#, 'solar_thermal_old', 'solar_pv_old']
         
         # Dictionary to be populated for main location X1:
         loc_dict = {
@@ -2308,7 +2631,7 @@ class CalliopeOptimiser:
                 },
             'New_Techs':{
                 'techs':{},
-                'available_area': self.available_area_scaling, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
+                # 'available_area': self.available_area_scaling, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
                 'coordinates':{
                   'lat': 5,
                   'lon': 5
@@ -2339,26 +2662,38 @@ class CalliopeOptimiser:
         else:
             loc_dict['X1']['techs']['demand_electricity_ev'] = {}
         
-        if 'solar_thermal' in self.tech_list:
-            loc_dict['Old_Solar_Thermal'] = {
-                'techs':{},
-                'available_area': self.available_area_scaling, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
-                'coordinates':{
-                    'lat': 3,
-                    'lon': 3
+        # if 'solar_thermal' in self.tech_list:
+        #     loc_dict['Old_Solar_Thermal'] = {
+        #         'techs':{},
+        #         'available_area': self.available_area_scaling, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
+        #         'coordinates':{
+        #             'lat': 3,
+        #             'lon': 3
+        #             }
+        #         }
+        
+        # if 'solar_pv' in self.tech_list:
+        #     loc_dict['Old_Solar_PV'] = {
+        #         'techs':{},
+        #         'available_area': self.available_area_scaling, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
+        #         'coordinates':{
+        #           'lat': 3,
+        #           'lon': 4
+        #           }
+        #         }
+        
+        if len(self.tech_list_pv) > 0:
+            for i in range(len(self.tech_list_pv)):
+                for j in range(len(self.tech_list_pv[i])):
+                    loc_dict[self.tech_list_pv[i][j]] = {
+                        'techs': {},
+                        'available_area': self.available_area_scaling,
+                        'coordinates':{
+                            'lat': 10+i,
+                            'lon': j
+                            }
                     }
-                }
-        
-        if 'solar_pv' in self.tech_list:
-            loc_dict['Old_Solar_PV'] = {
-                'techs':{},
-                'available_area': self.available_area_scaling, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
-                'coordinates':{
-                  'lat': 3,
-                  'lon': 4
-                  }
-                }
-        
+
         # ---------------------------------------------------------------------
         # Populate loc_dict for main location X1:
         for tech in self.tech_list_old:
@@ -2373,6 +2708,23 @@ class CalliopeOptimiser:
                 pass
             else:
                 loc_dict['New_Techs']['techs'][tech] = None
+        for i in range(len(self.tech_list_pv)):
+
+            techs = self.tech_list_pv[i]
+
+            for j in range(len(techs)):
+
+                tech = techs[j]
+                tech_thermal = self.tech_list_solarthermal[i][j]
+
+                print(tech)
+                loc_dict[tech]['techs'][tech+"_occupied"] = None
+                loc_dict[tech]['techs'][tech+"_unoccupied"] = None
+
+                loc_dict[tech]['techs'][tech_thermal+"_occupied"] = None
+                loc_dict[tech]['techs'][tech_thermal+"_unoccupied"] = None
+
+
 
         # Update loc_dict with timeseries
         # loc_dict['X1']['techs']['demand_electricity']['constraints.resource'] =\
@@ -2413,11 +2765,11 @@ class CalliopeOptimiser:
         
         # ---------------------------------------------------------------------
         # Populate loc_dict for currently existing (i.e. "old") tech locations:
-        if 'solar_thermal_old' in self.tech_list_old:
-            loc_dict['Old_Solar_Thermal']['techs']['solar_thermal_old'] = None
+        # if 'solar_thermal_old' in self.tech_list_old:
+        #     loc_dict['Old_Solar_Thermal']['techs']['solar_thermal_old'] = None
             
-        if 'solar_pv_old' in self.tech_list_old:
-            loc_dict['Old_Solar_PV']['techs']['solar_pv_old'] = None        
+        # if 'solar_pv_old' in self.tech_list_old:
+        #     loc_dict['Old_Solar_PV']['techs']['solar_pv_old'] = None        
         
         # ---------------------------------------------------------------------
         # Populate loc_dict for wind power locations:
@@ -2550,15 +2902,15 @@ class CalliopeOptimiser:
         
         link_locs_heat_hp = ['New_Techs']
         
-        if 'solar_thermal' in self.tech_list:
-            link_locs.append('Old_Solar_Thermal')
+        # if 'solar_thermal' in self.tech_list:
+        #     link_locs.append('Old_Solar_Thermal')
             
-            link_locs_heat.append('Old_Solar_Thermal')
+        #     link_locs_heat.append('Old_Solar_Thermal')
         
-        if 'solar_pv' in self.tech_list:
-            link_locs.append('Old_Solar_PV')
+        # if 'solar_pv' in self.tech_list:
+        #     link_locs.append('Old_Solar_PV')
             
-            link_locs_power.append('Old_Solar_PV')
+        #     link_locs_power.append('Old_Solar_PV')
         
         if 'wind_power' in self.tech_list:
             link_locs.append('loc_wp_winter')
@@ -2567,7 +2919,11 @@ class CalliopeOptimiser:
             link_locs_power.append('loc_wp_winter')
             link_locs_power.append('loc_wp_annual')
         
-        
+        if len(self.tech_list_pv) > 0:
+            for i in range(len(self.tech_list_pv)):
+                for j in range(len(self.tech_list_pv[i])):
+                    link_locs_power.append(self.tech_list_pv[i][j])
+
         # Initialise dict:
         links_dict = {}
         
@@ -2578,11 +2934,20 @@ class CalliopeOptimiser:
                 }
             
         for loc in link_locs_power:
+            links_dict[f'X1,{loc}'] = {
+                'techs':{}
+            }
             links_dict[f'X1,{loc}']['techs']['power_line'] = {
                 'constraints':{
                     # 'energy_cap_equals':1e10
                     }
                 }
+            links_dict[f'X1,{loc}']['techs']['hp_heat_line'] = {
+                'constraints':{
+                    # 'energy_cap_equals':1e10
+                    }
+                }
+
                 
             
         for loc in link_locs_heat:
@@ -2689,8 +3054,12 @@ class CalliopeOptimiser:
         if self.opt_metrics['MIPGap_increase']:        
             if mipgap_ >= 0.01:
                 pass
-            elif ('tes' in self.tech_list or 'bes' in self.tech_list 
-                  or 'gtes' in self.tech_list or 'hes' in self.tech_list):
+            elif ('tes' in self.tech_list 
+                  or 'bes' in self.tech_list 
+                  or 'gtes' in self.tech_list 
+                  or 'hes' in self.tech_list 
+                  or 'ws' in self.tech_list 
+                  or 'tes_sites' in self.tech_list):
                 mipgap_ = 0.01 # MIPGap increased to 1% to reduce optimisation runtime
                 print("\nSolver MIPGap increased to 1% because of deployment of "
                       "storage technology. Storage technologies contain MIP "

@@ -43,7 +43,6 @@ class GasBoilerCP(TechCore):
         self._u_gas = [] # gas input [kWh]
         self._u_gas_kg = [] # gas input [kg]
         self._v_h = [] # heat output [kWh]
-        self._v_co2 =[]
         
         #----------------------------------------------------------------------
         # Tests:
@@ -77,7 +76,6 @@ class GasBoilerCP(TechCore):
         # self._replacement_factor = tech_dict['replacement_factor']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._capex = tech_dict['capex']
         self._maintenance_cost = tech_dict['maintenance_cost']
 
@@ -94,7 +92,6 @@ class GasBoilerCP(TechCore):
         df['u_gas_gbcp'] = self.get_u_gas()
         df['u_gas_gbcp_kg'] = self.get_u_gas_kg()
         df['v_h_gbcp'] = self.get_v_h()
-        df['v_co2_gbcp'] = self.get_v_co2()
         
         return df
     
@@ -118,7 +115,6 @@ class GasBoilerCP(TechCore):
         self._u_gas = self._u_gas[:n_hours]
         self._u_gas_kg = self._u_gas_kg[:n_hours]
         self._v_h = self._v_h[:n_hours]
-        self._v_co2 = self._v_co2[:n_hours]
     
     def compute_v_h(self, src_h_yr, d_h_profile):
 
@@ -130,10 +126,7 @@ class GasBoilerCP(TechCore):
         
         # Compute respective gas input:
         self.__compute_u_gas()
-        
-        # Compute co2:
-        self.__compute_v_co2()
-        
+                
     def update_v_h(self, v_h_updated):
         
         if len(v_h_updated) != len(self._v_h):
@@ -143,7 +136,6 @@ class GasBoilerCP(TechCore):
         
         self.__compute_u_gas()
         
-        self.__compute_v_co2()
         
     def __compute_u_gas(self):
         """
@@ -154,10 +146,7 @@ class GasBoilerCP(TechCore):
                 
         self._u_gas = np.array(self._v_h)/self._eta # [kWh]
         self._u_gas_kg = np.array(self._v_h)*3600/(self._eta*hv_gas_kJpkg) # [kg]
-        
-    def __compute_v_co2(self):        
-        self._v_co2 = self._v_h*self.__tech_dict['co2_intensity']
-        
+                
         
     # @staticmethod
     # def get_u_oil(hv_oil_MJpkg, v_h_ob):
@@ -235,9 +224,6 @@ class GasBoilerCP(TechCore):
                     'om_con':0.0, # costs are reflected in gas_supply
                     'interest_rate':self._interest_rate,
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity,
-                    }
                 }
             }
         
@@ -305,9 +291,6 @@ class GasBoilerCP(TechCore):
                     'interest_rate':self._interest_rate,
                     'energy_cap': capex
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity,
-                    }
                 }
             }
         
@@ -323,7 +306,6 @@ class GasBoilerCP(TechCore):
         self._u_gas = init_vals.copy()
         self._u_gas_kg = init_vals.copy()
         self._v_h = init_vals.copy()
-        self._v_co2 = init_vals.copy()
 
 
     # def create_oil_supply(
@@ -357,9 +339,6 @@ class GasBoilerCP(TechCore):
     #                 'om_con':price_CHFpkWh,
     #                 'interest_rate':0.0
     #                 },
-    #             'emissions_co2':{
-    #                 'om_prod':0.0 # this is reflected in the emissions of oil_boiler
-    #                 }
     #             }
     #         }
         
@@ -379,15 +358,7 @@ class GasBoilerCP(TechCore):
         if len(self._u_gas_kg)==0:
             raise ValueError("u_gas_gbcp_kg has not yet been computed!")        
         return self._u_gas_kg
-    
-    def get_v_co2(self):
-        if len(self._v_co2)==0:
-            raise ValueError("v_co2_gbcp has not yet been computed!")            
-        return self._v_co2
-    
-    # def get_replacement_factor(self):
-    #     return self._replacement_factor
-    
+            
     def get_fixed_demand_share(self):
         return self._fixed_demand_share
     

@@ -57,13 +57,13 @@ class HydrogenProduction(TechCore):
         """
         
         #Checks for Errors:
-        if tech_dict['efficiancy'] > 1:
-            raise Exception("This technology cannot have an efficiancy above 1.")
-        if tech_dict['efficiancy'] < 0:
-            raise Exception("This technology cannot have an efficiancy below 0.")
+        if tech_dict['efficiency'] > 1:
+            raise Exception("This technology cannot have an efficiency above 1.")
+        if tech_dict['efficiency'] < 0:
+            raise Exception("This technology cannot have an efficiency below 0.")
             
         #Properties:
-        self._eta = tech_dict['efficiancy']
+        self._eta = tech_dict['efficiency']
         self._maintenance_cost = tech_dict['maintenance_cost']
 
         
@@ -157,7 +157,7 @@ class HydrogenProduction(TechCore):
                 },
             'constraints':{
                 'energy_cap_max':self.__tech_dict['capacity_kWh'],
-                'energy_eff':self.__tech_dict['efficiancy'],
+                'energy_eff':self.__tech_dict['efficiency'],
                 'lifetime':self.__tech_dict['lifetime']
                 },
             'costs':{
@@ -167,9 +167,6 @@ class HydrogenProduction(TechCore):
                     'interest_rate':self.__tech_dict['interest_rate'],
                     'om_annual': self._maintenance_cost
                     },
-                'emissions_co2':{
-                    'om_prod':self.__tech_dict['co2_intensity']
-                    }
                 }
             }
         

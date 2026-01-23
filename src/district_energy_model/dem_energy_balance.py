@@ -48,7 +48,9 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
         Timeseries of imported energy [kWh].
 
     """
-    tech_solar_pv = tech_instances['solar_pv']
+    # tech_solar_pv = tech_instances['solar_pv']
+    tech_solar_pvrooftop = tech_instances['solar_pvrooftop']
+
     tech_wind_power = tech_instances['wind_power']
     tech_biomass = tech_instances['biomass']
     tech_hydro_power = tech_instances['hydro_power']
@@ -56,7 +58,8 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     tech_grid_supply = tech_instances['grid_supply']
     
     d_e = energy_demand.get_d_e()
-    v_e_pv = tech_solar_pv.get_v_e()
+    # v_e_pv = tech_solar_pv.get_v_e()
+    v_e_pvrooftop = tech_solar_pvrooftop.get_v_e_from_installations()
     v_e_wp = tech_wind_power.get_v_e()
     v_e_bm = tech_biomass.get_v_e()
     v_e_hydro = tech_hydro_power.get_v_e()
@@ -67,31 +70,48 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
         u_e_bes = tech_bes.get_u_e()
 
     if not with_bes:
-        dem_helper.check_dataseries_lengths(d_e, v_e_pv, v_e_wp, v_e_bm, v_e_hydro)
+        dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro)
     else:
-        dem_helper.check_dataseries_lengths(d_e, v_e_pv, v_e_wp, v_e_bm, v_e_hydro, v_e_bes, u_e_bes)
+        dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_bes, u_e_bes)
 
     # Get dataseries length:
     ds_n = len(d_e)    
     
     # Create hierarchy of technologies, acc. to what is used first:
-    if with_bes:
-        tech_hierarchy = ['pv', 'wp', 'bm', 'hydro', 'bes']
-    else:
-        tech_hierarchy = ['pv', 'wp', 'bm', 'hydro']
+    # if with_bes:
+    #     tech_hierarchy = ['pv', 'wp', 'bm', 'hydro', 'bes']
+    # else:
+    #     tech_hierarchy = ['pv', 'wp', 'bm', 'hydro']
     
+    tech_hierarchy_pv_section = ['pvrooftop_'+str(_) for _ in range(len(v_e_pvrooftop))]
+    if with_bes:
+        tech_hierarchy = tech_hierarchy_pv_section+['wp', 'bm', 'hydro', 'bes']
+    else:
+        tech_hierarchy = tech_hierarchy_pv_section+['wp', 'bm', 'hydro']
+
+
+    # dict_v_e = {
+    #     'pv':pd.Series(v_e_pv),
+    #     'wp':pd.Series(v_e_wp),
+    #     'bm':pd.Series(v_e_bm),
+    #     'hydro':pd.Series(v_e_hydro),
+    #     'bes':pd.Series(v_e_bes),
+    #     } if with_bes else {
+    #     'pv':pd.Series(v_e_pv),
+    #     'wp':pd.Series(v_e_wp),
+    #     'bm':pd.Series(v_e_bm),
+    #     'hydro':pd.Series(v_e_hydro),
+    #     }
     dict_v_e = {
-        'pv':pd.Series(v_e_pv),
-        'wp':pd.Series(v_e_wp),
-        'bm':pd.Series(v_e_bm),
-        'hydro':pd.Series(v_e_hydro),
-        'bes':pd.Series(v_e_bes),
-        } if with_bes else {
-        'pv':pd.Series(v_e_pv),
-        'wp':pd.Series(v_e_wp),
-        'bm':pd.Series(v_e_bm),
-        'hydro':pd.Series(v_e_hydro),
+        'pvrooftop_'+str(i): pd.Series(v_e_pvrooftop[i]) for i in range(len(v_e_pvrooftop))
         }
+    dict_v_e |= {
+        'wp':pd.Series(v_e_wp),
+        'bm':pd.Series(v_e_bm),
+        'hydro':pd.Series(v_e_hydro)
+        }
+    if with_bes:
+        dict_v_e |= {'bes':pd.Series(v_e_bes)}
     
     # Initialise dicts for self-consumption (con) and export (exp)
     dict_v_e_cons = {}
@@ -145,8 +165,9 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     
     # Solar PV:
     # ---------
-    tech_solar_pv.update_v_e_cons(dict_v_e_cons['pv'])
-    tech_solar_pv.update_v_e_exp(dict_v_e_exp['pv'])
+
+    tech_solar_pvrooftop.update_v_e_cons([dict_v_e_cons[x] for x in tech_hierarchy_pv_section])
+    tech_solar_pvrooftop.update_v_e_exp([dict_v_e_exp[x] for x in tech_hierarchy_pv_section])
         
     # Wind power:
     # -----------
@@ -514,6 +535,12 @@ def electricity_balance_test(scen_techs,
     # Check timeseries:
     
     missing_keys = [
+        'v_e_pv',
+        'v_e_pv_cons',
+        'v_e_pv_exp',
+        'v_e_pvrooftop',
+        'v_e_pvrooftop_cons',
+        'v_e_pvrooftop_exp',
         'u_e_bes',
         'v_e_bes',
         'q_e_bes',
@@ -527,6 +554,7 @@ def electricity_balance_test(scen_techs,
         'v_e_st_wbsg',
         'v_e_wte',
         'u_e_hpcp',
+        'u_e_ehcp',
         'u_e_hpcplt',
         'u_e_aguh',
         'u_e_wgu',
@@ -542,7 +570,9 @@ def electricity_balance_test(scen_techs,
         
     electricity_consumption = df_scen['d_e'] + df_scen['u_e_bes']
     
-    electricity_generation = (df_scen['v_e_pv_cons']
+    electricity_generation = (
+                                # df_scen['v_e_pv_cons']
+                                df_scen['v_e_pvrooftop_cons']
                               + df_scen['v_e_wp_cons']
                               + df_scen['v_e_bm_cons']
                               + df_scen['v_e_hydro_cons']
@@ -571,13 +601,19 @@ def electricity_balance_test(scen_techs,
                                      + df_scen['u_e_eh']
                                      + df_scen['u_e_hpcp']
                                      + df_scen['u_e_hpcplt']
+                                     + df_scen['u_e_ehcp']
                                      )
     
-    pv_generation = df_scen['v_e_pv']
+    pv_generation = df_scen['v_e_pvrooftop']
     
-    pv_generation_split = (df_scen['v_e_pv_cons']
-                           + df_scen['v_e_pv_exp']
-                           )
+    # pv_generation_split = (df_scen['v_e_pv_cons']
+    #                        + df_scen['v_e_pv_exp']
+    #                        )
+
+    pv_generation_split = (
+        df_scen['v_e_pvrooftop_cons']
+        + df_scen['v_e_pvrooftop_exp']
+            )
     
     total_import = df_scen['m_e']
     
@@ -595,11 +631,12 @@ def electricity_balance_test(scen_techs,
                           )
     
     # Convert solar thermal to equivalent solar pv yield:
-    tmp_pv_equi = dem_techs.SolarPV.convert_thermal_to_pv(
-        df_thermal_kWh=df_scen['v_h_solar'],
-        eta_pv=scen_techs['solar_pv']['eta_overall'],
-        eta_thermal=scen_techs['solar_thermal']['eta_overall']
-        )
+    
+    # tmp_pv_equi = dem_techs.SolarPV.convert_thermal_to_pv(
+    #     df_thermal_kWh=df_scen['v_h_solar'],
+    #     eta_pv=scen_techs['solar_pv']['eta_overall'],
+    #     eta_thermal=scen_techs['solar_thermal']['eta_overall']
+    #     )
     
     # pv_potential_split = (
     #     tmp_pv_equi                 # TEMPORARY FIX!!! Wie sollen wir Solarthermie behandeln?                
@@ -607,20 +644,25 @@ def electricity_balance_test(scen_techs,
     #     + df_scen['v_e_pv_pot_remain']
     #     )
     
-    if optimisation:
-        pv_potential_split = (
-            tmp_pv_equi                 # TEMPORARY FIX!!! Wie sollen wir Solarthermie behandeln?                
-            + df_scen['v_e_pv']
-            + df_scen['v_e_pv_pot_remain']
-            )
-    else:
-        pv_potential_split = (
-            0# tmp_pv_equi                 # TEMPORARY FIX!!! Wie sollen wir Solarthermie behandeln?                
-            + df_scen['v_e_pv']
-            + df_scen['v_e_pv_pot_remain']
-            )
+    pv_potential_split = (
+        df_scen['v_e_pvrooftop']
+        + df_scen['v_e_pvrooftop_pot_remain']
+        )
     
-    pv_potential = df_scen['v_e_pv_pot'] # installed and additional potential
+    # if optimisation:
+    #     pv_potential_split = (
+    #         tmp_pv_equi                 # TEMPORARY FIX!!! Wie sollen wir Solarthermie behandeln?                
+    #         + df_scen['v_e_pvrooftop']
+    #         + df_scen['v_e_pvrooftop_pot_remain']
+    #         )
+    # else:
+    #     pv_potential_split = (
+    #         0# tmp_pv_equi                 # TEMPORARY FIX!!! Wie sollen wir Solarthermie behandeln?                
+    #         + df_scen['v_e_pvrooftop']
+    #         + df_scen['v_e_pvrooftop_pot_remain']
+    #         )
+    
+    pv_potential = df_scen['v_e_pvrooftop_pot'] # installed and additional potential
     
     wp_generation = df_scen['v_e_wp']
     
@@ -820,7 +862,8 @@ def electricity_balance_test(scen_techs,
 def heat_balance_test(df_scen,
                       optimisation=False,
                       diff_accepted = 1e-5,
-                      diff_sum_accepted = 0.1
+                      diff_sum_accepted = 0.1,
+                      tes_sites_plotting_inf = {}
                       ):
     
     """
@@ -874,6 +917,7 @@ def heat_balance_test(df_scen,
         'v_h_hpcp',
         'v_h_hpcplt',
         'v_h_obcp',
+        'v_h_ehcp',
         'v_h_wbcp',
         'v_h_wh',
         'v_h_gbcp',
@@ -881,6 +925,13 @@ def heat_balance_test(df_scen,
         'm_h_dh',
         ]
     
+    for k in tes_sites_plotting_inf.keys():
+        for k2 in tes_sites_plotting_inf[k].keys():
+            if k2 != 'color':
+                for x in tes_sites_plotting_inf[k][k2]:
+                    if x not in missing_keys:
+                        missing_keys.append(x)
+
     for k in missing_keys:
         if k in df_scen.columns:
             pass
@@ -889,6 +940,7 @@ def heat_balance_test(df_scen,
     
     heat_consumption = (df_scen['d_h']
                         + df_scen['u_h_tesdc']
+                        + df_scen['v_h_solarthermalrooftop_exp']
                         # + df_scen['u_h_tes'] # INCLUDED IN DISTRICT HEATING
                         )
     
@@ -914,7 +966,7 @@ def heat_balance_test(df_scen,
                        + df_scen['v_h_gb']
                        + df_scen['v_h_wb']
                        + df_scen['v_h_dh']
-                       + df_scen['v_h_solar']
+                       + df_scen['v_h_solarthermalrooftop']
                        + df_scen['v_h_other']
                         + df_scen['v_h_tesdc']
                        # + df_scen['v_h_tes'] # INCLUDED IN DISTRICT HEATING
@@ -935,11 +987,30 @@ def heat_balance_test(df_scen,
         + df_scen['l_v_h_tes']
         + df_scen['l_q_h_tes']
         ).sum()
+    for k in tes_sites_plotting_inf:
+        for k2 in tes_sites_plotting_inf[k]:
+            if k2 != 'color':
+                if k2.startswith('l_') and '_lt' not in k2:
+                    for x in tes_sites_plotting_inf[k][k2]:
+                        tes_losses_sum += df_scen[x].sum()
+
     
     tes_input_sum = df_scen['u_h_tes'].sum()
     
     tes_output_sum = df_scen['v_h_tes'].sum()
-    
+
+    for k in tes_sites_plotting_inf:
+        for k2 in tes_sites_plotting_inf[k]:
+            if k2 != 'color':
+                if k2.startswith('u') and '_lt' not in k2:
+                    for x in tes_sites_plotting_inf[k][k2]:
+                        tes_input_sum += df_scen[x].sum()
+                if k2.startswith('v') and '_lt' not in k2:
+                    for x in tes_sites_plotting_inf[k][k2]:
+                        tes_output_sum += df_scen[x].sum()
+
+
+
     tes_sos_diff = df_scen['q_h_tes'].iloc[-1] - df_scen['q_h_tes'].iloc[0] # state-of-charge (sos) difference
     
     # ------------------------------------------------
@@ -970,6 +1041,7 @@ def heat_balance_test(df_scen,
         + df_scen['v_h_hpcp']
         + df_scen['v_h_hpcplt']
         + df_scen['v_h_obcp']
+        + df_scen['v_h_ehcp']
         + df_scen['v_h_wbcp']
         + df_scen['v_h_wh']
         + df_scen['v_h_gbcp']
@@ -978,7 +1050,22 @@ def heat_balance_test(df_scen,
         - df_scen['u_h_tes']
         + df_scen['d_h_unmet_dhn']
         )
-    
+
+    for k in tes_sites_plotting_inf:
+        for k2 in tes_sites_plotting_inf[k]:
+            if k2 != 'color':
+                if k2.startswith('u') and '_lt' not in k2:
+                    
+                    for x in tes_sites_plotting_inf[k][k2]:
+                        district_heat_techs -= df_scen[x]
+                if k2.startswith('v') and '_lt' not in k2:
+                    
+                    for x in tes_sites_plotting_inf[k][k2]:
+                        district_heat_techs += df_scen[x]
+
+
+
+
     # -------------------------------------------------------------------------
     # Check timeseries
     

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Apr 10 16:21:45 2024
+Created on Wed Apr 10 16:19:13 2024
 
 @author: UeliSchilt
 """
@@ -8,12 +8,16 @@ Created on Wed Apr 10 16:21:45 2024
 import numpy as np
 import pandas as pd
 
-from district_energy_model.techs.dem_tech_core import TechCore
+from techs.dem_tech_core import TechCore
 
-class ElectricHeater(TechCore):
+class SolarThermal(TechCore):
+    
+    """
+    Conversion technology: solar thermal.
+    
+    """
     
     def __init__(self, tech_dict):
-        
         """
         Initialise technology parameters.
         
@@ -27,23 +31,22 @@ class ElectricHeater(TechCore):
         -------
         n/a
         """
+        
         super().__init__(tech_dict)
         
         # Initialize properties:
         self.update_tech_properties(tech_dict)
         
         # Carrier types:
-        self.input_carrier = 'electricity'
         self.output_carrier = 'heat'
         
         # Accounting:
-        self._u_e = [] # electric heater input (electricity)
-        self._v_h = [] # electric heater output (heat)
+        self._v_h = []
         
     def update_tech_properties(self, tech_dict):
         
         """
-        Updates the electric heater technology properties based on a new tech_dict.
+        Updates the solar thermal technology properties based on a new tech_dict.
         
         Parameters
         ----------
@@ -54,13 +57,13 @@ class ElectricHeater(TechCore):
         -------
         None
         """
-        self._v_max = tech_dict['kW_max'] # Max electric and thermal capacity
+        # Properties:
+        self._v_max = tech_dict['kW_th_max']
+        self._eta_overall = tech_dict['eta_overall']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
         self._capex = tech_dict['capex']
-        self._fixed_demand_share = tech_dict['fixed_demand_share']
-        self._fixed_demand_share_val = tech_dict['fixed_demand_share_val']
-        self._replacement_factor = tech_dict['replacement_factor']
+        self._capex_one_to_one_replacement = tech_dict['capex_one_to_one_replacement']
         self._maintenance_cost = tech_dict['maintenance_cost']
         self._power_up_for_replacement = 0.0
 
@@ -69,8 +72,7 @@ class ElectricHeater(TechCore):
         
     def update_df_results(self, df):
         
-        df['u_e_eh'] = self.get_u_e()
-        df['v_h_eh'] = self.get_v_h()
+        df['v_h_solar'] = self.get_v_h()
         
         return df
     
@@ -87,12 +89,12 @@ class ElectricHeater(TechCore):
         -------
         None.
 
-        """        
+        """
+        
         n_hours = n_days*24
         
-        self._u_e = self._u_e[:n_hours]
         self._v_h = self._v_h[:n_hours]
-
+    
     def compute_v_h(self, src_h_yr, d_h_profile):
 
         tmp_df = pd.DataFrame({'d_h_profile':d_h_profile})        
@@ -100,9 +102,7 @@ class ElectricHeater(TechCore):
         tmp_df['v_h'] = tmp_df['d_h_profile']*src_h_yr
     
         self._v_h = np.array(tmp_df['v_h'])
-        self._u_e = self._v_h # Conversion efficiency = 1.0
-        
-        
+                
     def update_v_h(
             self,
             v_h_updated
@@ -112,37 +112,65 @@ class ElectricHeater(TechCore):
             raise ValueError("v_h_updated must have the same length as v_h!")
             
         self._v_h = np.array(v_h_updated)
-        self._u_e = self._v_h # Conversion efficiency = 1.0
         
+                
+    @staticmethod
+    def convert_pv_to_thermal(df_pv_kWh, eta_pv, eta_thermal):
+        """
+        Return values for solar thermal energy equivalent to pv energy under
+        same irradiation and area.
+
+        Parameters
+        ----------
+        df_pv_kWh : pandas dataseries
+            Timeseries of solar pv generation (or potential) [kWh].
+        eta_pv : float
+            Overall conversion efficiency of solar PV system [-].
+        eta_thermal : float
+            Overall conversion efficiency of solar thermal system [-].
+
+        Returns
+        -------
+        df_thermal_kWh : pandas dataseries
+            Timeseries of solar thermal generation (or potential) [kWh].
+
+        """
+        
+        df_thermal_kWh = df_pv_kWh/eta_pv*eta_thermal
+        
+        return df_thermal_kWh
+    
     def create_tech_groups_dict(self, tech_groups_dict):
         
-        tech_groups_dict['electric_heater'] = {
+        tech_groups_dict['solar_thermal'] = {
             'essentials':{
-                'parent':'conversion',
-                'carrier_in':'electricity',
-                'carrier_out':'heat'
+                'parent':'supply_plus',
+                'carrier': 'heat'
                 },
             'constraints':{
-                'energy_eff':1,
-                'lifetime':self._lifetime
+                'resource_unit': 'energy_per_area', # 'energy',
+                'parasitic_eff': 1.0, # efficiency is already accounted for in the resource dataseries
+                'force_resource': True,
+                'lifetime': self._lifetime,
                 },
             'costs':{
                 'monetary':{
-                    'om_con':0.0, # reflected in the cost of electricity
                     'interest_rate':self._interest_rate,
+                    'om_con':0.0
                     },
                 }
             }
         
         return tech_groups_dict
         
-    def create_techs_dict(self, 
+    def create_techs_dict(self,
                           techs_dict,
                           header,
                           name, 
                           color, 
+                          resource,
                           energy_cap,
-                          capex_0=False
+                          capex_0=False,
                           ):
         
         if capex_0==False:
@@ -153,10 +181,11 @@ class ElectricHeater(TechCore):
         techs_dict[header] = {
             'essentials':{
                 'name': name,
-                'parent': 'electric_heater',
-                'color': color
+                'color': color,
+                'parent': 'solar_thermal'
                 },
             'constraints':{
+                'resource': resource,
                 'energy_cap_max': energy_cap
                 },
             'costs':{
@@ -165,54 +194,18 @@ class ElectricHeater(TechCore):
                     'om_annual': self._maintenance_cost
                     }
                 }
-            }
-        return techs_dict
-    
-    def create_techs_dict_clustering(
-            techs_dict,
-            tech_dict,
-            name = 'Electric Heater', 
-            color = '#F27D52',
-            capex = 0
-            ):
+            }        
         
-        techs_dict['electric_heater'] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent':'conversion',
-                'carrier_in':'electricity',
-                'carrier_out':'heat'
-                },
-            'constraints':{
-                'energy_eff':1,
-                'lifetime':tech_dict['lifetime']
-                },
-            'costs':{
-                'monetary':{
-                    'om_con':0.0, # reflected in the cost of electricity
-                    'interest_rate':tech_dict['interest_rate'],
-                    'energy_cap': capex
-                    },
-                }
-            }
         return techs_dict
     
-    def get_u_e(self):
-        self.len_test(self._u_e)
-        return self._u_e
+    def get_eta_overall(self):
+        self.num_test(self._eta_overall)
+        return self._eta_overall
     
     def get_v_h(self):
         self.len_test(self._v_h)
         return self._v_h
-        
-    def get_fixed_demand_share(self):
-        return self._fixed_demand_share
-    
-    def get_fixed_demand_share_val(self):
-        self.num_test(self._fixed_demand_share_val)
-        return self._fixed_demand_share_val
-        
+            
     def get_power_up_for_replacement(self):
         return self._power_up_for_replacement
     
@@ -220,11 +213,3 @@ class ElectricHeater(TechCore):
         self._power_up_for_replacement = value
 
     
-    
-    
-    
-    
-    
-    
-    
-        

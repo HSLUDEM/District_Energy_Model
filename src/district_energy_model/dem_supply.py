@@ -142,7 +142,7 @@ class Supply(TechCore):
                     'interest_rate':0.0
                     },
                 'emissions_co2':{
-                    'om_prod':0.0 # this is reflected in the emissions of oil_boiler
+                    'om_prod': self.supply_tech_dict['co2_content_oil']   # this is reflected in the emissions of oil_boiler
                     }
                 }
             }
@@ -178,7 +178,7 @@ class Supply(TechCore):
                     'interest_rate':0.0
                     },
                 'emissions_co2':{
-                    'om_prod':0.0 # this is reflected in the emissions of gas_boiler
+                    'om_prod': self.supply_tech_dict['co2_content_gas']  # this is reflected in the emissions of gas_boiler
                     }
                 }
             }
@@ -203,7 +203,7 @@ class Supply(TechCore):
                     'interest_rate':0.0
                     },
                 'emissions_co2':{
-                    'om_prod':0.0 # this is reflected in the emissions of oil_boiler
+                    'om_prod': self.supply_tech_dict['co2_content_wet_biomass'] # this is reflected in the emissions of oil_boiler
                     }
                 }
             }
@@ -213,7 +213,7 @@ class Supply(TechCore):
     
     def create_supply_dict_wood(self, techs_dict):
         
-        price_CHFpkg=self.supply_tech_dict['wood_price_CHFpkg']
+        price_CHFpkg=self.supply_tech_dict['wood_price_CHFpkg_local']
         hv_wood_MJpkg=self.supply_tech_dict['hv_wood_MJpkg']
         hv_wood_kWhpkg=hv_wood_MJpkg*C.CONV_MJ_to_kWh
         price_CHFpkWh = price_CHFpkg/hv_wood_kWhpkg
@@ -235,7 +235,7 @@ class Supply(TechCore):
                     'interest_rate':0.0
                     },
                 'emissions_co2':{
-                    'om_prod':0.0 # this is reflected in the emissions of the respective tech
+                    'om_prod': self.supply_tech_dict['co2_content_local_wood']    # this is reflected in the emissions of the respective tech
                     }
                 }
             }
@@ -249,7 +249,7 @@ class Supply(TechCore):
         else:
             cap_max_ = 0.0
         
-        price_CHFpkg=self.supply_tech_dict['wood_price_CHFpkg']
+        price_CHFpkg=self.supply_tech_dict['wood_price_CHFpkg_imported']
         hv_wood_MJpkg=self.supply_tech_dict['hv_wood_MJpkg']
         hv_wood_kWhpkg=hv_wood_MJpkg*C.CONV_MJ_to_kWh
         price_CHFpkWh = price_CHFpkg/hv_wood_kWhpkg
@@ -273,7 +273,7 @@ class Supply(TechCore):
                     'interest_rate':0.0
                     },
                 'emissions_co2':{
-                    'om_prod':0.0 # this is reflected in the emissions of the respective tech
+                    'om_prod': self.supply_tech_dict['co2_content_imported_wood'] # this is reflected in the emissions of the respective tech
                     }
                 }
             }
@@ -286,7 +286,7 @@ class Supply(TechCore):
             techs_dict,
             # tech_dict,
             color,
-            resource,
+            # resource,
             ):       
         
         # Price conversion from CHF/kg to CHF/kWh:
@@ -295,7 +295,19 @@ class Supply(TechCore):
         hv_msw_kWhpkg = hv_msw_MJpkg*C.CONV_MJ_to_kWh
         price_CHFpkWh = price_CHFpkg/hv_msw_kWhpkg
         
+
+
         # Compute resource per timestep from annual resource:
+        
+        resource_kg = self.supply_tech_dict['annual_msw_supply']
+
+        if resource_kg == 'inf':
+            resource = 'inf'
+        else:
+            CONV_MJ_to_kWh = 1000/3600 # Conversion from [MJ] to [kWh]        
+            supp_MJ = resource_kg*hv_msw_MJpkg    
+            resource = supp_MJ*CONV_MJ_to_kWh
+
         if resource == 'inf':
             resource_ts = 'inf'
         else:
@@ -318,7 +330,10 @@ class Supply(TechCore):
                     'interest_rate':0.0
                     },
                 'emissions_co2':{
-                    'om_prod':0.0 # this is reflected in the emissions of oil_boiler
+                    'om_prod': (
+                        self.supply_tech_dict['co2_content_msw']
+                        *self.supply_tech_dict['msw_share_fossile']
+                        ) # this is reflected in the emissions of oil_boiler
                     }
                 }
             }

@@ -38,7 +38,8 @@ class HeatPumpCore(TechCore):
         self._cop_mode = tech_dict["cop_mode"]
         self._cop_timeseries_file_path = tech_dict["cop_timeseries_file_path"]
         self._cop_constant_value = tech_dict['cop_constant_value']
-        self._spf_to_target = tech_dict['spf_to_target']
+        if 'spf_to_target' in tech_dict.keys():
+            self._spf_to_target = tech_dict['spf_to_target']
 
     def compute_cop_timeseries(self, d_h_profile):
         n_hours = len(d_h_profile)
@@ -53,6 +54,7 @@ class HeatPumpCore(TechCore):
             self._cop = self._temperature_based_cop
         else:
             raise ValueError("OTHER OPTIONS NOT YET IMPLEMENTED")
+        
     def _adjust_cop_timeseries_to_spf(self, cop, spf_to_target, d_h_profile):
         bedarf = d_h_profile / cop
         spf_at_the_moment = d_h_profile.sum() / (bedarf.sum())
@@ -80,7 +82,6 @@ class HeatPumpCore(TechCore):
         self._u_e = self._u_e[:n_hours]
         self._u_h = self._u_h[:n_hours]
         self._v_h = self._v_h[:n_hours]
-        self._v_co2 = self._v_co2[:n_hours]
         self._cop = self._cop[:n_hours]
 
     def initialise_zero(self, n_days):
@@ -91,7 +92,6 @@ class HeatPumpCore(TechCore):
         self._u_e = init_vals.copy()
         self._u_h = init_vals.copy()
         self._v_h = init_vals.copy()
-        self._v_co2 = init_vals.copy()
 
     def compute_v_h(self, src_h_yr, d_h_profile):
 
@@ -105,7 +105,6 @@ class HeatPumpCore(TechCore):
         # Re-calculate:
         self._compute_u_e()
         self._compute_u_h()
-        self._compute_v_co2()
 
     def update_v_h_i(self, i, val):
         self.num_test(val)
@@ -113,7 +112,6 @@ class HeatPumpCore(TechCore):
         
         self.__compute_u_e_i(i)
         self.__compute_u_h_i(i)
-        self.__compute_v_co2_i(i)
 
 
     def update_v_h(self, v_h_updated):
@@ -124,7 +122,6 @@ class HeatPumpCore(TechCore):
 
         self._compute_u_e()
         self._compute_u_h()
-        self._compute_v_co2()
 
     def get_cop(self):
         # self.num_test(self._hpcp_cop)
@@ -146,11 +143,6 @@ class HeatPumpCore(TechCore):
             raise ValueError()
         return self._u_h
     
-    def get_v_co2(self):
-        if len(self._v_co2)==0:
-            raise ValueError()
-        return self._v_co2
-
     def _compute_u_e(self):
         
         """
@@ -170,9 +162,6 @@ class HeatPumpCore(TechCore):
         self._u_h = self._v_h*(1-1/self._cop)
         self._u_h[self._u_h < 0] = 0.0
         
-    def _compute_v_co2(self):
-        self._v_co2 = self._v_h*self.__tech_dict['co2_intensity']
-
     def create_tech_groups_dict(self, tech_groups_dict):
         
         tech_groups_dict[self._label] = {
@@ -190,9 +179,6 @@ class HeatPumpCore(TechCore):
                     'om_con': 0.0, # this is reflected in the cost of the electricity
                     'interest_rate':self._interest_rate
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity
-                    }
                 } 
             }
         
@@ -248,9 +234,6 @@ class HeatPumpCore(TechCore):
         
         self._u_h[i] = self._v_h[i]*(1-1/self._cop[i])
         
-    def __compute_v_co2_i(self,i):
-        self._v_co2[i] = self._v_h[i]*self.__tech_dict['co2_intensity']
-
     def heat_output(self,u_e_i):
         
         """

@@ -33,8 +33,9 @@ ehrp = 100 # [%] electric heater replacement factor (ehrp)
 
 tes_cap = 'inf' #12 # 0.20 # [GWh] TES capacity *1000'000 kWh; Forsthaus: 12-15GWh
 tes_ic = 0.0 # [-] TES initial charge (fraction of total storage capacity)
-tesdc_cap = 0.20 #'inf' #10 # 0.20 # [GWh] TES (decentralised) capacity *1000'000 kWh; without optimisation, capacity cannot be 'inf'!
+tesdc_cap = 'inf' #10 # 0.20 # [GWh] TES (decentralised) capacity *1000'000 kWh;
 # tesdc_cap = 10 # 0.20 # [GWh] TES (decentralised) capacity *1000'000 kWh;
+
 
 tesdc_ic = 0.0 # [-] TES (decentralised) initial charge (fraction of total storage capacity)
 bes_cap = 'inf' #0.20 # [GWh] BES capacity *1000'000 kWh
@@ -43,6 +44,10 @@ bes_cap = 'inf' #0.20 # [GWh] BES capacity *1000'000 kWh
 bes_ic = 0.0 # [-] TES initial charge (fraction of total storage capacity)
 gtes_cap = 'inf' #1e6 # [GWh] BES capacity *1000'000 kWh
 gtes_ic = 0.0 # [-] TES initial charge (fraction of total storage capacity)
+
+ws_cap = 'inf' #1e6 # [GWh] WS capacity *1000'000 kWh
+ws_ic = 0.0 # [-] WS initial charge (fraction of total storage capacity)
+
 hes_cap = 'inf' #1e6 # [GWh] BES capacity *1000'000 kWh
 hes_ic = 0.0 # [-] TES initial charge (fraction of total storage capacity)
 
@@ -97,12 +102,10 @@ scen_techs = {
             
             }
         },
-
     'heat_pump':{ #hp
         'deployment':True,
         # 'deployment':False,
         'kW_th_max':'inf',
-        'co2_intensity': 0, # Set to 0 because CO2 intensity is captured via respective power supply (e.g. grid or pv)
         'lifetime':25,
         'interest_rate':interest_rate,
         'capex': 6000, # [CHF/kWth]
@@ -112,10 +115,9 @@ scen_techs = {
         'fixed_demand_share_val':0.0, # [-] Only relevant if fixed_demand_share == True; the share(per timestep) of the total heat demand served by this tech; ensure that resource and max. cap are set accordingly
         'only_allow_existing':False, # Only relevant for optimisation; if set to 'True', only the existing (allready installed) capacity can be used; CAREFUL: Avoid conflict with fixed_demand_share.
         
-        'cop_mode': "location_based", # "from_file", "constant", "from_file_adjusted_to_spf", "location_based"
+        'cop_mode': "location_based", # "from_file", "constant", "location_based"
         'cop_timeseries_file_path': 'input_files/cop_timeseries_test.feather',
         'cop_constant_value': 5.5,
-        'spf_to_target': 4.0,
         'quality_factor_ashp_new' : 0.4,
         'quality_factor_ashp_old' : 0.4,
         'quality_factor_gshp_new' : 0.48,
@@ -126,7 +128,6 @@ scen_techs = {
         'deployment':True,
         # 'deployment':False,
         'kW_max':'inf',
-        'co2_intensity': 0, # Set to 0 because CO2 intensity is captured via respective power supply (e.g. grid or pv)
         'lifetime':25,
         'interest_rate':interest_rate,
         'replacement_factor':ehrp/100,
@@ -144,7 +145,6 @@ scen_techs = {
         'hv_oil_MJpkg':hv_oil, # 42.9, # [MJ/kg] Heating value (lower) of oil
         'eta':0.85,
         'oil_price_CHFpl':oil_price, # 1.00, # [CHF/l] Oil price; see: https://www.migrol.ch/de/energie-w%C3%A4rme/heiz%C3%B6lpreisentwicklung/preisindex/
-        'co2_intensity':0.301, # [kgCO2/kWh]
         'lifetime':25,
         'interest_rate':interest_rate,
         'replacement_factor':fhrp/100,
@@ -163,7 +163,6 @@ scen_techs = {
         'hv_gas_MJpkg':hv_gas, # 46.0, # [MJ/kg] Heating value (lower) of gas
         'eta':0.90,
         'gas_price_CHFpkWh':gas_price, # [CHF/kWh] price of gas
-        'co2_intensity':0.228,
         'lifetime':25,
         'interest_rate':interest_rate,
         'replacement_factor':fhrp/100,
@@ -182,7 +181,6 @@ scen_techs = {
         'hv_wood_MJpkg':hv_wood, # [MJ/kg] Heating value (lower) of wood
         'eta':0.80,
         'wood_price_CHFpkg':wood_price, # [CHF/kg] price of wood
-        'co2_intensity':0.027,
         'lifetime':25,
         'interest_rate':interest_rate,
         'replacement_factor':fhrp/100,
@@ -214,54 +212,51 @@ scen_techs = {
         # 'capex':10000 # NOT YET IMPLEMENTED
         'heat_sources':{ # only applies to optimisation scenario
             'import':True,
-            'chp_gt':False, # if True, tech chp_gt must be deployed
-            'steam_turbine':False, # if True, tech steam_turbine must be deployed
-            'waste_to_energy':False, # if True, tech waste_to_energy must be deployed,
-            'heat_pump_cp':False, # if True, tech heat_pump_cp must be deployed !!! TECH NOT YET IMPLEMENTED !!!
-            'heat_pump_cp_lt':False, # 
-            'oil_boiler_cp' :False,
-            'wood_boiler_cp' :False,
-            'gas_boiler_cp' :False,
-            'waste_heat':False,
-            'biomass':False
+            'chp_gt':True, # if True, tech chp_gt must be deployed
+            'steam_turbine':True, # if True, tech steam_turbine must be deployed
+            'waste_to_energy':True, # if True, tech waste_to_energy must be deployed,
+            'heat_pump_cp':True, # if True, tech heat_pump_cp must be deployed !!! TECH NOT YET IMPLEMENTED !!!
+            'heat_pump_cp_lt':True, # 
+            'oil_boiler_cp' :True,
+            'electric_heater_cp' :True,
+            'wood_boiler_cp' :True,
+            'gas_boiler_cp' :True,
+            'waste_heat': True,
+            'biomass': True
             },
         },
     
-    'solar_thermal':{ # solar
-        'deployment':True, # NOTE: if solar pv is not deployed in optimisation, solar thermal is automatically also not deployed (due to resource sharing)!
-        # 'deployment':False,
+    'solar_pvrooftop':{ # pv
+        'deployment':True,
+        'kWp_max':'inf', 
+        'eta_overall': 0.23*0.95,
+        'lifetime':25,
+        'base_capex':3000, #capex per installed kWp power. This is not the same as the peak of the solar PV production.
+        'base_maintenance_cost': 6.45,
+        'interest_rate':interest_rate,
+        'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
+        'only_use_installed':False,
+        },
+        
+    'solarthermal_rooftop':{ # solar
+        'deployment':True, 
         'kW_th_max':'inf',
         'eta_overall':0.7,
-        'co2_intensity': 0.0,
         'lifetime':25,
         'interest_rate':interest_rate,
-        'capex': 2857, # [CHF/kW_th]
-        'capex_one_to_one_replacement': 1000, #[CHF/kW_th] does nothing
-        'maintenance_cost': 10, # [CHF/kW_th/year]
-        },
-              
-    'solar_pv':{ # pv
-        'deployment':True, # NOTE: if solar pv is not deployed in optimisation, solar thermal is automatically also not deployed (due to resource sharing)!
-        # 'deployment':False,
-        'kWp_max':'inf', # NOT CONSIDERED IN OPTIMISATION
-        'eta_overall':0.15,
-        'co2_intensity': 0.0, # [kgCO2/kWh]
-        'lifetime':25,
-        'capex':3000,
-        'maintenance_cost': 6.45, # [CHF/kW/year]
-        'interest_rate':interest_rate, #0.04,
-        'potential_integration_factor':pvpf/100,
-        'virtual_export_tariff':virtual_export_tariff_pv,
+        'base_capex': 2857, # [CHF/kW_th]
+        'base_capex_one_to_one_replacement': 1000*0, #[CHF/kW_th] does nothing
+        'base_maintenance_cost': 10, # [CHF/kW_th/year]
         'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
-        'only_use_installed':False, # for optimisation only; if set to 'True', only currently installed capacity can be used (no PV extension)
+        'only_use_installed': False
         },
+
     
     'wind_power':{ # wp
         'deployment':True,
         # 'deployment':False,
         'kWp_max': tech_cap_default,
         'kWp_max_systemwide': 'inf',
-        'co2_intensity': 0,
         'lifetime':25,
         'capex_CHFpkWp': 2075, # 1400,
         'maintenance_cost': 11.3, # [CHF/kW/year]
@@ -279,7 +274,6 @@ scen_techs = {
         # 'deployment':False,
         'kWp_max':'inf',
         'existing_decentralised':True, # NOCH NICHT IMPLEMENTIERT
-        'co2_intensity': 0,
         'lifetime':25,
         'capex':0,
         'maintenance_cost': 130, # [CHF/kW/year]
@@ -317,6 +311,7 @@ scen_techs = {
             'steam_turbine':True,
             'waste_to_energy':True,
             'oil_boiler_cp':True,
+            'electric_heater_cp':True,
             'wood_boiler_cp':True,
             'gas_boiler_cp':True,
             'heat_pump_cp':True, # heat pump central plant
@@ -324,13 +319,20 @@ scen_techs = {
             'waste_heat': False,
             'biomass': True
             },
-        'co2_intensity':0.0,
         'lifetime':25,
         'capex':1.67, # [CHF/kWh_th]
         'maintenance_cost': 0, # [CHF/kWh_th/year]
         'interest_rate':interest_rate
         },
-    
+
+    'tes_sites':{ # tes sites (thermal energy storage) (large scale, connected to District Heating Network): sites with different properties
+        'deployment':False,
+        'force_asynchronous_prod_con': force_asynchronous_storage,
+        'list_generation_mode': 'stub', #options: 'stub'
+        'generation_function_parameters': {},
+        'interest_rate':interest_rate
+        },
+
     'tes_decentralised':{ # tesdc
         'deployment':False,
         'force_asynchronous_prod_con': force_asynchronous_storage,
@@ -345,7 +347,6 @@ scen_techs = {
             'heat_pump':True, # connection to decentralised heat pumps; usually when dh is not connected
             'solar_thermal':False, # CONNECTION NOT YET IMPLEMENTED
             },
-        'co2_intensity':0.0,
         'lifetime':25,
         'capex':3.0, #1.67, # [CHF/kWh_th]
         'maintenance_cost': 0.02, # [CHF/kW/year]
@@ -353,7 +354,7 @@ scen_techs = {
         },
               
     'bes':{ # bes (battery energy storage)
-        'deployment':False,
+        'deployment':True,
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
@@ -362,7 +363,6 @@ scen_techs = {
         'chg_dchg_per_cap_max':0.1, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':bes_ic,
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
-        'co2_intensity': 0.0,
         'lifetime':10,
         'interest_rate':interest_rate,
         'capex':500, # [CHF/kWh_el]
@@ -370,7 +370,7 @@ scen_techs = {
         },
     
     'gtes':{ # gtes (gas tank energy storage) (large tank with gas)
-        'deployment':False,
+        'deployment':True,
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
@@ -379,15 +379,30 @@ scen_techs = {
         'chg_dchg_per_cap_max':0.1, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':gtes_ic,
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
-        'co2_intensity': 0.0,
         'lifetime':25,
         'interest_rate':interest_rate,
         'capex':0.2, # [CHF/(gas unit?)]
         'maintenance_cost': 0.01, # [CHF/kW/year]
         },
 
+    'ws':{ # ws (Wood storage) (piles of wood somewhere in the forest)
+        'deployment':True,
+        'force_asynchronous_prod_con': True,
+        # 'deployment':False,
+        'eta_chg_dchg': 1.0,
+        'ws_gamma':0.0,
+        'capacity_kWh':ws_cap*1e6 if ws_cap != 'inf' else 'inf',
+        'chg_dchg_per_cap_max':0.1, # max. charge/discharge (kW) per storage cap (kWh) per timestep
+        'initial_charge':ws_ic,
+        'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
+        'lifetime':50,
+        'interest_rate':interest_rate,
+        'capex':0.0, # [CHF/(kWh)] --> costs are part of wood price
+        'maintenance_cost': 0.0, # [CHF/kW/year] --> costs are part of wood price
+        },
+
     'hes':{ # hes (hydrogen energy storage) (large tank with hydrogen?)
-        'deployment':False,
+        'deployment':True,
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
@@ -396,7 +411,6 @@ scen_techs = {
         'chg_dchg_per_cap_max':0.1, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':1.0,#hes_ic,
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
-        'co2_intensity': 0.0,
         'lifetime':25,
         'interest_rate':interest_rate,
         'capex':15.0, # [CHF/(gas unit?)]
@@ -413,12 +427,11 @@ scen_techs = {
 
     
     'hydrothermal_gasification':{ # hg
-        'deployment':False,
+        'deployment':True,
         # 'deployment':False,
         'color': '#3A880A',
-        'efficiancy': 0.6,
+        'efficiency': 0.6,
         'capacity_kWh': 'inf',
-        'co2_intensity': 0.69,
         'lifetime': 25,
         'om_cost': 0, #Carrier Consumption Cost
         'capital_cost': 8268,
@@ -427,12 +440,11 @@ scen_techs = {
         },
     
     'anaerobic_digestion_upgrade':{ # agu
-        'deployment':False,
+        'deployment':True,
         # 'deployment':False,
         'color': '#FF00FF',
-        'efficiancy': 0.3,
+        'efficiency': 0.3,
         'capacity_kWh': 'inf',
-        'co2_intensity': 1.06,
         'lifetime': 25,
         'om_cost': 0, #Carrier Consumption Cost
         'capital_cost': 1053,
@@ -441,15 +453,14 @@ scen_techs = {
         },
     
     'anaerobic_digestion_upgrade_hydrogen':{ # aguh
-        'deployment':False,
+        'deployment':True,
         # 'deployment':False,
         'color': '#90037F',
         'fluid': False,
         'methane_percentage': 0.6,
-        'efficiancy_primary': 0.3,
-        'efficiancy_secondary': 0.8395,
+        'efficiency_primary': 0.3,
+        'efficiency_secondary': 0.8395,
         'capacity_kWh': 'inf',
-        'co2_intensity': 0.814,
         'lifetime': 25,
         'om_cost': 0, #Carrier Consumption Cost (electricity?)
         'capital_cost': 1834, # [CHF/kW chem LHV] # 1900,
@@ -458,13 +469,12 @@ scen_techs = {
         },
     
     'anaerobic_digestion_chp':{ # aguc
-        'deployment':False,
+        'deployment':True,
         # 'deployment':False,
         'color': '#90037F',
-        'efficiancy_electricity': 0.13,
-        'efficiancy_heat': 0.145,
+        'efficiency_electricity': 0.13,
+        'efficiency_heat': 0.145,
         'capacity_kWh': 'inf',
-        'co2_intensity': 2.9,
         'lifetime': 25,
         'om_cost': 0,
         'capital_cost': 1776,
@@ -476,10 +486,9 @@ scen_techs = {
         'deployment':False,
         # 'deployment':False,
         'color':'#904D11',
-        'efficiancy': 0.625,
+        'efficiency': 0.625,
         'fluid': True,
         'capacity_kWh': 'inf',
-        'co2_intensity': 0.33,
         'lifetime': 25,
         'interest_rate': interest_rate,
         'capital_cost': 2315, # [CHF/kW chem LHV]
@@ -492,10 +501,9 @@ scen_techs = {
         'color': '#C67125',
         'fluid': True,
         'methane_percentage': 0.6,
-        'efficiancy_primary': 0.625,
-        'efficiancy_secondary': 0.8395,
+        'efficiency_primary': 0.625,
+        'efficiency_secondary': 0.8395,
         'capacity_kWh': 'inf',
-        'co2_intensity': 0.132,
         'lifetime': 25,
         'om_cost': 0,
         'capital_cost': 2706, # [CHF/kW chem LHV]
@@ -507,10 +515,9 @@ scen_techs = {
         # 'deployment':True,
         'deployment':False,
         'color': '#FF7800',
-        'efficiancy_electricity': 0.275,
-        'efficiancy_heat': 0.3625,
+        'efficiency_electricity': 0.275,
+        'efficiency_heat': 0.3625,
         'capacity_kWh': 'inf',
-        'co2_intensity': 0, #UNKNOWN
         'lifetime': 25,
         'om_cost': 0,
         'capital_cost': 3942,
@@ -519,12 +526,11 @@ scen_techs = {
         },
     
     'hydrogen_production':{ # hydp
-        'deployment':False,
+        'deployment':True,
         # 'deployment':False,
         'color': '#1A8FD2',
-        'efficiancy': 0.8,
+        'efficiency': 0.8,
         'capacity_kWh': 'inf',
-        'co2_intensity': 0,
         'lifetime': 25,
         'om_cost': 0,
         'capital_cost': 600,
@@ -543,7 +549,6 @@ scen_techs = {
         'eta_el':0.35,
         'htp_ratio':1.5, # [-] heat-to-power (htp) ratio (kW_h/kW_el)
         'gas_price_CHFpkWh':gas_price, # [CHF/kWh] price of gas
-        'co2_intensity':0.645, # [kg/kWh_el] https://doi.org/10.1016/j.heliyon.2023.e14645
         'lifetime':25,
         'capital_cost':5000, # [CHF/kW_el]
         'maintenance_cost': 10, # [CHF/kW/year]
@@ -563,7 +568,6 @@ scen_techs = {
         'eta_el':0.35,
         'htp_ratio':1.5, # [-] heat-to-power (htp) ratio (kW_th/kW_el)
         # 'gas_price_CHFpkWh':gas_price, # [CHF/kWh] price of gas
-        'co2_intensity':0.645, # [kg/kWh_el]
         'lifetime':25,
         'capital_cost':5000.0, # [CHF/kW_el] # TO BE VERIFIED
         'maintenance_cost': 40.1, # [CHF/kW/year]
@@ -579,7 +583,6 @@ scen_techs = {
         'cap_min_use':0.0, # [-] Share of capacity to be forced [0.0-1.0]; Default: 0.0
         'eta_el':0.35,
         'htp_ratio':1.5, # [-] heat-to-power (htp) ratio (kW_h/kW_el)
-        'co2_intensity':0.0, # [kg/kWh_el]
         'lifetime':25,
         'capital_cost':5000.0, # [CHF/kW_el]
         'maintenance_cost': 10, # [CHF/kW/year]
@@ -601,7 +604,6 @@ scen_techs = {
         'hv_wood_MJpkg':hv_wood, # [MJ/kg] Heating value (lower) of wood
         'eta':0.80,
         'wood_price_CHFpkg':wood_price, # [CHF/kg] price of wood
-        'co2_intensity':0.027,
         'lifetime':25,
         'capital_cost':150*30, # [CHF/kW_th] # TO BE VERIFIED https://www.energie-experten.org/heizung/blockheizkraftwerk-bhkw/blockheizkraftwerk-kosten
         'maintenance_cost': 5, # [CHF/kW/year]
@@ -609,26 +611,34 @@ scen_techs = {
         },
 
     'oil_boiler_cp':{ # obcp
-        'deployment':False,
+        'deployment':True,
         # 'deployment':False,
         'kW_th_max':'inf',
         'hv_oil_MJpkg':hv_oil, # 42.9, # [MJ/kg] Heating value (lower) of oil
         'eta':0.85,
         'oil_price_CHFpl':oil_price, # 1.00, # [CHF/l] Oil price; see: https://www.migrol.ch/de/energie-w%C3%A4rme/heiz%C3%B6lpreisentwicklung/preisindex/
-        'co2_intensity':0.301, # [kgCO2/kWh]
         'lifetime':25,
         'interest_rate':interest_rate,
         'capex':2000.0,
         'maintenance_cost': 1.26, # [CHF/kW/year]
         },
 
+    'electric_heater_cp':{ # ehcp
+        'deployment':True,
+        'kW_th_max':'inf',
+        'eta':0.98,
+        'lifetime':30,
+        'interest_rate':interest_rate,
+        'capex':100.0,
+        'maintenance_cost': 0.5, # [CHF/kW/year]
+        },
+
     'wood_boiler_cp':{ # wbcp
-        'deployment':False,
+        'deployment':True,
         # 'deployment':False,
         'kW_th_max': 'inf',
         'hv_wood_MJpkg':hv_wood, # [MJ/kg] Heating value (lower) of wood
         'eta':0.85,
-        'co2_intensity':0.027, # [kgCO2/kWh]
         'lifetime':25,
         'interest_rate':interest_rate,
         'capex':2000.0,
@@ -666,7 +676,6 @@ scen_techs = {
         'hv_gas_MJpkg':hv_gas, # 46.0, # [MJ/kg] Heating value (lower) of gas
         'eta':0.9,
         'gas_price_CHFpkWh':gas_price, # [CHF/kWh] price of gas
-        'co2_intensity':0.228,
         'lifetime':25,
         'interest_rate':interest_rate,
         # 'replacement_factor':fhrp/100,
@@ -684,12 +693,10 @@ scen_techs = {
         'kW_el_max': 'inf',#tech_cap_default, # [kW_el] Maximum electrical power output; Forsthaus: 16MW #
         'force_cap_max':False, # implement max. capacity (kW) #
         'cap_min_use':0.0, # [-] Share of capacity to be forced [0.0-1.0]; Default: 0.0
-        'annual_msw_supply':'inf', # [kg] Annual municipal solid waste supply; Options: float value or 'inf'
         'hv_msw_MJpkg':hv_msw, # [MJ/kg] Heating value (lower) of municipal solid waste
         'eta_el':0.35,
         'htp_ratio':1.5, # [-] heat-to-power (htp) ratio (kW_h/kW_el)
         'msw_price_CHFpkg':msw_price, # [CHF/kg] price of msw (will be negative --> revenue)
-        'co2_intensity':0.645, # [kg/kWh_el]
         'lifetime':25,
         'capital_cost':2000.0, # [CHF/kW_el] # TO BE VERIFIED
         'maintenance_cost': 119, # [CHF/kW/year]
@@ -703,7 +710,6 @@ scen_techs = {
         'force_cap_max':False, # implement max. capacity (kW)
         'cap_min_use':0.0, # [-] Share of capacity to be forced [0.0-1.0]; Default: 0.0
         'cop':8.0,
-        'co2_intensity': 0, # Set to 0 because CO2 intensity is captured via respective power supply (e.g. grid or pv)
         'lifetime':25,
         'capital_cost':2000.0, # [CHF/kW_th] # TO BE VERIFIED
         'maintenance_cost': 10, # [CHF/kW/year]
@@ -712,11 +718,10 @@ scen_techs = {
 
     'heat_pump_cp':{ # hpcp
         # 'deployment':True,
-        'deployment':False,
+        'deployment':True,
         'kW_th_max': 'inf',#tech_cap_default,
         'force_cap_max':False, # implement max. capacity (kW)
         'cap_min_use':0.0, # [-] Share of capacity to be forced [0.0-1.0]; Default: 0.0
-        'co2_intensity': 0, # Set to 0 because CO2 intensity is captured via respective power supply (e.g. grid or pv)
         'lifetime':25,
         'capital_cost':2000.0, # [CHF/kW_th] # TO BE VERIFIED
         'maintenance_cost': 10, # [CHF/kW/year]
@@ -811,19 +816,73 @@ scen_techs = {
                         # Only has effects when optimization is enabled. Forces a CAPEX for one-to-one replacement.
         'act_on_fossil_heater_retrofit': False
         },
+
+    'nuclear_phaseout':{
+        'nuclear_power_plant_powers' :[1010, 1233, 365, 365], #Gösgen, Leibstadt, Beznau I, Beznau II
+        'nuclear_power_plant_shutdown_years' :[2039, 2045, 2033, 2032],#Gösgen, Leibstadt, Beznau I, Beznau II
+    },
+
+    'fossil_heater_retrofit':{
+        'electric_boiler_replacement_factor' : ehrp/100, #in fossil heater retrofit scenario, share of electric_heaters that are replaced
+        'gas_boiler_replacement_factor' : fhrp/100, #in fossil heater retrofit scenario, share of gas_boilers that are replaced
+        'oil_boiler_replacement_factor' : fhrp/100, #in fossil heater retrofit scenario, share of oil_boilers that are replaced
+    },
+
+    'pv_integration':{
+        'pv_techs_to_act_on': [
+            'solar_pvrooftop'
+            ],
+        'potential_integration_factor' : {
+            'solar_pvrooftop': [pvpf/100, pvpf/100, pvpf/100, pvpf/100]
+            }, 
+    },
+
+    'wind_integration':{
+        'potential_integration_factor' : wppf/100, #Potential integration factor for wind
+    },
+
+    'thermal_energy_storage_scenario': {
+        'capacity_kWh': 0,
+        'initial_charge': 0.5,
+    },
+
+    'battery_energy_storage_scenario': {
+        'capacity_kWh': 1e4,
+        'initial_charge': 0.5,
+    },
     
     'supply':{
+        
+        #Oil
         'hv_oil_MJpkg':hv_oil, # [MJ/kg] Heating value (lower) of oil
         'oil_price_CHFpl':oil_price, # [CHF/l] Oil price
+        'oil_import':True,
+        'co2_content_oil': 0.301,
+
+        #Gas
         'hv_gas_MJpkg':hv_gas, # [MJ/kg] Heating value (lower) of gas
         'gas_price_CHFpkWh':gas_price, # [CHF/kWh] price of gas
+        'gas_import':True,
+        'co2_content_gas': 0.228,
+
+        #Wood
         'hv_wood_MJpkg':hv_wood, # [MJ/kg] Heating value (lower) of wood
-        'wood_price_CHFpkg':wood_price, # [CHF/kg] price of wood
+        'wood_price_CHFpkg_local':wood_price, # [CHF/kg] price of wood (local)
+        'wood_price_CHFpkg_imported':wood_price, # [CHF/kg] price of wood (imported)
+        'wood_import':True, # if set to True, wood can be imported
+        'co2_content_local_wood': 0.027,
+        'co2_content_imported_wood': 0.027, #TODOTODO find value
+
+        #Wet biomass
+        'co2_content_wet_biomass': 0.0,
+
+        #Municipal solid waste
         'hv_msw_MJpkg':hv_msw, # [MJ/kg] Heating value (lower) of municipal solid waste
         'msw_price_CHFpkg':msw_price, # [CHF/kg] price of municipal solid waste (msw); negative because it is a revenue.
-        'oil_import':True,
-        'gas_import':True,
-        'wood_import':True, # if set to True, wood can be imported
+        'msw_share_fossile': 0.478, # https://www.bafu.admin.ch/dam/en/sd-web/NlGIhzJ8OW0t/CO2_Emissionsfaktoren_THG_Inventar.pdf 
+        'co2_content_msw': 0.3312, #co2 content of msw # https://www.bafu.admin.ch/dam/en/sd-web/NlGIhzJ8OW0t/CO2_Emissionsfaktoren_THG_Inventar.pdf
+        'annual_msw_supply':'inf', # [kg] Annual municipal solid waste supply; Options: float value or 'inf'
+
         }
 
     }

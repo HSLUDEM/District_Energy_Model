@@ -30,7 +30,6 @@ class Biomass(TechCore):
         self._v_e_exp = []
         self._v_e_cons = []
         self._v_h = []
-        # self._v_co2 = []
         
     def update_tech_properties(self, tech_dict):
         
@@ -54,7 +53,6 @@ class Biomass(TechCore):
         df['v_e_bm_exp'] = self.get_v_e_exp()
         df['v_e_bm_cons'] = self.get_v_e_cons()
         df['v_h_bm'] = self.get_v_h()
-        # df['v_co2_bm'] = self.get_v_co2()
         
         return df
     
@@ -79,15 +77,12 @@ class Biomass(TechCore):
         self._v_e_exp = self._v_e_exp[:n_hours]
         self._v_e_cons = self._v_e_cons[:n_hours]
         self._v_h = self._v_h[:n_hours]
-        # self._v_co2 = self._v_co2[:n_hours]
         
     def update_v_e(self, v_e_updated):
         self._v_e = np.array(v_e_updated)
         
         # self.__compute_v_e_pot_remain()
-        
-        # self.__compute_v_co2()
-        
+                
     def update_v_e_cons(self, v_e_cons_updated):
         if len(v_e_cons_updated) != len(self._v_e):
             raise ValueError()        
@@ -156,10 +151,6 @@ class Biomass(TechCore):
     #     self.len_test(self._v_gas)
     #     return self._v_gas
     
-    # def get_v_co2(self):
-    #     self.len_test(self._v_co2)
-    #     return self._v_co2
-
 class HydrothermalGasification(TechCore): # hg
     
     def __init__(self, tech_dict):
@@ -189,7 +180,6 @@ class HydrothermalGasification(TechCore): # hg
         # self.u_input_carrier = [] # manure potential input [kWh] # IS THIS USED???
         self._u_wet_bm = []
         self._v_gas = [] # gas LHV output [kWh]
-        # self.v_co2 = []
         
     def update_tech_properties(self, tech_dict):
         
@@ -207,13 +197,13 @@ class HydrothermalGasification(TechCore): # hg
         """
         
         #Checks for Errors:
-        if tech_dict['efficiancy'] > 1:
-            raise Exception("This technology cannot have an efficiancy above 1.")
-        if tech_dict['efficiancy'] < 0:
-            raise Exception("This technology cannot have an efficiancy below 0.")
+        if tech_dict['efficiency'] > 1:
+            raise Exception("This technology cannot have an efficiency above 1.")
+        if tech_dict['efficiency'] < 0:
+            raise Exception("This technology cannot have an efficiency below 0.")
             
         #Properties:
-        self._eta = tech_dict['efficiancy']
+        self._eta = tech_dict['efficiency']
         self._maintenance_cost = tech_dict['maintenance_cost']
 
         # Update input dict:
@@ -223,7 +213,6 @@ class HydrothermalGasification(TechCore): # hg
         
         df['u_wet_bm_hg'] = self._u_wet_bm
         df['v_gas_hg'] = self._v_gas
-        df['v_co2_hg'] = self._v_co2_hg
         
         return df
     
@@ -234,7 +223,6 @@ class HydrothermalGasification(TechCore): # hg
         
         self._u_wet_bm = init_vals.copy()
         self._v_gas = init_vals.copy()
-        self._v_co2_hg = init_vals.copy()
         
     def reduce_timeframe(self, n_days):
         """
@@ -255,9 +243,7 @@ class HydrothermalGasification(TechCore): # hg
         
         self._v_gas = self._v_gas[:n_hours]
         self._u_wet_bm = self._u_wet_bm[:n_hours]
-        self._v_co2_hg = self._v_co2_hg[:n_hours]
         # self._v_h = self._v_h[:n_hours]
-        # self._v_co2 = self._v_co2[:n_hours]
 
     # def compute_u_input_carrier(self):
     #     """
@@ -306,7 +292,7 @@ class HydrothermalGasification(TechCore): # hg
                 },
             'constraints':{
                 'energy_cap_max':self.__tech_dict['capacity_kWh'],
-                'energy_eff':self.__tech_dict['efficiancy'],
+                'energy_eff':self.__tech_dict['efficiency'],
                 'lifetime':self.__tech_dict['lifetime']
                 },
             'costs':{
@@ -316,9 +302,6 @@ class HydrothermalGasification(TechCore): # hg
                     'interest_rate':self.__tech_dict['interest_rate'],
                     'om_annual': self._maintenance_cost
                     },
-                'emissions_co2':{
-                    'om_prod':self.__tech_dict['co2_intensity']
-                    }
                 }
             }
         
@@ -379,13 +362,13 @@ class AnaerobicDigestionUpgrade(TechCore): # agu
         """
         
         #Checks for Errors:
-        if tech_dict['efficiancy'] > 1:
-            raise Exception("This technology cannot have an efficiancy above 1.")
-        if tech_dict['efficiancy'] < 0:
-            raise Exception("This technology cannot have an efficiancy below 0.")
+        if tech_dict['efficiency'] > 1:
+            raise Exception("This technology cannot have an efficiency above 1.")
+        if tech_dict['efficiency'] < 0:
+            raise Exception("This technology cannot have an efficiency below 0.")
 
         #Properties:
-        self._eta = tech_dict['efficiancy']
+        self._eta = tech_dict['efficiency']
         self._maintenance_cost = tech_dict['maintenance_cost']
 
         # Update input dict:
@@ -426,7 +409,6 @@ class AnaerobicDigestionUpgrade(TechCore): # agu
         self._v_gas = self._v_gas[:n_hours]
         self._u_wet_bm = self._u_wet_bm[:n_hours]
         # self._v_h = self._v_h[:n_hours]
-        # self._v_co2 = self._v_co2[:n_hours]
 
 
     # def compute_u_input_carrier(self):
@@ -477,7 +459,7 @@ class AnaerobicDigestionUpgrade(TechCore): # agu
                 },
             'constraints':{
                 'energy_cap_max':self.__tech_dict['capacity_kWh'],
-                'energy_eff':self.__tech_dict['efficiancy'],
+                'energy_eff':self.__tech_dict['efficiency'],
                 'lifetime':self.__tech_dict['lifetime']
                 },
             'costs':{
@@ -487,9 +469,6 @@ class AnaerobicDigestionUpgrade(TechCore): # agu
                     'interest_rate':self.__tech_dict['interest_rate'],
                     'om_annual': self._maintenance_cost
                     },
-                'emissions_co2':{
-                    'om_prod':self.__tech_dict['co2_intensity']
-                    }
                 }
             }
         
@@ -566,18 +545,18 @@ class AnaerobicDigestionUpgradeHydrogen(): # aguh
         """
         
         #Check Input Variables:
-        if tech_dict['efficiancy_primary'] > 1:
-            raise Exception("This technology cannot have an efficiancy above 1.")
-        if tech_dict['efficiancy_primary'] < 0:
-            raise Exception("This technology cannot have an efficiancy below 0.")
+        if tech_dict['efficiency_primary'] > 1:
+            raise Exception("This technology cannot have an efficiency above 1.")
+        if tech_dict['efficiency_primary'] < 0:
+            raise Exception("This technology cannot have an efficiency below 0.")
             
-        if tech_dict['efficiancy_secondary'] > 1:
-            raise Exception("This technology cannot have an efficiancy above 1.")
-        if tech_dict['efficiancy_secondary'] < 0:
-            raise Exception("This technology cannot have an efficiancy below 0.")
+        if tech_dict['efficiency_secondary'] > 1:
+            raise Exception("This technology cannot have an efficiency above 1.")
+        if tech_dict['efficiency_secondary'] < 0:
+            raise Exception("This technology cannot have an efficiency below 0.")
             
             
-        self._eta_1 = tech_dict['efficiancy_primary']
+        self._eta_1 = tech_dict['efficiency_primary']
         self._methane_percentage = tech_dict['methane_percentage']
         self._maintenance_cost = tech_dict['maintenance_cost']
 
@@ -590,7 +569,7 @@ class AnaerobicDigestionUpgradeHydrogen(): # aguh
         
         #Assign Properties:
         self._eta = self._eta_1 + self._eta_1*(1 - self._methane_percentage)/self._methane_percentage
-        self._eta_hyd = tech_dict['efficiancy_secondary']
+        self._eta_hyd = tech_dict['efficiency_secondary']
         
         # Update input dict:
         self.__tech_dict = tech_dict
@@ -640,7 +619,6 @@ class AnaerobicDigestionUpgradeHydrogen(): # aguh
         self._u_wet_bm = self._u_wet_bm[:n_hours]
 
         # self._v_h = self._v_h[:n_hours]
-        # self._v_co2 = self._v_co2[:n_hours]
 
     def update_u_wet_bm(self, u_wet_bm_updated):        
         if len(u_wet_bm_updated) != len(self._u_wet_bm):
@@ -698,7 +676,7 @@ class AnaerobicDigestionUpgradeHydrogen(): # aguh
                 },
             'constraints':{
                 'energy_cap_max':self.__tech_dict['capacity_kWh'],
-                'energy_eff': self.__tech_dict['efficiancy_primary'],
+                'energy_eff': self.__tech_dict['efficiency_primary'],
                 'carrier_ratios':{
                     'carrier_in_2':{
                         'electricity': self._eta*(1 - self._methane_percentage)*self.__eta_e
@@ -719,9 +697,6 @@ class AnaerobicDigestionUpgradeHydrogen(): # aguh
                     'interest_rate':self.__tech_dict['interest_rate'],
                     'om_annual': self._maintenance_cost
                     },
-                'emissions_co2':{
-                    'om_prod':self.__tech_dict['co2_intensity']
-                    }
                 } 
             }
         
@@ -802,19 +777,19 @@ class AnaerobicDigestionCHP(TechCore): # aguc
         None
         """
         
-        if tech_dict['efficiancy_electricity'] > 1:
-            raise Exception("This technology cannot have an efficiancy above 1.")
-        if tech_dict['efficiancy_electricity'] < 0:
-            raise Exception("This technology cannot have an efficiancy below 0.")
+        if tech_dict['efficiency_electricity'] > 1:
+            raise Exception("This technology cannot have an efficiency above 1.")
+        if tech_dict['efficiency_electricity'] < 0:
+            raise Exception("This technology cannot have an efficiency below 0.")
             
-        if tech_dict['efficiancy_heat'] > 1:
-            raise Exception("This technology cannot have an efficiancy above 1.")
-        if tech_dict['efficiancy_heat'] < 0:
-            raise Exception("This technology cannot have an efficiancy below 0.")
+        if tech_dict['efficiency_heat'] > 1:
+            raise Exception("This technology cannot have an efficiency above 1.")
+        if tech_dict['efficiency_heat'] < 0:
+            raise Exception("This technology cannot have an efficiency below 0.")
         
         #Properties:
-        self._eta_e = tech_dict['efficiancy_electricity']
-        self._eta_h = tech_dict['efficiancy_heat']
+        self._eta_e = tech_dict['efficiency_electricity']
+        self._eta_h = tech_dict['efficiency_heat']
         self._maintenance_cost = tech_dict['maintenance_cost']
 
         # Update input dict:
@@ -862,7 +837,6 @@ class AnaerobicDigestionCHP(TechCore): # aguc
         self._u_wet_bm = self._u_wet_bm[:n_hours]
 
         # self._v_h = self._v_h[:n_hours]
-        # self._v_co2 = self._v_co2[:n_hours]
 
 
 
@@ -940,10 +914,10 @@ class AnaerobicDigestionCHP(TechCore): # aguc
             'constraints':{
                 'export_carrier': 'electricity',
                 'energy_cap_max':self.__tech_dict['capacity_kWh'],
-                'energy_eff': self.__tech_dict['efficiancy_electricity'],
+                'energy_eff': self.__tech_dict['efficiency_electricity'],
                 'carrier_ratios':{
                     'carrier_out_2':{
-                        'heat_biomass': self.__tech_dict['efficiancy_heat']/self.__tech_dict['efficiancy_electricity']
+                        'heat_biomass': self.__tech_dict['efficiency_heat']/self.__tech_dict['efficiency_electricity']
                         }
                     },
                 'lifetime':self.__tech_dict['lifetime']
@@ -955,9 +929,6 @@ class AnaerobicDigestionCHP(TechCore): # aguc
                     'interest_rate':self.__tech_dict['interest_rate'],
                     'om_annual': self._maintenance_cost
                     },
-                'emissions_co2':{
-                    'om_prod':self.__tech_dict['co2_intensity']
-                    }
                 } 
             }
         
@@ -1031,16 +1002,16 @@ class WoodGasificationUpgrade(TechCore): # wgu
         """
         
         #Check Input Variables:
-        if tech_dict['efficiancy'] > 1:
-            raise Exception("This technology cannot have an efficiancy above 1.")
-        if tech_dict['efficiancy'] < 0:
-            raise Exception("This technology cannot have an efficiancy below 0.")
+        if tech_dict['efficiency'] > 1:
+            raise Exception("This technology cannot have an efficiency above 1.")
+        if tech_dict['efficiency'] < 0:
+            raise Exception("This technology cannot have an efficiency below 0.")
         
         #Assign Technology Efficiancies:
         self.__eta_e = 0.1
         self.__eta_h = 0.09
             
-        self._eta = tech_dict['efficiancy']
+        self._eta = tech_dict['efficiency']
         self._maintenance_cost = tech_dict['maintenance_cost']
 
         # Update input dict:
@@ -1088,7 +1059,6 @@ class WoodGasificationUpgrade(TechCore): # wgu
         self._u_wd = self._u_wd[:n_hours]
 
         # self._v_h = self._v_h[:n_hours]
-        # self._v_co2 = self._v_co2[:n_hours]
 
 
 
@@ -1160,7 +1130,7 @@ class WoodGasificationUpgrade(TechCore): # wgu
                 },
             'constraints':{
                 'energy_cap_max':self.__tech_dict['capacity_kWh'],
-                'energy_eff': self.__tech_dict['efficiancy'],
+                'energy_eff': self.__tech_dict['efficiency'],
                 'carrier_ratios':{
                     'carrier_in_2':{
                         'electricity': 0.0625
@@ -1178,9 +1148,6 @@ class WoodGasificationUpgrade(TechCore): # wgu
                     'interest_rate':self.__tech_dict['interest_rate'],
                     'om_annual': self._maintenance_cost
                     },
-                'emissions_co2':{
-                    'om_prod':self.__tech_dict['co2_intensity']
-                    }
                 } 
             }
         
@@ -1257,17 +1224,17 @@ class WoodGasificationUpgradeHydrogen(TechCore): # wguh
         """
         
         #Check Input Variables:
-        if tech_dict['efficiancy_primary'] > 1:
-            raise Exception("This technology cannot have an efficiancy above 1.")
-        if tech_dict['efficiancy_primary'] < 0:
-            raise Exception("This technology cannot have an efficiancy below 0.")
+        if tech_dict['efficiency_primary'] > 1:
+            raise Exception("This technology cannot have an efficiency above 1.")
+        if tech_dict['efficiency_primary'] < 0:
+            raise Exception("This technology cannot have an efficiency below 0.")
         
         #Assign Technology Efficiancies:
         self.__eta_e = 0.1
         self.__eta_h = 0.126
         
-        self._eta = tech_dict['efficiancy_primary']
-        self._eta_hyd = tech_dict['efficiancy_secondary'] #TODO: Find actuall efficiency
+        self._eta = tech_dict['efficiency_primary']
+        self._eta_hyd = tech_dict['efficiency_secondary'] #TODO: Find actuall efficiency
         self._maintenance_cost = tech_dict['maintenance_cost']
 
         self._methane_percentage = tech_dict['methane_percentage']
@@ -1320,7 +1287,6 @@ class WoodGasificationUpgradeHydrogen(TechCore): # wguh
         self._u_hyd = self._u_hyd[:n_hours]
 
         # self._v_h = self._v_h[:n_hours]
-        # self._v_co2 = self._v_co2[:n_hours]
 
 
 
@@ -1399,7 +1365,7 @@ class WoodGasificationUpgradeHydrogen(TechCore): # wguh
                 },
             'constraints':{
                 'energy_cap_max':self.__tech_dict['capacity_kWh'],
-                'energy_eff': self.__tech_dict['efficiancy_primary'],
+                'energy_eff': self.__tech_dict['efficiency_primary'],
                 'carrier_ratios':{
                     'carrier_in_2':{
                         'electricity': self._eta*(1 - self._methane_percentage)*self.__eta_e
@@ -1420,9 +1386,6 @@ class WoodGasificationUpgradeHydrogen(TechCore): # wguh
                     'interest_rate':self.__tech_dict['interest_rate'],
                     'om_annual': self._maintenance_cost
                     },
-                'emissions_co2':{
-                    'om_prod':self.__tech_dict['co2_intensity']
-                    }
                 } 
             }
         
@@ -1500,18 +1463,18 @@ class WoodGasificationCHP(TechCore): # wguc
         """
         
         #Check Input Variables:
-        if tech_dict['efficiancy_electricity'] > 1:
-            raise Exception("This technology cannot have an efficiancy above 1.")
-        if tech_dict['efficiancy_electricity'] < 0:
-            raise Exception("This technology cannot have an efficiancy below 0.")
-        if tech_dict['efficiancy_heat'] > 1:
-            raise Exception("This technology cannot have an efficiancy above 1.")
-        if tech_dict['efficiancy_heat'] < 0:
-            raise Exception("This technology cannot have an efficiancy below 0.")
+        if tech_dict['efficiency_electricity'] > 1:
+            raise Exception("This technology cannot have an efficiency above 1.")
+        if tech_dict['efficiency_electricity'] < 0:
+            raise Exception("This technology cannot have an efficiency below 0.")
+        if tech_dict['efficiency_heat'] > 1:
+            raise Exception("This technology cannot have an efficiency above 1.")
+        if tech_dict['efficiency_heat'] < 0:
+            raise Exception("This technology cannot have an efficiency below 0.")
         
         #Assign Technology Efficiancies:
-        self._eta_e = tech_dict['efficiancy_electricity']
-        self._eta_h = tech_dict['efficiancy_heat']
+        self._eta_e = tech_dict['efficiency_electricity']
+        self._eta_h = tech_dict['efficiency_heat']
         self._maintenance_cost = tech_dict['maintenance_cost']
 
         # Update input dict:
@@ -1559,7 +1522,6 @@ class WoodGasificationCHP(TechCore): # wguc
         self._v_e_exp = self._v_e_exp[:n_hours]
 
         # self._v_h = self._v_h[:n_hours]
-        # self._v_co2 = self._v_co2[:n_hours]
 
 
 
@@ -1637,10 +1599,10 @@ class WoodGasificationCHP(TechCore): # wguc
             'constraints':{
                 'export_carrier': 'electricity',
                 'energy_cap_max':self.__tech_dict['capacity_kWh'],
-                'energy_eff': self.__tech_dict['efficiancy_electricity'],
+                'energy_eff': self.__tech_dict['efficiency_electricity'],
                 'carrier_ratios':{
                     'carrier_out_2':{
-                        'heat_biomass': self.__tech_dict['efficiancy_heat']/self.__tech_dict['efficiancy_electricity']
+                        'heat_biomass': self.__tech_dict['efficiency_heat']/self.__tech_dict['efficiency_electricity']
                         }
                     },
                 'lifetime':self.__tech_dict['lifetime']
@@ -1652,9 +1614,6 @@ class WoodGasificationCHP(TechCore): # wguc
                     'interest_rate':self.__tech_dict['interest_rate'],
                     'om_annual': self._maintenance_cost
                     },
-                'emissions_co2':{
-                    'om_prod':self.__tech_dict['co2_intensity']
-                    }
                 } 
             }
         

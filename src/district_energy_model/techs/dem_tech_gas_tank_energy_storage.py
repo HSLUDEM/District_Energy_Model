@@ -73,7 +73,6 @@ class GasTankEnergyStorage(TechCore):
         self._lifetime = tech_dict['lifetime']
         self._capex = tech_dict['capex']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._maintenance_cost = tech_dict['maintenance_cost']
         self._force_asynchronous_prod_con = tech_dict['force_asynchronous_prod_con']
         
@@ -256,9 +255,6 @@ class GasTankEnergyStorage(TechCore):
                     'interest_rate':self._interest_rate,
                     'om_annual': self._maintenance_cost
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity
-                    }
                 }
             }
         if self._force_asynchronous_prod_con:

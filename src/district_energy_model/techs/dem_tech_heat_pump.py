@@ -45,7 +45,6 @@ class HeatPump(HeatPumpCore):
         self._u_e = [] # heat pump input - electricity
         self._u_h = [] # heat pump input - heat from environment
         self._v_h = [] # heat pump output (heat)
-        self._v_co2 = []
         
     def update_tech_properties(self, tech_dict):
         
@@ -71,7 +70,6 @@ class HeatPump(HeatPumpCore):
         self._v_h_max = tech_dict['kW_th_max'] # Max thermal capacity
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._capex = tech_dict['capex']
         self._capex_one_to_one_replacement = tech_dict['capex_one_to_one_replacement']
         self._maintenance_cost = tech_dict['maintenance_cost']
@@ -89,8 +87,8 @@ class HeatPump(HeatPumpCore):
         df['u_e_hp'] = self.get_u_e()
         df['u_h_hp'] = self.get_u_h()
         df['v_h_hp'] = self.get_v_h()
-        df['v_co2_hp'] = self.get_v_co2()
         df['cops_hp_new'] = self.get_cops_new()
+        df['cops_hp_one_to_one_replacement'] = self.get_cops_one_to_one_replacement()
         df['cops_hp_existing'] = self.get_cops_existing()
         return df
     
@@ -114,7 +112,6 @@ class HeatPump(HeatPumpCore):
         self._u_e = self._u_e[:n_hours]
         self._u_h = self._u_h[:n_hours]
         self._v_h = self._v_h[:n_hours]
-        self._v_co2 = self._v_co2[:n_hours]
         self._cops_new = self._cops_new[:n_hours]
         self._cops_existing = self._cops_existing[:n_hours]
         self._cops_one_to_one_replacement = self._cops_one_to_one_replacement[:n_hours]
@@ -202,15 +199,29 @@ class HeatPump(HeatPumpCore):
                         'om_con': 0.0, # costs are reflected in supply techs
                         'interest_rate':0.0,
                         },
-                    'emissions_co2':{
-                        'om_prod':0.0, # emissions are reflected in supply techs
-                        }
                     } 
                 }
             additional_techs_label_list.append(self._hublabel)            
     
         return techs_dict, additional_techs_label_list
-    
+
+    def select_right_cop_mode(scen_techs, 
+                              hps_existings_cops, 
+                              hps_new_cops, 
+                              hps_one_to_one_replacement_cops):
+        if scen_techs['heat_pump']['cop_mode'] == 'location_based':
+            return hps_existings_cops, hps_new_cops, hps_one_to_one_replacement_cops
+        elif scen_techs['heat_pump']['cop_mode'] == 'constant':
+            cop_constant_value = scen_techs['heat_pump']['cop_constant_value']
+            return (hps_existings_cops*0+cop_constant_value, 
+                    hps_new_cops*0+cop_constant_value, 
+                    hps_one_to_one_replacement_cops*0+cop_constant_value)
+        elif scen_techs['heat_pump']['cop_mode'] == "from_file":
+            cops = pd.read_feather(scen_techs['heat_pump']['cop_timeseries_file_path'])
+            return cops, cops, cops
+        else:
+            raise NotImplementedError("The COP mode selected isn't implemented.")
+        
     def set_cops_existing(self, cops_existing):
         self._cops_existing = cops_existing
         self._cops_existing[np.isnan(self._cops_existing)] = 1.0
@@ -331,7 +342,6 @@ class HeatPump(HeatPumpCore):
         
         self.__compute_u_e_i(i)
         self.__compute_u_h_i(i)
-        self.__compute_v_co2_i(i)
 
     def __compute_u_e_i(self,i):
         
@@ -351,9 +361,6 @@ class HeatPump(HeatPumpCore):
         
         self._u_h[i] = self._v_h[i]*(1-1/self._cops_eff[i])
         
-    def __compute_v_co2_i(self,i):
-        self._v_co2[i] = self._v_h[i]*self.__tech_dict['co2_intensity']
-
     def heat_output(self,u_e_i,i):
         
         """

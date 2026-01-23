@@ -51,7 +51,6 @@ class WoodBoilerSG(TechCore):
         self._u_wd = [] # wood input [kWh]
         self._u_wd_kg = [] # wood input [kg]
         self._v_steam = [] # steam output [kWh]
-        self._v_co2 = []
         
         #----------------------------------------------------------------------
         # Tests:
@@ -86,7 +85,6 @@ class WoodBoilerSG(TechCore):
         self._hv_wood = tech_dict['hv_wood_MJpkg']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._capex = tech_dict['capital_cost']
         self._maintenance_cost = tech_dict['maintenance_cost']
 
@@ -98,7 +96,6 @@ class WoodBoilerSG(TechCore):
         df['u_wd_wbsg'] = self.get_u_wd()
         df['u_wd_wbsg_kg'] = self.get_u_wd_kg()
         df['v_steam_wbsg'] = self.get_v_steam()
-        df['v_co2_wbsg'] = self.get_v_co2()
         
         return df
     
@@ -122,7 +119,6 @@ class WoodBoilerSG(TechCore):
         self._u_wd = self._u_wd[:n_hours]
         self._u_wd_kg = self._u_wd_kg[:n_hours]
         self._v_steam = self._v_steam[:n_hours]
-        self._v_co2 = self._v_co2[:n_hours]
         
     def initialise_zero(self, n_days):
         n_hours = n_days*24
@@ -132,7 +128,6 @@ class WoodBoilerSG(TechCore):
         self._u_wd = init_vals.copy()
         self._u_wd_kg = init_vals.copy()
         self._v_steam = init_vals.copy()
-        self._v_co2 = init_vals.copy()
     
     # def compute_v_h(self, src_h_yr, d_h_profile):
 
@@ -145,7 +140,6 @@ class WoodBoilerSG(TechCore):
     #     # Compute respective wood input:
     #     self.__compute_u_wd()
         
-    #     self.__compute_v_co2()
         
     def update_v_steam(self, v_steam_updated):
         if len(v_steam_updated) != len(self._v_steam):
@@ -154,9 +148,7 @@ class WoodBoilerSG(TechCore):
         self._v_steam = np.array(v_steam_updated)
         
         self.__compute_u_wd()
-        
-        self.__compute_v_co2()
-        
+                
     def __compute_u_wd(self):
         """
         Computes the required wood input based on heat output (kWh).
@@ -167,11 +159,7 @@ class WoodBoilerSG(TechCore):
         
         self._u_wd = np.array(self._v_steam)/self._eta # [kWh]
         self._u_wd_kg = self._u_wd*3600/hv_wood_kJpkg # [kg]
-        
-    def __compute_v_co2(self):
-        self.len_test(self._v_steam)        
-        self._v_co2 = self._v_steam*self.__tech_dict['co2_intensity']
-        
+                
     
     
     def create_tech_groups_dict(self, tech_groups_dict):
@@ -191,9 +179,6 @@ class WoodBoilerSG(TechCore):
                     'om_con':0.0, # costs are reflected in wood_supply
                     'interest_rate':self._interest_rate,
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity,
-                    }
                 }
             }
         
@@ -283,9 +268,6 @@ class WoodBoilerSG(TechCore):
     #                 'interest_rate':self._interest_rate,
     #                 'energy_cap': capex
     #                 },
-    #             'emissions_co2':{
-    #                 'om_prod':self._co2_intensity,
-    #                 }
     #             }
     #         }
         
@@ -303,6 +285,3 @@ class WoodBoilerSG(TechCore):
         self.len_test(self._u_wd_kg)
         return self._u_wd_kg
     
-    def get_v_co2(self):
-        self.len_test(self._v_co2)
-        return self._v_co2

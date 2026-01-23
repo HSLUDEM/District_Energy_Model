@@ -544,6 +544,9 @@ class EnergyDemand:
             raise ValueError(msg)
         else:
             tmp_d_e_ev_cp = tmp_d_e_ev_cp*ev_integration_factor/100.0
+            tmp_d_e_ev_pd = tmp_d_e_ev_pd*ev_integration_factor/100.0
+            tmp_d_e_ev_pu = tmp_d_e_ev_pu*ev_integration_factor/100.0
+            tmp_f_e_ev_pot_dy = tmp_f_e_ev_pot_dy*ev_integration_factor/100.0
             
         self.update_d_e_ev_cp(tmp_d_e_ev_cp, n_days)
         self.update_d_e_ev_pd(tmp_d_e_ev_pd)
@@ -1302,7 +1305,7 @@ class EnergyDemand:
                 'v_h_gb': scen_techs['gas_boiler']['lifetime'],
                 'v_h_ob': scen_techs['oil_boiler']['lifetime'],
                 'v_h_wb': scen_techs['wood_boiler']['lifetime'],
-                'v_h_solar': scen_techs['solar_thermal']['lifetime'],
+                'v_h_solar': scen_techs['solarthermal_rooftop']['lifetime'],
                 'v_h_other': 1.0,
             }
 
@@ -1594,7 +1597,7 @@ class EnergyDemand:
                        'gas_boiler',
                        'oil_boiler',
                        'wood_boiler',
-                       'solar_thermal',
+                       'solarthermal_rooftop',
                        'other']
         
         heat_values = [src_h_elec_direct_yr,
@@ -1646,8 +1649,14 @@ class EnergyDemand:
             #     tech_inst.compute_cop_timeseries(self._d_h_profile)
 
             tech_inst = tech_instances[heating_type[0]]
-            tech_inst.compute_v_h(heating_type[1], self._d_h_profile)
-            tech_inst.reduce_timeframe(n_days)
+
+            if heating_type[0] != 'solarthermal_rooftop':
+                print(heating_type)
+                tech_inst.compute_v_h(heating_type[1], self._d_h_profile)
+                tech_inst.reduce_timeframe(n_days)
+            else:
+                tech_inst.compute_v_h_const_share(heating_type[1], self._d_h_profile)
+                tech_inst.reduce_timeframe(n_days)
 
         
         # return df_base
