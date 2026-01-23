@@ -779,11 +779,66 @@ patterns = ['/', '\\', '|', '-', '+', 'x', 'o', '.']
 pattern_index = 1
 DHN_label = 'District heating network'
 
+
+
+def add_tes_sites_plotting_keys(tes_sites_plotting_inf):
+    for k in tes_sites_plotting_inf.keys():
+        for entry in tes_sites_plotting_inf[k]['u']:
+            keys_add_negative_if_available.append(entry)
+            heat_balance_y.append(entry+'_negative')
+            heat_sources_dhn.append(entry+'_negative')
+            heat_balance_legend_labels.append(k+ ' charging')
+            heat_balance_colors.append(f'rgba('+str(tes_sites_plotting_inf[k]['color'][0])
+                                       +', '+str(tes_sites_plotting_inf[k]['color'][1])
+                                       +', '+str(tes_sites_plotting_inf[k]['color'][2])
+                                       +', '+str(opac*opac_red_factor)+')')
+            heat_balance_colors_mpl.append((tes_sites_plotting_inf[k]['color'][0]/255,
+                                            tes_sites_plotting_inf[k]['color'][1]/255,
+                                            tes_sites_plotting_inf[k]['color'][2]/255,
+                                            opac*opac_red_factor))
+
+        for entry in tes_sites_plotting_inf[k]['v']:
+            heat_balance_y.append(entry)
+            heat_sources_dhn.append(entry)
+            heat_balance_legend_labels.append(k +' discharging')
+            heat_balance_colors.append(f'rgba('+str(tes_sites_plotting_inf[k]['color'][0])
+                                       +', '+str(tes_sites_plotting_inf[k]['color'][1])
+                                       +', '+str(tes_sites_plotting_inf[k]['color'][2])
+                                       +', '+str(opac*opac_red_factor)+')')
+            heat_balance_colors_mpl.append((tes_sites_plotting_inf[k]['color'][0]/255,
+                                            tes_sites_plotting_inf[k]['color'][1]/255,
+                                            tes_sites_plotting_inf[k]['color'][2]/255,
+                                            opac))
+
+        for entry in tes_sites_plotting_inf[k]['u_hht_to_hlt']:
+            keys_add_negative_if_available.append(entry)
+            heat_balance_y.append(entry+'_negative')
+            heat_sources_dhn.append(entry+'_negative')
+            heat_balance_legend_labels.append(k+ ' HT->LT conversion')
+            heat_balance_colors.append(f'rgba('+str(tes_sites_plotting_inf[k]['color'][0])
+                                       +', '+str(tes_sites_plotting_inf[k]['color'][1])
+                                       +', '+str(tes_sites_plotting_inf[k]['color'][2])
+                                       +', '+str(opac*opac_red_factor*0.5)+')')
+            heat_balance_colors_mpl.append((tes_sites_plotting_inf[k]['color'][0]/255,
+                                            tes_sites_plotting_inf[k]['color'][1]/255,
+                                            tes_sites_plotting_inf[k]['color'][2]/255,
+                                            opac*opac_red_factor*0.5))
+
+        
+
 #%% Plot functions
+
+
+
+
+
 
 #------------------------------------------------------------------------------
 # Electricity balance:
-    
+
+
+
+
 def plot_electricity_balance_hourly(df_scen,
                                     dir_path,
                                     output_svg = False,
@@ -2681,6 +2736,156 @@ def plot_tes_sos_hourly(df_scen,
         fig.write_html(file_html)
     
     del df_plot
+
+
+def plot_tes_sites_soc_hourly(df_scen,
+                        dir_path,
+                        output_svg = False,
+                        output_html = False,
+                        filename_parts = ['tes_site_', '_soc_hourly'],
+                        timeframe = False,
+                        timeframe_start = '01-01',
+                        timeframe_end = '12-31',
+                        axes_font_size = 16,
+                        title_font_size = 24,
+                        tes_sites_plotting_inf = {}
+                        ):
+    
+    """
+    Generates a line plot of the thermal energy storage state of charge.
+    
+    Parameters
+    ----------
+    df_scen : pandas dataframe
+        Dataframe with resulting hourly values.
+    dir_path : string
+        Path to directory, where plots shall be saved.
+    output_svg : bool
+        If set to 'True', a (static) plot in .svg format will be generated.
+        Default: False
+    output_svg : bool
+        If set to 'True', a (dynamic) plot in .html format will be generated.
+        Default: True
+    filename : string
+        Name of generated plot file(s).
+    timeframe : bool
+        If set to 'True', only the selected timeframe will be plotted.
+        [not yet implemented]
+    timeframe_start : string
+        Beginning of selected timeframe.
+        [not yet implemented]
+    timeframe_end : string
+        End of selected timeframe.
+        [not yet implemented]
+    axes_font_size : int
+        Font size for x- and y-axis labels, tick-mark labels, and legend
+        labels.
+    title_font_size : int
+        Font size of plot title.
+
+    Returns
+    -------
+    n/a
+    """
+    
+    for k in tes_sites_plotting_inf:
+
+        filename = filename_parts[0] + k + filename_parts[1]
+
+        df_plot = df_scen.copy()
+        
+        # :
+        df_plot = df_plot*100
+        
+        # Ensure the index is in datetime format
+        df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
+        
+
+        relevant_keys_list = (
+            tes_sites_plotting_inf[k]['soc']
+            +tes_sites_plotting_inf[k]['soc_lt']
+            )
+
+        for x in relevant_keys_list:
+            if x in df_plot.columns:
+                pass
+            else:
+                df_plot[x] = 0
+
+        
+
+        y=relevant_keys_list
+
+        color_discrete_map = {}
+        for yval in y:
+            if 'ltlt' in yval:
+                color_discrete_map[yval] = "#61d2ff"
+            if 'htlt' in yval:
+                color_discrete_map[yval] = "#29dd19"
+            if 'htht' in yval:
+                color_discrete_map[yval] = "#ff9100"
+
+
+        fig = px.line(
+            df_plot, 
+            x=df_plot.index,
+            y=y,
+            labels={'x': 'Time'},
+            title='TES - Stored Energy (Hourly)',
+            category_orders={'x': df_plot.index},
+            color_discrete_map= color_discrete_map
+            #height=400,
+            #width=1200
+            )
+        
+        fig.update_layout(
+            plot_bgcolor='white',
+            bargap = 0.01,
+            bargroupgap = 0.00,
+            title_x=0.5,  # Center the title
+            legend_title_text='',
+            title_font_size=title_font_size,
+            legend_font=dict(size=axes_font_size)
+            )
+        
+        fig.update_xaxes(
+            # title_text='Hour of the year',
+            title_text='',
+            title_standoff=0,
+            mirror=True,
+            ticks='outside',
+            showline=True,
+            linecolor='black',
+            gridcolor='lightgrey',
+            title_font_size=axes_font_size,
+            tickfont=dict(size=axes_font_size),
+            tickformat="%d %b %H:%M"  # Formats as '3 Jan 15:00'
+        )
+        fig.update_yaxes(
+            title_text='SOC [%]',
+            title_standoff=0,
+            mirror=True,
+            ticks='outside',
+            showline=True,
+            linecolor='black',
+            gridcolor='lightgrey',
+            title_font_size=axes_font_size,
+            tickfont=dict(size=axes_font_size)
+        )
+        
+        file_svg = dir_path + '/' + filename + '.svg'
+        file_html = dir_path + '/' + filename + '.html'
+        
+        if output_svg == True:
+            fig.write_image(file_svg, width=svg_width, height=svg_height)
+        
+        if output_html == True:
+            fig.write_html(file_html)
+        
+        del df_plot
+
+        # exit()
+
 
 def plot_tes_cyclecount_hourly(df_scen,
                         dir_path,
@@ -4905,6 +5110,7 @@ def plot_obj_values_monetary_vs_co2(
         fig.write_image(file_svg)    
     if output_html:
         fig.write_html(file_html)
+
     
     
 def plot_biomethane_balance_hourly(df_scen,
@@ -5041,7 +5247,9 @@ def plot_biomethane_balance_hourly(df_scen,
     
     del df_plot
     
-    
+
+
+
 #%% Plot main function:
     
 def plot(
@@ -5051,8 +5259,12 @@ def plot(
         pareto_results_generated,
         results_path,
         dict_yr_scen,
-        df_scen,                
+        df_scen,     
+        tes_sites_plotting_inf = {}           
         ):
+    
+    add_tes_sites_plotting_keys(tes_sites_plotting_inf)
+
     if pareto_results_loaded == True:
         plot_pareto_cost_vs_co2(
             pareto_results=pareto_results,
@@ -5117,6 +5329,13 @@ def plot(
                 output_svg = toggle_svg,
                 output_html = toggle_html,
                 )
+            plot_tes_sites_soc_hourly(
+                df_scen=df_scen,
+                dir_path=results_path,
+                output_svg = toggle_svg,
+                output_html = toggle_html,
+                tes_sites_plotting_inf=tes_sites_plotting_inf
+            )
             plot_tes_cyclecount_hourly(
                 df_scen=df_scen,
                 dir_path=results_path,
@@ -5254,6 +5473,13 @@ def plot(
             dir_path=results_path,
             output_svg = toggle_svg,
             output_html = toggle_html,
+            )
+        plot_tes_sites_soc_hourly(
+                df_scen=df_scen,
+                dir_path=results_path,
+                output_svg = toggle_svg,
+                output_html = toggle_html,
+                tes_sites_plotting_inf=tes_sites_plotting_inf
             )
         plot_tes_cyclecount_hourly(
             df_scen=df_scen,

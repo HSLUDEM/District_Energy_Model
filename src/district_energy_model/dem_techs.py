@@ -56,6 +56,7 @@ from district_energy_model.techs.dem_tech_waste_heat_low_temperature import Wast
 #------------------------------------------------------------------------------
 # Storage
 from district_energy_model.techs.dem_tech_thermal_energy_storage import ThermalEnergyStorage
+from district_energy_model.techs.dem_tech_thermal_energy_storage_sites import ThermalEnergyStorageSites
 from district_energy_model.techs.dem_tech_thermal_energy_storage_dc import ThermalEnergyStorageDC
 from district_energy_model.techs.dem_tech_battery_energy_storage import BatteryEnergyStorage
 from district_energy_model.techs.dem_tech_gas_tank_energy_storage import GasTankEnergyStorage

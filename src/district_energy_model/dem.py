@@ -27,6 +27,8 @@ from district_energy_model import dem_emissions
 from district_energy_model import dem_create_custom_district
 from district_energy_model import dem_solar_preprocessing_switzerland
 
+from district_energy_model import dem_district_tes_availability_switzerland
+
 from warnings import simplefilter
 simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 pd.options.mode.chained_assignment = None
@@ -711,7 +713,19 @@ class DistrictEnergyModel:
             self.tech_tes = dem_techs.ThermalEnergyStorage(scen_techs['tes'])
             self.tech_tes.initialise_zero(n_days)
             self.tech_instances['tes'] = self.tech_tes
-            
+
+        # Thermal energy storage
+        if scen_techs['tes_sites']['deployment']:
+            generation_function_mode = scen_techs['tes_sites']['list_generation_mode']
+            params = scen_techs['tes_sites']['generation_function_parameters']
+
+            if generation_function_mode == 'stub':
+                tes_sites_list = dem_district_tes_availability_switzerland.tes_availability_script_stub(params)
+
+            self.tech_tes_sites = dem_techs.ThermalEnergyStorageSites(scen_techs['tes_sites'], tes_sites_list)
+            self.tech_tes_sites.initialise_zero(n_days)
+            self.tech_instances['tes_sites'] = self.tech_tes_sites
+
         # Thermal energy storage - decentralised:
         if scen_techs['tes_decentralised']['deployment']:                
             self.tech_tes_decentralised = dem_techs.ThermalEnergyStorageDC(
@@ -928,6 +942,9 @@ class DistrictEnergyModel:
         
         #----------------------------------------------------------------------
         # Check overall energy balance:        
+        
+        
+        
         if self.toggle_energy_balance_tests:
             dem_eb.electricity_balance_test(
                 scen_techs=scen_techs,
@@ -940,7 +957,8 @@ class DistrictEnergyModel:
                 df_scen=df_scen,
                 optimisation=False,
                 diff_accepted = C.DIFF_ACC,
-                diff_sum_accepted = C.DIFF_SUM_ACC
+                diff_sum_accepted = C.DIFF_SUM_ACC,
+                tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                 )
 
         #----------------------------------------------------------------------
@@ -1257,7 +1275,8 @@ class DistrictEnergyModel:
                     df_scen=df_scen,
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
-                    diff_sum_accepted = C.DIFF_SUM_ACC
+                    diff_sum_accepted = C.DIFF_SUM_ACC,
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
                     )
 
         #Adjust fossil heater retrofit to renovation rate of heat generators. This is only done if 'demand_side''act_on_fossil_heater_retrofit' is True
@@ -1347,7 +1366,8 @@ class DistrictEnergyModel:
                     df_scen=df_scen,
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
-                    diff_sum_accepted = C.DIFF_SUM_ACC
+                    diff_sum_accepted = C.DIFF_SUM_ACC,
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
                     )
             
         if scen_techs['scenarios']['pv_integration'] == True:
@@ -1401,7 +1421,8 @@ class DistrictEnergyModel:
                     df_scen=df_scen,
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
-                    diff_sum_accepted = C.DIFF_SUM_ACC
+                    diff_sum_accepted = C.DIFF_SUM_ACC,
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
                     )
             
         if scen_techs['scenarios']['wind_integration'] == True:
@@ -1455,7 +1476,8 @@ class DistrictEnergyModel:
                     df_scen=df_scen,
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
-                    diff_sum_accepted = C.DIFF_SUM_ACC
+                    diff_sum_accepted = C.DIFF_SUM_ACC,
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
                     )
         if (scen_techs['scenarios']['battery_energy_storage'] == True 
             and scen_techs['scenarios']['thermal_energy_storage'] == True):
@@ -1525,7 +1547,8 @@ class DistrictEnergyModel:
                     df_scen=df_scen,
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
-                    diff_sum_accepted = C.DIFF_SUM_ACC
+                    diff_sum_accepted = C.DIFF_SUM_ACC,
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
                     )
 
 
@@ -1596,7 +1619,8 @@ class DistrictEnergyModel:
                     df_scen=df_scen,
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
-                    diff_sum_accepted = C.DIFF_SUM_ACC
+                    diff_sum_accepted = C.DIFF_SUM_ACC,
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
                     )
             
         if scen_techs['scenarios']['nuclear_phaseout'] == True:
@@ -1700,7 +1724,8 @@ class DistrictEnergyModel:
                     dem_eb.heat_balance_test(
                          df_scen=df_scen,
                          diff_accepted = C.DIFF_ACC,
-                         diff_sum_accepted = C.DIFF_SUM_ACC
+                         diff_sum_accepted = C.DIFF_SUM_ACC,
+                         tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                          )
                 
         else:
@@ -1911,7 +1936,8 @@ class DistrictEnergyModel:
                 df_scen=df_scen,
                 optimisation=True,
                 diff_accepted = C.DIFF_ACC,
-                diff_sum_accepted = C.DIFF_SUM_ACC
+                diff_sum_accepted = C.DIFF_SUM_ACC,
+                tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
                 )
         
         #--------------------------------------
@@ -1970,7 +1996,8 @@ class DistrictEnergyModel:
                 df_scen=df_scen,
                 optimisation=True,
                 diff_accepted = C.DIFF_ACC,
-                diff_sum_accepted = C.DIFF_SUM_ACC
+                diff_sum_accepted = C.DIFF_SUM_ACC,
+                tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
                 )
         
         #--------------------------------------
@@ -2064,7 +2091,8 @@ class DistrictEnergyModel:
                     df_scen=df_scen,
                     optimisation=True,
                     diff_accepted = C.DIFF_ACC,
-                    diff_sum_accepted = C.DIFF_SUM_ACC
+                    diff_sum_accepted = C.DIFF_SUM_ACC,
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
                     )
             
             #--------------------------------------
@@ -2139,16 +2167,22 @@ class DistrictEnergyModel:
         else:
             pareto_results=0
         
+
+        if self.scen_techs['tes_sites']['deployment']:
+            tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information()
+        else:
+            tes_sites_plotting_inf = {}
+
+
         dem_output.plot(
             pareto_results_loaded=self.pareto_results_loaded,
             scenario_generated=self.scenario_generated,
             pareto_results=pareto_results,
             pareto_results_generated=self.pareto_results_generated,
             results_path=self.results_path,
-            # dict_yr_scen=0,
-            # df_scen=0,
             dict_yr_scen=self.dict_yr_scen,
-            df_scen=self.df_scen,                
+            df_scen=self.df_scen,   
+            tes_sites_plotting_inf=tes_sites_plotting_inf           
             )
             
     def run(self,

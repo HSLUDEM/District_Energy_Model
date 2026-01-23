@@ -862,7 +862,8 @@ def electricity_balance_test(scen_techs,
 def heat_balance_test(df_scen,
                       optimisation=False,
                       diff_accepted = 1e-5,
-                      diff_sum_accepted = 0.1
+                      diff_sum_accepted = 0.1,
+                      tes_sites_plotting_inf = {}
                       ):
     
     """
@@ -924,6 +925,13 @@ def heat_balance_test(df_scen,
         'm_h_dh',
         ]
     
+    for k in tes_sites_plotting_inf.keys():
+        for k2 in tes_sites_plotting_inf[k].keys():
+            if k2 != 'color':
+                for x in tes_sites_plotting_inf[k][k2]:
+                    if x not in missing_keys:
+                        missing_keys.append(x)
+
     for k in missing_keys:
         if k in df_scen.columns:
             pass
@@ -979,11 +987,30 @@ def heat_balance_test(df_scen,
         + df_scen['l_v_h_tes']
         + df_scen['l_q_h_tes']
         ).sum()
+    for k in tes_sites_plotting_inf:
+        for k2 in tes_sites_plotting_inf[k]:
+            if k2 != 'color':
+                if k2.startswith('l_') and '_lt' not in k2:
+                    for x in tes_sites_plotting_inf[k][k2]:
+                        tes_losses_sum += df_scen[x].sum()
+
     
     tes_input_sum = df_scen['u_h_tes'].sum()
     
     tes_output_sum = df_scen['v_h_tes'].sum()
-    
+
+    for k in tes_sites_plotting_inf:
+        for k2 in tes_sites_plotting_inf[k]:
+            if k2 != 'color':
+                if k2.startswith('u') and '_lt' not in k2:
+                    for x in tes_sites_plotting_inf[k][k2]:
+                        tes_input_sum += df_scen[x].sum()
+                if k2.startswith('v') and '_lt' not in k2:
+                    for x in tes_sites_plotting_inf[k][k2]:
+                        tes_output_sum += df_scen[x].sum()
+
+
+
     tes_sos_diff = df_scen['q_h_tes'].iloc[-1] - df_scen['q_h_tes'].iloc[0] # state-of-charge (sos) difference
     
     # ------------------------------------------------
@@ -1023,7 +1050,22 @@ def heat_balance_test(df_scen,
         - df_scen['u_h_tes']
         + df_scen['d_h_unmet_dhn']
         )
-    
+
+    for k in tes_sites_plotting_inf:
+        for k2 in tes_sites_plotting_inf[k]:
+            if k2 != 'color':
+                if k2.startswith('u') and '_lt' not in k2:
+                    
+                    for x in tes_sites_plotting_inf[k][k2]:
+                        district_heat_techs -= df_scen[x]
+                if k2.startswith('v') and '_lt' not in k2:
+                    
+                    for x in tes_sites_plotting_inf[k][k2]:
+                        district_heat_techs += df_scen[x]
+
+
+
+
     # -------------------------------------------------------------------------
     # Check timeseries
     

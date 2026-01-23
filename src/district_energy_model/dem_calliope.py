@@ -115,7 +115,10 @@ class CalliopeOptimiser:
 
         if 'tes' in self.tech_list:
             self.tech_tes = tech_instances['tes']
-            
+
+        if 'tes_sites' in self.tech_list:
+            self.tech_tes_sites = tech_instances['tes_sites']
+
         if 'tes_decentralised' in self.tech_list:
             self.tech_tes_decentralised = tech_instances['tes_decentralised']
             
@@ -580,10 +583,14 @@ class CalliopeOptimiser:
         # Run model:
         calliope.set_log_verbosity('INFO')
 
+        self.custom_constraint_ev_flexibility = (self.scen_techs['scenarios']['demand_side']
+                                        and self.scen_techs['demand_side']['ev_integration']
+                                        and self.scen_techs['demand_side']['ev_flexibility'])
+        self.custom_constraint_tes_sites = self.tech_tes_sites.get_custom_constraints_required()
+
+
         if (
-            self.scen_techs['scenarios']['demand_side']
-            and self.scen_techs['demand_side']['ev_integration']
-            and self.scen_techs['demand_side']['ev_flexibility']
+            self.custom_constraint_ev_flexibility or self.custom_constraint_tes_sites
                 ):
             self.custom_constraints = True
 
@@ -595,20 +602,40 @@ class CalliopeOptimiser:
         
         if self.custom_constraints:
         
-            ts_len = len(demand_heat)
-            n_days = int(ts_len/24.0) # assuming hourly timesteps and full days
-            
-            # Add custom constraints for EV flexibility:
+            if self.custom_constraint_tes_sites:
 
-            # print(model.backend)
-            # exit()
+                ts_len = len(demand_heat)
 
-            model = dem_calliope_cc.ev_flexibility_constraints(
-                model=model,
-                ts_len=ts_len,
-                n_days=n_days,
-                energy_demand=self.energy_demand,
-                )
+                #Custom constraints and costs for TES Sites
+
+                model = dem_calliope_cc.tes_sites_lt_no_conversion_without_charging_constraint(model, ts_len, self.tech_tes_sites.get_sites_list())
+                
+                model = dem_calliope_cc.tes_sites_size_ratios_constraints(model, ts_len, self.tech_tes_sites.get_sites_list())
+
+                model = dem_calliope_cc.tes_sites_minimum_size_constraints(model, ts_len, self.tech_tes_sites.get_sites_list())
+
+                model = dem_calliope_cc.tes_sites_minimum_size_cost(model, ts_len, self.tech_tes_sites.get_sites_list())
+                
+                model = dem_calliope_cc.tes_sites_charge_constraints(model, ts_len, self.tech_tes_sites.get_sites_list())
+
+                
+
+                
+            if self.custom_constraint_ev_flexibility:
+                ts_len = len(demand_heat)
+                n_days = int(ts_len/24.0) # assuming hourly timesteps and full days
+                
+                # Add custom constraints for EV flexibility:
+
+                # print(model.backend)
+                # exit()
+
+                model = dem_calliope_cc.ev_flexibility_constraints(
+                    model=model,
+                    ts_len=ts_len,
+                    n_days=n_days,
+                    energy_demand=self.energy_demand,
+                    )
         
         #----------------------------------------------------------------------
         # Save LP file: (prints file with human-readable mathematical formulation of the model)
@@ -1359,7 +1386,14 @@ class CalliopeOptimiser:
             
         if 'tes' in self.tech_list:
             d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_tes'].values
-            
+
+        if 'tes_sites' in self.tech_list:
+
+            for loc in self.tech_tes_sites.get_list_of_sitekeys():
+                for x in loc:
+                    if x.endswith("ht"):
+                        d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_'+x].values
+
         if 'waste_to_energy' in self.tech_list:
             d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_wte'].values
             
@@ -1413,6 +1447,55 @@ class CalliopeOptimiser:
             else:
                 self.tech_tes.update_sos(q_h_tes *0)
             self.tech_tes.update_cap(cap_tes)
+
+# -------------------
+        # Thermal energy storage sites: # LOSSES TO BE ADDED
+        if 'tes_sites' in self.tech_list:
+
+            list_of_sitekeys = self.tech_tes_sites.get_list_of_sitekeys()
+            sites_list = self.tech_tes_sites.get_sites_list()
+
+
+            for site_indexval in range(len(list_of_sitekeys)):
+                sitekeys = list_of_sitekeys[site_indexval]
+                for subsite in sitekeys:
+                    t = subsite.split("_")[-1]
+
+                    v_h_tessite = opt_results['carrier_prod'].loc['X1::'+subsite+'::heat_'+subsite].values
+                    u_h_tessite = -opt_results['carrier_con'].loc['X1::'+subsite+'::heat_'+subsite].values
+                    q_h_tessite = opt_results['storage'].loc['X1::'+subsite].values
+
+                    cap_tessite = float(opt_results['storage_cap'].loc['X1::'+subsite].values)
+
+                    
+
+                    self.tech_tes_sites.set_u_h_site_type(u_h_tessite, site_indexval, t)
+                    self.tech_tes_sites.set_v_h_site_type(v_h_tessite, site_indexval, t)
+                    self.tech_tes_sites.set_q_h_site_type(q_h_tessite, site_indexval, t)
+
+                    self.tech_tes_sites.set_cap_site_type(cap_tessite, site_indexval, t)
+                    if subsite[-4:] == 'ltlt':
+
+                        name = sites_list[site_indexval]['name']
+                        u_hht_to_hlt = (opt_results['carrier_prod'].loc['X1::conv_'+name+'_htht_to_'+name+'_ltlt::heat_'+subsite]
+                         +opt_results['carrier_prod'].loc['X1::conv_'+name+'_htlt_to_'+name+'_ltlt::heat_'+subsite])
+                        self.tech_tes_sites.set_u_hht_to_hlt(
+                            u_hht_to_hlt+self.tech_tes_sites.get_u_hht_to_hlt(site_indexval)
+                            , site_indexval)
+                    if subsite[-4:] == 'htlt':
+                        name = sites_list[site_indexval]['name']
+                        
+                        u_hht_to_hlt = opt_results['carrier_prod'].loc['X1::conv_'+name+'_lt_to_'+'heatlt_htlt::heatlt']-v_h_tessite
+                        self.tech_tes_sites.set_u_hht_to_hlt(
+                            u_hht_to_hlt+self.tech_tes_sites.get_u_hht_to_hlt(site_indexval)
+                            , site_indexval)
+
+
+
+                    self.tech_tes_sites.update_soc_site_type(site_indexval, t)
+                    self.tech_tes_sites.update_losses_site_type(site_indexval, t)
+
+
         # -------------------
         # Thermal energy storage - decentralised: # LOSSES TO BE ADDED
         if 'tes_decentralised' in self.tech_list:
@@ -1780,6 +1863,7 @@ class CalliopeOptimiser:
             'wind_power': '#3333FF',
             'grid_supply':'#C5ABE3',
             'tes':'#EF008C',
+            'tes_sites':'#EF008C',
             'tes_decentralised':'#EF008C',
             'bes': '#229954',
             'gtes': '#000000',
@@ -2290,7 +2374,15 @@ class CalliopeOptimiser:
                 )
             
             self.tech_list_old = self.tech_list_old + tes_techs_label_list
+
+        if 'tes_sites' in self.tech_list:
+            techs_dict, tes_sites_techs_label_list = self.tech_tes_sites.create_techs_dict(
+                techs_dict,
+                colors['tes']
+                )
             
+            self.tech_list_old = self.tech_list_old + tes_sites_techs_label_list
+
         if 'tes_decentralised' in self.tech_list:
             techs_dict, tesdc_techs_label_list = self.tech_tes_decentralised.create_techs_dict(
                 techs_dict,
@@ -2959,8 +3051,12 @@ class CalliopeOptimiser:
         if self.opt_metrics['MIPGap_increase']:        
             if mipgap_ >= 0.01:
                 pass
-            elif ('tes' in self.tech_list or 'bes' in self.tech_list 
-                  or 'gtes' in self.tech_list or 'hes' in self.tech_list or 'ws' in self.tech_list):
+            elif ('tes' in self.tech_list 
+                  or 'bes' in self.tech_list 
+                  or 'gtes' in self.tech_list 
+                  or 'hes' in self.tech_list 
+                  or 'ws' in self.tech_list 
+                  or 'tes_sites' in self.tech_list):
                 mipgap_ = 0.01 # MIPGap increased to 1% to reduce optimisation runtime
                 print("\nSolver MIPGap increased to 1% because of deployment of "
                       "storage technology. Storage technologies contain MIP "
