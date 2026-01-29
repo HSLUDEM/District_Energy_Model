@@ -654,7 +654,7 @@ heat_sources_dhn=[
     'v_h_st_wbsg_con',
     'v_h_st_wbsg_waste_negative',
     'v_h_wte_con',
-    'v_h_wte_waste_negative'
+    'v_h_wte_waste_negative',
     'v_h_hpcp',
     'v_h_hpcplt',
     'v_h_obcp',
