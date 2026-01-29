@@ -206,6 +206,56 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list): #implements s
     return model
 
 
+def tes_sites_exclusion_constraint(model, ts_len, sites_list):
+
+    exclusion_group_constraints_to_generate = {}
+    
+
+    for i in range(len(sites_list)):
+
+        flag = True
+
+        site_entry = sites_list[i]
+
+        entries = ['htht', 'htlt', 'ltlt']
+
+        for level in entries:
+
+            if (site_entry['rel_size_t_levels'][level] > 0):
+                
+                if (site_entry['capacity_kWh_min'] > 0) and flag:
+                    
+                    if site_entry['exclusion_group'] != None:
+                        if not site_entry['exclusion_group'] in exclusion_group_constraints_to_generate.keys():
+                            exclusion_group_constraints_to_generate[site_entry['exclusion_group']] = []
+                        
+                        exclusion_group_constraints_to_generate[site_entry['exclusion_group']].append('tes_site_'+site_entry['name']+'_'+level)
+
+                    flag = False
+                else:
+                    ...
+
+    print(exclusion_group_constraints_to_generate)
+
+    for k in exclusion_group_constraints_to_generate.keys():
+
+        constraint_name = 'tes_sites_exclusion_constraint_'+k
+        constraint_sets = ['loc_techs_store']
+
+        def tes_sites_exclusion_rule(backend_model, loc_tech):
+
+            val_to_bound = sum([backend_model.component('tes_sites_size_constraint_tes_site_'+x+'_binaryvar')[loc_tech] for x in exclusion_group_constraints_to_generate[k]])
+
+            return val_to_bound <= 1
+
+        model.backend.add_constraint(
+            constraint_name,
+            constraint_sets,
+            tes_sites_exclusion_rule
+            )
+
+    return model
+
 def tes_sites_minimum_size_cost(model, ts_len, sites_list): 
 
     #This function applies a binary cost to devices with minimum size

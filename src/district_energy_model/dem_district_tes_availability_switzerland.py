@@ -13,12 +13,13 @@ def tes_availability_script_stub(params): #This is just a placeholder for future
 
     # list_of_tes_options.append({
     #     'name': 'PTES_1',
+    #     'exclusion_group': 'EXCL_GRP_1'
     #     'color': (122,73,14),
     #     'type': 'simple_fully_stratified_three_temperature_levels', #TES-implementation (content of other entries can depend on this)
     #     'rel_size_t_levels': {'ltlt': 0.6, 'htlt': 0.2, 'htht': 0.2}, #relative shares of storage low-T-->low-T, high-T-->low-T, high-T-->high-T
     #     'capacity_kWh_min': 20000, #Minimum capacity of the TES
-    #     'capacity_kWh_max': 40000, #Maximum capacity of the TES
-    #     'capex_base': 95000*1.0, #Capex for installing the device (independent of size)
+    #     'capacity_kWh_max': 20000, #Maximum capacity of the TES
+    #     'capex_base': 20000*1.0, #Capex for installing the device (independent of size)
     #     'capex_per_kWh': 0.5, #size dependent share of capex
     #     'maintenance_cost_base': 10000, #Maintenance cost for having the device
     #     'maintenance_cost_per_kWh': 0.05, #Size-dependent share of the maintenance costs
@@ -44,6 +45,7 @@ def tes_availability_script_stub(params): #This is just a placeholder for future
     
     # list_of_tes_options.append({
     #     'name': 'PTES_2',
+    #     'exclusion_group': None,
     #     'color': (122,73,14),
     #     'type': 'simple_fully_stratified_three_temperature_levels', #TES-implementation (content of other entries can depend on this)
     #     'rel_size_t_levels': {'ltlt': 0.0, 'htlt': 0.5, 'htht': 0.5}, #relative shares of storage low-T-->low-T, high-T-->low-T, high-T-->high-T
@@ -76,6 +78,7 @@ def tes_availability_script_stub(params): #This is just a placeholder for future
     
     # list_of_tes_options.append({
     #     'name': 'BTES_1',
+        # 'exclusion_group': 'EXCL_GRP_1', 
     #     'color': (237,206,85),
     #     'type': 'simple_fully_stratified_three_temperature_levels', #TES-implementation (content of other entries can depend on this)
     #     'rel_size_t_levels': {'ltlt': 0.5, 'htlt': 0.5, 'htht': 0.0}, #relative shares of storage low-T-->low-T, high-T-->low-T, high-T-->high-T
