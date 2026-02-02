@@ -324,7 +324,15 @@ scen_techs = {
         'maintenance_cost': 0, # [CHF/kWh_th/year]
         'interest_rate':interest_rate
         },
-    
+
+    'tes_sites':{ # tes sites (thermal energy storage) (large scale, connected to District Heating Network): sites with different properties
+        'deployment':False,
+        'force_asynchronous_prod_con': force_asynchronous_storage,
+        'list_generation_mode': 'stub', #options: 'stub'
+        'generation_function_parameters': {},
+        'interest_rate':interest_rate
+        },
+
     'tes_decentralised':{ # tesdc
         'deployment':False,
         'force_asynchronous_prod_con': force_asynchronous_storage,

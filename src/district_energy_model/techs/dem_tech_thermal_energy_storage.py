@@ -75,31 +75,87 @@ class ThermalEnergyStorage(TechCore):
         self._force_asynchronous_prod_con = tech_dict['force_asynchronous_prod_con']
 
         # self._connection_heat_pump = tech_dict['connections']['heat_pump']
-        self._connection_district_heating_network =\
-            tech_dict['connections']['district_heating_network']
-        self._connection_district_heat_import =\
-            tech_dict['connections']['district_heat_import']
-        self._connection_chp_gt = tech_dict['connections']['chp_gt']
-        self._connection_steam_turbine =\
-            tech_dict['connections']['steam_turbine']
-        self._connection_waste_to_energy =\
-            tech_dict['connections']['waste_to_energy']
-        self._connection_heat_pump_cp =\
-            tech_dict['connections']['heat_pump_cp']
-        self._connection_heat_pump_cp_lt =\
-            tech_dict['connections']['heat_pump_cp_lt']
-        self._connection_oil_boiler_cp =\
-            tech_dict['connections']['oil_boiler_cp']
-        self._connection_electric_heater_cp =\
-            tech_dict['connections']['electric_heater_cp']
-        self._connection_wood_boiler_cp =\
-            tech_dict['connections']['wood_boiler_cp']
-        self._connection_gas_boiler_cp =\
-            tech_dict['connections']['gas_boiler_cp']
-        self._connection_waste_heat =\
-            tech_dict['connections']['waste_heat']
-        self._connection_biomass =\
-            tech_dict['connections']['biomass']
+        
+        self._connections = []
+
+        if tech_dict['connections']['district_heating_network']:
+            self._connections.append({'name': 'Conversion: TES to DH', 
+                                         'techs_dict_symb': 'conv_tes_dh',
+                                         'heatflow_in': 'heat_tes', 
+                                         'heatflow_out': 'heat_dh'})
+
+        if tech_dict['connections']['district_heat_import']:
+            self._connections.append({'name': 'Conversion: DHImp to TES', 
+                                         'techs_dict_symb': 'conv_dhimp_tes',
+                                         'heatflow_in': 'heat_dhimp', 
+                                         'heatflow_out': 'heat_tes'})
+
+        if tech_dict['connections']['chp_gt']:
+            self._connections.append({'name': 'Conversion: CHPGT to TES', 
+                                         'techs_dict_symb': 'conv_chpgt_tes',
+                                         'heatflow_in': 'heat_chpgt', 
+                                         'heatflow_out': 'heat_tes'})
+
+        if tech_dict['connections']['steam_turbine']:
+            self._connections.append({'name': 'Conversion: ST to TES', 
+                                         'techs_dict_symb': 'conv_st_tes',
+                                         'heatflow_in': 'heat_st', 
+                                         'heatflow_out': 'heat_tes'})
+
+        if tech_dict['connections']['waste_to_energy']:
+            self._connections.append({'name': 'Conversion: WtE to TES', 
+                                         'techs_dict_symb': 'conv_wte_tes',
+                                         'heatflow_in': 'heat_wte', 
+                                         'heatflow_out': 'heat_tes'})
+
+        if tech_dict['connections']['heat_pump_cp']:
+            self._connections.append({'name': 'Conversion: HPCP to TES', 
+                                         'techs_dict_symb': 'conv_hpcp_tes',
+                                         'heatflow_in': 'heat_hpcp', 
+                                         'heatflow_out': 'heat_tes'})
+
+        if tech_dict['connections']['heat_pump_cp_lt']:
+            self._connections.append({'name': 'Conversion: HPCPLT to TES', 
+                                         'techs_dict_symb': 'conv_hpcplt_tes',
+                                         'heatflow_in': 'heat_hpcplt', 
+                                         'heatflow_out': 'heat_tes'})
+
+        if tech_dict['connections']['oil_boiler_cp']:
+            self._connections.append({'name': 'Conversion: OBCP to TES', 
+                                         'techs_dict_symb': 'conv_obcp_tes',
+                                         'heatflow_in': 'heat_obcp', 
+                                         'heatflow_out': 'heat_tes'})
+
+        if tech_dict['connections']['electric_heater_cp']:
+            self._connections.append({'name': 'Conversion: EHCP to TES', 
+                                         'techs_dict_symb': 'conv_ehcp_tes',
+                                         'heatflow_in': 'heat_ehcp', 
+                                         'heatflow_out': 'heat_tes'})
+
+        if tech_dict['connections']['wood_boiler_cp']:
+            self._connections.append({'name': 'Conversion: WBCP to TES', 
+                                         'techs_dict_symb': 'conv_wbcp_tes',
+                                         'heatflow_in': 'heat_wbcp', 
+                                         'heatflow_out': 'heat_tes'})
+
+        if tech_dict['connections']['gas_boiler_cp']:
+            self._connections.append({'name': 'Conversion: GBCP to TES', 
+                                         'techs_dict_symb': 'conv_gbcp_tes',
+                                         'heatflow_in': 'heat_gbcp', 
+                                         'heatflow_out': 'heat_tes'})
+
+        if tech_dict['connections']['waste_heat']:
+            self._connections.append({'name': 'Conversion: WH to TES', 
+                                         'techs_dict_symb': 'conv_wh_tes',
+                                         'heatflow_in': 'heat_wh', 
+                                         'heatflow_out': 'heat_tes'})
+
+        if tech_dict['connections']['biomass']:
+            self._connections.append({'name': 'Conversion: Heat_biomass to TES',
+                                         'techs_dict_symb': 'conv_biomass_tes',
+                                         'heatflow_in': 'heat_biomass', 
+                                         'heatflow_out': 'heat_tes'})
+            
 
         # Tests:
         if self._ic > 1:
@@ -340,158 +396,19 @@ class ThermalEnergyStorage(TechCore):
         
         if self._force_cap_max:
             techs_dict['tes']['constraints']['storage_cap_equals'] = self._cap
-        
-        # # ----------------------------------------
-        # # Conversion technologies for connection to decentralised heat pumps:
-        
-        # if self._connection_heat_pump:
-        #     # Conversion from heat pumps to TES (one-way):
-        #     techs_dict['conv_hp_tes'] = {
-        #         'essentials':{
-        #             'name':'Conversion: HP to TES',
-        #             'parent':'conversion',
-        #             'carrier_in':'heat_hp',
-        #             'carrier_out':'heat_tes',
-        #             },
-        #         'constraints':{
-        #             'energy_cap_max':'inf',
-        #             'energy_eff':1.0, # Here we could account for transmission losses
-        #             'lifetime':self._lifetime,
-        #             },
-        #         'costs':{
-        #             'monetary':{
-        #                 'om_con': 0.0, # costs are reflected in supply techs
-        #                 'interest_rate':0.0,
-        #                 },
-        #             } 
-        #         }
-        #     tes_techs_label_list.append('conv_hp_tes') 
-            
-        #     # From TES to decentralised heat pump hub (one-way; virtual hub):
-        #     techs_dict['conv_tes_hp'] = {
-        #         'essentials':{
-        #             'name':'Conversion: TES to HP',
-        #             'parent':'conversion',
-        #             'carrier_in':'heat_tes',
-        #             'carrier_out':'heat_hp',
-        #             },
-        #         'constraints':{
-        #             'energy_cap_max':'inf',
-        #             'energy_eff':1.0, # Here we could account for transmission losses
-        #             'lifetime':self._lifetime,
-        #             },
-        #         'costs':{
-        #             'monetary':{
-        #                 'om_con': 0.0, # costs are reflected in supply techs
-        #                 'interest_rate':0.0,
-        #                 },
-        #             } 
-        #         }
-        #     tes_techs_label_list.append('conv_tes_hp')
-        
+                    
         # ----------------------------------------
         # Conversion technologies for connected technologies in district heating network:
             
         # From TES to district heating network (one-way connection):
-        if self._connection_district_heating_network:
-            techs_dict['conv_tes_dh'] = {
-                'essentials':{
-                    'name':'Conversion: TES to DH',
-                    'parent':'conversion',
-                    'carrier_in':'heat_tes',
-                    'carrier_out':'heat_dh',
-                    },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
-                    },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
-                }
-            tes_techs_label_list.append('conv_tes_dh')
-            
-        # District heat import (dhimp):
-        if self._connection_district_heat_import:
-            techs_dict['conv_dhimp_tes'] = {
-                'essentials':{
-                    'name':'Conversion: DHImp to TES',
-                    'parent':'conversion',
-                    'carrier_in':'heat_dhimp',
-                    'carrier_out':'heat_tes',
-                    },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
-                    },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
-                }
-            tes_techs_label_list.append('conv_dhimp_tes')
-        
-        # Combined heat and power gas turbine (chpgt):
-        if self._connection_chp_gt:
-            techs_dict['conv_chpgt_tes'] = {
-                'essentials':{
-                    'name':'Conversion: CHPGT to TES',
-                    'parent':'conversion',
-                    'carrier_in':'heat_chpgt',
-                    'carrier_out':'heat_tes',
-                    },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
-                    },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
-                }
-            tes_techs_label_list.append('conv_chpgt_tes')
-        
-        # Steam turbine (st):
-        if self._connection_steam_turbine:
-            techs_dict['conv_st_tes'] = {
-                'essentials':{
-                    'name':'Conversion: ST to TES',
-                    'parent':'conversion',
-                    'carrier_in':'heat_st',
-                    'carrier_out':'heat_tes',
-                    },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
-                    },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
-                }
-            tes_techs_label_list.append('conv_st_tes')
 
-        # Waste-to-energy (wte):
-        if self._connection_waste_to_energy:
-            techs_dict['conv_wte_tes'] = {
+        for connection_dict in self._connections:
+            techs_dict[connection_dict['techs_dict_symb']] = {
                 'essentials':{
-                    'name':'Conversion: WtE to TES',
+                    'name': connection_dict['name'],
                     'parent':'conversion',
-                    'carrier_in':'heat_wte',
-                    'carrier_out':'heat_tes',
+                    'carrier_in': connection_dict['heatflow_in'],
+                    'carrier_out': connection_dict['heatflow_out'],
                     },
                 'constraints':{
                     'energy_cap_max':'inf',
@@ -505,193 +422,7 @@ class ThermalEnergyStorage(TechCore):
                         },
                     } 
                 }
-            tes_techs_label_list.append('conv_wte_tes')
-        
-        # Heat pump central plant (hpcp):
-        if self._connection_heat_pump_cp:
-            techs_dict['conv_hpcp_tes'] = {
-                'essentials':{
-                    'name':'Conversion: HPCP to TES',
-                    'parent':'conversion',
-                    'carrier_in':'heat_hpcp',
-                    'carrier_out':'heat_tes',
-                    },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
-                    },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
-                }
-            tes_techs_label_list.append('conv_hpcp_tes')
-
-        # Heat pump central plant, from low T heat (hpcplt):
-        if self._connection_heat_pump_cp_lt:
-            techs_dict['conv_hpcplt_tes'] = {
-                'essentials':{
-                    'name':'Conversion: HPCPLT to TES',
-                    'parent':'conversion',
-                    'carrier_in':'heat_hpcplt',
-                    'carrier_out':'heat_tes',
-                    },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
-                    },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
-                }
-            tes_techs_label_list.append('conv_hpcplt_tes')
-
-        # Oil boiler central plant (obcp):
-        if self._connection_oil_boiler_cp:
-            techs_dict['conv_obcp_tes'] = {
-                'essentials':{
-                    'name':'Conversion: OBCP to TES',
-                    'parent':'conversion',
-                    'carrier_in':'heat_obcp',
-                    'carrier_out':'heat_tes',
-                    },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
-                    },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
-                }
-            tes_techs_label_list.append('conv_obcp_tes')
-
-        # Electric heater central plant (ehcp):
-        if self._connection_electric_heater_cp:
-            techs_dict['conv_ehcp_tes'] = {
-                'essentials':{
-                    'name':'Conversion: EHCP to TES',
-                    'parent':'conversion',
-                    'carrier_in':'heat_ehcp',
-                    'carrier_out':'heat_tes',
-                    },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
-                    },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
-                }
-            tes_techs_label_list.append('conv_ehcp_tes')
-
-        # Biomass to TES:
-        if self._connection_biomass:
-            techs_dict['conv_biomass_tes'] = {
-                'essentials':{
-                    'name':'Conversion: Heat_biomass to TES',
-                    'parent':'conversion',
-                    'carrier_in':'heat_biomass',
-                    'carrier_out':'heat_tes',
-                    },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
-                    },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
-                }
-            tes_techs_label_list.append('conv_biomass_tes')
-
-
-        # Wood boiler central plant (wbcp):
-        if self._connection_wood_boiler_cp:
-            techs_dict['conv_wbcp_tes'] = {
-                'essentials':{
-                    'name':'Conversion: WBCP to TES',
-                    'parent':'conversion',
-                    'carrier_in':'heat_wbcp',
-                    'carrier_out':'heat_tes',
-                    },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
-                    },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
-                }
-            tes_techs_label_list.append('conv_wbcp_tes')
-
-        # Waste heat (wh):
-        if self._connection_waste_heat:
-            techs_dict['conv_wh_tes'] = {
-                'essentials':{
-                    'name':'Conversion: WH to TES',
-                    'parent':'conversion',
-                    'carrier_in':'heat_wh',
-                    'carrier_out':'heat_tes',
-                    },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
-                    },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
-                }
-            tes_techs_label_list.append('conv_wh_tes')
-
-        # Gas boiler central plant (gbcp):
-        if self._connection_gas_boiler_cp:
-            techs_dict['conv_gbcp_tes'] = {
-                'essentials':{
-                    'name':'Conversion: GBCP to TES',
-                    'parent':'conversion',
-                    'carrier_in':'heat_gbcp',
-                    'carrier_out':'heat_tes',
-                    },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
-                    },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
-                }
-            tes_techs_label_list.append('conv_gbcp_tes')
-
+            tes_techs_label_list.append(connection_dict['techs_dict_symb'])
 
 
         return techs_dict, tes_techs_label_list

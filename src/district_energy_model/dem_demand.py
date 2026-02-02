@@ -544,6 +544,9 @@ class EnergyDemand:
             raise ValueError(msg)
         else:
             tmp_d_e_ev_cp = tmp_d_e_ev_cp*ev_integration_factor/100.0
+            tmp_d_e_ev_pd = tmp_d_e_ev_pd*ev_integration_factor/100.0
+            tmp_d_e_ev_pu = tmp_d_e_ev_pu*ev_integration_factor/100.0
+            tmp_f_e_ev_pot_dy = tmp_f_e_ev_pot_dy*ev_integration_factor/100.0
             
         self.update_d_e_ev_cp(tmp_d_e_ev_cp, n_days)
         self.update_d_e_ev_pd(tmp_d_e_ev_pd)
