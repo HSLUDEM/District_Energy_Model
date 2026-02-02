@@ -105,13 +105,23 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     dict_v_e = {
         'pvrooftop_'+str(i): pd.Series(v_e_pvrooftop[i]) for i in range(len(v_e_pvrooftop))
         }
-    dict_v_e |= {
+    tmp_d_to_add = {
         'wp':pd.Series(v_e_wp),
         'bm':pd.Series(v_e_bm),
         'hydro':pd.Series(v_e_hydro)
         }
+    for k in tmp_d_to_add.keys():
+        dict_v_e[k] = tmp_d_to_add[k]
+    
+
+
+    # dict_v_e |= {
+    #     'wp':pd.Series(v_e_wp),
+    #     'bm':pd.Series(v_e_bm),
+    #     'hydro':pd.Series(v_e_hydro)
+    #     }
     if with_bes:
-        dict_v_e |= {'bes':pd.Series(v_e_bes)}
+        dict_v_e['bes'] =pd.Series(v_e_bes)
     
     # Initialise dicts for self-consumption (con) and export (exp)
     dict_v_e_cons = {}
