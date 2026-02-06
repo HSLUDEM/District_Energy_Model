@@ -389,9 +389,9 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
     for day in range(n_days): # create one constraint per day:
         
         constraint_name = f'd_e_ev_dy_constraint_{day}'        
-        constraint_sets = ['loc_techs_demand']
+        constraint_sets = []
         
-        def d_e_ev_dy_constraint_rule(backend_model, loc_tech):
+        def d_e_ev_dy_constraint_rule(backend_model):
             
             ts = backend_model.timesteps # retrieve timesteps            
 
@@ -422,9 +422,9 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
     for i in range(ts_len):
 
         constraint_name = f'ev_flex_var_constraint_{i}'
-        constraint_sets = ['loc_techs']
+        constraint_sets = []
         
-        def ev_flex_var_constraint_rule(backend_model, loc_tech):
+        def ev_flex_var_constraint_rule(backend_model):
             
             ts = backend_model.timesteps
             
@@ -451,9 +451,9 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
             )
         
         constraint_name = f'ev_flex_pos_constraint_{i}'
-        constraint_sets = ['loc_techs']
+        constraint_sets = []
         
-        def ev_flex_pos_constraint_rule(backend_model, loc_tech):
+        def ev_flex_pos_constraint_rule(backend_model):
             
             ts = backend_model.timesteps
             
@@ -473,9 +473,9 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
     for day in range(n_days): # create one constraint per day:
         
         constraint_name = f'f_e_ev_dy_constraint_{day}'        
-        constraint_sets = ['loc_techs']
+        constraint_sets = []
         
-        def f_e_ev_dy_constraint_rule(backend_model, loc_tech):
+        def f_e_ev_dy_constraint_rule(backend_model):
             
             ts = backend_model.timesteps # retrieve timesteps            
 
