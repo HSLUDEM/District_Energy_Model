@@ -231,7 +231,8 @@ class GasBoiler(TechCore):
             name,
             color,
             energy_cap,
-            capex_level = 'full' # 'zero', 'one-to-one-replacement'
+            capex_level = 'full', # 'zero', 'one-to-one-replacement'
+            energy_scaling_factor = 1.0
             ):
         
         if capex_level=='full':
@@ -252,12 +253,12 @@ class GasBoiler(TechCore):
                 'parent': 'gas_boiler'
                 },
             'constraints':{
-                'energy_cap_max': energy_cap
+                'energy_cap_max': energy_cap / energy_scaling_factor if energy_cap != 'inf' else 'inf'
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': capex,
-                    'om_annual': self._maintenance_cost
+                    'energy_cap': capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     }
                 }
             }

@@ -142,7 +142,8 @@ class ElectricHeater(TechCore):
                           name, 
                           color, 
                           energy_cap,
-                          capex_0=False
+                          capex_0=False,
+                          energy_scaling_factor = 1.0
                           ):
         
         if capex_0==False:
@@ -157,12 +158,12 @@ class ElectricHeater(TechCore):
                 'color': color
                 },
             'constraints':{
-                'energy_cap_max': energy_cap
+                'energy_cap_max': energy_cap / energy_scaling_factor
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': capex,
-                    'om_annual': self._maintenance_cost
+                    'energy_cap': capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     }
                 }
             }

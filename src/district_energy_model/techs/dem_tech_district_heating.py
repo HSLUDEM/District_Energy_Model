@@ -235,7 +235,7 @@ class DistrictHeating(TechCore):
         self.len_test(self._m_h)        
         self._v_co2 = self._m_h*self.__tech_dict['co2_intensity']
         
-    def create_techs_dict(self, techs_dict, color):
+    def create_techs_dict(self, techs_dict, color, energy_scaling_factor):
 
         # techs_dict['district_heating'] = {
         #     'essentials':{
@@ -276,7 +276,7 @@ class DistrictHeating(TechCore):
                     'carrier_out':'heat',
                     },
                 'constraints':{
-                    'energy_cap_max':self._kW_th_max_grid_categories[i],
+                    'energy_cap_max':self._kW_th_max_grid_categories[i] / energy_scaling_factor,
                     'energy_eff':1.0, # Here we could account for grid losses
                     'lifetime':self._lifetime,
                     # 'export_carrier': 'heat',
@@ -285,8 +285,8 @@ class DistrictHeating(TechCore):
                     'monetary':{
                         'om_con':0.0, # costs are reflected in supply techs
                         'interest_rate':self._interest_rate if self._kW_th_max_grid_categories[i]>0 else 0,
-                        'energy_cap': self._investment_cost_grid_categories[i] if self._kW_th_max_grid_categories[i]>0 else 0,
-                        'om_annual': self._maintenance_cost_grid_categories[i] if self._kW_th_max_grid_categories[i]>0 else 0,
+                        'energy_cap': self._investment_cost_grid_categories[i]*energy_scaling_factor if self._kW_th_max_grid_categories[i]>0 else 0,
+                        'om_annual': self._maintenance_cost_grid_categories[i]*energy_scaling_factor if self._kW_th_max_grid_categories[i]>0 else 0,
                         # 'export': -1e-5,
                         },
                     } 
@@ -307,16 +307,16 @@ class DistrictHeating(TechCore):
                 },
             'constraints':{
                 'resource':'inf',
-                'energy_cap_max':self._import_kW_th_max,
+                'energy_cap_max':self._import_kW_th_max / energy_scaling_factor if self._import_kW_th_max != 'inf' else 'inf',
                 'lifetime':self._lifetime
                 },
             'costs':{
                 'monetary':{
-                    'om_con':self._tariff_CHFpkWh,
+                    'om_con':self._tariff_CHFpkWh * energy_scaling_factor,
                     'interest_rate':self._interest_rate,
                     },
                 'emissions_co2':{
-                    'om_prod':self._co2_intensity,
+                    'om_prod':self._co2_intensity * energy_scaling_factor,
                     }
                 }
             }

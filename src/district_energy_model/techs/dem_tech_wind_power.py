@@ -903,6 +903,7 @@ class WindPower(TechCore):
                           # energy_cap,
                           export_cost,
                           capex_0=False,
+                          energy_scaling_factor = 1.0
                           ):
         
         if capex_0==False:
@@ -921,9 +922,9 @@ class WindPower(TechCore):
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap':capex,
-                    'om_annual': self._maintenance_cost,
-                    'export':export_cost-self._export_subsidy
+                    'energy_cap':capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor,
+                    'export':export_cost-self._export_subsidy * energy_scaling_factor
                     }
                 }
             }
@@ -937,6 +938,7 @@ class WindPower(TechCore):
             # header,
             # name, 
             color, 
+            energy_scaling_factor
             # resource,
             # energy_cap,
             # energy_cap_max_systemwide,
@@ -954,7 +956,7 @@ class WindPower(TechCore):
             'constraints':{
                 'units_max': 1,
                 'units_max_systemwide': 2,
-                'energy_cap_max_systemwide': self._kWp_max_systemwide,
+                'energy_cap_max_systemwide': self._kWp_max_systemwide / energy_scaling_factor if self._kWp_max_systemwide != 'inf' else 'inf',
                 # 'energy_cap_per_unit': tmp_cap_max, # was added in loc_dict()
                 'energy_eff': 1.0,
                 'lifetime': 100.0

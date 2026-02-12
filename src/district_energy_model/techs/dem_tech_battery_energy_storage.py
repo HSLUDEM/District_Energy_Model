@@ -256,7 +256,7 @@ class BatteryEnergyStorage(TechCore):
         
         # return l_q_e_bes
     
-    def create_techs_dict(self, techs_dict, color):
+    def create_techs_dict(self, techs_dict, color, energy_scaling_factor):
 
         techs_dict['bes'] = {
             'essentials':{
@@ -268,7 +268,7 @@ class BatteryEnergyStorage(TechCore):
                 },
             'constraints':{
                 'storage_initial':self._ic if not self._optimized_initial_charge else None,
-                'storage_cap_max':self._cap,
+                'storage_cap_max':self._cap / energy_scaling_factor if self._cap != 'inf' else 'inf',
                 'storage_loss':self._gamma,
                 'energy_eff':self._eta_chg_dchg,
                 'energy_cap_per_storage_cap_max': self._chg_dchg_per_cap_max,
@@ -279,9 +279,9 @@ class BatteryEnergyStorage(TechCore):
                 'monetary':{
                     # 'om_annual':0.0, # !!!TEMPORARY - KOSTEN MÜSSEN DYNAMISCH HINZUGEFÜGT WERDEN!!!
                     'om_prod':0.0000, # # [CHF/kWh_dchg] artificial cost per discharged kWh; used to avoid cycling within timestep
-                    'storage_cap':self._capex,
+                    'storage_cap':self._capex * energy_scaling_factor,
                     'interest_rate':self._interest_rate,
-                    'om_annual': self._maintenance_cost
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     },
                 }
             }

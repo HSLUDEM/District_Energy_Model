@@ -280,7 +280,7 @@ class HydrothermalGasification(TechCore): # hg
     def __compute_u_wet_bm(self):
         self._u_wet_bm = self._v_gas/self._eta        
     
-    def generate_tech_dict(self, techs_dict):
+    def generate_tech_dict(self, techs_dict, energy_scaling_factor):
         
         hg_dict = {
             'essentials':{
@@ -291,16 +291,16 @@ class HydrothermalGasification(TechCore): # hg
                 'carrier_out': 'gas',
                 },
             'constraints':{
-                'energy_cap_max':self.__tech_dict['capacity_kWh'],
+                'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
                 'energy_eff':self.__tech_dict['efficiency'],
                 'lifetime':self.__tech_dict['lifetime']
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'],
-                    'om_con':self.__tech_dict['om_cost'], # [CHF/kWh]
+                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
+                    'om_con':self.__tech_dict['om_cost'] * energy_scaling_factor, # [CHF/kWh]
                     'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     },
                 }
             }
@@ -447,7 +447,7 @@ class AnaerobicDigestionUpgrade(TechCore): # agu
     def __compute_u_wet_bm(self):
         self._u_wet_bm = self._v_gas/self._eta 
         
-    def generate_tech_dict(self, techs_dict):
+    def generate_tech_dict(self, techs_dict, energy_scaling_factor):
         
         adu_dict = {
             'essentials':{
@@ -458,16 +458,16 @@ class AnaerobicDigestionUpgrade(TechCore): # agu
                 'carrier_out': 'gas',
                 },
             'constraints':{
-                'energy_cap_max':self.__tech_dict['capacity_kWh'],
+                'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
                 'energy_eff':self.__tech_dict['efficiency'],
                 'lifetime':self.__tech_dict['lifetime']
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'],
-                    'om_con':self.__tech_dict['om_cost'], # [CHF/kWh]
+                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
+                    'om_con':self.__tech_dict['om_cost'] * energy_scaling_factor, # [CHF/kWh]
                     'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     },
                 }
             }
@@ -659,7 +659,7 @@ class AnaerobicDigestionUpgradeHydrogen(): # aguh
     #     self._u_e = self._v_gas*(1 - self._methane_percentage)*self.__eta_e
     #     self._v_h = self._v_gas*(1 - self._methane_percentage)*self.__eta_h
         
-    def generate_tech_dict(self, techs_dict):
+    def generate_tech_dict(self, techs_dict, energy_scaling_factor):
 
         tech_dict = {
             'essentials':{
@@ -675,7 +675,7 @@ class AnaerobicDigestionUpgradeHydrogen(): # aguh
                 'primary_carrier_out':'gas'
                 },
             'constraints':{
-                'energy_cap_max':self.__tech_dict['capacity_kWh'],
+                'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
                 'energy_eff': self.__tech_dict['efficiency_primary'],
                 'carrier_ratios':{
                     'carrier_in_2':{
@@ -692,10 +692,10 @@ class AnaerobicDigestionUpgradeHydrogen(): # aguh
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'],
+                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
                     'om_con':0.0, # this is reflected in the cost of the electricity
                     'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     },
                 } 
             }
@@ -899,7 +899,7 @@ class AnaerobicDigestionCHP(TechCore): # aguc
             raise ValueError("v_e_exp_updated must have the same length as v_e_exp!")            
         self._v_e_exp = np.array(v_e_exp_updated)
         
-    def generate_tech_dict(self, techs_dict):
+    def generate_tech_dict(self, techs_dict, energy_scaling_factor):
         
         tech_dict = {
             'essentials':{
@@ -913,7 +913,7 @@ class AnaerobicDigestionCHP(TechCore): # aguc
                 },
             'constraints':{
                 'export_carrier': 'electricity',
-                'energy_cap_max':self.__tech_dict['capacity_kWh'],
+                'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
                 'energy_eff': self.__tech_dict['efficiency_electricity'],
                 'carrier_ratios':{
                     'carrier_out_2':{
@@ -924,10 +924,10 @@ class AnaerobicDigestionCHP(TechCore): # aguc
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'],
+                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
                     'om_con':0.0, # this is reflected in the cost of the electricity
                     'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     },
                 } 
             }
@@ -1113,7 +1113,7 @@ class WoodGasificationUpgrade(TechCore): # wgu
             raise ValueError("v_gas_updated must have the same length as v_gas!")            
         self._v_gas = np.array(v_gas_updated)
     
-    def generate_tech_dict(self, techs_dict):
+    def generate_tech_dict(self, techs_dict, energy_scaling_factor):
         
         
         tech_dict = {
@@ -1129,7 +1129,7 @@ class WoodGasificationUpgrade(TechCore): # wgu
                 'primary_carrier_out':'gas'
                 },
             'constraints':{
-                'energy_cap_max':self.__tech_dict['capacity_kWh'],
+                'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
                 'energy_eff': self.__tech_dict['efficiency'],
                 'carrier_ratios':{
                     'carrier_in_2':{
@@ -1143,10 +1143,10 @@ class WoodGasificationUpgrade(TechCore): # wgu
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'],
+                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
                     'om_con':0.0, # this is reflected in the cost of the electricity
                     'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     },
                 } 
             }
@@ -1348,7 +1348,7 @@ class WoodGasificationUpgradeHydrogen(TechCore): # wguh
             raise ValueError("v_gas_updated must have the same length as v_gas!")            
         self._v_gas = np.array(v_gas_updated)
         
-    def generate_tech_dict(self, techs_dict):
+    def generate_tech_dict(self, techs_dict, energy_scaling_factor):
         
         tech_dict = {
             'essentials':{
@@ -1364,7 +1364,7 @@ class WoodGasificationUpgradeHydrogen(TechCore): # wguh
                 'primary_carrier_out':'gas'
                 },
             'constraints':{
-                'energy_cap_max':self.__tech_dict['capacity_kWh'],
+                'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
                 'energy_eff': self.__tech_dict['efficiency_primary'],
                 'carrier_ratios':{
                     'carrier_in_2':{
@@ -1381,10 +1381,10 @@ class WoodGasificationUpgradeHydrogen(TechCore): # wguh
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'],
+                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
                     'om_con':0.0, # this is reflected in the cost of the electricity
                     'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     },
                 } 
             }
@@ -1584,7 +1584,7 @@ class WoodGasificationCHP(TechCore): # wguc
             raise ValueError("v_e_exp_updated must have the same length as v_e_exp!")            
         self._v_e_exp = np.array(v_e_exp_updated)
         
-    def generate_tech_dict(self, techs_dict):
+    def generate_tech_dict(self, techs_dict, energy_scaling_factor):
         
         tech_dict = {
             'essentials':{
@@ -1598,7 +1598,7 @@ class WoodGasificationCHP(TechCore): # wguc
                 },
             'constraints':{
                 'export_carrier': 'electricity',
-                'energy_cap_max':self.__tech_dict['capacity_kWh'],
+                'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
                 'energy_eff': self.__tech_dict['efficiency_electricity'],
                 'carrier_ratios':{
                     'carrier_out_2':{
@@ -1609,10 +1609,10 @@ class WoodGasificationCHP(TechCore): # wguc
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'],
+                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
                     'om_con':0.0, # this is reflected in the cost of the electricity
                     'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     },
                 } 
             }

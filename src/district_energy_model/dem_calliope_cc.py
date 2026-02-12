@@ -95,7 +95,7 @@ def tes_sites_lt_no_conversion_without_charging_constraint(model, ts_len, sites_
 
 
 
-def tes_sites_minimum_size_constraints(model, ts_len, sites_list): #implements size constraints on the TES devices
+def tes_sites_minimum_size_constraints(model, ts_len, sites_list, energy_scaling_factor): #implements size constraints on the TES devices
     #Ensures minimum size (needs additonal variable, which is binary)
 
 
@@ -152,7 +152,7 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list): #implements s
 
             binary_var = backend_model.component(varname_binary)  
 
-            return cap <= constraint_dict['max']*binary_var[loc_tech]
+            return cap <= constraint_dict['max']*binary_var[loc_tech] / energy_scaling_factor
         
         def tes_sites_size_constraint_min_rule(backend_model, loc_tech):
 
@@ -160,7 +160,7 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list): #implements s
 
             binary_var = backend_model.component(varname_binary)  
 
-            return cap >= constraint_dict['min']*binary_var[loc_tech]
+            return cap >= constraint_dict['min']*binary_var[loc_tech]  / energy_scaling_factor
 
         model.backend.add_constraint(
             constraint_name_max,
@@ -185,7 +185,7 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list): #implements s
 
             cap = backend_model.storage_cap['X1::'+constraint_dict['sitestr']]
 
-            return cap <= constraint_dict['max']
+            return cap <= constraint_dict['max'] / energy_scaling_factor
         
         model.backend.add_constraint(
             constraint_name,
@@ -245,7 +245,7 @@ def tes_sites_exclusion_constraint(model, ts_len, sites_list):
 
     return model
 
-def tes_sites_minimum_size_cost(model, ts_len, sites_list): 
+def tes_sites_minimum_size_cost(model, ts_len, sites_list, energy_scaling_factor): 
 
     #This function applies a binary cost to devices with minimum size
     #i.e. if a site has a minimum size, for all devices that are above this minimum size, a given capex is applied
@@ -302,8 +302,8 @@ def tes_sites_minimum_size_cost(model, ts_len, sites_list):
         binary_var = bm.component(varname_binary)
 
 
-        obj.expr = obj.expr + value_dict['capex_base'] * annuity_factor * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24))
-        obj.expr = obj.expr + value_dict['maintenance_cost_base'] * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24))
+        obj.expr = obj.expr + value_dict['capex_base'] * annuity_factor * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor
+        obj.expr = obj.expr + value_dict['maintenance_cost_base'] * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor
         
     active_objs[0] = obj
 
@@ -381,7 +381,7 @@ def tes_sites_charge_constraints(model, ts_len, sites_list):
     return model
 
 
-def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
+def ev_flexibility_constraints(model, ts_len, n_days, energy_demand, energy_scaling_factor):
     
     # Constraint: Daily EV electricity demand
     # -----------------------------------------
@@ -406,7 +406,7 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
                 hr+=1
             
             # Daily EV demand must match daily base profile (cp) demand:
-            return tmp_sum == -energy_demand.get_d_e_ev_cp_dy()[day]
+            return tmp_sum == -energy_demand.get_d_e_ev_cp_dy()[day] /energy_scaling_factor
                  
         model.backend.add_constraint(
             constraint_name,
@@ -438,7 +438,7 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
                 + backend_model.carrier_con['X1::demand_electricity_ev_delta::electricity', ts[i + 1]]
                 )
             
-            d_e_ev_cp_i = -energy_demand.get_d_e_ev_cp()[i]
+            d_e_ev_cp_i = -energy_demand.get_d_e_ev_cp()[i] / energy_scaling_factor
             
             delta_i = d_e_ev_i - d_e_ev_cp_i
             
@@ -493,7 +493,7 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
                 
                 hr+=1
                 
-            f_e_ev_pot_dy = energy_demand.get_f_e_ev_pot_dy()[day]
+            f_e_ev_pot_dy = energy_demand.get_f_e_ev_pot_dy()[day] / energy_scaling_factor
             
             # Daily EV flexible demand limitation:
             return pos_delta_i_max_sum <= f_e_ev_pot_dy

@@ -324,7 +324,7 @@ class SolarThermalType(TechCore):
                           techs_dict,
                           resources,
                           color, 
-
+                          energy_scaling_factor
                           ):
         
         headers = []
@@ -336,7 +336,8 @@ class SolarThermalType(TechCore):
                                                                             header = 'solar_'+self._techkey+"_installation_"+str(i),
                                                                             name = 'solar_'+self._techkey+"_installation_"+str(i),
                                                                             color = color,
-                                                                            resource = resources[i]
+                                                                            resource = resources[i],
+                                                                            energy_scaling_factor = energy_scaling_factor
                                                                                 )
                     
         return techs_dict, headers

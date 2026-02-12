@@ -146,6 +146,7 @@ class ElectricHeaterCP(TechCore):
             header,
             name,
             color,
+            energy_scaling_factor 
             ):
         
         capex = self._capex
@@ -157,12 +158,12 @@ class ElectricHeaterCP(TechCore):
                 'parent': 'electric_heater_cp'
                 },
             'constraints':{
-                'energy_cap_max': self._v_h_max,
+                'energy_cap_max': self._v_h_max / energy_scaling_factor if self._v_h_max != 'inf' else 'inf',
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': capex,
-                    'om_annual': self._maintenance_cost
+                    'energy_cap': capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     }
                 }
             }

@@ -182,6 +182,7 @@ class SolarPVInstallation(TechCore):
                           name, 
                           color, 
                           resource,
+                          energy_scaling_factor
                           ):
         
         self._share_occupied
@@ -199,13 +200,13 @@ class SolarPVInstallation(TechCore):
                 },
             'constraints':{
                 'resource': resource,
-                'energy_cap_max': p_max_occ
+                'energy_cap_max': p_max_occ / energy_scaling_factor
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': 0,
-                    'om_annual': self._maintenance_cost,
-                    'export': -self._export_subsidy,
+                    'energy_cap': 0*energy_scaling_factor,
+                    'om_annual': self._maintenance_cost*energy_scaling_factor,
+                    'export': -self._export_subsidy*energy_scaling_factor,
                     }
                 }
             }    
@@ -220,13 +221,13 @@ class SolarPVInstallation(TechCore):
                 },
             'constraints':{
                 'resource': resource,
-                'energy_cap_max': p_max_unocc
+                'energy_cap_max': p_max_unocc / energy_scaling_factor
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self._capex,
-                    'om_annual': self._maintenance_cost,
-                    'export': -self._export_subsidy,
+                    'energy_cap': self._capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor,
+                    'export': -self._export_subsidy * energy_scaling_factor,
                     }
                 }
             }    

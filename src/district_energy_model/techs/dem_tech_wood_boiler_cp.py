@@ -171,6 +171,7 @@ class WoodBoilerCP(TechCore):
             header,
             name,
             color,
+            energy_scaling_factor
             # energy_cap,
             # capex_0=False,
             ):
@@ -188,12 +189,12 @@ class WoodBoilerCP(TechCore):
                 'parent': 'wood_boiler_cp'
                 },
             'constraints':{
-                'energy_cap_max': self._v_h_max,
+                'energy_cap_max': self._v_h_max / energy_scaling_factor if self._v_h_max != 'inf' else 'inf',
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': capex,
-                    'om_annual': self._maintenance_cost
+                    'energy_cap': capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     }
                 }
             }

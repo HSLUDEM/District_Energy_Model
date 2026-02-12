@@ -769,7 +769,8 @@ scen_techs = {
         'objective_co2':0.0,
         'objective_ess':0.0, # energy self-sufficiency
         'objective_tss':0.0, # thermal self-sufficiency
-        'bigM_value':100000, # Default: 1e9; cost of unmet demand; large value makes model convergence slow; https://calliope.readthedocs.io/en/stable/user/building.html#allowing-for-unmet-demand
+        'calliope_energy_scaling_factor': 1.0, #scales all the energy values by a constant factor e.g. kW -> MW
+        'bigM_value':1e6, # Default: 1e9; cost of unmet demand; large value makes model convergence slow; https://calliope.readthedocs.io/en/stable/user/building.html#allowing-for-unmet-demand
         'solver': 'gurobi', #'cbc'
         'solver_option_NumericFocus':1, # Default: 0; https://docs.gurobi.com/projects/optimizer/en/current/reference/parameters.html#parameternumericfocus
         'solver_option_TimeLimit':36000, # [s] 'Infinity', # Default: 'Infinity'; https://docs.gurobi.com/projects/optimizer/en/current/reference/parameters.html#timelimit

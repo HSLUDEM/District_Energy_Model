@@ -116,7 +116,8 @@ class HydroPower(TechCore):
                           color,
                           resource,
                           energy_cap,
-                          capex_0=False
+                          capex_0=False,
+                          energy_scaling_factor = 1.0
                           ):
         
         if capex_0==False:
@@ -135,7 +136,7 @@ class HydroPower(TechCore):
                 'export_carrier': 'electricity',
                 'resource': resource,
                 'resource_unit':'energy',  # [kWh]
-                'energy_cap_max': energy_cap, # kWp # relevant?
+                'energy_cap_max': energy_cap / energy_scaling_factor, # kWp # relevant?
                 'force_resource': True,
                 'lifetime': 100
                 },
@@ -143,9 +144,9 @@ class HydroPower(TechCore):
                 'monetary':{
                     'interest_rate':0.0,
                     'om_con':0.0,
-                    'energy_cap':capex,
-                    'om_annual': self._maintenance_cost,
-                    'export': -self._export_subsidy,
+                    'energy_cap':capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor,
+                    'export': -self._export_subsidy * energy_scaling_factor,
                     },
                 }
             }

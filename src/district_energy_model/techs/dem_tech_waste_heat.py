@@ -159,9 +159,6 @@ class WasteHeat(TechCore):
                 'monetary':{
                     'interest_rate':self._interest_rate,
                     'om_con':0.0
-                    },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity,
                     }
                 }
             }
@@ -174,6 +171,7 @@ class WasteHeat(TechCore):
                           name, 
                           color, 
                           resource,
+                          energy_scaling_factor
                         #   energy_cap,
                           ):
         
@@ -191,9 +189,12 @@ class WasteHeat(TechCore):
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': capex,
-                    'om_annual': self._maintenance_cost,
-                    'om_prod': self._tariff_CHFpkWh
+                    'energy_cap': capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor,
+                    'om_prod': self._tariff_CHFpkWh * energy_scaling_factor
+                    },
+                'emissions_co2':{
+                    'om_prod':self._co2_intensity * energy_scaling_factor, 
                     }
                 }
             }    
