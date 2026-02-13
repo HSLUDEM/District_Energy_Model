@@ -105,7 +105,7 @@ def obtain_custom_district_roof_profile(com_nrs, egid_list, efficiency_overall, 
 
         path_roof_dat = paths.pv_roof_dir
 
-        path_epps_unassigned = paths.pv_epps_unassigned_dir + "/" + "solar_epps_not_assigned_to_roofs_powers.feather"
+        path_epps_unassigned = paths.pv_epps_unassigned_path
 
         path_pv_profile_file = path_roof_dat + "/" + str(com_nr) + "_pv_profiles_dach.feather"
 
