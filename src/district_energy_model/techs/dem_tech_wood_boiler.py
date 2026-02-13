@@ -207,39 +207,7 @@ class WoodBoiler(TechCore):
             }
         
         return techs_dict
-    
-    def create_techs_dict_clustering(
-            self,
-            techs_dict,
-            # tech_dict,
-            name = 'Wood Boiler',
-            color = '#8C3B0C',
-            capex = 0
-            ):
-        
-        techs_dict['wood_boiler'] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent':'conversion',
-                'carrier_in':'wood',
-                'carrier_out':'heat',
-                },
-            'constraints':{
-                'energy_eff':self._eta,
-                'lifetime':self._lifetime,
-                },
-            'costs':{
-                'monetary':{
-                    'om_con':0.0, # costs are reflected in wood_supply
-                    'interest_rate':self._interest_rate,
-                    'energy_cap': capex
-                    },
-                }
-            }
-        
-        return techs_dict
-        
+            
     def get_v_h(self):
         self.len_test(self._v_h)
         return self._v_h

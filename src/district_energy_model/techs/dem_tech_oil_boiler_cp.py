@@ -287,39 +287,6 @@ class OilBoilerCP(TechCore):
         
         return techs_dict
     
-    def create_techs_dict_clustering(
-            self,
-            techs_dict,
-            # tech_dict,
-            name = 'Oil Boiler CP',
-            color = '#8E2999',
-            capex = 0
-            ):
-        
-        techs_dict['oil_boiler_cp'] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent':'conversion',
-                'carrier_in':'oil',
-                'carrier_out':'heat_obcp',
-                },
-            'constraints':{
-                'energy_eff':self._eta,
-                'lifetime':self._lifetime,
-                },
-            'costs':{
-                'monetary':{
-                    'om_con':0.0, # costs are reflected in oil_supply
-                    'interest_rate':self._interest_rate,
-                    'energy_cap': capex
-                    },
-                }
-            }
-        
-        return techs_dict
-        
-
 
     def initialise_zero(self, n_days):
         n_hours = n_days*24

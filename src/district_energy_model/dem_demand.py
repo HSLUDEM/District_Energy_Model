@@ -229,21 +229,6 @@ class EnergyDemand:
         
         return d_e_yr_sfh, d_e_yr_mfh, d_e_yr_ind, d_e_yr_ser
     
-    # def get_d_e_yr_clustering(
-    def compute_d_e_yr_clustering(
-            self,
-            df_com_yr,
-            cluster_number
-            ):
-        
-        arg = df_com_yr['cluster_number'] == cluster_number
-        cluster_file = df_com_yr.loc[arg].reset_index(drop = True)
-        
-        d_e_yr_sfh = cluster_file['kWh_household_sfh'].sum()
-        d_e_yr_mfh = cluster_file['kWh_household_mfh'].sum()
-        
-        return d_e_yr_sfh, d_e_yr_mfh
-        
     
     # def d_e_hr(d_e_yr,
     #            electricity_profile_dir,
@@ -718,44 +703,7 @@ class EnergyDemand:
     def reset_d_h_unmet_dhn(self):
         null_array = np.array([0.0]*len(self._d_h))
         self._d_h_unmet_dhn = null_array
-    
-    def d_e_hr_clustering(
-            self,
-            d_e_yr_sfh, 
-            d_e_yr_mfh,
-            electricity_profile_dir,
-            electricity_profile_file
-            ):
         
-        """Returns the hourly electricity demand (d_e_hr) of the selected community.
-        
-        Parameters
-        ----------
-        d_e_yr_sfh : float
-            Annual electricity demand of single family houses of selected community [kWh].
-        d_e_yr_mfh : float
-            Annual electricity demand of multi family houses of selected community [kWh].
-        electricity_profile_dir : str
-            Path to directory containing files of electricity load profiles.
-        electricity_profile_file : str
-            Name of csv file containing timeseries data of electricity load
-            profile. (e.g. 'Buildings_A_B_power_load_profile.csv')
-        
-        Returns
-        -------
-        list
-            hourly electricity demand [kWh]
-        """
-        file_path = electricity_profile_dir + electricity_profile_file
-        tmp_df = pd.read_csv(file_path) # [Wh] profile for one building:
-        
-        d_e_hr = (
-            tmp_df['SFH'] * d_e_yr_sfh + 
-            tmp_df['MFH'] * d_e_yr_mfh
-            )
-        
-        return d_e_hr
-    
     # def d_e_hr_split(self, d_e_hr, d_h_e_hr):
         
     #     """
@@ -1410,37 +1358,6 @@ class EnergyDemand:
         scaling_factor_t15 = hdd_future_t15/hdd_current_t15
         
         return scaling_factor_t12, scaling_factor_t15
-
-    # def get_d_h_yr_clustering(
-    def compute_d_h_yr_clustering(
-            self,
-            df_com_yr,
-            cluster_number,
-            yearly_heat_demand_col='yearly_heatdemand'):
-        
-        """Returns the annual heat demand (d_e_yr) of the selected community.
-        
-        Parameters
-        ----------
-        df_com_year : pandas dataframe
-            Dataframe containing information about the selected community.
-            (1 row per building)
-        yearly_heat_demand_col : string
-            Header of column containing annual heat demand values in df_com_year.
-        
-        Returns
-        -------
-        float
-            annual electricity demand [kWh]
-        """
-        
-        arg = df_com_yr['cluster_number'] == cluster_number
-        cluster_file = df_com_yr.loc[arg].reset_index(drop = True)
-        
-        # Annual total heat demand of community:
-        d_h_yr = cluster_file[yearly_heat_demand_col].sum() # [kWh]
-    
-        return d_h_yr
     
     # def get_d_h_hr(
     def compute_d_h_hr(

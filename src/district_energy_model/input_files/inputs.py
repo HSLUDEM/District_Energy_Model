@@ -762,7 +762,6 @@ scen_techs = {
                              
     'optimisation':{ # note: objective weights will be overriden in case of pareto front computation (i.e. toggle_create_pareto_monetary_vs_co2 = True)
         'enabled':False,
-        'clustering':False,
         'pareto_monetary_co2':False, # Compute Pareto front; overrides objective weights below; optimisation must be enabled (True)
         'N_pareto':6, # Number of points on the Pareto Front (min. 2)
         'objective_monetary':1.0, # 0.00001 NOTE: When optimising for emissions, make objective_monetary a small value (1e-5) as opposed to 0. Otherwise it can result in "artificial solutions", e.g. implementing capactiy that is not used, resulting in disproportionately large costs.

@@ -22,7 +22,6 @@ from district_energy_model import dem_output
 from district_energy_model import dem_scenarios
 from district_energy_model import dem_supply
 from district_energy_model import dem_constants as C
-from district_energy_model import dem_clustering
 from district_energy_model import dem_emissions
 from district_energy_model import dem_create_custom_district
 from district_energy_model import dem_solar_preprocessing_switzerland
@@ -227,8 +226,6 @@ class DistrictEnergyModel:
         
         # print('\nGenerating Base Scenario')
         self.df_base, self.dict_yr_base = self.__generate_base_scenario(scen_techs) # results of base scenario
-        # print('base clustering')
-        # self.df_base_clustering, self.dict_yr_base_clustering = self.__generate_base_clustering_scenario() # self.__df_base = res_base[0]
         
         """--------------------------------------------------------------------
         Binary variables to check model status
@@ -1669,65 +1666,48 @@ class DistrictEnergyModel:
             # Reset unmet demands (must be met through scenario):
             self.energy_demand.reset_d_e_unmet()
             self.energy_demand.reset_d_h_unmet()
-            
-            if scen_techs['optimisation']['clustering']:
+                        
+            from district_energy_model import dem_calliope
+            optimiser = dem_calliope.CalliopeOptimiser(
+                tech_list=self.tech_list,
+                tech_instances=self.tech_instances,
+                energy_demand=self.energy_demand,
+                supply=self.supply,
+                com_name=self.com_name_,
+                scen_techs=scen_techs,
+                # opt_metrics=scen_techs['optimisation'],
+                files_path = self.results_path
+                )
+            opt_results, model = optimiser.run_optimisation()
+            dict_total_costs =\
+                optimiser.get_optimal_output_df(
+                opt_results=opt_results
+                )
                 
-                df_scen_clustering = self.df_base_clustering.loc[:ts_num, (slice(None), slice(None))]
-                # print(df_scen_clustering)
+            # -------------------------------------------------------------
+            # Update df_scen:
+            dem_helper.update_df_results(
+                energy_demand=self.energy_demand,
+                supply=self.supply,
+                tech_instances=self.tech_instances,
+                df_results=df_scen
+                )
                 
-                from district_energy_model import dem_calliope_clustering
-                optimiser = dem_calliope_clustering.CalliopeOptimiser(
-                    tech_list=self.tech_list,
+            if self.toggle_energy_balance_tests:
+                dem_eb.electricity_balance_test(
                     scen_techs=scen_techs,
-                    df_scen=df_scen_clustering,
-                    com_name=self.com_name_,
-                    com_file=self.df_com_yr
+                    df_scen=df_scen,
+                    optimisation=True,
+                    diff_accepted = C.DIFF_ACC,
+                    diff_sum_accepted = C.DIFF_SUM_ACC
                     )
-                opt_results, model = optimiser.run_optimisation()
-                return
-            
-            else:
-                from district_energy_model import dem_calliope
-                optimiser = dem_calliope.CalliopeOptimiser(
-                    tech_list=self.tech_list,
-                    tech_instances=self.tech_instances,
-                    energy_demand=self.energy_demand,
-                    supply=self.supply,
-                    com_name=self.com_name_,
-                    scen_techs=scen_techs,
-                    # opt_metrics=scen_techs['optimisation'],
-                    files_path = self.results_path
-                    )
-                opt_results, model = optimiser.run_optimisation()
-                dict_total_costs =\
-                    optimiser.get_optimal_output_df(
-                    opt_results=opt_results
-                    )
-                    
-                # -------------------------------------------------------------
-                # Update df_scen:
-                dem_helper.update_df_results(
-                    energy_demand=self.energy_demand,
-                    supply=self.supply,
-                    tech_instances=self.tech_instances,
-                    df_results=df_scen
-                    )
-                    
-                if self.toggle_energy_balance_tests:
-                    dem_eb.electricity_balance_test(
-                        scen_techs=scen_techs,
+                dem_eb.heat_balance_test(
                         df_scen=df_scen,
-                        optimisation=True,
                         diff_accepted = C.DIFF_ACC,
-                        diff_sum_accepted = C.DIFF_SUM_ACC
+                        diff_sum_accepted = C.DIFF_SUM_ACC,
+                        tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                         )
-                    dem_eb.heat_balance_test(
-                         df_scen=df_scen,
-                         diff_accepted = C.DIFF_ACC,
-                         diff_sum_accepted = C.DIFF_SUM_ACC,
-                         tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
-                         )
-                
+            
         else:
             
             # Compute costs in case no optimisation is applied:

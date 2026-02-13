@@ -264,39 +264,7 @@ class GasBoiler(TechCore):
             }
         
         return techs_dict
-    
-    def create_techs_dict_clustering(
-            self,
-            techs_dict,
-            # tech_dict,
-            name = 'Gas Boiler',
-            color = '#001A1A',
-            capex = 0
-            ):
-        
-        techs_dict['gas_boiler'] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent':'conversion',
-                'carrier_in':'gas',
-                'carrier_out':'heat',
-                },
-            'constraints':{
-                'energy_eff':self._eta,
-                'lifetime':self._lifetime,
-                },
-            'costs':{
-                'monetary':{
-                    'om_con':0.0, # costs are reflected in oil_supply
-                    'interest_rate':self._interest_rate,
-                    'energy_cap': capex
-                    },
-                }
-            }
-        
-        return techs_dict
-        
+            
     # def create_gas_supply(
     #         self,
     #         techs_dict,
