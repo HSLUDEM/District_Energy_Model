@@ -168,37 +168,7 @@ class ElectricHeater(TechCore):
                 }
             }
         return techs_dict
-    
-    def create_techs_dict_clustering(
-            techs_dict,
-            tech_dict,
-            name = 'Electric Heater', 
-            color = '#F27D52',
-            capex = 0
-            ):
         
-        techs_dict['electric_heater'] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent':'conversion',
-                'carrier_in':'electricity',
-                'carrier_out':'heat'
-                },
-            'constraints':{
-                'energy_eff':1,
-                'lifetime':tech_dict['lifetime']
-                },
-            'costs':{
-                'monetary':{
-                    'om_con':0.0, # reflected in the cost of electricity
-                    'interest_rate':tech_dict['interest_rate'],
-                    'energy_cap': capex
-                    },
-                }
-            }
-        return techs_dict
-    
     def get_u_e(self):
         self.len_test(self._u_e)
         return self._u_e
