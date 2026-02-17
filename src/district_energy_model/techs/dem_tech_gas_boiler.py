@@ -7,6 +7,7 @@ Created on Wed Apr 10 16:25:10 2024
 
 import pandas as pd
 import numpy as np
+import input_files.inputs as inp
 
 from district_energy_model import dem_constants as C
 from district_energy_model.techs.dem_tech_core import TechCore
@@ -355,3 +356,15 @@ class GasBoiler(TechCore):
 
     def get_v_h_max(self):
         return self._v_h_max
+    
+    def get_energy_costs(self):
+        return np.sum(self._u_gas)*self._gas_price_CHFpkWh
+    
+    def get_energy_revenue(self):
+        return 0.0
+    
+    def get_total_capex(self):
+        return self._v_h_max*self._capex
+    
+    def get_total_maintenance(self):
+        return self._v_h_max*self._maintenance_cost

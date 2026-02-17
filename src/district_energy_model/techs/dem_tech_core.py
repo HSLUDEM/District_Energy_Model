@@ -88,6 +88,25 @@ class TechCore:
             
     def get_maintenance_cost(self): #per unit kW oder kWh, depending on the technology
         return self._maintenance_cost*sum([(1.0/((1+self._interest_rate)**(i+1))) for i in range(self._lifetime)])
+    
+    
+    def get_energy_costs(self):
+        ...
+        # --> To be implemented in child class
+
+    def get_energy_revenue(self):
+        ...
+        # --> To be implemented in child class
+
+    def get_total_capex(self):
+        ...
+        # --> To be implemented in child class
+    
+    def get_total_maintenance(self):
+        ...
+        # --> To be implemented in child class
+
+
     # def initialise_zero(self, variables, n_days):
     #     n_hours = n_days*24
         

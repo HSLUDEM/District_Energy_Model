@@ -1,0 +1,83 @@
+district_heating:
+  deployment: false
+  heat_sources: 
+    import: false
+    oil_boiler_cp: true
+
+heat_pump:
+  deployment: false
+
+electric_heater:
+  deployment: false
+
+oil_boiler:
+  deployment: false
+
+gas_boiler:
+  deployment: false
+
+wood_boiler:
+  deployment: false
+
+solar_thermal:
+  deployment: false
+
+solar_pv:
+  deployment: false
+
+wind_power:
+  deployment: false
+
+hydro_power:
+  deployment: false
+
+biomass:
+  deployment: false
+
+heat_pump_cp:
+  deployment: false
+
+oil_boiler_cp:
+  deployment: true
+
+grid_supply:
+  deployment: true
+
+other:
+  deployment: false
+
+bes:
+  deployment: false
+
+pile_of_berries':
+  deployment: false
+
+gtes:
+  deployment: false
+
+ws:
+  deployment: false
+
+hes:
+  deployment: false 
+
+hydrothermal_gasification:
+  deployment: false
+
+anaerobic_digestion_upgrade:
+  deployment: false
+
+anaerobic_digestion_upgrade_hydrogen:
+  deployment: false
+
+anaerobic_digestion_chp:
+  deployment: false
+
+hydrogen_production:
+  deployment: false
+
+electric_heater_cp:
+  deployment: false
+
+wood_boiler_cp:
+  deployment: false

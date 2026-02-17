@@ -445,3 +445,5 @@ class GridSupply(TechCore):
     def set_m_e_ch(self, val):
         self._m_e_ch = val
 
+    def get_energy_costs(self):
+        return np.sum(self._m_e)*self._tariff_CHFpkWh

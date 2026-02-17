@@ -7,6 +7,7 @@ Created on Wed Apr 10 16:21:45 2024
 
 import numpy as np
 import pandas as pd
+import input_files.inputs as inp
 
 from district_energy_model.techs.dem_tech_core import TechCore
 
@@ -218,6 +219,18 @@ class ElectricHeater(TechCore):
     
     def set_power_up_for_replacement(self, value):
         self._power_up_for_replacement = value
+
+    def get_energy_costs(self):
+        return sum(self._u_e*inp.grid_tariff_CHFpkWh)
+    
+    def get_energy_revenue(self):
+        return 0.0
+    
+    def get_total_capex(self):
+        return self._capex*self._v_h_max
+    
+    def get_total_maintenance(self):
+        return self._maintenance_cost*self._v_h_max
 
     
     

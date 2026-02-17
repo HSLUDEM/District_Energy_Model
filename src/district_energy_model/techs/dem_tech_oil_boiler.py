@@ -390,6 +390,17 @@ class OilBoiler(TechCore):
     def set_power_up_for_replacement(self, value):
         self._power_up_for_replacement = value
 
+    def get_energy_costs(self):
+        return np.sum(self._u_oil)*self.convert_price_CHFpl_to_CHFpkWh(self._oil_price_CHFpl, self._hv_oil)
+    
+    def get_energy_revenue(self):
+        return 0.0
+    
+    def get_total_capex(self):
+        return self._capex*self._v_h_max
+    
+    def get_total_maintenance(self):
+        return self._maintenance_cost*self._v_h_max
     
     
     

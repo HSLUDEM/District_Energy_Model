@@ -1610,6 +1610,38 @@ class EnergyDemand:
                        src_h_other_yr]
                 
         self.__compute_d_h_hr_partial(tech_instances, heat_labels, heat_values, n_days)
+
+    
+    def get_demand_values(self, df_meta):
+
+        src_h_elec_direct_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_eh'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_eh'].values[0]
+        src_h_hp_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_hp'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_hp'].values[0]
+        src_h_distr_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_dh'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_dh'].values[0]
+        src_h_gas_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_gb'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_gb'].values[0]
+        src_h_oil_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_ob'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_ob'].values[0]
+        src_h_wood_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_wb'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_wb'].values[0]
+        src_h_solar_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_solar'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_solar'].values[0]
+        src_h_other_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_other'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_other'].values[0]
+        
+        heat_labels = ['electric_heater',
+                        'heat_pump',
+                        'district_heating',
+                        'gas_boiler',
+                        'oil_boiler',
+                        'wood_boiler',
+                        'solarthermal_rooftop',
+                        'other']
+            
+        heat_values = [src_h_elec_direct_yr,
+                        src_h_hp_yr,
+                        src_h_distr_yr,
+                        src_h_gas_yr,
+                        src_h_oil_yr,
+                        src_h_wood_yr,
+                        src_h_solar_yr,
+                        src_h_other_yr]
+        
+        return dict(zip(heat_labels, heat_values))
         
     
     # def d_h_hr_partial(self, df_base, heat_labels, heat_values):

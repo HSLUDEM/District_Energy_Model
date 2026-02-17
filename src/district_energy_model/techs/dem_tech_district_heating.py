@@ -7,6 +7,7 @@ Created on Wed Apr 10 16:27:46 2024
 import numpy as np
 import pandas as pd
 
+from input_files import inputs as inp
 from district_energy_model.techs.dem_tech_core import TechCore
 
 NUM_DH_CATEGORIES = 3 # includes category "already built", does not include category "too expensive to build"
@@ -632,3 +633,17 @@ class DistrictHeating(TechCore):
     
     def set_power_up_for_replacement(self, value):
         self._power_up_for_replacement = value
+
+    def get_energy_costs(self):
+        return sum(self._m_h*inp.dh_tariff)
+
+    def get_energy_revenue(self):
+        return 0.0
+    
+    def get_capex(self):
+        print(f"CAPEX = {self._capex} CHF/kW")
+        return self._capex
+    
+    def get_maintenance(self):
+        return self._maintenance_cost
+    

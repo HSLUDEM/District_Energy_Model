@@ -7,6 +7,7 @@ Created on Wed Apr 10 16:20:25 2024
 
 import numpy as np
 import pandas as pd
+import input_files.inputs as inp
 
 from district_energy_model.techs.dem_tech_heat_pump_core import HeatPumpCore
 
@@ -402,7 +403,20 @@ class HeatPump(HeatPumpCore):
         u_e_i = v_h_i/self._cops_eff[i]
         
         return u_e_i
+    
+    def get_energy_costs(self):
+        return sum(self._u_e*inp.grid_tariff_CHFpkWh)
 
+    def get_energy_revenue(self):
+        return 0.0
+    
+    def get_capex(self):
+        print(f"CAPEX = {self._capex} CHF/kW")
+        return self._capex
+    
+    def get_maintenance(self):
+        return self._maintenance_cost
+    
     
     
     

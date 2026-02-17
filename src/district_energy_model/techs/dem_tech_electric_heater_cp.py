@@ -11,6 +11,7 @@ network, mostly to provide peak heat.
 import pandas as pd
 import numpy as np
 import dem_constants as C
+import input_files.inputs as inp
 from techs.dem_tech_core import TechCore
 
 class ElectricHeaterCP(TechCore):
@@ -189,7 +190,19 @@ class ElectricHeaterCP(TechCore):
             raise ValueError("u_oil_ehcp has not yet been computed!")        
         return self._u_e
         
+    def get_energy_revenue(self):
+        return 0.0
     
+    def get_energy_costs(self):
+        return sum(self._u_e*inp.grid_tariff_CHFpkWh)
+    
+    def get_total_capex(self):
+        return self._capex*self._v_h_max
+    
+    def get_total_maintenance(self):
+        return self._maintenance_cost*self._v_h_max
+    
+
     
     
     

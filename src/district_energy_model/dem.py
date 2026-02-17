@@ -13,7 +13,7 @@ import numpy as np
 import time
 import copy
 
-from district_energy_model import dem_techs
+from district_energy_model import dem_costs, dem_techs
 from district_energy_model import dem_demand
 from district_energy_model import dem_hp_cop_calculation
 from district_energy_model import dem_helper
@@ -1732,6 +1732,7 @@ class DistrictEnergyModel:
             
             # Compute costs in case no optimisation is applied:
             dict_total_costs = {} # !!! a separate module for cost calculations must be implemented
+            dict_total_costs = dem_costs.calculate_total_anual_costs(self.tech_instances, self.df_meta)
             model = 0
 
         #----------------------------------------------------------------------

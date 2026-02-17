@@ -14,6 +14,7 @@ import numpy as np
 
 from district_energy_model import dem_constants as C
 from district_energy_model.techs.dem_tech_core import TechCore
+from input_files import inputs as inp
 
 class WoodBoilerCP(TechCore):
     
@@ -268,7 +269,18 @@ class WoodBoilerCP(TechCore):
     # def get_only_allow_existing(self):
     #     return self._only_allow_existing
     
+    def get_energy_costs(self):
+        return sum(self._u_wd_kg*inp.wood_price)
+
+    def get_energy_revenue(self):
+        return 0.0
     
+    def get_capex(self):
+        print(f"CAPEX = {self._capex} CHF/kW")
+        return self._capex
+    
+    def get_maintenance(self):
+        return self._maintenance_cost
     
     
     
