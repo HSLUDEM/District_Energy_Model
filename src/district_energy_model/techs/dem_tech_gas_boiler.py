@@ -364,7 +364,7 @@ class GasBoiler(TechCore):
         return 0.0
     
     def get_total_capex(self):
-        return self._v_h_max*self._capex
+        return self._capex*np.max(self._v_h)
     
     def get_total_maintenance(self):
-        return self._v_h_max*self._maintenance_cost
+        return self._maintenance_cost*np.max(self._v_h)

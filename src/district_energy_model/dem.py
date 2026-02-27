@@ -1732,7 +1732,7 @@ class DistrictEnergyModel:
             
             # Compute costs in case no optimisation is applied:
             dict_total_costs = {} # !!! a separate module for cost calculations must be implemented
-            dict_total_costs = dem_costs.calculate_total_anual_costs(self.tech_instances, self.df_meta)
+            dict_total_costs = dem_costs.get_total_costs(self.tech_instances, 1)
             model = 0
 
         #----------------------------------------------------------------------

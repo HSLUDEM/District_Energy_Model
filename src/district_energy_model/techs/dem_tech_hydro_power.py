@@ -234,8 +234,8 @@ class HydroPower(TechCore):
         return np.sum(self._v_e_exp)*self._export_subsidy
     
     def get_total_capex(self):
-        return self._capex*self._v_e_cons
+        return self._capex*np.max(self._v_e)
     
     def get_total_maintenance(self):
-        return self._maintenance_cost*self._v_e_cons
+        return self._maintenance_cost*np.max(self._v_e)
     
