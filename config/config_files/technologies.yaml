@@ -2,7 +2,7 @@ district_heating:
   deployment: false
   heat_sources: 
     import: false
-    oil_boiler_cp: true
+    oil_boiler_cp: false
 
 heat_pump:
   deployment: false
@@ -11,7 +11,7 @@ electric_heater:
   deployment: false
 
 oil_boiler:
-  deployment: false
+  deployment: true
 
 gas_boiler:
   deployment: false
@@ -22,8 +22,6 @@ wood_boiler:
 solar_thermal:
   deployment: false
 
-solar_pv:
-  deployment: false
 
 wind_power:
   deployment: false
@@ -38,7 +36,7 @@ heat_pump_cp:
   deployment: false
 
 oil_boiler_cp:
-  deployment: true
+  deployment: false
 
 grid_supply:
   deployment: true

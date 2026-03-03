@@ -1293,4 +1293,14 @@ class WindPower(TechCore):
         self.len_test(self._v_e_pot_winter_kWhpkW)
         return self._v_e_pot_winter_kWhpkW    
             
+    def get_energy_costs(self):
+        return 0.0
     
+    def get_total_capex(self):
+        return self._capex*np.max(self._v_e)
+    
+    def get_total_maintenance(self):
+        return self._maintenance_cost*np.max(self._v_e)
+    
+    def get_energy_revenue(self):
+        return self._export_subsidy*np.sum(self._v_e_exp)
