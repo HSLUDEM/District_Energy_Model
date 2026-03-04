@@ -83,8 +83,8 @@ def calculate_total_anual_costs(tech_instances):
     total_anual_costs["heat"]["total"] = sum(total_anual_costs["heat"].values())
     total_anual_costs["electricity"]["total"] = sum(total_anual_costs["electricity"].values())
 
-    tlc_electricity = 50473861.63426253/total_electricity_generation 
-    tlc_heat = 50473861.63426253/total_heat_generation
+    tlc_electricity = 58572988.004325114/total_electricity_generation 
+    tlc_heat = 58572988.004325114/total_heat_generation
     # tlc_electricity = total_anual_costs["electricity"]["total"]/total_electricity_generation
     # tlc_heat = total_anual_costs["heat"]["total"]/total_heat_generation
     total = total_anual_costs["heat"]["total"] + total_anual_costs["electricity"]["total"]

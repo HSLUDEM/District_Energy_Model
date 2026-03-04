@@ -69,6 +69,7 @@ class SolarPVInstallation(TechCore):
 
         # Initialize properties:
         self.update_tech_properties(tech_dict)
+        self._specific_yield = 950
         
         # Carrier types:
         self.output_carrier = 'electricity'
@@ -258,3 +259,18 @@ class SolarPVInstallation(TechCore):
     def get_v_e_pot_remain(self):
         self.len_test(self._v_e_pot_remain)
         return self._v_e_pot_remain
+
+    def get_kWp(self):
+        return self._v_e.sum()/self._specific_yield
+    
+    def get_total_capex(self):
+        return self._capex*self.get_kWp(self)
+    
+    def get_maintenance_cost(self):
+        return self._capex*self.get_kWp(self)
+    
+    def get_energy_revenue(self):
+        return self._v_e_exp.sum()*self._export_subsidy
+    
+    def get_energy_costs(self):
+        return 0.0

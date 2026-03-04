@@ -45,6 +45,7 @@ class SolarPVType(TechCore):
         self._techkey = techkey
 
         self.update_tech_properties(tech_dict)
+        self._specific_yield = 950
         
         self._profiles = profiles
         self._capex_scaling = capex_scaling
@@ -379,3 +380,18 @@ class SolarPVType(TechCore):
         self.check_changed_aggregate()
 
         return len(self._installations)
+    
+    def get_kWp(self):
+        return self._v_e.sum()/self._specific_yield
+    
+    def get_total_capex(self):
+        return self._capex*self.get_kWp(self)
+    
+    def get_maintenance_cost(self):
+        return self._capex*self.get_kWp(self)
+    
+    def get_energy_revenue(self):
+        return self._v_e_exp.sum()*self._export_subsidy
+    
+    def get_energy_costs(self):
+        return 0.0

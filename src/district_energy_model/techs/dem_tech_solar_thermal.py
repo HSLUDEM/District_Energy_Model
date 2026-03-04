@@ -228,5 +228,16 @@ class SolarThermal(TechCore):
     
     def set_power_up_for_replacement(self, value):
         self._power_up_for_replacement = value
-
+    
+    def get_total_capex(self):
+        return self._capex*np.max(self._v_h)
+    
+    def get_maintenance_cost(self):
+        return self._capex*np.max(self._v_h)
+    
+    def get_energy_revenue(self):
+        return 0.0
+    
+    def get_energy_costs(self):
+        return 0.0
     

@@ -5,13 +5,13 @@ district_heating:
     oil_boiler_cp: false
 
 heat_pump:
-  deployment: false
+  deployment: true
 
 electric_heater:
   deployment: false
 
 oil_boiler:
-  deployment: true
+  deployment: false
 
 gas_boiler:
   deployment: false
@@ -19,9 +19,11 @@ gas_boiler:
 wood_boiler:
   deployment: false
 
-solar_thermal:
-  deployment: false
+solar_pvrooftop:
+  deployment: true
 
+solarthermal_rooftop:
+  deployment: true
 
 wind_power:
   deployment: false

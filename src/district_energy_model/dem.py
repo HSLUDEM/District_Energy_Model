@@ -1703,6 +1703,7 @@ class DistrictEnergyModel:
                     optimiser.get_optimal_output_df(
                     opt_results=opt_results
                     )
+                dict_total_costs["Kostenmodul"] = dem_costs.get_total_costs(self.tech_instances, scen_techs["simulation"]["number_of_days"])
                     
                 # -------------------------------------------------------------
                 # Update df_scen:

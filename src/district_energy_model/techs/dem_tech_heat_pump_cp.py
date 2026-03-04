@@ -145,7 +145,7 @@ class HeatPumpCP(HeatPumpCore):
         
         
     def get_energy_costs(self):
-        return np.sum(self._u_e)*inp._tariff_CHFpkWh
+        return 0.0 #np.sum(self._u_e)*inp._tariff_CHFpkWh
     
     def get_energy_revenue(self):
         return 0.0

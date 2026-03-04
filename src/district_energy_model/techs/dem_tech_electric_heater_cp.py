@@ -194,7 +194,7 @@ class ElectricHeaterCP(TechCore):
         return 0.0
     
     def get_energy_costs(self):
-        return sum(self._u_e*inp.grid_tariff_CHFpkWh)
+        return 0.0
     
     def get_total_capex(self):
         return self._capex*np.max(self._v_h)
