@@ -272,8 +272,6 @@ def tes_sites_minimum_size_cost(model, monetary_weight, ts_len, sites_list, ener
 
             if (site_entry['rel_size_t_levels'][level] > 0):
                 
-                obj.expr = obj.expr + site_entry['maintenance_cost_per_kWh'] * bm.storage_cap['X1::tes_site_'+site_entry['name']+'_'+level] * (ts_len/(365*24))
-
 
                 if site_entry['capacity_kWh_min'] > 0 and flag:
                     integer_size.append({

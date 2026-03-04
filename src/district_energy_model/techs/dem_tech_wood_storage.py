@@ -228,6 +228,17 @@ class WoodStorage(TechCore):
     
     def create_techs_dict(self, techs_dict, color, energy_scaling_factor):
 
+
+        capex_plus_maintenace = self._capex
+
+        if self._interest_rate > 0:
+            q = (1 + self._interest_rate)
+            annuity_factor = ((q**self._lifetime)*(q - 1))/((q**self._lifetime)-1)
+            capex_plus_maintenace += self._maintenance_cost /annuity_factor
+        else:
+            annuity_factor = 1.0 / self._lifetime
+            capex_plus_maintenace += self._maintenance_cost/annuity_factor
+
         techs_dict['ws'] = {
             'essentials':{
                 'name':'Wood Storage',
@@ -249,9 +260,9 @@ class WoodStorage(TechCore):
                 'monetary':{
                     # 'om_annual':0.0, # !!!TEMPORARY - KOSTEN MÜSSEN DYNAMISCH HINZUGEFÜGT WERDEN!!!
                     'om_prod':0.0000, # # [CHF/kWh_dchg] artificial cost per discharged kWh; used to avoid cycling within timestep
-                    'storage_cap':self._capex * energy_scaling_factor,
+                    'storage_cap': capex_plus_maintenace * energy_scaling_factor,
                     'interest_rate':self._interest_rate,
-                    'om_annual': self._maintenance_cost * energy_scaling_factor
+                    #'om_annual': self._maintenance_cost * energy_scaling_factor
                     },
                 }
             }
