@@ -620,7 +620,9 @@ class CalliopeOptimiser:
 
                 model = dem_calliope_cc.tes_sites_exclusion_constraint(model, ts_len, self.tech_tes_sites.get_sites_list())
 
-                model = dem_calliope_cc.tes_sites_minimum_size_cost(model, ts_len, self.tech_tes_sites.get_sites_list(), self.energy_scaling_factor)
+                monetary_weight = self.scen_techs['optimisation']['objective_monetary']
+                if monetary_weight > 0:
+                    model = dem_calliope_cc.tes_sites_minimum_size_cost(model, monetary_weight, ts_len, self.tech_tes_sites.get_sites_list(), self.energy_scaling_factor)
                 
                 model = dem_calliope_cc.tes_sites_charge_constraints(model, ts_len, self.tech_tes_sites.get_sites_list())
 

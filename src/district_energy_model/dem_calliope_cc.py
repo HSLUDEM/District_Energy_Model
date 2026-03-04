@@ -245,7 +245,7 @@ def tes_sites_exclusion_constraint(model, ts_len, sites_list):
 
     return model
 
-def tes_sites_minimum_size_cost(model, ts_len, sites_list, energy_scaling_factor): 
+def tes_sites_minimum_size_cost(model, monetary_weight, ts_len, sites_list, energy_scaling_factor): 
 
     #This function applies a binary cost to devices with minimum size
     #i.e. if a site has a minimum size, for all devices that are above this minimum size, a given capex is applied
@@ -302,8 +302,8 @@ def tes_sites_minimum_size_cost(model, ts_len, sites_list, energy_scaling_factor
         binary_var = bm.component(varname_binary)
 
 
-        obj.expr = obj.expr + value_dict['capex_base'] * annuity_factor * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor
-        obj.expr = obj.expr + value_dict['maintenance_cost_base'] * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor
+        obj.expr = obj.expr + value_dict['capex_base'] * annuity_factor * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor * monetary_weight
+        obj.expr = obj.expr + value_dict['maintenance_cost_base'] * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor * monetary_weight
         
     active_objs[0] = obj
 
