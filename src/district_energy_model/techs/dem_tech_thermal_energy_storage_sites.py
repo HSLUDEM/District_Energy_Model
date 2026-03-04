@@ -574,6 +574,17 @@ class ThermalEnergyStorageSites(TechCore):
 
                     techs_dict[tes_key] = {}
 
+                    capex_plus_maintenace = site_entry['capex_per_kWh']
+
+                    if site_entry['interest_rate'] > 0:
+                        q = (1 + site_entry['interest_rate'])
+                        annuity_factor = ((q**site_entry['lifetime'])*(q - 1))/((q**site_entry['lifetime'])-1)
+                        capex_plus_maintenace += site_entry['maintenance_cost_per_kWh'] /annuity_factor
+                    else:
+                        annuity_factor = 1.0 / site_entry['lifetime']
+                        capex_plus_maintenace += site_entry['maintenance_cost_per_kWh']/annuity_factor
+
+
                     techs_dict[tes_key] = {
                         'essentials':{
                             'name':'Thermal Energy Storage TES Site ' + site_entry['name'] + ' ' + level ,
@@ -596,8 +607,8 @@ class ThermalEnergyStorageSites(TechCore):
                         'costs':{
                             'monetary':{
                                 'om_prod':0.0000, # [CHF/kWh_dchg] artificial cost per discharged kWh; used to avoid cycling within timestep
-                                'storage_cap': site_entry['capex_per_kWh'] * energy_scaling_factor,
-                                # 'om_annual': site_entry['maintenance_cost_per_kWh'],
+                                'storage_cap': capex_plus_maintenace * energy_scaling_factor,
+                                # 'om_annual': site_entry['maintenance_cost_per_kWh'] * energy_scaling_factor,
                                 'interest_rate': site_entry['interest_rate']
                                 },
                             }
