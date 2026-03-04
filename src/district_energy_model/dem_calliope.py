@@ -1597,10 +1597,23 @@ class CalliopeOptimiser:
 
         # -------------------------------------------------------------------------
         # Extract costs:
-            
+        
+        objective_monetary = self.scen_techs['optimisation']['objective_monetary']
+        objective_co2 = self.scen_techs['optimisation']['objective_co2']
+        objective_ess = self.scen_techs['optimisation']['objective_ess']
+        objective_tss = self.scen_techs['optimisation']['objective_tss']
+
+        if objective_ess > 0 or objective_tss > 0:
+            raise ValueError("objective_ess or objective_tss > 0: Not yet implemented.")
+
+        if objective_monetary == 0:
+            raise RuntimeWarning("objective_monetary set to 0. This leads to unreasonable results and makes it impossible to reliably determine total costs.")
+        
+
         dict_total_costs = {}
         dict_total_costs['monetary'] = {}
         dict_total_costs['co2'] = {}
+        dict_total_costs['objective'] = {}
         
         tmp_tlc = opt_results['total_levelised_cost'] # array; total levelised costs
         
@@ -1617,7 +1630,14 @@ class CalliopeOptimiser:
             float(tmp_tlc.loc['heat'].loc['emissions_co2'].values)
         dict_total_costs['co2']['total'] =\
             float(opt_results['cost'].loc['emissions_co2'].values.sum())
-        
+
+        dict_total_costs['objective']['total'] =\
+            float(opt_results.attrs.get("objective_function_value"))
+
+        if objective_monetary > 0:
+            dict_total_costs['monetary']['total'] =\
+                (dict_total_costs['objective']['total'] - objective_co2*dict_total_costs['co2']['total'])/objective_monetary
+
         return dict_total_costs
     
     # def __build_input_dict(self, rerun_eps=False, eps_n='inf'):
