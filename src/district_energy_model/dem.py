@@ -1834,14 +1834,17 @@ class DistrictEnergyModel:
             # Enable optimisation:
             scen_techs['optimisation']['enabled'] = True
             
-            # Create optimiser instance:        
+            # Create optimiser instance:
+
+            
+
             optimiser = dem_calliope.CalliopeOptimiser(
                 tech_list=self.tech_list,
                 tech_instances=self.tech_instances,
                 energy_demand=self.energy_demand,
                 supply=self.supply,
                 com_name=self.com_name_,
-                opt_metrics=scen_techs['optimisation'],
+                scen_techs=scen_techs,
                 files_path=self.results_path
                 )
             

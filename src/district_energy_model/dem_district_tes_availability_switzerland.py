@@ -13,7 +13,7 @@ def tes_availability_script_stub(params): #This is just a placeholder for future
 
     # list_of_tes_options.append({
     #     'name': 'PTES_1',
-    #     'exclusion_group': 'EXCL_GRP_1'
+    #     'exclusion_group': 'EXCL_GRP_1',
     #     'color': (122,73,14),
     #     'type': 'simple_fully_stratified_three_temperature_levels', #TES-implementation (content of other entries can depend on this)
     #     'rel_size_t_levels': {'ltlt': 0.6, 'htlt': 0.2, 'htht': 0.2}, #relative shares of storage low-T-->low-T, high-T-->low-T, high-T-->high-T
