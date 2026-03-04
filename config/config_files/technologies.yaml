@@ -5,13 +5,13 @@ district_heating:
     oil_boiler_cp: false
 
 heat_pump:
-  deployment: true
+  deployment: false
 
 electric_heater:
   deployment: false
 
 oil_boiler:
-  deployment: false
+  deployment: true
 
 gas_boiler:
   deployment: false

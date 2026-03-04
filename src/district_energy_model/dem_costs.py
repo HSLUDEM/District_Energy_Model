@@ -53,11 +53,12 @@ def calculate_total_anual_costs(tech_instances):
     total_electricity_generation = 0
     
     for tech in tech_instances:
+        print(tech, tech_instances[tech])
         capex = 0
         opex = 0
         energy_revenue = 0
         energy_costs = 0
-        if tech != "solar_pvrooftop" and tech != "solarthermal_rooftop" and tech != "pile_of_berries":  # !!! this should be adapted to the actual technologies included in the model
+        if tech != "pile_of_berries":  # !!! this should be adapted to the actual technologies included in the model
             if tech != "grid_supply":
                 capex = tech_instances[tech].get_total_capex()
                 opex = tech_instances[tech].get_total_maintenance()
@@ -66,7 +67,8 @@ def calculate_total_anual_costs(tech_instances):
             
 
             annualized_capex = capex*annuity_factor(tech_instances[tech]._lifetime, tech_instances[tech]._interest_rate)
-            tac = annualized_capex + opex + energy_costs
+            print(annualized_capex, opex, energy_costs, energy_revenue)
+            tac = annualized_capex + opex + energy_costs - energy_revenue
 
             
             output_carrier = get_var(tech_instances[tech], "_output_carrier", "output_carrier", default=_MISSING)
@@ -83,7 +85,7 @@ def calculate_total_anual_costs(tech_instances):
     total_anual_costs["heat"]["total"] = sum(total_anual_costs["heat"].values())
     total_anual_costs["electricity"]["total"] = sum(total_anual_costs["electricity"].values())
 
-    tlc_electricity = 58572988.004325114/total_electricity_generation 
+    tlc_electricity = total_anual_costs["electricity"]["total"]/total_electricity_generation 
     tlc_heat = 58572988.004325114/total_heat_generation
     # tlc_electricity = total_anual_costs["electricity"]["total"]/total_electricity_generation
     # tlc_heat = total_anual_costs["heat"]["total"]/total_heat_generation

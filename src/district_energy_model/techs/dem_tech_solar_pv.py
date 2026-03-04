@@ -514,10 +514,10 @@ class SolarPV(TechCore):
         return self._v_e.sum()/self._specific_yield
     
     def get_total_capex(self):
-        return self._capex*self.get_kWp(self)
+        return self._capex*self.get_kWp()
     
-    def get_maintenance_cost(self):
-        return self._capex*self.get_kWp(self)
+    def get_total_maintenance(self):
+        return self._capex*self.get_kWp()
     
     def get_energy_revenue(self):
         return self._v_e_exp.sum()*self._export_subsidy

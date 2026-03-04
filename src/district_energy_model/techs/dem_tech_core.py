@@ -91,19 +91,19 @@ class TechCore:
     
     
     def get_energy_costs(self):
-        ...
+        pass
         # --> To be implemented in child class
 
     def get_energy_revenue(self):
-        ...
+        pass
         # --> To be implemented in child class
 
     def get_total_capex(self):
-        ...
+        pass
         # --> To be implemented in child class
     
     def get_total_maintenance(self):
-        ...
+        pass
         # --> To be implemented in child class
 
 

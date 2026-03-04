@@ -429,13 +429,20 @@ class SolarThermalType(TechCore):
         return len(self._installations)
 
     def get_total_capex(self):
-        return self._capex*np.max(self._v_h)
+        return self._base_capex*np.max(self._v_h)
     
-    def get_maintenance_cost(self):
-        return self._maintenance_cost*np.max(self._v_h)
+    def get_total_maintenance(self):
+        if self._base_maintenance_cost*np.max(self._v_h) is not None:
+            return self._base_maintenance_cost*np.max(self._v_h)
+        else:
+            return 0.0
+    
     
     def get_energy_costs(self):
         return 0.0
     
     def get_energy_revenue(self):
-        return self._export_subsidy*self._v_h_exp.sum()
+        if self._export_subsidy*self._v_h_exp.sum() is not None:
+            return self._export_subsidy*self._v_h_exp.sum()
+        else:
+            return 0.0
