@@ -203,6 +203,7 @@ class WasteToEnergy(TechCore):
             header,
             name,
             color,
+            energy_scaling_factor
             # energy_cap=self._kW_el_max,
             # energy_eff,
             # htp_ratio,
@@ -216,7 +217,7 @@ class WasteToEnergy(TechCore):
                 'parent':'waste_to_energy',
                 },
             'constraints':{
-                'energy_cap_max':self._kW_el_max,
+                'energy_cap_max':self._kW_el_max / energy_scaling_factor if self._kW_el_max != 'inf' else 'inf',
                 'energy_cap_min_use': self._cap_min_use,
                 'energy_eff':self._eta_el,
                 'carrier_ratios':{
@@ -227,15 +228,15 @@ class WasteToEnergy(TechCore):
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self._capex,
-                    'om_annual': self._maintenance_cost
+                    'energy_cap': self._capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     }
                 }
             }
         
         if self._force_cap_max:
             techs_dict[header]['constraints']['energy_cap_equals']\
-                = self._kW_el_max
+                = self._kW_el_max / energy_scaling_factor
     
         return techs_dict
     

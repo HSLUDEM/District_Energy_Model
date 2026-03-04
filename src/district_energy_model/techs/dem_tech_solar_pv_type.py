@@ -264,7 +264,6 @@ class SolarPVType(TechCore):
             'costs':{
                 'monetary':{
                     'interest_rate':self._interest_rate,
-                    'om_con':0.0,
                     },
                 }
             }
@@ -275,7 +274,7 @@ class SolarPVType(TechCore):
                           techs_dict,
                           resources,
                           color, 
-
+                          energy_scaling_factor
                           ):
         
         headers = []
@@ -287,7 +286,8 @@ class SolarPVType(TechCore):
                                                                             header = 'solar_'+self._techkey+"_installation_"+str(i),
                                                                             name = 'solar_'+self._techkey+"_installation_"+str(i),
                                                                             color = color,
-                                                                            resource = resources[i]
+                                                                            resource = resources[i],
+                                                                            energy_scaling_factor = energy_scaling_factor
                                                                                 )
                     
         return techs_dict, headers

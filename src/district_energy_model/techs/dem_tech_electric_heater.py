@@ -143,7 +143,8 @@ class ElectricHeater(TechCore):
                           name, 
                           color, 
                           energy_cap,
-                          capex_0=False
+                          capex_0=False,
+                          energy_scaling_factor = 1.0
                           ):
         
         if capex_0==False:
@@ -158,47 +159,17 @@ class ElectricHeater(TechCore):
                 'color': color
                 },
             'constraints':{
-                'energy_cap_max': energy_cap
+                'energy_cap_max': energy_cap / energy_scaling_factor
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': capex,
-                    'om_annual': self._maintenance_cost
+                    'energy_cap': capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     }
                 }
             }
         return techs_dict
-    
-    def create_techs_dict_clustering(
-            techs_dict,
-            tech_dict,
-            name = 'Electric Heater', 
-            color = '#F27D52',
-            capex = 0
-            ):
         
-        techs_dict['electric_heater'] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent':'conversion',
-                'carrier_in':'electricity',
-                'carrier_out':'heat'
-                },
-            'constraints':{
-                'energy_eff':1,
-                'lifetime':tech_dict['lifetime']
-                },
-            'costs':{
-                'monetary':{
-                    'om_con':0.0, # reflected in the cost of electricity
-                    'interest_rate':tech_dict['interest_rate'],
-                    'energy_cap': capex
-                    },
-                }
-            }
-        return techs_dict
-    
     def get_u_e(self):
         self.len_test(self._u_e)
         return self._u_e

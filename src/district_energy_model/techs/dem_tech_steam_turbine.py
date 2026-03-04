@@ -242,6 +242,7 @@ class SteamTurbine(TechCore):
             header,
             name,
             color,
+            energy_scaling_factor
             # energy_cap=self._kW_el_max,
             # energy_eff,
             # htp_ratio,
@@ -255,7 +256,7 @@ class SteamTurbine(TechCore):
                 'parent':'steam_turbine',
                 },
             'constraints':{
-                'energy_cap_max':self._kW_el_max,
+                'energy_cap_max':self._kW_el_max / energy_scaling_factor if self._kW_el_max != 'inf' else 'inf',
                 'energy_cap_min_use': self._cap_min_use,
                 'energy_eff':self._eta_el,
                 'carrier_ratios':{
@@ -266,9 +267,9 @@ class SteamTurbine(TechCore):
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self._capex,
-                    'om_annual': self._maintenance_cost,
-                    'om_prod': self._grid_charges,
+                    'energy_cap': self._capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor,
+                    'om_prod': self._grid_charges * energy_scaling_factor,
                     'interest_rate': self._interest_rate
                     }
                 }
@@ -276,12 +277,12 @@ class SteamTurbine(TechCore):
         
         if self._allow_heat_export:
             techs_dict[header]['constraints']['export_carrier'] = self._output_carrier_2
-            techs_dict[header]['costs']['monetary']['export'] = -self._heat_export_subsidy
+            techs_dict[header]['costs']['monetary']['export'] = -self._heat_export_subsidy * energy_scaling_factor
 
 
         if self._force_cap_max:
             techs_dict[header]['constraints']['energy_cap_equals']\
-                = self._kW_el_max
+                = self._kW_el_max / energy_scaling_factor
     
         return techs_dict
     

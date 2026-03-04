@@ -451,48 +451,7 @@ class HeatPump(TechCore):
             additional_techs_label_list.append('heat_pump_hub')            
     
         return techs_dict, additional_techs_label_list
-    
-    def create_techs_dict_clustering(
-            self,
-            techs_dict,
-            # tech_dict,
-            name = 'Heat Pump',
-            capex = 0,
-            color = '#860720'
-            ):
         
-        techs_dict['heat_pump'] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent':'conversion_plus',
-                'carrier_in':'electricity',
-                'carrier_out':'heat',
-                'primary_carrier_out':'heat'
-                },
-            'constraints':{
-                'energy_eff':1,
-                'carrier_ratios':{
-                    'carrier_out':{
-                        'heat':self._cop,
-                        }
-                    },
-                'lifetime': self._lifetime
-                },
-            'costs':{
-                'monetary':{
-                    'om_con': 0.0, # this is reflected in the cost of the electricity
-                    'interest_rate':self._interest_rate,
-                    'energy_cap': capex + self.get_maintenance_cost()
-                    },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity,
-                    }
-                }
-            }
-    
-        return techs_dict
-    
     def get_power_up_for_replacement(self):
         return self._power_up_for_replacement
     

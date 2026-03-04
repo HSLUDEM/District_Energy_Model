@@ -190,6 +190,7 @@ class HeatPumpCore(TechCore):
             header,
             name,
             color,
+            energy_scaling_factor
             ):
         
         techs_dict[header] = {
@@ -199,20 +200,20 @@ class HeatPumpCore(TechCore):
                 'parent': self._label,
                 },
             'constraints':{
-                'energy_cap_max': self._v_h_max,
+                'energy_cap_max': self._v_h_max / energy_scaling_factor if self._v_h_max != 'inf' else 'inf',
                 'energy_cap_min_use': self._cap_min_use,
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self._capex,
-                    'om_annual': self._maintenance_cost
+                    'energy_cap': self._capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     }
                 }
             }
         
         if self._force_cap_max:
             techs_dict[header]['constraints']['energy_cap_equals']\
-                = self._v_h_max
+                = self._v_h_max / energy_scaling_factor
             
         return techs_dict
 

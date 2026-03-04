@@ -191,6 +191,7 @@ class WoodBoilerSG(TechCore):
             header,
             name,
             color,
+            energy_scaling_factor
             ):
                 
         techs_dict[header] = {
@@ -200,13 +201,13 @@ class WoodBoilerSG(TechCore):
                 'parent': 'wood_boiler_sg'
                 },
             'constraints':{
-                'energy_cap_max': self._v_steam_max,
+                'energy_cap_max': self._v_steam_max / energy_scaling_factor if self._v_steam_max != 'inf' else 'inf',
                 'energy_cap_min_use': self._cap_min_use,
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self._capex,
-                    'om_annual': self._maintenance_cost
+                    'energy_cap': self._capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
 
                     }
                 }
@@ -214,7 +215,7 @@ class WoodBoilerSG(TechCore):
         
         if self._force_cap_max:
             techs_dict[header]['constraints']['energy_cap_equals']\
-                = self._v_steam_max
+                = self._v_steam_max / energy_scaling_factor if self._v_steam_max != 'inf' else 'inf'
                 
         # Input capacity (kg wood):
         if self._wood_input_cap_type == 'free':
@@ -228,7 +229,7 @@ class WoodBoilerSG(TechCore):
             output_cap_kW = resource_cap_kW*self._eta
             
             techs_dict[header]['constraints']['energy_cap_max']\
-                = output_cap_kW
+                = output_cap_kW / energy_scaling_factor
                 
         elif self._wood_input_cap_type == 'fixed':    
             resource_cap_kg = self._wood_input_cap_kg
@@ -238,42 +239,10 @@ class WoodBoilerSG(TechCore):
             output_cap_kW = resource_cap_kW*self._eta
             
             techs_dict[header]['constraints']['energy_cap_equals']\
-                = output_cap_kW
+                = output_cap_kW / energy_scaling_factor
          
         return techs_dict
-    
-    # def create_techs_dict_clustering(
-    #         self,
-    #         techs_dict,
-    #         # tech_dict,
-    #         name = 'Wood Boiler CP',
-    #         color = '#8C3B0C',
-    #         capex = 0
-    #         ):
         
-    #     techs_dict['wood_boiler_sg'] = {
-    #         'essentials':{
-    #             'name': name,
-    #             'color': color,
-    #             'parent':'conversion',
-    #             'carrier_in':'wood',
-    #             'carrier_out':'steam',
-    #             },
-    #         'constraints':{
-    #             'energy_eff':self._eta,
-    #             'lifetime':self._lifetime,
-    #             },
-    #         'costs':{
-    #             'monetary':{
-    #                 'om_con':0.0, # costs are reflected in wood_supply
-    #                 'interest_rate':self._interest_rate,
-    #                 'energy_cap': capex
-    #                 },
-    #             }
-    #         }
-        
-    #     return techs_dict
-    
     def get_v_steam(self):
         self.len_test(self._v_steam)
         return self._v_steam

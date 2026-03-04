@@ -232,7 +232,8 @@ class GasBoiler(TechCore):
             name,
             color,
             energy_cap,
-            capex_level = 'full' # 'zero', 'one-to-one-replacement'
+            capex_level = 'full', # 'zero', 'one-to-one-replacement'
+            energy_scaling_factor = 1.0
             ):
         
         if capex_level=='full':
@@ -253,50 +254,18 @@ class GasBoiler(TechCore):
                 'parent': 'gas_boiler'
                 },
             'constraints':{
-                'energy_cap_max': energy_cap
+                'energy_cap_max': energy_cap / energy_scaling_factor if energy_cap != 'inf' else 'inf'
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': capex,
-                    'om_annual': self._maintenance_cost
+                    'energy_cap': capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     }
                 }
             }
         
         return techs_dict
-    
-    def create_techs_dict_clustering(
-            self,
-            techs_dict,
-            # tech_dict,
-            name = 'Gas Boiler',
-            color = '#001A1A',
-            capex = 0
-            ):
-        
-        techs_dict['gas_boiler'] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent':'conversion',
-                'carrier_in':'gas',
-                'carrier_out':'heat',
-                },
-            'constraints':{
-                'energy_eff':self._eta,
-                'lifetime':self._lifetime,
-                },
-            'costs':{
-                'monetary':{
-                    'om_con':0.0, # costs are reflected in oil_supply
-                    'interest_rate':self._interest_rate,
-                    'energy_cap': capex
-                    },
-                }
-            }
-        
-        return techs_dict
-        
+            
     # def create_gas_supply(
     #         self,
     #         techs_dict,

@@ -548,7 +548,7 @@ class ThermalEnergyStorageSites(TechCore):
 
         return flag
 
-    def create_techs_dict(self, techs_dict, color):
+    def create_techs_dict(self, techs_dict, color, energy_scaling_factor):
 
         tes_sites_techs_label_list = []
 
@@ -596,7 +596,7 @@ class ThermalEnergyStorageSites(TechCore):
                         'costs':{
                             'monetary':{
                                 'om_prod':0.0000, # [CHF/kWh_dchg] artificial cost per discharged kWh; used to avoid cycling within timestep
-                                'storage_cap': site_entry['capex_per_kWh'],
+                                'storage_cap': site_entry['capex_per_kWh'] * energy_scaling_factor,
                                 # 'om_annual': site_entry['maintenance_cost_per_kWh'],
                                 'interest_rate': site_entry['interest_rate']
                                 },

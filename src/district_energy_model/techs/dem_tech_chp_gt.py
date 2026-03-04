@@ -175,7 +175,6 @@ class CHPGasTurbine(TechCore):
                 'monetary':{
                     'om_con': 0.0, # costs are reflected in gas supply tech
                     'interest_rate':self._interest_rate,
-                    'om_annual': self._maintenance_cost
                     },
                 } 
             }
@@ -188,6 +187,7 @@ class CHPGasTurbine(TechCore):
             header,
             name,
             color,
+            energy_scaling_factor,
             # energy_cap=self._kW_el_max,
             # energy_eff,
             # htp_ratio,
@@ -201,7 +201,7 @@ class CHPGasTurbine(TechCore):
                 'parent':'chp_gt',
                 },
             'constraints':{
-                'energy_cap_max':self._kW_el_max,
+                'energy_cap_max':self._kW_el_max / energy_scaling_factor if self._kW_el_max != 'inf' else 'inf',
                 'energy_eff':self._eta_el,
                 'carrier_ratios':{
                     'carrier_out_2':{
@@ -211,14 +211,15 @@ class CHPGasTurbine(TechCore):
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self._capex
+                    'energy_cap': self._capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     }
                 }
             }
     
         if self._allow_heat_export:
             techs_dict[header]['constraints']['export_carrier'] = 'heat_chpgt'
-            techs_dict[header]['costs']['monetary']['export'] = -self._heat_export_subsidy
+            techs_dict[header]['costs']['monetary']['export'] = -self._heat_export_subsidy * energy_scaling_factor
 
 
 

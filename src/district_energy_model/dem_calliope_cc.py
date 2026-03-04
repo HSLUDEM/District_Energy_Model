@@ -24,87 +24,78 @@ def tes_sites_lt_no_conversion_without_charging_constraint(model, ts_len, sites_
     for site_entry in sites_list:
 
         if site_entry['rel_size_t_levels']['ltlt'] > 0:
-
-            for i in range(ts_len): # create one constraint per hour:
                 
-                constraint_name = site_entry['name']+'_'+'ltlt_loading_constraint_'+str(i)
-                constraint_sets = ['loc_techs_storage']
-                
+            constraint_name = site_entry['name']+'_'+'ltlt_loading_constraint'
+            constraint_sets = ['timesteps']
+            
 
-                
-                def ltlt_loading_constraint_rule(backend_model, loc_tech):
+            
+            def ltlt_loading_constraint_rule(backend_model, timestep):
 
-                    ts = backend_model.timesteps
-
-
-                    charging_current = backend_model.carrier_con['X1::tes_site_'
-                                                                 +site_entry['name']+'_ltlt::heat_tes_site_'
-                                                                 +site_entry['name']+'_ltlt', ts[i+1]]
-                    av_current_for_charging = (backend_model.carrier_prod['X1::conv_'
-                                                                         +site_entry['name']+'_heatlt_to_heat_tes_site_'
-                                                                         +site_entry['name']+'_ltlt::heat_tes_site_'
-                                                                         +site_entry['name']+'_ltlt', ts[i+1]])
-                    av_current_for_charging += backend_model.carrier_prod['X1::conv_'
-                                                                          +site_entry['name']+'_htht_to_'
-                                                                          +site_entry['name']+'_ltlt::heat_tes_site_'
-                                                                          +site_entry['name']+'_ltlt', ts[i+1]]
-                    av_current_for_charging += backend_model.carrier_prod['X1::conv_'
-                                                                          +site_entry['name']+'_htlt_to_'
-                                                                          +site_entry['name']+'_ltlt::heat_tes_site_'
-                                                                          +site_entry['name']+'_ltlt', ts[i+1]]
-                    return -charging_current == av_current_for_charging
-                        
-                model.backend.add_constraint(
-                    constraint_name,
-                    constraint_sets,
-                    ltlt_loading_constraint_rule
-                    )
-                
+                charging_current = backend_model.carrier_con['X1::tes_site_'
+                                                                +site_entry['name']+'_ltlt::heat_tes_site_'
+                                                                +site_entry['name']+'_ltlt', timestep]
+                av_current_for_charging = (backend_model.carrier_prod['X1::conv_'
+                                                                        +site_entry['name']+'_heatlt_to_heat_tes_site_'
+                                                                        +site_entry['name']+'_ltlt::heat_tes_site_'
+                                                                        +site_entry['name']+'_ltlt', timestep])
+                av_current_for_charging += backend_model.carrier_prod['X1::conv_'
+                                                                        +site_entry['name']+'_htht_to_'
+                                                                        +site_entry['name']+'_ltlt::heat_tes_site_'
+                                                                        +site_entry['name']+'_ltlt', timestep]
+                av_current_for_charging += backend_model.carrier_prod['X1::conv_'
+                                                                        +site_entry['name']+'_htlt_to_'
+                                                                        +site_entry['name']+'_ltlt::heat_tes_site_'
+                                                                        +site_entry['name']+'_ltlt', timestep]
+                return -charging_current == av_current_for_charging
+                    
+            model.backend.add_constraint(
+                constraint_name,
+                constraint_sets,
+                ltlt_loading_constraint_rule
+                )
+            
 
         if site_entry['rel_size_t_levels']['htlt'] > 0:
 
-            for i in range(ts_len): # create one constraint per hour:
                 
-                constraint_name = site_entry['name']+'_'+'htlt_loading_constraint_'+str(i)
-                constraint_sets = ['loc_techs_storage']
+            constraint_name = site_entry['name']+'_'+'htlt_loading_constraint'
+            constraint_sets = ['timesteps']
+            
+
+            
+            def ltlt_loading_constraint_rule(backend_model, timestep):
+
+                charging_current = backend_model.carrier_con['X1::tes_site_'+
+                                                                site_entry['name']+'_htlt::heat_tes_site_'+
+                                                                site_entry['name']+'_htlt', timestep]
+                if site_entry['rel_size_t_levels']['ltlt'] > 0:
+                    charging_current -= backend_model.carrier_con['X1::conv_'+
+                                                                site_entry['name']+'_htlt_to_'+
+                                                                site_entry['name']+'_ltlt::heat_tes_site_'+
+                                                                site_entry['name']+'_htlt', timestep]
                 
-
-                
-                def ltlt_loading_constraint_rule(backend_model, loc_tech):
-
-                    ts = backend_model.timesteps
-
-
-                    charging_current = backend_model.carrier_con['X1::tes_site_'+
-                                                                 site_entry['name']+'_htlt::heat_tes_site_'+
-                                                                 site_entry['name']+'_htlt', ts[i+1]]
-                    if site_entry['rel_size_t_levels']['ltlt'] > 0:
-                        charging_current -= backend_model.carrier_con['X1::conv_'+
-                                                                 site_entry['name']+'_htlt_to_'+
-                                                                 site_entry['name']+'_ltlt::heat_tes_site_'+
-                                                                 site_entry['name']+'_htlt', ts[i+1]]
+                av_current_for_charging = sum([backend_model.carrier_prod['X1::conv_'
+                                                                            +site_entry['name']+'_heat_'
+                                                                            +shortname_of_tech+'_to_heat_tes_site_'
+                                                                            +site_entry['name']+'_htlt::heat_tes_site_'
+                                                                            +site_entry['name']+'_htlt', timestep] 
+                                                                            for shortname_of_tech in site_entry['connected_techs']['ht']])
+                return -charging_current == av_current_for_charging
+            
                     
-                    av_current_for_charging = sum([backend_model.carrier_prod['X1::conv_'
-                                                                              +site_entry['name']+'_heat_'
-                                                                              +shortname_of_tech+'_to_heat_tes_site_'
-                                                                              +site_entry['name']+'_htlt::heat_tes_site_'
-                                                                              +site_entry['name']+'_htlt', ts[i+1]] 
-                                                                              for shortname_of_tech in site_entry['connected_techs']['ht']])
-                    return -charging_current == av_current_for_charging
-                
-                        
-                model.backend.add_constraint(
-                    constraint_name,
-                    constraint_sets,
-                    ltlt_loading_constraint_rule
-                    )
+            model.backend.add_constraint(
+                constraint_name,
+                constraint_sets,
+                ltlt_loading_constraint_rule
+                )
 
 
     return model
 
 
 
-def tes_sites_minimum_size_constraints(model, ts_len, sites_list): #implements size constraints on the TES devices
+def tes_sites_minimum_size_constraints(model, ts_len, sites_list, energy_scaling_factor): #implements size constraints on the TES devices
     #Ensures minimum size (needs additonal variable, which is binary)
 
 
@@ -161,7 +152,7 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list): #implements s
 
             binary_var = backend_model.component(varname_binary)  
 
-            return cap <= constraint_dict['max']*binary_var[loc_tech]
+            return cap <= constraint_dict['max']*binary_var[loc_tech] / energy_scaling_factor
         
         def tes_sites_size_constraint_min_rule(backend_model, loc_tech):
 
@@ -169,7 +160,7 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list): #implements s
 
             binary_var = backend_model.component(varname_binary)  
 
-            return cap >= constraint_dict['min']*binary_var[loc_tech]
+            return cap >= constraint_dict['min']*binary_var[loc_tech]  / energy_scaling_factor
 
         model.backend.add_constraint(
             constraint_name_max,
@@ -194,7 +185,7 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list): #implements s
 
             cap = backend_model.storage_cap['X1::'+constraint_dict['sitestr']]
 
-            return cap <= constraint_dict['max']
+            return cap <= constraint_dict['max'] / energy_scaling_factor
         
         model.backend.add_constraint(
             constraint_name,
@@ -235,8 +226,6 @@ def tes_sites_exclusion_constraint(model, ts_len, sites_list):
                 else:
                     ...
 
-    print(exclusion_group_constraints_to_generate)
-
     for k in exclusion_group_constraints_to_generate.keys():
 
         constraint_name = 'tes_sites_exclusion_constraint_'+k
@@ -256,7 +245,7 @@ def tes_sites_exclusion_constraint(model, ts_len, sites_list):
 
     return model
 
-def tes_sites_minimum_size_cost(model, ts_len, sites_list): 
+def tes_sites_minimum_size_cost(model, ts_len, sites_list, energy_scaling_factor): 
 
     #This function applies a binary cost to devices with minimum size
     #i.e. if a site has a minimum size, for all devices that are above this minimum size, a given capex is applied
@@ -309,14 +298,12 @@ def tes_sites_minimum_size_cost(model, ts_len, sites_list):
         annuity_factor = ((((1+interest_rate)**lifetime) * interest_rate)/(((1+interest_rate)**lifetime) - 1) 
                           if interest_rate > 0 
                           else 1.0/lifetime)
-        # print(annuity_factor)
-        # exit()
 
         binary_var = bm.component(varname_binary)
 
 
-        obj.expr = obj.expr + value_dict['capex_base'] * annuity_factor * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24))
-        obj.expr = obj.expr + value_dict['maintenance_cost_base'] * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24))
+        obj.expr = obj.expr + value_dict['capex_base'] * annuity_factor * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor
+        obj.expr = obj.expr + value_dict['maintenance_cost_base'] * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor
         
     active_objs[0] = obj
 
@@ -339,12 +326,9 @@ def tes_sites_size_ratios_constraints(model, ts_len, sites_list): #implements si
                 and (site_entry['rel_size_t_levels'][low_T_level] > 0)):
 
                 constraint_name = 'tes_sites_size_ratios_constraint_tes_site_'+site_entry['name']+'_'+high_T_level+'_to_'+low_T_level
-                constraint_sets = ['loc_techs']
+                constraint_sets = []
 
-                def tes_sites_size_ratios_constraint_rule(backend_model, loc_tech):
-
-                    # print(backend_model)
-                    # exit()
+                def tes_sites_size_ratios_constraint_rule(backend_model):
 
                     high_T_val = (backend_model.storage_cap['X1::tes_site_'+site_entry['name']+'_'+high_T_level] 
                                   / site_entry['rel_size_t_levels'][high_T_level])
@@ -375,33 +359,29 @@ def tes_sites_charge_constraints(model, ts_len, sites_list):
             if ((site_entry['rel_size_t_levels'][high_T_level] > 0) 
                 and (site_entry['rel_size_t_levels'][low_T_level] > 0)):
 
-                for i in range(ts_len):
+                constraint_name = 'tes_sites_site_charge_constraint_tes_site_'+site_entry['name']+'_'+high_T_level+'_to_'+low_T_level
+                constraint_sets = ['timesteps']
 
-                    constraint_name = 'tes_sites_size_ratios_constraint_tes_site_'+site_entry['name']+'_'+high_T_level+'_to_'+low_T_level+'_timestep_'+str(i+1)
-                    constraint_sets = ['loc_techs']
-
-                    def tes_sites_charge_constraint_rule(backend_model, loc_tech):
-                        
-                        ts = backend_model.timesteps
-
-                        high_T_val = (backend_model.storage['X1::tes_site_'+site_entry['name']+'_'+high_T_level, ts[i+1]] 
-                                    / site_entry['rel_size_t_levels'][high_T_level])
-                        low_T_val = (backend_model.storage['X1::tes_site_'+site_entry['name']+'_'+low_T_level, ts[i+1]] 
-                                    / site_entry['rel_size_t_levels'][low_T_level])
-
-                        return high_T_val <= low_T_val
+                def tes_sites_charge_constraint_rule(backend_model, timestep):
                     
-                    model.backend.add_constraint(
-                        constraint_name,
-                        constraint_sets,
-                        tes_sites_charge_constraint_rule
-                        )
+                    high_T_val = (backend_model.storage['X1::tes_site_'+site_entry['name']+'_'+high_T_level, timestep] 
+                                / site_entry['rel_size_t_levels'][high_T_level])
+                    low_T_val = (backend_model.storage['X1::tes_site_'+site_entry['name']+'_'+low_T_level, timestep] 
+                                / site_entry['rel_size_t_levels'][low_T_level])
+
+                    return high_T_val <= low_T_val
+                
+                model.backend.add_constraint(
+                    constraint_name,
+                    constraint_sets,
+                    tes_sites_charge_constraint_rule
+                    )
 
     
     return model
 
 
-def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
+def ev_flexibility_constraints(model, ts_len, n_days, energy_demand, energy_scaling_factor):
     
     # Constraint: Daily EV electricity demand
     # -----------------------------------------
@@ -409,9 +389,9 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
     for day in range(n_days): # create one constraint per day:
         
         constraint_name = f'd_e_ev_dy_constraint_{day}'        
-        constraint_sets = ['loc_techs_demand']
+        constraint_sets = []
         
-        def d_e_ev_dy_constraint_rule(backend_model, loc_tech):
+        def d_e_ev_dy_constraint_rule(backend_model):
             
             ts = backend_model.timesteps # retrieve timesteps            
 
@@ -426,7 +406,7 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
                 hr+=1
             
             # Daily EV demand must match daily base profile (cp) demand:
-            return tmp_sum == -energy_demand.get_d_e_ev_cp_dy()[day]
+            return tmp_sum == -energy_demand.get_d_e_ev_cp_dy()[day] /energy_scaling_factor
                  
         model.backend.add_constraint(
             constraint_name,
@@ -442,9 +422,9 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
     for i in range(ts_len):
 
         constraint_name = f'ev_flex_var_constraint_{i}'
-        constraint_sets = ['loc_techs']
+        constraint_sets = []
         
-        def ev_flex_var_constraint_rule(backend_model, loc_tech):
+        def ev_flex_var_constraint_rule(backend_model):
             
             ts = backend_model.timesteps
             
@@ -458,7 +438,7 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
                 + backend_model.carrier_con['X1::demand_electricity_ev_delta::electricity', ts[i + 1]]
                 )
             
-            d_e_ev_cp_i = -energy_demand.get_d_e_ev_cp()[i]
+            d_e_ev_cp_i = -energy_demand.get_d_e_ev_cp()[i] / energy_scaling_factor
             
             delta_i = d_e_ev_i - d_e_ev_cp_i
             
@@ -471,9 +451,9 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
             )
         
         constraint_name = f'ev_flex_pos_constraint_{i}'
-        constraint_sets = ['loc_techs']
+        constraint_sets = []
         
-        def ev_flex_pos_constraint_rule(backend_model, loc_tech):
+        def ev_flex_pos_constraint_rule(backend_model):
             
             ts = backend_model.timesteps
             
@@ -493,9 +473,9 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
     for day in range(n_days): # create one constraint per day:
         
         constraint_name = f'f_e_ev_dy_constraint_{day}'        
-        constraint_sets = ['loc_techs']
+        constraint_sets = []
         
-        def f_e_ev_dy_constraint_rule(backend_model, loc_tech):
+        def f_e_ev_dy_constraint_rule(backend_model):
             
             ts = backend_model.timesteps # retrieve timesteps            
 
@@ -513,7 +493,7 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand):
                 
                 hr+=1
                 
-            f_e_ev_pot_dy = energy_demand.get_f_e_ev_pot_dy()[day]
+            f_e_ev_pot_dy = energy_demand.get_f_e_ev_pot_dy()[day] / energy_scaling_factor
             
             # Daily EV flexible demand limitation:
             return pos_delta_i_max_sum <= f_e_ev_pot_dy

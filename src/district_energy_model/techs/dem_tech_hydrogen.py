@@ -145,7 +145,7 @@ class HydrogenProduction(TechCore):
         self._v_hyd = np.array(v_hyd_updated)
         self.__compute_u_e()
     
-    def generate_tech_dict(self, techs_dict):
+    def generate_tech_dict(self, techs_dict, energy_scaling_factor):
         
         hyd_dict = {
             'essentials':{
@@ -156,16 +156,16 @@ class HydrogenProduction(TechCore):
                 'carrier_out': 'hydrogen',
                 },
             'constraints':{
-                'energy_cap_max':self.__tech_dict['capacity_kWh'],
+                'energy_cap_max':self.__tech_dict['capacity_kWh']/energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
                 'energy_eff':self.__tech_dict['efficiency'],
                 'lifetime':self.__tech_dict['lifetime']
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'],
-                    'om_con':self.__tech_dict['om_cost'], # [CHF/kWh]
+                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
+                    'om_con':self.__tech_dict['om_cost'] * energy_scaling_factor, # [CHF/kWh]
                     'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     },
                 }
             }

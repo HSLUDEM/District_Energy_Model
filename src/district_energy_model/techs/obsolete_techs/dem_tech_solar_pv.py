@@ -422,40 +422,7 @@ class SolarPV(TechCore):
             }    
         
         return techs_dict
-    
-    def create_techs_dict_clustering(
-            techs_dict,
-            tech_dict,
-            name = 'Solar PV',
-            color = '#F9D956',
-            capex = 0
-            ):
         
-        techs_dict['solar_pv'] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent':'supply_plus',
-                'carrier': 'electricity'
-                },
-            'constraints':{
-                'export_carrier': 'electricity',
-                'resource_unit': 'energy_per_area', # 'energy',
-                'parasitic_eff': 1.0, # efficiency is already accounted for in the resource dataseries
-                'force_resource': True,
-                'lifetime': tech_dict['lifetime']
-                },
-            'costs':{
-                'monetary':{
-                    'energy_cap': capex,
-                    'interest_rate':tech_dict['interest_rate'],
-                    'om_con':0.0
-                    },
-                }
-            }    
-        
-        return techs_dict
-    
     def get_eta_overall(self):
         self.num_test(self._eta_overall)
         return self._eta_overall

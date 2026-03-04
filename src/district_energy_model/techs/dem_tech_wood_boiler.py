@@ -175,7 +175,8 @@ class WoodBoiler(TechCore):
             name,
             color,
             energy_cap,
-            capex_level = 'full' # 'zero', 'one-to-one-replacement'
+            capex_level = 'full', # 'zero', 'one-to-one-replacement'
+            energy_scaling_factor = 1.0
             ):
         
         if capex_level=='full':
@@ -196,50 +197,18 @@ class WoodBoiler(TechCore):
                 'parent': 'wood_boiler'
                 },
             'constraints':{
-                'energy_cap_max': energy_cap
+                'energy_cap_max': energy_cap / energy_scaling_factor if energy_cap != 'inf' else 'inf'
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': capex,
-                    'om_annual': self._maintenance_cost
+                    'energy_cap': capex*energy_scaling_factor,
+                    'om_annual': self._maintenance_cost*energy_scaling_factor
                     }
                 }
             }
         
         return techs_dict
-    
-    def create_techs_dict_clustering(
-            self,
-            techs_dict,
-            # tech_dict,
-            name = 'Wood Boiler',
-            color = '#8C3B0C',
-            capex = 0
-            ):
-        
-        techs_dict['wood_boiler'] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent':'conversion',
-                'carrier_in':'wood',
-                'carrier_out':'heat',
-                },
-            'constraints':{
-                'energy_eff':self._eta,
-                'lifetime':self._lifetime,
-                },
-            'costs':{
-                'monetary':{
-                    'om_con':0.0, # costs are reflected in wood_supply
-                    'interest_rate':self._interest_rate,
-                    'energy_cap': capex
-                    },
-                }
-            }
-        
-        return techs_dict
-        
+            
     def get_v_h(self):
         self.len_test(self._v_h)
         return self._v_h
