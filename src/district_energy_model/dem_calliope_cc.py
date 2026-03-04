@@ -208,6 +208,9 @@ def tes_sites_exclusion_constraint(model, ts_len, sites_list):
 
         site_entry = sites_list[i]
 
+        if site_entry['capacity_kWh_min'] ==0 and site_entry['exclusion_group'] != None:
+            raise ValueError("TES_Site exclusion constraint can only be implemented if a minimum size is given. Please remove the Exclusion_group parameter or define a minimum size.")
+
         entries = ['htht', 'htlt', 'ltlt']
 
         for level in entries:
