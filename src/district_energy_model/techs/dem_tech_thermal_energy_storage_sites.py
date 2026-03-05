@@ -109,6 +109,15 @@ class ThermalEnergyStorageSites(TechCore):
                                 )
                     raise Exception(printout)
         
+        for site_entry in self._sites_list:
+            if site_entry['capacity_kWh_min'] == 0 and site_entry['force_deployment'] == True:
+                printout = "Forced deployment cannot be activated if capacity_kWh_min isn't defined: TES_Site = " + site_entry['name']
+                raise Exception(printout)
+            if site_entry['capacity_kWh_min'] == 0 and site_entry['exclusion_group'] != None:
+                printout = "Exclusion group constraint cannot be activated if capacity_kWh_min isn't defined: TES_Site = " + site_entry['name']
+                raise Exception(printout)
+
+
         # Update tech dict:
         self.__tech_dict = tech_dict
         

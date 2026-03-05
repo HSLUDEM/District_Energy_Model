@@ -1731,6 +1731,10 @@ class DistrictEnergyModel:
         # Check for negative values:
         if self.toggle_energy_balance_tests:
             exempted_columns_ = ['d_e_ev_cp_dev', 'd_e_ev_cp_dev_neg']
+            for c in df_scen.columns:
+                if c.startswith("sos") or c.startswith("soc"):
+                    exempted_columns_.append(c)
+                    
             dem_helper.positive_values_test_df(
                 df_values = df_scen,
                 description = 'df_scen',

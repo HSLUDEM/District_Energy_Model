@@ -119,6 +119,7 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list, energy_scaling
                         'sitestr': 'tes_site_'+site_entry['name']+'_'+level,
                         'min': site_entry['capacity_kWh_min']*site_entry['rel_size_t_levels'][level],
                         'max': site_entry['capacity_kWh_max']*site_entry['rel_size_t_levels'][level],
+                        'force_deployment': site_entry['force_deployment']
                         })
                     flag = False
                 else:
@@ -162,6 +163,7 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list, energy_scaling
 
             return cap >= constraint_dict['min']*binary_var[loc_tech]  / energy_scaling_factor
 
+
         model.backend.add_constraint(
             constraint_name_max,
             constraint_sets,
@@ -172,6 +174,21 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list, energy_scaling
             constraint_sets,
             tes_sites_size_constraint_min_rule
             )
+        
+        if constraint_dict['force_deployment']:
+                
+            def tes_sites_forced_deployment_rule(backend_model, loc_tech):
+
+                binary_var = backend_model.component(varname_binary)  
+
+                return 1 == binary_var[loc_tech] 
+
+            model.backend.add_constraint(
+                constraint_name_min,
+                constraint_sets,
+                tes_sites_forced_deployment_rule
+                )
+
 
 
     for i in range(len(constraints_to_generate_noninteger)):
@@ -309,8 +326,6 @@ def tes_sites_minimum_size_cost(model, monetary_weight, ts_len, sites_list, ener
     active_objs[0] = obj
 
     return model
-
-
 
 
 def tes_sites_size_ratios_constraints(model, ts_len, sites_list): #implements size constraints on the TES devices
