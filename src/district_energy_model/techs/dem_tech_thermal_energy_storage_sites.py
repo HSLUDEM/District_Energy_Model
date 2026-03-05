@@ -522,13 +522,13 @@ class ThermalEnergyStorageSites(TechCore):
         self._l_v_hhtht[site_entry_index] = (1.0/self._sites_list[site_entry_index]['eta_chg_dchg']['htht'] - 1.0) * self._v_hhtht[site_entry_index]
 
     def update_losses_htlt(self, site_entry_index):
-        self._l_q_hhtlt[site_entry_index] = self._sites_list[site_entry_index]['storage_loss_rate']['htht'] * self._q_hhtht[site_entry_index]
+        self._l_q_hhtlt[site_entry_index] = self._sites_list[site_entry_index]['storage_loss_rate']['htlt'] * self._q_hhtlt[site_entry_index]
         self._l_u_hhtlt[site_entry_index] = (1.0-self._sites_list[site_entry_index]['eta_chg_dchg']['htlt']) * self._u_hhtlt[site_entry_index]
-        self._l_v_hhtlt[site_entry_index] = (1.0/self._sites_list[site_entry_index]['eta_chg_dchg']['ltlt'] - 1.0) * self._v_hltlt[site_entry_index]
+        self._l_v_hhtlt[site_entry_index] = (1.0/self._sites_list[site_entry_index]['eta_chg_dchg']['htlt'] - 1.0) * self._v_hhtlt[site_entry_index]
 
     def update_losses_ltlt(self, site_entry_index):
-        self._l_q_hltlt[site_entry_index] = self._sites_list[site_entry_index]['storage_loss_rate']['htht'] * self._q_hhtht[site_entry_index]
-        self._l_u_hltlt[site_entry_index] = (1.0-self._sites_list[site_entry_index]['eta_chg_dchg']['htlt']) * self._u_hhtlt[site_entry_index]
+        self._l_q_hltlt[site_entry_index] = self._sites_list[site_entry_index]['storage_loss_rate']['ltlt'] * self._q_hltlt[site_entry_index]
+        self._l_u_hltlt[site_entry_index] = (1.0-self._sites_list[site_entry_index]['eta_chg_dchg']['ltlt']) * self._u_hltlt[site_entry_index]
         self._l_v_hltlt[site_entry_index] = (1.0/self._sites_list[site_entry_index]['eta_chg_dchg']['ltlt'] - 1.0) * self._v_hltlt[site_entry_index]
 
     def set_cap_htht_site(self, cap_updated, site_entry_index):

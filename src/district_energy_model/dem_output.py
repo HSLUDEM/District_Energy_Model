@@ -3827,9 +3827,18 @@ def plot_sankey_total(df_scen,
     """
 
 
+
     df_plot = df_scen.copy().sum(axis = 0)
     
-    
+    #Generate list of distinct TES sites
+    distinct_tes_sites = []
+
+    for c in df_plot.index:
+        if 'tes_site' in c:
+            sitename = c.split('tes_site_')[1]
+            if sitename not in distinct_tes_sites:
+                distinct_tes_sites.append(sitename)
+
     # Convert from kWh to MWh:
     df_plot = df_plot/1000
 
@@ -3856,7 +3865,7 @@ def plot_sankey_total(df_scen,
                          'v_h_gbcp',
                          'v_h_wguh', 'v_h_wte', 'v_e_bes',  
                          'v_e_chpgt', 'v_e_gtcp', 'v_e_hydro', 
-                         'v_e_pv', 'v_e_st', 
+                         'v_e_pv', 'v_e_pvrooftop', 'v_e_st', 
                          'v_e_wp', 'v_e_wte', 'v_hyd_hydp', 'v_steam_gtcp',
                          'v_e_wguc','u_hyd_wguh',
                          'u_e_wgu','u_e_aguh','u_hyd_aguh',
@@ -3884,7 +3893,7 @@ def plot_sankey_total(df_scen,
                               'hydp', 'wgu', 'wguh', 'chpgt', 'gb', 
                               'gtcp', 'tes', 'tesdc', 'wte', 'ob', 
                               'st', 'wb', 'wguc', 'agu', 'hg', 'aguc', 
-                              'bm', 'dh', 'solarthermalrooftop', 'hydro', 'pv', 'wp',
+                              'bm', 'dh', 'solarthermalrooftop', 'pvrooftop', 'hydro', 'pv', 'wp',
                               'obcp', 'gbcp', 'gtes', 
                               'ws','hes', 'wbsg', 
                               'wbcp', 'ehcp', 
@@ -3909,8 +3918,8 @@ def plot_sankey_total(df_scen,
                       'v_h_chpgt_waste', 'v_h_st_wbsg_waste', 'v_h_st_gtcp_waste']
     # heat_wastes = []
 
-    listOfAllNodes = link_nodes_to_consider + carriers + inputs + outputs + outputs_inverted + ["env_heat"] + exports
-    nodeNames = {'tes': 'TES', 'pv': 'PV', 'hyd': 'H₂', 'm_gas': 'Import Gas', 
+    listOfAllNodes = link_nodes_to_consider + carriers + inputs + outputs + outputs_inverted + ["env_heat"] + exports + distinct_tes_sites
+    nodeNames = {'tes': 'TES', 'pv': 'PV', 'pvrooftop': 'PV (rooftop)', 'hyd': 'H₂', 'm_gas': 'Import Gas', 
                  'm_h_dh': 'Fernwärme', 'tesdc': 'TES dezentral', 
                  'm_e_ch': 'Strom CH', 'm_e_cbimport': 'Stromimport internat.', 
                  'hydro': 'Wasserkraft', 'bes': 'Batteriespeicher', 'exp_e': 'Export', 
@@ -3935,7 +3944,7 @@ def plot_sankey_total(df_scen,
                  'm_e_ch_wind': "Windkraft CH", 'd_e_unmet': 'Nicht befriedigte Stromnachfrage',
                  'd_h_unmet': 'Nicht befriedigte Wärmenachfrage', "env_heat": "Umweltwärme", 'other': 'Andere'}
     
-    nodeNames = {'tes': 'TES', 'pv': 'PV', 'hyd': 'H₂', 'm_gas': 'Import Gas', 
+    nodeNames = {'tes': 'TES', 'pv': 'PV', 'pvrooftop': 'PV (rooftop)', 'hyd': 'H₂', 'm_gas': 'Import Gas', 
                  'm_h_dh': 'Import District Heat', 'tesdc': 'TES decentralized', 
                  'm_e_ch': 'Electricity Import CH', 'm_e_cbimport': 'Electricity Import internat.', 
                  'hydro': 'Hydropower (local)', 'bes': 'Battery storage', 'exp_e': 'Export electricity', 
@@ -3965,6 +3974,9 @@ def plot_sankey_total(df_scen,
                  'wh': 'Waste heat', 'whlt': 'Waste heat (low temperature)', 'wbsg': 'Wood boiler (steam generator)', 
                  'wbcp': 'Wood boiler (central plant)', 'hlt': 'Heat (Low Temperature)',
                  'm_wd': 'Wood import', 's_wd': 'Local Wood Harvest'}
+    
+    for sitename in distinct_tes_sites:
+        nodeNames[sitename]  = sitename
 
     specialColornames = {'d_e_hh': carriercolors[carriers.index('e')], 'd_e_ev': carriercolors[carriers.index('e')],
                          'd_h_s': carriercolors[carriers.index('h')], 'd_h_hw': carriercolors[carriers.index('h')], 
@@ -4084,6 +4096,49 @@ def plot_sankey_total(df_scen,
                 targets.append(device_index)
                 values.append(df_plot[keyword]+offset)
                 colors.append(torgbop(carriercolors[carriers.index(carrier)], carrieropacity))
+
+    for sitename in distinct_tes_sites:
+
+        flows = {
+            'ht_to_lt_flow': [0, [], 'h', 'hlt', 'h'],
+            'ht_charging_flow': [0, ['u_hhtlt', 'u_hhtht'], 'h', sitename, 'h'],
+            'lt_charging_flow': [0, ['u_hltlt'], 'hlt', sitename, 'hlt'],
+            'ht_discharging_flow': [0, ['v_hhtht'], sitename, 'h', 'h'],
+            'lt_discharging_flow': [0, ['v_hhtlt', 'v_hltlt'], sitename, 'hlt', 'hlt'],
+            'loss_flow': [0, ['l_q_hhtht', 'l_u_hhtht', 'l_v_hhtht', 'l_q_hhtlt', 'l_q_hltlt', 'l_u_hhtlt', 'l_u_hltlt', 'l_v_hhtlt', 'l_v_hltlt'], sitename, 'loss', 'loss'],
+        }
+
+        conv_ht_lt_name = 'u_hht_to_hlt'
+
+        for c in df_plot.index:
+            if 'tes_site_'+sitename in c:
+                value = df_plot[c]
+                for k in flows.keys():
+                    for startstring in flows[k][1]:
+                        if c.startswith(startstring):
+                            flows[k][0] += value
+
+                
+                if c.startswith(conv_ht_lt_name):
+                    flows['ht_to_lt_flow'][0] += value
+
+                    
+        for k in flows.keys():
+
+            value, _, sourcename, targetname, carriername = tuple(flows[k])
+
+            sourceIndex = listOfAllNodes.index(sourcename)
+            targetIndex = listOfAllNodes.index(targetname)
+
+            sources.append(sourceIndex)
+            targets.append(targetIndex)
+            values.append(value)
+            colors.append(torgbop(carriercolors[carriers.index(carriername)], carrieropacity))
+
+                
+
+    # print(distinct_tes_sites)
+
 
     # for keyword in :
 
