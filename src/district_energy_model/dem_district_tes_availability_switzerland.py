@@ -42,7 +42,7 @@ def tes_availability_script_stub(params): #This is just a placeholder for future
     #         'lt': ['heatlt'], #which lt-technologies are connected, there is always a ht->lt conversion tech.
     #         'ht': ['obcp', 'hpcplt', 'wh', 'hpcp', 'dhimp', 'ehcp'] #which ht-technologies are connected1
     #         },
-        
+    #
     #     })
     
     # list_of_tes_options.append({

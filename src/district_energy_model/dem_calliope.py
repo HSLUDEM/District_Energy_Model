@@ -942,7 +942,13 @@ class CalliopeOptimiser:
             self.tech_solarthermal_rooftop.update_v_h_exp(v_h_solarthermalrooftop_s_exp)   
 
         else:
-            raise Exception("Not implemented")
+            ...
+
+            # self.tech_solarthermal_rooftop.update_v_h(null_array.copy())
+            # self.tech_solarthermal_rooftop.update_v_h_cons(null_array.copy())
+            # self.tech_solarthermal_rooftop.update_v_h_exp(null_array.copy())   
+
+            # raise Exception("Not implemented")
 
 
 
@@ -2783,6 +2789,7 @@ class CalliopeOptimiser:
                 pass
             else:
                 loc_dict['New_Techs']['techs'][tech] = None
+
         for i in range(len(self.tech_list_pv)):
 
             techs = self.tech_list_pv[i]
@@ -2790,14 +2797,14 @@ class CalliopeOptimiser:
             for j in range(len(techs)):
 
                 tech = techs[j]
-                tech_thermal = self.tech_list_solarthermal[i][j]
 
-                print(tech)
                 loc_dict[tech]['techs'][tech+"_occupied"] = None
                 loc_dict[tech]['techs'][tech+"_unoccupied"] = None
 
-                loc_dict[tech]['techs'][tech_thermal+"_occupied"] = None
-                loc_dict[tech]['techs'][tech_thermal+"_unoccupied"] = None
+                if self.scen_techs['solarthermal_rooftop']['deployment']:
+                    tech_thermal = self.tech_list_solarthermal[i][j]
+                    loc_dict[tech]['techs'][tech_thermal+"_occupied"] = None
+                    loc_dict[tech]['techs'][tech_thermal+"_unoccupied"] = None
 
 
 
