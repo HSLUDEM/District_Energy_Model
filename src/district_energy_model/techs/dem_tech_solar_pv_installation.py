@@ -69,7 +69,7 @@ class SolarPVInstallation(TechCore):
 
         # Initialize properties:
         self.update_tech_properties(tech_dict)
-        self._specific_yield = 950
+        self._specific_yield = 1050
         
         # Carrier types:
         self.output_carrier = 'electricity'
@@ -104,13 +104,13 @@ class SolarPVInstallation(TechCore):
         
         self._interest_rate = tech_dict['interest_rate']
         
-        self._capex = tech_dict['capex'] #base_capex in Fr./kWp installed power (not be confused with the real peak power)
+        self._capex = 0 #tech_dict['capex'] #base_capex in Fr./kWp installed power (not be confused with the real peak power)
         
         self._only_use_installed = tech_dict['only_use_installed']
         
-        self._maintenance_cost = tech_dict['maintenance_cost']
+        self._maintenance_cost = 0 #tech_dict['maintenance_cost']
 
-        self._export_subsidy = tech_dict['export_subsidy']
+        self._export_subsidy = 0 #tech_dict['export_subsidy']
 
         # Update input dict:
         self.__tech_dict = tech_dict
@@ -261,17 +261,6 @@ class SolarPVInstallation(TechCore):
         self.len_test(self._v_e_pot_remain)
         return self._v_e_pot_remain
 
-    def get_kWp(self):
+    def get_kwp(self):
         return self._v_e.sum()/self._specific_yield
     
-    def get_total_capex(self):
-        return self._capex*self.get_kWp()
-    
-    def get_total_maintenance(self):
-        return self._capex*self.get_kWp()
-    
-    def get_energy_revenue(self):
-        return self._v_e_exp.sum()*self._export_subsidy
-    
-    def get_energy_costs(self):
-        return 0.0

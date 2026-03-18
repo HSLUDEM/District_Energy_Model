@@ -73,6 +73,8 @@ class HydroPower(TechCore):
         self._capex = tech_dict['capex']
         self._maintenance_cost = tech_dict['maintenance_cost']
         self._export_subsidy = tech_dict['export_subsidy']
+        self._lifetime = tech_dict['lifetime']
+        self._interest_rate = tech_dict['interest_rate']
 
         # Update input dict:
         self.__tech_dict = tech_dict

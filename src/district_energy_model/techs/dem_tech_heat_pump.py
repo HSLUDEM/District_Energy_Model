@@ -412,6 +412,7 @@ class HeatPump(HeatPumpCore):
         return 0.0
     
     def get_total_capex(self):
+        print(self.__tech_dict.keys())
         return self._capex*np.max(self._v_h)
     
     def get_total_maintenance(self):

@@ -150,6 +150,9 @@ class Biomass(TechCore):
     # def get_v_gas(self):
     #     self.len_test(self._v_gas)
     #     return self._v_gas
+
+    def get_total_capex(self):
+        return None
     
 class HydrothermalGasification(TechCore): # hg
     
@@ -317,6 +320,8 @@ class HydrothermalGasification(TechCore): # hg
         self.len_test(self._v_gas)
         return self._v_gas        
         
+    def get_total_capex(self):
+        return None
 class AnaerobicDigestionUpgrade(TechCore): # agu
     
     def __init__(self, tech_dict):
@@ -1636,7 +1641,8 @@ class WoodGasificationCHP(TechCore): # wguc
         self.len_test(self._v_h)
         return self._v_h
 
-        
+    def get_energy_costs(self):
+        return self._u_wd
             
 
 

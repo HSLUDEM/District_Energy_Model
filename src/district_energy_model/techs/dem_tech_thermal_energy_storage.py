@@ -470,3 +470,15 @@ class ThermalEnergyStorage(TechCore):
     def get_ic(self):
         self.num_test(self._ic)
         return self._ic
+
+    def get_total_capex(self):
+        return self._capex*np.max(self._q_h)
+    
+    def get_total_maintenance(self):
+        return self._maintenance_cost*np.max(self._q_h)
+    
+    def get_energy_costs(self):
+        return 0.0
+    
+    def get_energy_revenue(self):
+        return 0.0

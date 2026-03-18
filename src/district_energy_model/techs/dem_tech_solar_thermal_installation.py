@@ -74,7 +74,8 @@ class SolarThermalInstallation(TechCore):
 
         # Initialize properties:
         self.update_tech_properties(tech_dict)
-        
+        self.specific_yield = 1600*0.7 # annual kwh solar irradiance*conversion effiency
+
         # Carrier types:
         self.output_carrier = output_carrier
         
@@ -90,6 +91,7 @@ class SolarThermalInstallation(TechCore):
 
         self.power_up_for_replacement = 0
 
+        
     def update_tech_properties(self, tech_dict):
 
         """        
@@ -305,20 +307,5 @@ class SolarThermalInstallation(TechCore):
         self.len_test(self._v_h_pot_remain)
         return self._v_h_pot_remain
 
-    def get_total_capex(self):
-        return self._capex*np.max(self._v_h)
-    
-    def get_total_maintenance(self):
-        if self._maintenance_cost*np.max(self._v_h) is not None:
-            return self._maintenance_cost*np.max(self._v_h)
-        else: 
-            return 0.0
-    
-    def get_energy_costs(self):
-        return 0.0
-    
-    def get_energy_revenue(self):
-        if self._export_subsidy*self._v_h_exp.sum() is not None:
-            return self._export_subsidy*self._v_h_exp.sum()
-        else:
-            return 0.0
+    def get_kwp(self):
+        return self._v_h.sum()/self.specific_yield

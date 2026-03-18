@@ -381,17 +381,25 @@ class SolarPVType(TechCore):
 
         return len(self._installations)
     
-    def get_kWp(self):
-        return self._v_e.sum()/self._specific_yield
     
     def get_total_capex(self):
-        return self._base_capex*self.get_kWp()
+        capex = 0
+        for installation in self._installations:
+            capex += installation._capex*installation.get_kwp()
+        return capex
     
     def get_total_maintenance(self):
-        return self._base_capex*self.get_kWp()
+        maintenance = 0
+        for installation in self._installations:
+            maintenance += installation._maintenance_cost*installation.get_kwp()
+        return maintenance
     
-    def get_energy_revenue(self):
-        return self._v_e_exp.sum()*self._export_subsidy
     
     def get_energy_costs(self):
         return 0.0
+    
+    def get_energy_revenue(self):
+        export_revenue = 0
+        for installation in self._installations:
+            export_revenue += installation._export_subsidy*np.sum(installation._v_e_exp)
+        return export_revenue
