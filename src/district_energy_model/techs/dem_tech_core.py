@@ -7,8 +7,10 @@ Created on Wed Oct 30 12:50:32 2024
 
 "Parent class for tech classes."
 import numpy as np
+from abc import ABC, abstractmethod
+import warnings
 
-class TechCore:
+class TechCore(ABC):
     
     def __init__(self, tech_dict):
         
@@ -116,3 +118,57 @@ class TechCore:
     # def initialise_zero(self, variable, n_days):
     #     n_hours = n_days*24
     #     variable = np.array([0]*n_hours)
+
+ 
+    def get_output(self):
+        for attr in ['_v_h', '_v_e']:
+            if hasattr(self, attr):
+                return getattr(self, attr)
+        raise AttributeError("No output attribute found (_v_h or _v_e)")
+    
+    def get_v_max(self):
+        for attr in ['v_h_max', 'v_max', 'kw_max', 'kW_el_max']:
+            if hasattr(self, attr):
+                return getattr(self, attr)
+            else: 
+                warnings.warn("No max_capacity attribute found returning 'inf'")
+                return 'inf'
+    
+    def get_power_up_for_replacement(self):
+        return 0
+    
+    def get_only_allow_existing(self):
+        return False
+
+    def get_existing(self):
+        energy_cap_old = self.get_output().max()
+        needs_replacement = self.get_power_up_for_replacement()
+
+        energy_cap_zero_capex = energy_cap_old-needs_replacement if energy_cap_old>=needs_replacement else 0.0
+        energy_cap_low_capex = needs_replacement if energy_cap_old>=needs_replacement else energy_cap_old
+        
+        if self.get_only_allow_existing():
+            cap_one_to_one_replacement = 0.0
+            cap_new = 0.0
+        else:
+            cap_one_to_one_replacement = energy_cap_low_capex
+            if self.get_v_max() == 'inf':
+                cap_new = 'inf'
+            else:
+                cap_new = self.get_v_max() - cap_one_to_one_replacement - energy_cap_zero_capex
+        
+        if self.get_v_max() != 'inf':
+            if cap_new < 0.0:
+                cap_one_to_one_replacement += cap_new
+                cap_new = 0.0
+            if cap_one_to_one_replacement < 0.0:
+                energy_cap_zero_capex += cap_one_to_one_replacement
+                cap_one_to_one_replacement = 0.0
+            if energy_cap_zero_capex <= 0.0:
+                energy_cap_zero_capex = 0.0
+            
+        self.existing = energy_cap_zero_capex
+        self.needs_replacement = cap_one_to_one_replacement
+        self.cap_new = cap_new
+
+        return energy_cap_zero_capex, cap_one_to_one_replacement, cap_new
