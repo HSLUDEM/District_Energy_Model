@@ -1678,6 +1678,8 @@ class DistrictEnergyModel:
                 # opt_metrics=scen_techs['optimisation'],
                 files_path = self.results_path
                 )
+            
+            dem_costs.prepare_cost_calculation(self.tech_instances)
             opt_results, model = optimiser.run_optimisation()
             dict_total_costs =\
                 optimiser.get_optimal_output_df(

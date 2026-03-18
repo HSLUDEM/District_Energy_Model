@@ -35,6 +35,9 @@ class HeatPump(HeatPumpCore):
         # Initialize properties:
         # self._cop = tech_dict['cop'] # Coefficient of performance
         self.update_tech_properties(tech_dict)
+        self.existing = 0
+        self.needs_replacement = 0
+        self.cap_new = 0
         
         # Carrier types:
         self._input_carrier = 'electricity'
@@ -46,6 +49,7 @@ class HeatPump(HeatPumpCore):
         self._u_e = [] # heat pump input - electricity
         self._u_h = [] # heat pump input - heat from environment
         self._v_h = [] # heat pump output (heat)
+        
         
     def update_tech_properties(self, tech_dict):
         
@@ -78,6 +82,7 @@ class HeatPump(HeatPumpCore):
         self._fixed_demand_share_val = tech_dict['fixed_demand_share_val']
         self._only_allow_existing = tech_dict['only_allow_existing']
         self._power_up_for_replacement = 0.0
+       
  
         
         
@@ -412,8 +417,9 @@ class HeatPump(HeatPumpCore):
         return 0.0
     
     def get_total_capex(self):
-        print(self.__tech_dict.keys())
-        return self._capex*np.max(self._v_h)
+    
+        total_capex = self.needs_replacement*self._capex_one_to_one_replacement + self._capex*(np.max(self._v_h) - self.existing - self.needs_replacement)
+        return total_capex
     
     def get_total_maintenance(self):
         return self._maintenance_cost*np.max(self._v_h)
@@ -444,6 +450,10 @@ class HeatPump(HeatPumpCore):
                 cap_one_to_one_replacement = 0.0
             if energy_cap_zero_capex <= 0.0:
                 energy_cap_zero_capex = 0.0
+
+        self.existing = energy_cap_zero_capex
+        self.needs_replacement = cap_one_to_one_replacement
+        self.cap_new
 
         return energy_cap_zero_capex, cap_one_to_one_replacement, cap_new
 

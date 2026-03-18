@@ -96,6 +96,12 @@ def annuity_factor(lifetime_years, interest_rate=0.05):
         af = (r * (1 + r) ** t) / ((1 + r) ** t - 1)
 
         return af
+    
+def prepare_cost_calculation(tech_instances):
+    for tech in tech_instances:
+        if tech == 'heat_pump':
+            tech_instances[tech].get_existing()
+    return 0
 
 
 def calculate_total_anual_costs(tech_instances, number_of_days):
