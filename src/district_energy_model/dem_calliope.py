@@ -2042,31 +2042,7 @@ class CalliopeOptimiser:
         
         # Add user-selected techologies:
         if 'heat_pump' in self.tech_list:
-            energy_cap_old = self.tech_heat_pump.get_v_h().max()
-            needs_replacement = self.tech_heat_pump.get_power_up_for_replacement()
-
-            energy_cap_zero_capex = energy_cap_old-needs_replacement if energy_cap_old>=needs_replacement else 0.0
-            energy_cap_low_capex = needs_replacement if energy_cap_old>=needs_replacement else energy_cap_old
-            
-            if self.tech_heat_pump.get_only_allow_existing():
-                cap_one_to_one_replacement = 0.0
-                cap_new = 0.0
-            else:
-                cap_one_to_one_replacement = energy_cap_low_capex
-                if self.tech_heat_pump._v_h_max == 'inf':
-                    cap_new = 'inf'
-                else:
-                    cap_new = self.tech_heat_pump._v_h_max - cap_one_to_one_replacement - energy_cap_zero_capex
-            
-            if self.tech_heat_pump._v_h_max != 'inf':
-                if cap_new < 0.0:
-                    cap_one_to_one_replacement += cap_new
-                    cap_new = 0.0
-                if cap_one_to_one_replacement < 0.0:
-                    energy_cap_zero_capex += cap_one_to_one_replacement
-                    cap_one_to_one_replacement = 0.0
-                if energy_cap_zero_capex <= 0.0:
-                    energy_cap_zero_capex = 0.0
+            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_heat_pump.get_existing()
 
             techs_dict, additional_techs_label = self.tech_heat_pump.create_techs_dict(
                 techs_dict, 

@@ -404,6 +404,34 @@ class HeatPump(HeatPumpCore):
         
         return u_e_i
 
-    
-    
+    def get_existing(self):
+        energy_cap_old = self.get_v_h().max()
+        needs_replacement = self.get_power_up_for_replacement()
+
+        energy_cap_zero_capex = energy_cap_old-needs_replacement if energy_cap_old>=needs_replacement else 0.0
+        energy_cap_low_capex = needs_replacement if energy_cap_old>=needs_replacement else energy_cap_old
+        
+        if self.get_only_allow_existing():
+            cap_one_to_one_replacement = 0.0
+            cap_new = 0.0
+        else:
+            cap_one_to_one_replacement = energy_cap_low_capex
+            if self._v_h_max == 'inf':
+                cap_new = 'inf'
+            else:
+                cap_new = self._v_h_max - cap_one_to_one_replacement - energy_cap_zero_capex
+        
+        if self._v_h_max != 'inf':
+            if cap_new < 0.0:
+                cap_one_to_one_replacement += cap_new
+                cap_new = 0.0
+            if cap_one_to_one_replacement < 0.0:
+                energy_cap_zero_capex += cap_one_to_one_replacement
+                cap_one_to_one_replacement = 0.0
+            if energy_cap_zero_capex <= 0.0:
+                energy_cap_zero_capex = 0.0
+
+        return energy_cap_zero_capex, cap_one_to_one_replacement, cap_new
+
+        
     
