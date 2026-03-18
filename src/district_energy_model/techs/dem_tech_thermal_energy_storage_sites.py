@@ -109,6 +109,15 @@ class ThermalEnergyStorageSites(TechCore):
                                 )
                     raise Exception(printout)
         
+        for site_entry in self._sites_list:
+            if site_entry['capacity_kWh_min'] == 0 and site_entry['force_deployment'] == True:
+                printout = "Forced deployment cannot be activated if capacity_kWh_min isn't defined: TES_Site = " + site_entry['name']
+                raise Exception(printout)
+            if site_entry['capacity_kWh_min'] == 0 and site_entry['exclusion_group'] != None:
+                printout = "Exclusion group constraint cannot be activated if capacity_kWh_min isn't defined: TES_Site = " + site_entry['name']
+                raise Exception(printout)
+
+
         # Update tech dict:
         self.__tech_dict = tech_dict
         
@@ -513,13 +522,13 @@ class ThermalEnergyStorageSites(TechCore):
         self._l_v_hhtht[site_entry_index] = (1.0/self._sites_list[site_entry_index]['eta_chg_dchg']['htht'] - 1.0) * self._v_hhtht[site_entry_index]
 
     def update_losses_htlt(self, site_entry_index):
-        self._l_q_hhtlt[site_entry_index] = self._sites_list[site_entry_index]['storage_loss_rate']['htht'] * self._q_hhtht[site_entry_index]
+        self._l_q_hhtlt[site_entry_index] = self._sites_list[site_entry_index]['storage_loss_rate']['htlt'] * self._q_hhtlt[site_entry_index]
         self._l_u_hhtlt[site_entry_index] = (1.0-self._sites_list[site_entry_index]['eta_chg_dchg']['htlt']) * self._u_hhtlt[site_entry_index]
-        self._l_v_hhtlt[site_entry_index] = (1.0/self._sites_list[site_entry_index]['eta_chg_dchg']['ltlt'] - 1.0) * self._v_hltlt[site_entry_index]
+        self._l_v_hhtlt[site_entry_index] = (1.0/self._sites_list[site_entry_index]['eta_chg_dchg']['htlt'] - 1.0) * self._v_hhtlt[site_entry_index]
 
     def update_losses_ltlt(self, site_entry_index):
-        self._l_q_hltlt[site_entry_index] = self._sites_list[site_entry_index]['storage_loss_rate']['htht'] * self._q_hhtht[site_entry_index]
-        self._l_u_hltlt[site_entry_index] = (1.0-self._sites_list[site_entry_index]['eta_chg_dchg']['htlt']) * self._u_hhtlt[site_entry_index]
+        self._l_q_hltlt[site_entry_index] = self._sites_list[site_entry_index]['storage_loss_rate']['ltlt'] * self._q_hltlt[site_entry_index]
+        self._l_u_hltlt[site_entry_index] = (1.0-self._sites_list[site_entry_index]['eta_chg_dchg']['ltlt']) * self._u_hltlt[site_entry_index]
         self._l_v_hltlt[site_entry_index] = (1.0/self._sites_list[site_entry_index]['eta_chg_dchg']['ltlt'] - 1.0) * self._v_hltlt[site_entry_index]
 
     def set_cap_htht_site(self, cap_updated, site_entry_index):
@@ -574,6 +583,17 @@ class ThermalEnergyStorageSites(TechCore):
 
                     techs_dict[tes_key] = {}
 
+                    capex_plus_maintenace = site_entry['capex_per_kWh']
+
+                    if site_entry['interest_rate'] > 0:
+                        q = (1 + site_entry['interest_rate'])
+                        annuity_factor = ((q**site_entry['lifetime'])*(q - 1))/((q**site_entry['lifetime'])-1)
+                        capex_plus_maintenace += site_entry['maintenance_cost_per_kWh'] /annuity_factor
+                    else:
+                        annuity_factor = 1.0 / site_entry['lifetime']
+                        capex_plus_maintenace += site_entry['maintenance_cost_per_kWh']/annuity_factor
+
+
                     techs_dict[tes_key] = {
                         'essentials':{
                             'name':'Thermal Energy Storage TES Site ' + site_entry['name'] + ' ' + level ,
@@ -596,8 +616,8 @@ class ThermalEnergyStorageSites(TechCore):
                         'costs':{
                             'monetary':{
                                 'om_prod':0.0000, # [CHF/kWh_dchg] artificial cost per discharged kWh; used to avoid cycling within timestep
-                                'storage_cap': site_entry['capex_per_kWh'] * energy_scaling_factor,
-                                # 'om_annual': site_entry['maintenance_cost_per_kWh'],
+                                'storage_cap': capex_plus_maintenace * energy_scaling_factor,
+                                # 'om_annual': site_entry['maintenance_cost_per_kWh'] * energy_scaling_factor,
                                 'interest_rate': site_entry['interest_rate']
                                 },
                             }

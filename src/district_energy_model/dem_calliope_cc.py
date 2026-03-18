@@ -119,6 +119,7 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list, energy_scaling
                         'sitestr': 'tes_site_'+site_entry['name']+'_'+level,
                         'min': site_entry['capacity_kWh_min']*site_entry['rel_size_t_levels'][level],
                         'max': site_entry['capacity_kWh_max']*site_entry['rel_size_t_levels'][level],
+                        'force_deployment': site_entry['force_deployment']
                         })
                     flag = False
                 else:
@@ -162,6 +163,7 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list, energy_scaling
 
             return cap >= constraint_dict['min']*binary_var[loc_tech]  / energy_scaling_factor
 
+
         model.backend.add_constraint(
             constraint_name_max,
             constraint_sets,
@@ -172,6 +174,21 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list, energy_scaling
             constraint_sets,
             tes_sites_size_constraint_min_rule
             )
+        
+        if constraint_dict['force_deployment']:
+                
+            def tes_sites_forced_deployment_rule(backend_model, loc_tech):
+
+                binary_var = backend_model.component(varname_binary)  
+
+                return 1 == binary_var[loc_tech] 
+
+            model.backend.add_constraint(
+                constraint_name_min,
+                constraint_sets,
+                tes_sites_forced_deployment_rule
+                )
+
 
 
     for i in range(len(constraints_to_generate_noninteger)):
@@ -207,6 +224,9 @@ def tes_sites_exclusion_constraint(model, ts_len, sites_list):
         flag = True
 
         site_entry = sites_list[i]
+
+        if site_entry['capacity_kWh_min'] ==0 and site_entry['exclusion_group'] != None:
+            raise ValueError("TES_Site exclusion constraint can only be implemented if a minimum size is given. Please remove the Exclusion_group parameter or define a minimum size.")
 
         entries = ['htht', 'htlt', 'ltlt']
 
@@ -245,7 +265,7 @@ def tes_sites_exclusion_constraint(model, ts_len, sites_list):
 
     return model
 
-def tes_sites_minimum_size_cost(model, ts_len, sites_list, energy_scaling_factor): 
+def tes_sites_minimum_size_cost(model, monetary_weight, ts_len, sites_list, energy_scaling_factor): 
 
     #This function applies a binary cost to devices with minimum size
     #i.e. if a site has a minimum size, for all devices that are above this minimum size, a given capex is applied
@@ -269,8 +289,6 @@ def tes_sites_minimum_size_cost(model, ts_len, sites_list, energy_scaling_factor
 
             if (site_entry['rel_size_t_levels'][level] > 0):
                 
-                obj.expr = obj.expr + site_entry['maintenance_cost_per_kWh'] * bm.storage_cap['X1::tes_site_'+site_entry['name']+'_'+level] * (ts_len/(365*24))
-
 
                 if site_entry['capacity_kWh_min'] > 0 and flag:
                     integer_size.append({
@@ -302,14 +320,12 @@ def tes_sites_minimum_size_cost(model, ts_len, sites_list, energy_scaling_factor
         binary_var = bm.component(varname_binary)
 
 
-        obj.expr = obj.expr + value_dict['capex_base'] * annuity_factor * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor
-        obj.expr = obj.expr + value_dict['maintenance_cost_base'] * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor
+        obj.expr = obj.expr + value_dict['capex_base'] * annuity_factor * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor * monetary_weight
+        obj.expr = obj.expr + value_dict['maintenance_cost_base'] * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor * monetary_weight
         
     active_objs[0] = obj
 
     return model
-
-
 
 
 def tes_sites_size_ratios_constraints(model, ts_len, sites_list): #implements size constraints on the TES devices

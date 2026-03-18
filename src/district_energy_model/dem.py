@@ -1419,7 +1419,7 @@ class DistrictEnergyModel:
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
                     diff_sum_accepted = C.DIFF_SUM_ACC,
-                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                     )
             
         if scen_techs['scenarios']['wind_integration'] == True:
@@ -1734,6 +1734,10 @@ class DistrictEnergyModel:
         # Check for negative values:
         if self.toggle_energy_balance_tests:
             exempted_columns_ = ['d_e_ev_cp_dev', 'd_e_ev_cp_dev_neg']
+            for c in df_scen.columns:
+                if c.startswith("sos") or c.startswith("soc"):
+                    exempted_columns_.append(c)
+                    
             dem_helper.positive_values_test_df(
                 df_values = df_scen,
                 description = 'df_scen',
@@ -1837,14 +1841,17 @@ class DistrictEnergyModel:
             # Enable optimisation:
             scen_techs['optimisation']['enabled'] = True
             
-            # Create optimiser instance:        
+            # Create optimiser instance:
+
+            
+
             optimiser = dem_calliope.CalliopeOptimiser(
                 tech_list=self.tech_list,
                 tech_instances=self.tech_instances,
                 energy_demand=self.energy_demand,
                 supply=self.supply,
                 com_name=self.com_name_,
-                opt_metrics=scen_techs['optimisation'],
+                scen_techs=scen_techs,
                 files_path=self.results_path
                 )
             

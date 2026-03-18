@@ -620,7 +620,9 @@ class CalliopeOptimiser:
 
                 model = dem_calliope_cc.tes_sites_exclusion_constraint(model, ts_len, self.tech_tes_sites.get_sites_list())
 
-                model = dem_calliope_cc.tes_sites_minimum_size_cost(model, ts_len, self.tech_tes_sites.get_sites_list(), self.energy_scaling_factor)
+                monetary_weight = self.scen_techs['optimisation']['objective_monetary']
+                if monetary_weight > 0:
+                    model = dem_calliope_cc.tes_sites_minimum_size_cost(model, monetary_weight, ts_len, self.tech_tes_sites.get_sites_list(), self.energy_scaling_factor)
                 
                 model = dem_calliope_cc.tes_sites_charge_constraints(model, ts_len, self.tech_tes_sites.get_sites_list())
 
@@ -940,7 +942,13 @@ class CalliopeOptimiser:
             self.tech_solarthermal_rooftop.update_v_h_exp(v_h_solarthermalrooftop_s_exp)   
 
         else:
-            raise Exception("Not implemented")
+            ...
+
+            # self.tech_solarthermal_rooftop.update_v_h(null_array.copy())
+            # self.tech_solarthermal_rooftop.update_v_h_cons(null_array.copy())
+            # self.tech_solarthermal_rooftop.update_v_h_exp(null_array.copy())   
+
+            # raise Exception("Not implemented")
 
 
 
@@ -1595,10 +1603,23 @@ class CalliopeOptimiser:
 
         # -------------------------------------------------------------------------
         # Extract costs:
-            
+        
+        objective_monetary = self.scen_techs['optimisation']['objective_monetary']
+        objective_co2 = self.scen_techs['optimisation']['objective_co2']
+        objective_ess = self.scen_techs['optimisation']['objective_ess']
+        objective_tss = self.scen_techs['optimisation']['objective_tss']
+
+        if objective_ess > 0 or objective_tss > 0:
+            raise ValueError("objective_ess or objective_tss > 0: Not yet implemented.")
+
+        if objective_monetary == 0:
+            raise RuntimeWarning("objective_monetary set to 0. This leads to unreasonable results and makes it impossible to reliably determine total costs.")
+        
+
         dict_total_costs = {}
         dict_total_costs['monetary'] = {}
         dict_total_costs['co2'] = {}
+        dict_total_costs['objective'] = {}
         
         tmp_tlc = opt_results['total_levelised_cost'] # array; total levelised costs
         
@@ -1615,7 +1636,14 @@ class CalliopeOptimiser:
             float(tmp_tlc.loc['heat'].loc['emissions_co2'].values)
         dict_total_costs['co2']['total'] =\
             float(opt_results['cost'].loc['emissions_co2'].values.sum())
-        
+
+        dict_total_costs['objective']['total'] =\
+            float(opt_results.attrs.get("objective_function_value"))
+
+        if objective_monetary > 0:
+            dict_total_costs['monetary']['total'] =\
+                (dict_total_costs['objective']['total'] - objective_co2*dict_total_costs['co2']['total'])/objective_monetary
+
         return dict_total_costs
     
     # def __build_input_dict(self, rerun_eps=False, eps_n='inf'):
@@ -2761,6 +2789,7 @@ class CalliopeOptimiser:
                 pass
             else:
                 loc_dict['New_Techs']['techs'][tech] = None
+
         for i in range(len(self.tech_list_pv)):
 
             techs = self.tech_list_pv[i]
@@ -2768,14 +2797,14 @@ class CalliopeOptimiser:
             for j in range(len(techs)):
 
                 tech = techs[j]
-                tech_thermal = self.tech_list_solarthermal[i][j]
 
-                print(tech)
                 loc_dict[tech]['techs'][tech+"_occupied"] = None
                 loc_dict[tech]['techs'][tech+"_unoccupied"] = None
 
-                loc_dict[tech]['techs'][tech_thermal+"_occupied"] = None
-                loc_dict[tech]['techs'][tech_thermal+"_unoccupied"] = None
+                if self.scen_techs['solarthermal_rooftop']['deployment']:
+                    tech_thermal = self.tech_list_solarthermal[i][j]
+                    loc_dict[tech]['techs'][tech_thermal+"_occupied"] = None
+                    loc_dict[tech]['techs'][tech_thermal+"_unoccupied"] = None
 
 
 

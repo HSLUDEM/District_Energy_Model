@@ -13,15 +13,16 @@ def tes_availability_script_stub(params): #This is just a placeholder for future
 
     # list_of_tes_options.append({
     #     'name': 'PTES_1',
-    #     'exclusion_group': 'EXCL_GRP_1'
+    #     'exclusion_group': 'EXCL_GRP_1',
+    #     'force_deployment': True,
     #     'color': (122,73,14),
     #     'type': 'simple_fully_stratified_three_temperature_levels', #TES-implementation (content of other entries can depend on this)
     #     'rel_size_t_levels': {'ltlt': 0.6, 'htlt': 0.2, 'htht': 0.2}, #relative shares of storage low-T-->low-T, high-T-->low-T, high-T-->high-T
     #     'capacity_kWh_min': 20000, #Minimum capacity of the TES
-    #     'capacity_kWh_max': 20000, #Maximum capacity of the TES
-    #     'capex_base': 20000*1.0, #Capex for installing the device (independent of size)
-    #     'capex_per_kWh': 0.5, #size dependent share of capex
-    #     'maintenance_cost_base': 10000, #Maintenance cost for having the device
+    #     'capacity_kWh_max': 60000, #Maximum capacity of the TES
+    #     'capex_base': 600000, #Capex for installing the device (independent of size)
+    #     'capex_per_kWh': 2.0, #size dependent share of capex
+    #     'maintenance_cost_base': 1000, #Maintenance cost for having the device
     #     'maintenance_cost_per_kWh': 0.05, #Size-dependent share of the maintenance costs
     #     'storage_loss_rate': {
     #         'ltlt': 0.001, 
@@ -41,10 +42,12 @@ def tes_availability_script_stub(params): #This is just a placeholder for future
     #         'lt': ['heatlt'], #which lt-technologies are connected, there is always a ht->lt conversion tech.
     #         'ht': ['obcp', 'hpcplt', 'wh', 'hpcp', 'dhimp', 'ehcp'] #which ht-technologies are connected1
     #         },
+    #
     #     })
     
     # list_of_tes_options.append({
     #     'name': 'PTES_2',
+    #     'force_deployment': False,
     #     'exclusion_group': None,
     #     'color': (122,73,14),
     #     'type': 'simple_fully_stratified_three_temperature_levels', #TES-implementation (content of other entries can depend on this)
@@ -78,6 +81,7 @@ def tes_availability_script_stub(params): #This is just a placeholder for future
     
     # list_of_tes_options.append({
     #     'name': 'BTES_1',
+    #'force_deployment': False,
         # 'exclusion_group': 'EXCL_GRP_1', 
     #     'color': (237,206,85),
     #     'type': 'simple_fully_stratified_three_temperature_levels', #TES-implementation (content of other entries can depend on this)
