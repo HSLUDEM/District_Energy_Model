@@ -190,7 +190,10 @@ class ElectricHeater(TechCore):
     def set_power_up_for_replacement(self, value):
         self._power_up_for_replacement = value
 
-    
+    def get_existing(self):
+        energy_cap_old = self.get_v_h().max()
+        needs_replacement = self.get_power_up_for_replacement()
+        energy_cap_eh = energy_cap_old-needs_replacement if energy_cap_old > needs_replacement else 0
     
     
     

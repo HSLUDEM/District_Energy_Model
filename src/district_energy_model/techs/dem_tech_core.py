@@ -7,8 +7,9 @@ Created on Wed Oct 30 12:50:32 2024
 
 "Parent class for tech classes."
 import numpy as np
+from abc import ABC, abstractmethod
 
-class TechCore:
+class TechCore(ABC):
     
     def __init__(self, tech_dict):
         
@@ -97,3 +98,17 @@ class TechCore:
     # def initialise_zero(self, variable, n_days):
     #     n_hours = n_days*24
     #     variable = np.array([0]*n_hours)
+
+    @property
+    def get_output(self):
+        for attr in ['_v_h', '_v_e']:
+            if hasattr(self, attr):
+                return getattr(self, attr)
+        raise AttributeError("No output attribute found (_v_h or _v_e)")
+    
+    @abstractmethod
+    def get_power_up_for_replacement():
+        pass
+
+    def get_existing(self):
+        pass
