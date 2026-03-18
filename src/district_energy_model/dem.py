@@ -1419,7 +1419,7 @@ class DistrictEnergyModel:
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
                     diff_sum_accepted = C.DIFF_SUM_ACC,
-                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                     )
             
         if scen_techs['scenarios']['wind_integration'] == True:
