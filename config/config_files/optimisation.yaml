@@ -1,2 +1,3 @@
 enabled: true
-
+objective_monetary: 0.00001
+objective_co2: 1

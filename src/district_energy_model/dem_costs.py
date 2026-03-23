@@ -99,7 +99,7 @@ def annuity_factor(lifetime_years, interest_rate=0.05):
     
 def prepare_cost_calculation(tech_instances):
     for tech in tech_instances:
-        if tech == 'heat_pump':
+        if tech != 'grid_supply' and tech != 'pile_of_berries':
             tech_instances[tech].get_existing()
     return 0
 
@@ -210,7 +210,6 @@ def calculate_total_anual_costs(tech_instances, number_of_days):
                 total_electricity_generation += get_var(
                     tech_instances[tech], "_v_e", "_m_e"
                 ).sum()
-                print(get_var(tech_instances[tech], "_v_e", "_m_e").sum())
             else:
                 raise AttributeError(
                     "carrier must be 'heat' or 'electricity', or 'storage'"

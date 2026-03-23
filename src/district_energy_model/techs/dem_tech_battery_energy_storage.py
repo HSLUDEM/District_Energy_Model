@@ -261,13 +261,13 @@ class BatteryEnergyStorage(TechCore):
         capex_plus_maintenace = self._capex
 
         
-        if self._interest_rate > 0:
-            q = (1 + self._interest_rate)
-            annuity_factor = ((q**self._lifetime)*(q - 1))/((q**self._lifetime)-1)
-            capex_plus_maintenace += self._maintenance_cost /annuity_factor
-        else:
-            annuity_factor = 1.0 / self._lifetime
-            capex_plus_maintenace += self._maintenance_cost/annuity_factor
+        # if self._interest_rate > 0:
+        #     q = (1 + self._interest_rate)
+        #     annuity_factor = ((q**self._lifetime)*(q - 1))/((q**self._lifetime)-1)
+        #     capex_plus_maintenace += self._maintenance_cost /annuity_factor
+        # else:
+        #     annuity_factor = 1.0 / self._lifetime
+        #     capex_plus_maintenace += self._maintenance_cost/annuity_factor
 
         techs_dict['bes'] = {
             'essentials':{
@@ -389,12 +389,9 @@ class BatteryEnergyStorage(TechCore):
     def update_sos_i(self, i, val):
         self.num_test(val)
         self._sos[i] = float(val)
-
-    def get_total_capex(self):
-        return self._capex*np.sum(self._q_e)
     
     def get_total_maintenance(self):
-        return self._maintenance_cost*np.sum(self._q_e)
+        return self._maintenance_cost*np.max(self._q_e)
     
     def get_energy_costs(self):
         return 0.0

@@ -8,7 +8,7 @@ heat_pump:
   deployment: true
 
 electric_heater:
-  deployment: false
+  deployment: true
 
 oil_boiler:
   deployment: false
@@ -21,7 +21,7 @@ wood_boiler:
 
 solar_pvrooftop:
   deployment: true
-  kWp: 0
+  only_use_installed: false
 
 solarthermal_rooftop:
   deployment: false
@@ -30,16 +30,16 @@ wind_power:
   deployment: false
 
 hydro_power:
-  deployment: false
+  deployment: true
 
 biomass:
   deployment: false
 
 heat_pump_cp:
-  deployment: false
+  deployment: true
 
 oil_boiler_cp:
-  deployment: false
+  deployment: true
 
 grid_supply:
   deployment: true
@@ -50,17 +50,23 @@ other:
 bes:
   deployment: false
 
+tes:
+  deployment: false
+
+tes_decentralised:
+  deployment: false
+
 pile_of_berries':
   deployment: false
 
 gtes:
-  deployment: false
+  deployment: true
 
 ws:
-  deployment: false
+  deployment: true
 
 hes:
-  deployment: false 
+  deployment: true 
 
 hydrothermal_gasification:
   deployment: false
