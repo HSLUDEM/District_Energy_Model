@@ -1770,7 +1770,6 @@ class CalliopeOptimiser:
                 energy_cap = energy_cap_zero_capex,
                 create_tesdc_hp_hub = True,
                 capex_level = 'zero')
-            
 
             techs_dict, _ = self.tech_heat_pump.create_techs_dict(
                 techs_dict, 
