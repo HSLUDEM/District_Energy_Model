@@ -72,6 +72,9 @@ class GridSupply(TechCore):
         self._tariff_CHFpkWh = tech_dict['tariff_CHFpkWh']
         self._interest_rate = tech_dict['interest_rate']
         self._co2_intensity = tech_dict['co2_intensity']
+        self._capex = 0
+        self._capex_one_to_one_replacement = 0
+        self._maintenance_cost = 0
         
         # Update input dict:
         self.__tech_dict = tech_dict

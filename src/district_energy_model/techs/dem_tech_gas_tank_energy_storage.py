@@ -355,3 +355,7 @@ class GasTankEnergyStorage(TechCore):
     def update_sos_i(self, i, val):
         self.num_test(val)
         self._sos[i] = float(val)
+
+    def get_total_maintenance(self):
+        print(self._maintenance_cost*self._v_gas.max())
+        return self._maintenance_cost*self._v_gas.max()

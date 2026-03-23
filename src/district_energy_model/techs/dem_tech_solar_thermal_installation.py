@@ -75,6 +75,7 @@ class SolarThermalInstallation(TechCore):
         # Initialize properties:
         self.update_tech_properties(tech_dict)
         self.specific_yield = 1600*0.7 # annual kwh solar irradiance*conversion effiency
+        self._existing = ...
 
         # Carrier types:
         self.output_carrier = output_carrier

@@ -265,9 +265,6 @@ class HeatPumpCPLT(TechCore):
     def get_energy_revenue(self):
         return 0.0
     
-    def get_total_capex(self):
-        return self._capex*self._v_h_max
-    
     def get_total_maintenance(self):
         return self._maintenance_cost*self._v_h_max
     

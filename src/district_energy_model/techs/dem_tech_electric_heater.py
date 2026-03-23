@@ -197,9 +197,6 @@ class ElectricHeater(TechCore):
     def get_energy_revenue(self):
         return 0.0
     
-    def get_total_capex(self):
-        return self._capex*np.max(self._v_h)
-    
     def get_total_maintenance(self):
         return self._maintenance_cost*np.max(self._v_h)
 

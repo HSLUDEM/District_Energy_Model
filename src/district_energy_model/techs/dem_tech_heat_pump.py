@@ -416,11 +416,6 @@ class HeatPump(HeatPumpCore):
     def get_energy_revenue(self):
         return 0.0
     
-    def get_total_capex(self):
-    
-        total_capex = self.needs_replacement*self._capex_one_to_one_replacement + self._capex*(np.max(self._v_h) - self.existing - self.needs_replacement)
-        return total_capex
-    
     def get_total_maintenance(self):
         return self._maintenance_cost*np.max(self._v_h)
     

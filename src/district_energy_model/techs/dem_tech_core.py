@@ -93,16 +93,27 @@ class TechCore(ABC):
     
     
     def get_energy_costs(self):
-        pass
+        return 0
         # --> To be implemented in child class
 
     def get_energy_revenue(self):
-        pass
+        return 0
         # --> To be implemented in child class
 
     def get_total_capex(self):
-        pass
-        # --> To be implemented in child class
+        if hasattr(self, "_capex_one_to_one_replacement"):
+            new_capex = self._capex*(self.get_output().max() - self.existing - self.needs_replacement)
+            if new_capex < 0:
+                new_capex = 0
+            total_capex = self.needs_replacement*self._capex_one_to_one_replacement + new_capex
+        else: 
+            print(self.get_output().max())
+            new_capex = self._capex*(self.get_output().max() - self.existing)
+            if new_capex < 0:
+                new_capex = 0
+            total_capex = new_capex
+        print("capex", total_capex)
+        return total_capex
     
     def get_total_maintenance(self):
         pass
@@ -121,13 +132,14 @@ class TechCore(ABC):
 
  
     def get_output(self):
-        for attr in ['_v_h', '_v_e']:
+        for attr in ["_q_h", "_q_gas", "_q_wd", "_q_hyd", "_q_e", '_v_h', '_v_e', '_m_e',]:
             if hasattr(self, attr):
                 return getattr(self, attr)
-        raise AttributeError("No output attribute found (_v_h or _v_e)")
+        print(self)
+        raise AttributeError("No output attribute found (_v_h or _v_e or _q_xx)")
     
     def get_v_max(self):
-        for attr in ['v_h_max', 'v_max', 'kw_max', 'kW_el_max']:
+        for attr in ['_v_h_max', 'v_max', 'kw_max', 'kW_el_max', '_cap']:
             if hasattr(self, attr):
                 return getattr(self, attr)
             else: 
@@ -141,6 +153,7 @@ class TechCore(ABC):
         return False
 
     def get_existing(self):
+
         energy_cap_old = self.get_output().max()
         needs_replacement = self.get_power_up_for_replacement()
 

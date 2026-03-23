@@ -70,6 +70,7 @@ class SolarPVInstallation(TechCore):
         # Initialize properties:
         self.update_tech_properties(tech_dict)
         self._specific_yield = 1050
+        self._existing = ...
         
         # Carrier types:
         self.output_carrier = 'electricity'

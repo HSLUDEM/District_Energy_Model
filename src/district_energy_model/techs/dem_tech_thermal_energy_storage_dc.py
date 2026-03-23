@@ -298,15 +298,14 @@ class ThermalEnergyStorageDC(TechCore):
         techs_dict['tes_decentralised'] = {}
 
 
-        capex_plus_maintenace = self._capex
 
-        if self._interest_rate > 0:
-            q = (1 + self._interest_rate)
-            annuity_factor = ((q**self._lifetime)*(q - 1))/((q**self._lifetime)-1)
-            capex_plus_maintenace += self._maintenance_cost /annuity_factor
-        else:
-            annuity_factor = 1.0 / self._lifetime
-            capex_plus_maintenace += self._maintenance_cost/annuity_factor
+        # if self._interest_rate > 0:
+        #     q = (1 + self._interest_rate)
+        #     annuity_factor = ((q**self._lifetime)*(q - 1))/((q**self._lifetime)-1)
+        #     capex_plus_maintenace += self._maintenance_cost /annuity_factor
+        # else:
+        #     annuity_factor = 1.0 / self._lifetime
+        #     capex_plus_maintenace += self._maintenance_cost/annuity_factor
 
 
         techs_dict['tes_decentralised'] = {
@@ -330,9 +329,9 @@ class ThermalEnergyStorageDC(TechCore):
                 'monetary':{
                     # 'om_annual':0.0, # !!!TEMPORARY - KOSTEN MÜSSEN DYNAMISCH HINZUGEFÜGT WERDEN!!!
                     'om_prod':0.0000, # [CHF/kWh_dchg] artificial cost per discharged kWh; used to avoid cycling within timestep
-                    'storage_cap':capex_plus_maintenace * energy_scaling_factor,
+                    'storage_cap':self._capex* energy_scaling_factor,
                     'interest_rate':self._interest_rate,
-                    #'om_annual': self._maintenance_cost * energy_scaling_factor
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     },
                 }
             }
@@ -448,9 +447,6 @@ class ThermalEnergyStorageDC(TechCore):
     def get_ic(self):
         self.num_test(self._ic)
         return self._ic
-
-    def get_total_capex(self):
-        return self._capex*np.max(self._q_h)
     
     def get_total_maintenance(self):
         return self._maintenance_cost*np.max(self._q_h)

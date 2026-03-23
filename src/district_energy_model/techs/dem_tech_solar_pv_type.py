@@ -45,7 +45,7 @@ class SolarPVType(TechCore):
         self._techkey = techkey
 
         self.update_tech_properties(tech_dict)
-        self._specific_yield = 950
+        self._specific_yield = 1050
         
         self._profiles = profiles
         self._capex_scaling = capex_scaling
@@ -385,7 +385,7 @@ class SolarPVType(TechCore):
     def get_total_capex(self):
         capex = 0
         for installation in self._installations:
-            capex += installation._capex*installation.get_kwp()
+            capex += installation._capex*(installation.get_kwp() - installation._existing)
         return capex
     
     def get_total_maintenance(self):
@@ -403,3 +403,7 @@ class SolarPVType(TechCore):
         for installation in self._installations:
             export_revenue += installation._export_subsidy*np.sum(installation._v_e_exp)
         return export_revenue
+    
+    def get_existing(self):
+        for installation in self._installations:
+            installation._existing = installation.get_output().max()/installation._specific_yield

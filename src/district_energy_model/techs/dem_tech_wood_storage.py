@@ -354,3 +354,6 @@ class WoodStorage(TechCore):
     def update_sos_i(self, i, val):
         self.num_test(val)
         self._sos[i] = float(val)
+
+    def get_total_maintenance(self):
+        return self._maintenance_cost*self._v_wd.max()
