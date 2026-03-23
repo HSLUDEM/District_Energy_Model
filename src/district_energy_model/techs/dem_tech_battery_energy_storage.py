@@ -71,7 +71,6 @@ class BatteryEnergyStorage(TechCore):
         self._lifetime = tech_dict['lifetime']
         self._capex = tech_dict['capex']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._maintenance_cost = tech_dict['maintenance_cost']
         self._force_asynchronous_prod_con = tech_dict['force_asynchronous_prod_con']
         
@@ -257,7 +256,18 @@ class BatteryEnergyStorage(TechCore):
         
         # return l_q_e_bes
     
-    def create_techs_dict(self, techs_dict, color):
+    def create_techs_dict(self, techs_dict, color, energy_scaling_factor):
+
+        capex_plus_maintenace = self._capex
+
+        
+        if self._interest_rate > 0:
+            q = (1 + self._interest_rate)
+            annuity_factor = ((q**self._lifetime)*(q - 1))/((q**self._lifetime)-1)
+            capex_plus_maintenace += self._maintenance_cost /annuity_factor
+        else:
+            annuity_factor = 1.0 / self._lifetime
+            capex_plus_maintenace += self._maintenance_cost/annuity_factor
 
         techs_dict['bes'] = {
             'essentials':{
@@ -269,7 +279,7 @@ class BatteryEnergyStorage(TechCore):
                 },
             'constraints':{
                 'storage_initial':self._ic if not self._optimized_initial_charge else None,
-                'storage_cap_max':self._cap,
+                'storage_cap_max':self._cap / energy_scaling_factor if self._cap != 'inf' else 'inf',
                 'storage_loss':self._gamma,
                 'energy_eff':self._eta_chg_dchg,
                 'energy_cap_per_storage_cap_max': self._chg_dchg_per_cap_max,
@@ -280,13 +290,10 @@ class BatteryEnergyStorage(TechCore):
                 'monetary':{
                     # 'om_annual':0.0, # !!!TEMPORARY - KOSTEN MÜSSEN DYNAMISCH HINZUGEFÜGT WERDEN!!!
                     'om_prod':0.0000, # # [CHF/kWh_dchg] artificial cost per discharged kWh; used to avoid cycling within timestep
-                    'storage_cap':self._capex,
+                    'storage_cap': capex_plus_maintenace* energy_scaling_factor, #self._capex * energy_scaling_factor,
                     'interest_rate':self._interest_rate,
-                    'om_annual': self._maintenance_cost
+                    #'om_annual': 0  #This does not contain the opex per kWh of capacity...
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity + 0.0000
-                    }
                 }
             }
         if self._force_asynchronous_prod_con:
@@ -332,9 +339,13 @@ class BatteryEnergyStorage(TechCore):
         return self._gamma
         
     def get_cap(self):
-        self.num_test(self._cap)
+        self.num_test_inf(self._cap)
         return self._cap
     
+    def set_cap(self, val):
+        self.num_test_inf(val)
+        self._cap = val
+
     def get_ic(self):
         self.num_test(self._ic)
         return self._ic

@@ -195,6 +195,8 @@ class GridSupply(TechCore):
     #     return np.array(df['m_e_diff'])
 
     
+
+
     def update_m_e(self, m_e_updated):
         self._m_e = np.array(m_e_updated)
         
@@ -368,7 +370,7 @@ class GridSupply(TechCore):
         
     #     return df_mix_new
     
-    def create_techs_dict(self, techs_dict, color):
+    def create_techs_dict(self, techs_dict, color, energy_scaling_factor):
             
         techs_dict['grid_supply'] = {
             'essentials':{
@@ -379,18 +381,18 @@ class GridSupply(TechCore):
                 },
             'constraints':{
                 'resource':'inf',
-                'energy_cap_max':self._kW_max,
+                'energy_cap_max':self._kW_max / energy_scaling_factor if self._kW_max != 'inf' else 'inf',
                 'lifetime':self._lifetime
                 },
             'costs':{
                 'monetary':{
                     # 'energy_cap':1000,
-                    'om_con':self._tariff_CHFpkWh, # [CHF/kWh]
+                    'om_con':self._tariff_CHFpkWh * energy_scaling_factor, # [CHF/kWh]
                     # 'om_prod':self.scen_techs['grid_supply']['tariff_CHFpkWh'], # [CHF/kWh]
                     'interest_rate':self._interest_rate
                     },
                 'emissions_co2':{
-                    'om_prod':self._co2_intensity
+                    'om_prod':self._co2_intensity * energy_scaling_factor
                     }
                 }
             }
@@ -436,3 +438,10 @@ class GridSupply(TechCore):
     def update_m_e_i(self, i, val):
         self.num_test(val)
         self._m_e[i] = float(val)
+
+    def set_m_e_ch_nuclear(self, val):
+        self._m_e_ch_nuclear = val
+
+    def set_m_e_ch(self, val):
+        self._m_e_ch = val
+

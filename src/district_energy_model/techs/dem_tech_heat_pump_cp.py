@@ -45,7 +45,6 @@ class HeatPumpCP(HeatPumpCore):
         self._u_e = [] # heat pump input - electricity
         self._u_h = [] # heat pump input - heat from environment
         self._v_h = [] # heat pump output (heat)
-        self._v_co2 = []
         # self._cop = []
 
     def update_tech_properties(self, tech_dict):
@@ -74,7 +73,6 @@ class HeatPumpCP(HeatPumpCore):
         self._cap_min_use = tech_dict['cap_min_use']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._capex = tech_dict['capital_cost']
         self._maintenance_cost = tech_dict['maintenance_cost']
 
@@ -102,7 +100,6 @@ class HeatPumpCP(HeatPumpCore):
         df['u_e_hpcp'] = self.get_u_e()
         df['u_h_hpcp'] = self.get_u_h()
         df['v_h_hpcp'] = self.get_v_h()
-        df['v_co2_hpcp'] = self.get_v_co2()
         df['cop_hpcp'] = self.get_cop()
 
         return df
@@ -116,7 +113,6 @@ class HeatPumpCP(HeatPumpCore):
         self._u_e = init_vals.copy()
         self._u_h = init_vals.copy()
         self._v_h = init_vals.copy()
-        self._v_co2 = init_vals.copy()
         self._cop = self._cop[:n_hours]
         self._temperature_based_cop = init_vals.copy()
 
@@ -131,7 +127,6 @@ class HeatPumpCP(HeatPumpCore):
     #     # Re-calculate:
     #     self.__compute_u_e()
     #     self.__compute_u_h()
-    #     self.__compute_v_co2()
 
         
         
@@ -141,7 +136,6 @@ class HeatPumpCP(HeatPumpCore):
         
     #     self.__compute_u_e_i(i)
     #     self.__compute_u_h_i(i)
-    #     self.__compute_v_co2_i(i)
     
     def set_temperature_based_cop(self, coplist):
         self._temperature_based_cop = coplist

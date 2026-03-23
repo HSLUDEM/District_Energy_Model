@@ -1310,18 +1310,6 @@ def create_dict_yr(df_base):
         
     return dict_yr
 
-def create_dict_yr_clustering(df_base):
-    clusters = df_base.columns.get_level_values(0)
-    # columns = df_base.columns.get_level_values(1).unique().sort_values()
-    
-    dict_yr = {}
-    
-    for cluster in clusters:
-        columns = df_base[cluster].columns
-        dict_yr[cluster] = {}
-        for column in columns:
-            dict_yr[cluster][column] = df_base[(cluster, column)].sum()
-    return dict_yr
 
 def update_electricity_mix_file(
         df_change,
@@ -1507,6 +1495,9 @@ def get_plot_infos_RT():
     col_bes_dchg = f'rgba(34, 153, 84,{opac})' # '#EF008C'
     col_gtes_chg = f'rgba(0, 0, 0,{opac*opac_red_factor})' # '#EF008C'
     col_gtes_dchg = f'rgba(0, 0, 0,{opac})' # '#EF008C'
+    col_ws_chg = f'rgba(0, 0, 0,{opac*opac_red_factor})' # '#EF008C'
+    col_ws_dchg = f'rgba(0, 0, 0,{opac})' # '#EF008C'
+
     col_hes_chg = f'rgba(135, 206, 235,{opac*opac_red_factor})' # '#EF008C'
     col_hes_dchg = f'rgba(135, 206, 235,{opac})' # '#EF008C'
 

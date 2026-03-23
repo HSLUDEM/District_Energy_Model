@@ -48,7 +48,6 @@ class SteamTurbine(TechCore):
         self._v_h = [] # [kWh_th] output - heat (total)
         self._v_h_gtcp = [] # [kWh_th] output - heat stemming from centralised gas turbine (subset of v_h)
         self._v_h_wbsg = [] # [kWh_th] output - heat stemming from centralised wood boiler (subset of v_h)
-        self._v_co2 = [] # [kg] output - CO2 emissions
         
     def update_tech_properties(self, tech_dict):
         
@@ -73,7 +72,6 @@ class SteamTurbine(TechCore):
         self._cap_min_use = tech_dict['cap_min_use']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._capex = tech_dict['capital_cost']
         self._maintenance_cost = tech_dict['maintenance_cost']
         self._grid_charges = tech_dict['grid_charges']
@@ -101,8 +99,6 @@ class SteamTurbine(TechCore):
         df['v_h_st_wbsg'] = self.get_v_h_wbsg()
         df['v_h_st_wbsg_con'] = self.get_v_h_wbsg_con()
         df['v_h_st_wbsg_waste'] = self.get_v_h_wbsg_waste()
-
-        df['v_co2_st'] = self.get_v_co2()
         
         return df
     
@@ -138,8 +134,6 @@ class SteamTurbine(TechCore):
         self._v_h_wbsg = self._v_h_wbcp[:n_hours]
         self._v_h_wbsg_con = self._v_h_wbsg_con[:n_hours]
         self._v_h_wbsg_waste = self._v_h_wbsg_waste[:n_hours]
-
-        self._v_co2 = self._v_co2[:n_hours]
         
     def initialise_zero(self, n_days):
         n_hours = n_days*24
@@ -162,7 +156,6 @@ class SteamTurbine(TechCore):
         self._v_h_wbsg_con = init_vals.copy() # [kWh_h] 
         self._v_h_wbsg_waste = init_vals.copy() # [kWh_h] 
 
-        self._v_co2 = init_vals.copy() # [kg] output - CO2 emissions
     
     def update_v_e(self, v_e_updated):
         if len(v_e_updated) != len(self._v_e):
@@ -170,7 +163,6 @@ class SteamTurbine(TechCore):
         self._v_e = np.array(v_e_updated)
         self.__compute_u_steam()
         # self.__compute_v_h()
-        self.__compute_v_co2()
 
     def update_v_h(self, v_h_updated):
         if len(v_h_updated) != len(self._v_h):
@@ -219,10 +211,7 @@ class SteamTurbine(TechCore):
         Computes the required steam input based on electricity output (kWh).
         """
         self._u_steam = np.array(self._v_e)/self._eta_el # [kWh]
-        
-    def __compute_v_co2(self):        
-        self._v_co2 = self._v_e*self._co2_intensity
-        
+                
     def create_tech_groups_dict(self, tech_groups_dict):
         
         tech_groups_dict['steam_turbine'] = {
@@ -242,9 +231,6 @@ class SteamTurbine(TechCore):
                     'om_con': 0.0, # costs are reflected in gas supply tech
                     'interest_rate':self._interest_rate,
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity,
-                    }
                 } 
             }
 
@@ -256,6 +242,7 @@ class SteamTurbine(TechCore):
             header,
             name,
             color,
+            energy_scaling_factor
             # energy_cap=self._kW_el_max,
             # energy_eff,
             # htp_ratio,
@@ -269,7 +256,7 @@ class SteamTurbine(TechCore):
                 'parent':'steam_turbine',
                 },
             'constraints':{
-                'energy_cap_max':self._kW_el_max,
+                'energy_cap_max':self._kW_el_max / energy_scaling_factor if self._kW_el_max != 'inf' else 'inf',
                 'energy_cap_min_use': self._cap_min_use,
                 'energy_eff':self._eta_el,
                 'carrier_ratios':{
@@ -280,9 +267,9 @@ class SteamTurbine(TechCore):
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self._capex,
-                    'om_annual': self._maintenance_cost,
-                    'om_prod': self._grid_charges,
+                    'energy_cap': self._capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor,
+                    'om_prod': self._grid_charges * energy_scaling_factor,
                     'interest_rate': self._interest_rate
                     }
                 }
@@ -290,12 +277,12 @@ class SteamTurbine(TechCore):
         
         if self._allow_heat_export:
             techs_dict[header]['constraints']['export_carrier'] = self._output_carrier_2
-            techs_dict[header]['costs']['monetary']['export'] = -self._heat_export_subsidy
+            techs_dict[header]['costs']['monetary']['export'] = -self._heat_export_subsidy * energy_scaling_factor
 
 
         if self._force_cap_max:
             techs_dict[header]['constraints']['energy_cap_equals']\
-                = self._kW_el_max
+                = self._kW_el_max / energy_scaling_factor
     
         return techs_dict
     
@@ -362,7 +349,3 @@ class SteamTurbine(TechCore):
     def get_v_h_wbsg_waste(self):
         self.len_test(self._v_h_wbsg_waste)
         return self._v_h_wbsg_waste
-
-    def get_v_co2(self):
-        self.len_test(self._v_co2)
-        return self._v_co2

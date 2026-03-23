@@ -2,20 +2,18 @@
 """
 Created on Wed Apr 10 16:23:54 2024
 
-Wood boiler central plant. Large wood boiler to provide heat
-to a district heating network. Unlike WBSG, this tech
-does not generate steam.
+Oil boiler central plant. Large oil boiler connected to the district heating
+network, mostly to provide peak heat. 
 
 @author: UeliSchilt
 """
 
 import pandas as pd
 import numpy as np
+import dem_constants as C
+from techs.dem_tech_core import TechCore
 
-from district_energy_model import dem_constants as C
-from district_energy_model.techs.dem_tech_core import TechCore
-
-class WoodBoilerCP(TechCore):
+class ElectricHeaterCP(TechCore):
     
     def __init__(self, tech_dict):
     
@@ -37,19 +35,18 @@ class WoodBoilerCP(TechCore):
         self.update_tech_properties(tech_dict)
         
         # Carrier types:
-        self.input_carrier = 'wood' 
-        self.output_carrier = 'heat_wbcp'
+        self.input_carrier = 'electricity' 
+        self.output_carrier = 'heat_ehcp'
         
         # Accounting:
-        self._u_wd = [] # oil input [kWh]
-        self._u_wd_kg = [] # oil input [kg]
-        self._v_h = [] # heat output [kWh]<
+        self._u_e = [] # electric input [kWh]
+        self._v_h = [] # heat output [kWh]
         
         #----------------------------------------------------------------------
         # Tests:
 
         if self._eta > 1:
-            printout = ('Error in wood boiler central plant input: '
+            printout = ('Error in oil boiler input: '
                         'conversion efficiency (eta) cannot be larger than 1!'
                         )
             raise Exception(printout)
@@ -57,7 +54,7 @@ class WoodBoilerCP(TechCore):
     def update_tech_properties(self, tech_dict):
         
         """
-        Updates the oil boiler technology properties based on a new tech_dict.
+        Updates the electric heater technology properties based on a new tech_dict.
         
         Parameters
         ----------
@@ -71,24 +68,18 @@ class WoodBoilerCP(TechCore):
         # Properties:
         self._eta = tech_dict['eta']
         self._v_h_max = tech_dict['kW_th_max']
-        self._hv_wood = tech_dict['hv_wood_MJpkg']
-        # self._replacement_factor = tech_dict['replacement_factor']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
         self._capex = tech_dict['capex']
         self._maintenance_cost = tech_dict['maintenance_cost']
-        # self._fixed_demand_share = tech_dict['fixed_demand_share']
-        # self._fixed_demand_share_val = tech_dict['fixed_demand_share_val']
-        # self._only_allow_existing = tech_dict['only_allow_existing']
         
         # Update tech dict:
         self.__tech_dict = tech_dict
         
     def update_df_results(self, df):
         
-        df['u_wd_wbcp'] = self.get_u_wd()
-        df['u_wd_wbcp_kg'] = self.get_u_wd_kg()
-        df['v_h_wbcp'] = self.get_v_h()
+        df['u_e_ehcp'] = self.get_u_e()
+        df['v_h_ehcp'] = self.get_v_h()
         
         return df
     
@@ -109,21 +100,9 @@ class WoodBoilerCP(TechCore):
         
         n_hours = n_days*24
         
-        self._u_wd = self._u_wd[:n_hours]
-        self._u_wd_kg = self._u_wd_kg[:n_hours]
+        self._u_e = self._u_e[:n_hours]
         self._v_h = self._v_h[:n_hours]
-    
-    def compute_v_h(self, src_h_yr, d_h_profile):
-
-        tmp_df = pd.DataFrame({'d_h_profile':d_h_profile})        
-    
-        tmp_df['v_h'] = tmp_df['d_h_profile']*src_h_yr
-    
-        self._v_h = np.array(tmp_df['v_h'])
-        
-        # Compute respective oil input:
-        self.__compute_u_wd()
-                
+            
     def update_v_h(self, v_h_updated):
         
         if len(v_h_updated) != len(self._v_h):
@@ -131,25 +110,21 @@ class WoodBoilerCP(TechCore):
         
         self._v_h = np.array(v_h_updated)
         
-        self.__compute_u_wd()
+        self.__compute_u_e()
                 
-    def __compute_u_wd(self):
+    def __compute_u_e(self):
         """
-        Compute the required oil input (kg) based on heat output (kWh).
-        """        
-        # Conversion from MJ/kg to kJ/kg:
-        hv_wood_kJpkg = self._hv_wood*1000
-        
-        self._u_wd = np.array(self._v_h)/self._eta # [kWh]
-        self._u_wd_kg = self._u_wd*3600/hv_wood_kJpkg # [kg]
+        Compute the required electric input (kWh) based on heat output (kWh).
+        """                
+        self._u_e = np.array(self._v_h)/self._eta # [kWh]
                     
     def create_tech_groups_dict(self, tech_groups_dict):
         
-        tech_groups_dict['wood_boiler_cp'] = {
+        tech_groups_dict['electric_heater_cp'] = {
             'essentials':{
                 'parent':'conversion',
-                'carrier_in':'wood',
-                'carrier_out':'heat_wbcp',
+                'carrier_in':'electricity',
+                'carrier_out':'heat_ehcp',
                 },
             'constraints':{
                 'energy_eff':self._eta,
@@ -171,22 +146,16 @@ class WoodBoilerCP(TechCore):
             header,
             name,
             color,
-            energy_scaling_factor
-            # energy_cap,
-            # capex_0=False,
+            energy_scaling_factor 
             ):
         
         capex = self._capex
-        # if capex_0==False:
-            # capex = self._capex
-        # elif capex_0==True:
-            # capex = 0
         
         techs_dict[header] = {
             'essentials':{
                 'name': name,
                 'color': color,
-                'parent': 'wood_boiler_cp'
+                'parent': 'electric_heater_cp'
                 },
             'constraints':{
                 'energy_cap_max': self._v_h_max / energy_scaling_factor if self._v_h_max != 'inf' else 'inf',
@@ -202,42 +171,25 @@ class WoodBoilerCP(TechCore):
         return techs_dict
     
 
+
     def initialise_zero(self, n_days):
         n_hours = n_days*24
         
         init_vals = np.array([0.0]*n_hours)
         
-        self._u_wd = init_vals.copy()
-        self._u_wd_kg = init_vals.copy()
+        self._u_e = init_vals.copy()
         self._v_h = init_vals.copy()
     
     def get_v_h(self):
         if len(self._v_h)==0:
-            raise ValueError("v_h_wbcp has not yet been computed!")        
+            raise ValueError("v_h_ehcp has not yet been computed!")        
         return self._v_h
     
-    def get_u_wd(self):
-        if len(self._u_wd)==0:
-            raise ValueError("u_wd_wbcp has not yet been computed!")        
-        return self._u_wd
-    
-    def get_u_wd_kg(self):
-        if len(self._u_wd_kg)==0:
-            raise ValueError("u_wd_wbcp_kg has not yet been computed!")        
-        return self._u_wd_kg
+    def get_u_e(self):
+        if len(self._u_e)==0:
+            raise ValueError("u_oil_ehcp has not yet been computed!")        
+        return self._u_e
         
-    # def get_fixed_demand_share(self):
-    #     return self._fixed_demand_share
-    
-    # def get_fixed_demand_share_val(self):
-    #     self.num_test(self._fixed_demand_share_val)
-    #     return self._fixed_demand_share_val
-    
-    # def get_only_allow_existing(self):
-    #     return self._only_allow_existing
-    
-    
-    
     
     
     

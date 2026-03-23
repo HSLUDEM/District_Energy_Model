@@ -11,7 +11,7 @@ For running DEM locally using the source code.
 
 from district_energy_model.model import launch
 
-root_dir = '..'
+root_dir = '.'
 
 if __name__ == "__main__":
     my_model = launch(root_dir=root_dir)

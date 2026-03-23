@@ -42,7 +42,6 @@ class CHPGasTurbine(TechCore):
         self._u_gas_kg = [] # [kg] CHP input - gas
         self._v_e = [] # [kWh_el] CHP output - electricity
         self._v_h = [] # [kWh_h] CHP output - heat
-        self._v_co2 = [] # [kg] CHP output - CO2 emissions
         
     def update_tech_properties(self, tech_dict):
         
@@ -68,7 +67,6 @@ class CHPGasTurbine(TechCore):
         self._hv_gas = tech_dict['hv_gas_MJpkg']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._capex = tech_dict['capital_cost']
         self._maintenance_cost = tech_dict['maintenance_cost']
         self._allow_heat_export = tech_dict['allow_heat_export']
@@ -85,7 +83,6 @@ class CHPGasTurbine(TechCore):
         df['v_h_chpgt'] = self.get_v_h()
         df['v_h_chpgt_waste'] = self.get_v_h_waste()
         df['v_h_chpgt_con'] = self.get_v_h_con()
-        df['v_co2_chpgt'] = self.get_v_co2()
         
         return df
     
@@ -110,7 +107,6 @@ class CHPGasTurbine(TechCore):
         self._u_gas_kg = self._u_gas_kg[:n_hours]
         self._v_e = self._v_e[:n_hours]
         self._v_h = self._v_h[:n_hours]
-        self._v_co2 = self._v_co2[:n_hours]
         
     def initialise_zero(self, n_days):
         n_hours = n_days*24
@@ -123,7 +119,6 @@ class CHPGasTurbine(TechCore):
         self._v_h = init_vals.copy() # [kWh_h] CHP output - heat
         self._v_h_con = init_vals.copy()
         self._v_h_waste = init_vals.copy()
-        self._v_co2 = init_vals.copy() # [kg] CHP output - CO2 emissions
     
     def update_v_e(self, v_e_updated):
         if len(v_e_updated) != len(self._v_e):
@@ -131,7 +126,6 @@ class CHPGasTurbine(TechCore):
         self._v_e = np.array(v_e_updated)
         self.__compute_u_gas()
         # self.__compute_v_h()
-        self.__compute_v_co2()      
 
     # def __compute_v_h(self):
     #     self._v_h = self._v_e*self._htp_ratio
@@ -163,8 +157,6 @@ class CHPGasTurbine(TechCore):
         self._u_gas = np.array(self._v_e)/self._eta_el # [kWh]
         self._u_gas_kg = self._u_gas*3600/hv_gas_kJpkg # [kg]
         
-    def __compute_v_co2(self):        
-        self._v_co2 = self._v_e*self._co2_intensity
         
     def create_tech_groups_dict(self, tech_groups_dict):
         print("\n Create CHP GT tech group\n")
@@ -183,11 +175,7 @@ class CHPGasTurbine(TechCore):
                 'monetary':{
                     'om_con': 0.0, # costs are reflected in gas supply tech
                     'interest_rate':self._interest_rate,
-                    'om_annual': self._maintenance_cost
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity,
-                    }
                 } 
             }
 
@@ -199,6 +187,7 @@ class CHPGasTurbine(TechCore):
             header,
             name,
             color,
+            energy_scaling_factor,
             # energy_cap=self._kW_el_max,
             # energy_eff,
             # htp_ratio,
@@ -212,7 +201,7 @@ class CHPGasTurbine(TechCore):
                 'parent':'chp_gt',
                 },
             'constraints':{
-                'energy_cap_max':self._kW_el_max,
+                'energy_cap_max':self._kW_el_max / energy_scaling_factor if self._kW_el_max != 'inf' else 'inf',
                 'energy_eff':self._eta_el,
                 'carrier_ratios':{
                     'carrier_out_2':{
@@ -222,14 +211,15 @@ class CHPGasTurbine(TechCore):
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': self._capex
+                    'energy_cap': self._capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     }
                 }
             }
     
         if self._allow_heat_export:
             techs_dict[header]['constraints']['export_carrier'] = 'heat_chpgt'
-            techs_dict[header]['costs']['monetary']['export'] = -self._heat_export_subsidy
+            techs_dict[header]['costs']['monetary']['export'] = -self._heat_export_subsidy * energy_scaling_factor
 
 
 
@@ -280,9 +270,6 @@ class CHPGasTurbine(TechCore):
         self.len_test(self._v_h_waste)
         return self._v_h_waste
 
-    def get_v_co2(self):
-        self.len_test(self._v_co2)
-        return self._v_co2
     
     # NOTE: gas supply is currently implemented in gas boiler class (03.10.2024)
     
@@ -307,9 +294,6 @@ class CHPGasTurbine(TechCore):
     #                 'om_con':gas_cost,
     #                 'interest_rate':0.0
     #                 },
-    #             'emissions_co2':{
-    #                 'om_prod':0.0 # this is reflected in the emissions of the CHP gas turbine
-    #                 }
     #             }
     #         }
         

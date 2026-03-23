@@ -82,6 +82,10 @@ class DEMPaths:
         self.electricity_demand_file_household = path_strt1 + '/data/electricity_demand/electricity_demand_household.csv' # csv-file containing a list of all communities and their respective annual electricity demand (kWh).
         self.electricity_demand_file_industry = path_strt1 + '/data/electricity_demand/electricity_demand_industry.csv'
         self.pv_data_meta_file = 'pv_data_meta.csv' # csv file containing meta data about pv profile files
+        
+        self.pv_roof_dir = path_strt1 + '/data/pv_data/roof_data_per_com'
+        self.pv_epps_unassigned_path = path_strt1 + '/data/pv_data/solar_epps_not_assigned_to_roofs_powers.feather'
+        
         self.electricity_profile_file = 'load_profiles.csv' # csv-file containing load profile from smart meter data
         self.electricity_profile_industry_file = 'cantonal_industryprofiles.feather' # csv-file containing load profile from smart meter data
         self.wind_power_cap_file = 'p_installed_kW_wind_power.feather' # installed wind power capacity [kW] per municipality

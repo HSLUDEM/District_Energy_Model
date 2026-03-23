@@ -106,7 +106,8 @@ class Supply(TechCore):
             self,
             techs_dict,
             # tech_dict,
-            color
+            color, 
+            energy_scaling_factor
             ):
         
         if self.supply_tech_dict['oil_import']:
@@ -132,17 +133,17 @@ class Supply(TechCore):
                 },
             'constraints':{
                 # 'resource':'inf',
-                'energy_cap_max':cap_max_,
+                'energy_cap_max':cap_max_ / energy_scaling_factor if cap_max_ != 'inf' else 'inf',
                 # 'energy_cap_min':'inf', # ensures that supply is always large enough
                 'lifetime':1000
                 },
             'costs':{
                 'monetary':{
-                    'om_con':price_CHFpkWh,
+                    'om_con':price_CHFpkWh *energy_scaling_factor,
                     'interest_rate':0.0
                     },
                 'emissions_co2':{
-                    'om_prod':0.0 # this is reflected in the emissions of oil_boiler
+                    'om_prod': self.supply_tech_dict['co2_content_oil']*energy_scaling_factor   # this is reflected in the emissions of oil_boiler
                     }
                 }
             }
@@ -153,6 +154,7 @@ class Supply(TechCore):
             self,
             techs_dict,
             color,
+            energy_scaling_factor
             ):
         
         if self.supply_tech_dict['gas_import']:
@@ -169,23 +171,23 @@ class Supply(TechCore):
                 },
             'constraints':{
                 # 'resource':'inf',
-                'energy_cap_max':cap_max_,
+                'energy_cap_max':cap_max_ / energy_scaling_factor if cap_max_ != 'inf' else 'inf',
                 'lifetime':1000,
                 },
             'costs':{
                 'monetary':{
-                    'om_con':self.supply_tech_dict['gas_price_CHFpkWh'],
+                    'om_con':self.supply_tech_dict['gas_price_CHFpkWh']*energy_scaling_factor,
                     'interest_rate':0.0
                     },
                 'emissions_co2':{
-                    'om_prod':0.0 # this is reflected in the emissions of gas_boiler
+                    'om_prod': self.supply_tech_dict['co2_content_gas']*energy_scaling_factor  # this is reflected in the emissions of gas_boiler
                     }
                 }
             }
         
         return techs_dict
 
-    def create_supply_dict_wet_biomass(self, techs_dict):
+    def create_supply_dict_wet_biomass(self, techs_dict, energy_scaling_factor):
         
         sup_dict = {
             'essentials':{
@@ -199,11 +201,11 @@ class Supply(TechCore):
                 },
             'costs':{
                 'monetary':{
-                    'om_con':0.00001, # WHAT COST SHOULD WE ADD HERE?; currently minimum miniscule cost to favor truly free resources (e.g. PV)
+                    'om_con':0.001*energy_scaling_factor, # WHAT COST SHOULD WE ADD HERE?; currently minimum miniscule cost to favor truly free resources (e.g. PV)
                     'interest_rate':0.0
                     },
                 'emissions_co2':{
-                    'om_prod':0.0 # this is reflected in the emissions of oil_boiler
+                    'om_prod': self.supply_tech_dict['co2_content_wet_biomass']*energy_scaling_factor # this is reflected in the emissions of oil_boiler
                     }
                 }
             }
@@ -211,9 +213,9 @@ class Supply(TechCore):
         techs_dict['wet_biomass_supply'] = sup_dict
         return techs_dict
     
-    def create_supply_dict_wood(self, techs_dict):
+    def create_supply_dict_wood(self, techs_dict, energy_scaling_factor):
         
-        price_CHFpkg=self.supply_tech_dict['wood_price_CHFpkg']
+        price_CHFpkg=self.supply_tech_dict['wood_price_CHFpkg_local']
         hv_wood_MJpkg=self.supply_tech_dict['hv_wood_MJpkg']
         hv_wood_kWhpkg=hv_wood_MJpkg*C.CONV_MJ_to_kWh
         price_CHFpkWh = price_CHFpkg/hv_wood_kWhpkg
@@ -230,26 +232,26 @@ class Supply(TechCore):
                 },
             'costs':{
                 'monetary':{
-                    'om_con':price_CHFpkWh,
+                    'om_con':price_CHFpkWh*energy_scaling_factor,
                     # 'om_con':0.00001, # add miniscule cost to avoid cycling of TES/BES within same timestep
                     'interest_rate':0.0
                     },
                 'emissions_co2':{
-                    'om_prod':0.0 # this is reflected in the emissions of the respective tech
+                    'om_prod': self.supply_tech_dict['co2_content_local_wood']*energy_scaling_factor    # this is reflected in the emissions of the respective tech
                     }
                 }
             }
         techs_dict['wood_supply'] = sup_dict
         return techs_dict
     
-    def create_supply_dict_wood_import(self, techs_dict):
+    def create_supply_dict_wood_import(self, techs_dict, energy_scaling_factor):
         
         if self.supply_tech_dict['wood_import']:
             cap_max_ = 'inf'
         else:
             cap_max_ = 0.0
         
-        price_CHFpkg=self.supply_tech_dict['wood_price_CHFpkg']
+        price_CHFpkg=self.supply_tech_dict['wood_price_CHFpkg_imported']
         hv_wood_MJpkg=self.supply_tech_dict['hv_wood_MJpkg']
         hv_wood_kWhpkg=hv_wood_MJpkg*C.CONV_MJ_to_kWh
         price_CHFpkWh = price_CHFpkg/hv_wood_kWhpkg
@@ -263,17 +265,17 @@ class Supply(TechCore):
                 },
             'constraints':{
                 'lifetime': 1000,
-                'energy_cap_max':cap_max_,
+                'energy_cap_max':cap_max_ / energy_scaling_factor if cap_max_ != 'inf' else 'inf',
                 # 'resource':resource_,
                 },
             'costs':{
                 'monetary':{
-                    'om_con':price_CHFpkWh,
+                    'om_con':price_CHFpkWh * energy_scaling_factor,
                     # 'om_con':0.00001, # add miniscule cost to avoid cycling of TES/BES within same timestep
                     'interest_rate':0.0
                     },
                 'emissions_co2':{
-                    'om_prod':0.0 # this is reflected in the emissions of the respective tech
+                    'om_prod': self.supply_tech_dict['co2_content_imported_wood']*energy_scaling_factor # this is reflected in the emissions of the respective tech
                     }
                 }
             }
@@ -286,7 +288,8 @@ class Supply(TechCore):
             techs_dict,
             # tech_dict,
             color,
-            resource,
+            energy_scaling_factor
+            # resource,
             ):       
         
         # Price conversion from CHF/kg to CHF/kWh:
@@ -295,7 +298,19 @@ class Supply(TechCore):
         hv_msw_kWhpkg = hv_msw_MJpkg*C.CONV_MJ_to_kWh
         price_CHFpkWh = price_CHFpkg/hv_msw_kWhpkg
         
+
+
         # Compute resource per timestep from annual resource:
+        
+        resource_kg = self.supply_tech_dict['annual_msw_supply']
+
+        if resource_kg == 'inf':
+            resource = 'inf'
+        else:
+            CONV_MJ_to_kWh = 1000/3600 # Conversion from [MJ] to [kWh]        
+            supp_MJ = resource_kg*hv_msw_MJpkg    
+            resource = supp_MJ*CONV_MJ_to_kWh
+
         if resource == 'inf':
             resource_ts = 'inf'
         else:
@@ -309,16 +324,20 @@ class Supply(TechCore):
                 'carrier':'munic_solid_waste',
                 },
             'constraints':{
-                'resource':resource_ts, # [kWh] available energy per timestep
+                'resource':resource_ts / energy_scaling_factor if resource_ts != 'inf' else 'inf', # [kWh] available energy per timestep
                 'lifetime':1000
                 },
             'costs':{
                 'monetary':{
-                    'om_con':price_CHFpkWh,
+                    'om_con':price_CHFpkWh*energy_scaling_factor,
                     'interest_rate':0.0
                     },
                 'emissions_co2':{
-                    'om_prod':0.0 # this is reflected in the emissions of oil_boiler
+                    'om_prod': (
+                        self.supply_tech_dict['co2_content_msw']
+                        *self.supply_tech_dict['msw_share_fossile']
+                        *energy_scaling_factor
+                        ) # this is reflected in the emissions of oil_boiler
                     }
                 }
             }

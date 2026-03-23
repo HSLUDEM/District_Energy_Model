@@ -8,12 +8,14 @@
 # ignore specific files:
 src/dem_OLD.py
 #src/paths.py
+data/
 src/temp*
 src/tmp*
 src/postprocess_df_scen.py
 doc/documentation.md
 tests/tmp*
-
+data/
+data/*
 # ignore directories
 dem_output*/
 #dist/
