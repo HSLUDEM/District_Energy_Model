@@ -2042,31 +2042,7 @@ class CalliopeOptimiser:
         
         # Add user-selected techologies:
         if 'heat_pump' in self.tech_list:
-            energy_cap_old = self.tech_heat_pump.get_v_h().max()
-            needs_replacement = self.tech_heat_pump.get_power_up_for_replacement()
-
-            energy_cap_zero_capex = energy_cap_old-needs_replacement if energy_cap_old>=needs_replacement else 0.0
-            energy_cap_low_capex = needs_replacement if energy_cap_old>=needs_replacement else energy_cap_old
-            
-            if self.tech_heat_pump.get_only_allow_existing():
-                cap_one_to_one_replacement = 0.0
-                cap_new = 0.0
-            else:
-                cap_one_to_one_replacement = energy_cap_low_capex
-                if self.tech_heat_pump._v_h_max == 'inf':
-                    cap_new = 'inf'
-                else:
-                    cap_new = self.tech_heat_pump._v_h_max - cap_one_to_one_replacement - energy_cap_zero_capex
-            
-            if self.tech_heat_pump._v_h_max != 'inf':
-                if cap_new < 0.0:
-                    cap_one_to_one_replacement += cap_new
-                    cap_new = 0.0
-                if cap_one_to_one_replacement < 0.0:
-                    energy_cap_zero_capex += cap_one_to_one_replacement
-                    cap_one_to_one_replacement = 0.0
-                if energy_cap_zero_capex <= 0.0:
-                    energy_cap_zero_capex = 0.0
+            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_heat_pump.get_existing()
 
             techs_dict, additional_techs_label = self.tech_heat_pump.create_techs_dict(
                 techs_dict, 
@@ -2103,11 +2079,8 @@ class CalliopeOptimiser:
             self.tech_list_new.append('heat_pump_new')
 
         if 'electric_heater' in self.tech_list:
-            energy_cap_old = self.tech_electric_heater.get_v_h().max()
-            needs_replacement = self.tech_electric_heater.get_power_up_for_replacement()
-
-            energy_cap_eh = energy_cap_old-needs_replacement if energy_cap_old > needs_replacement else 0
-
+            energy_cap_eh, needs_replacement, _ = self.tech_electric_heater.get_existing()
+        
             techs_dict = self.tech_electric_heater.create_techs_dict(
                     techs_dict, 
                     header = 'electric_heater_old', 
@@ -2121,11 +2094,7 @@ class CalliopeOptimiser:
            
         if 'oil_boiler' in self.tech_list:
 
-            energy_cap_old = self.tech_oil_boiler.get_v_h().max()
-            needs_replacement = self.tech_oil_boiler.get_power_up_for_replacement()
-
-            energy_cap_zero_capex = energy_cap_old-needs_replacement if energy_cap_old>=needs_replacement else 0.0
-            energy_cap_low_capex = needs_replacement if energy_cap_old>=needs_replacement else energy_cap_old
+            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_oil_boiler.get_existing()
 
             techs_dict = self.tech_oil_boiler.create_techs_dict(
                 techs_dict, 
@@ -2136,12 +2105,6 @@ class CalliopeOptimiser:
                 capex_level = 'zero',
                 energy_scaling_factor = self.energy_scaling_factor)
             
-            if self.tech_oil_boiler.get_only_allow_existing():
-                cap_one_to_one_replacement = 0.0
-            else:
-                cap_one_to_one_replacement = energy_cap_low_capex
-
-            
             techs_dict = self.tech_oil_boiler.create_techs_dict(
                 techs_dict, 
                 header = 'oil_boiler_one_to_one_replacement', 
@@ -2151,12 +2114,6 @@ class CalliopeOptimiser:
                 capex_level = 'one-to-one-replacement',
                 energy_scaling_factor = self.energy_scaling_factor)                
             self.tech_list_old.append('oil_boiler_one_to_one_replacement')
-
-
-            if self.tech_oil_boiler.get_only_allow_existing():
-                cap_new = 0.0
-            else:
-                cap_new = 'inf'
             
             techs_dict = self.tech_oil_boiler.create_techs_dict(
                 techs_dict, 
@@ -2172,13 +2129,8 @@ class CalliopeOptimiser:
             self.tech_list_new.append('oil_boiler_new')
                  
         if 'gas_boiler' in self.tech_list:
-            
-            energy_cap_old = self.tech_gas_boiler.get_v_h().max()
-            needs_replacement = self.tech_gas_boiler.get_power_up_for_replacement()
 
-            energy_cap_zero_capex = energy_cap_old-needs_replacement if energy_cap_old>=needs_replacement else 0.0
-            energy_cap_low_capex = needs_replacement if energy_cap_old>=needs_replacement else energy_cap_old
-
+            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_gas_boiler.get_existing()
 
             techs_dict = self.tech_gas_boiler.create_techs_dict(
                 techs_dict, 
@@ -2189,11 +2141,6 @@ class CalliopeOptimiser:
                 capex_level = 'zero',
                 energy_scaling_factor = self.energy_scaling_factor
                 )
-            
-            if self.tech_gas_boiler.get_only_allow_existing():
-                cap_one_to_one_replacement = 0.0
-            else:
-                cap_one_to_one_replacement = energy_cap_low_capex
 
             techs_dict = self.tech_gas_boiler.create_techs_dict(
                 techs_dict, 
@@ -2205,12 +2152,6 @@ class CalliopeOptimiser:
                 energy_scaling_factor = self.energy_scaling_factor
                 )                
             self.tech_list_old.append('gas_boiler_one_to_one_replacement')
-
-
-            if self.tech_gas_boiler.get_only_allow_existing():
-                cap_new = 0.0
-            else:
-                cap_new = 'inf'
             
             techs_dict = self.tech_gas_boiler.create_techs_dict(
                 techs_dict, 
@@ -2226,12 +2167,7 @@ class CalliopeOptimiser:
            
         if 'wood_boiler' in self.tech_list:
             
-            energy_cap_old = self.tech_wood_boiler.get_v_h().max()
-            needs_replacement = self.tech_wood_boiler.get_power_up_for_replacement()
-
-            energy_cap_zero_capex = energy_cap_old-needs_replacement if energy_cap_old>=needs_replacement else 0.0
-            energy_cap_low_capex = needs_replacement if energy_cap_old>=needs_replacement else energy_cap_old
-
+            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_wood_boiler.get_existing()
 
             techs_dict = self.tech_wood_boiler.create_techs_dict(
                 techs_dict, 
@@ -2243,11 +2179,6 @@ class CalliopeOptimiser:
                 energy_scaling_factor = self.energy_scaling_factor
                 )
 
-            if self.tech_wood_boiler.get_only_allow_existing():
-                cap_one_to_one_replacement = 0.0
-            else:
-                cap_one_to_one_replacement = energy_cap_low_capex
-
             techs_dict = self.tech_wood_boiler.create_techs_dict(
                 techs_dict, 
                 header = 'wood_boiler_one_to_one_replacement', 
@@ -2258,11 +2189,6 @@ class CalliopeOptimiser:
                 energy_scaling_factor = self.energy_scaling_factor
                 )                
             self.tech_list_old.append('wood_boiler_one_to_one_replacement')
-    
-            if self.tech_wood_boiler.get_only_allow_existing():
-                cap_new = 0.0
-            else:
-                cap_new = 'inf'
             
             techs_dict = self.tech_wood_boiler.create_techs_dict(
                 techs_dict, 
@@ -2402,7 +2328,7 @@ class CalliopeOptimiser:
             self.tech_list_new.append('wind_power_new')
             
         if 'hydro_power' in self.tech_list:
-            energy_cap = self.tech_hydro_power.get_v_e().max()
+            energy_cap, _ , _ = self.tech_hydro_power.get_existing()
             
             techs_dict = self.tech_hydro_power.create_techs_dict(
                 techs_dict=techs_dict,
