@@ -646,6 +646,7 @@ class DistrictHeating(TechCore):
         capex = 0
         for i, v_h in enumerate(self._v_h_by_categories):
             capex += self._investment_cost_grid_categories[i]*np.max(v_h)
+            print(f"Category {i} capex: {self._investment_cost_grid_categories[i]*np.max(v_h)}", f"Category {i}: maintencance: {self._maintenance_cost_grid_categories[i]*np.max(v_h)}")
         return capex
     
     def get_total_maintenance(self):

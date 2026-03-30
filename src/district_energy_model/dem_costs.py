@@ -154,7 +154,8 @@ def calculate_total_anual_costs(tech_instances, number_of_days):
     - debug print statements are currently active
     - function name contains a typo ("anual" instead of "annual")
     """
-    total_anual_costs = {"heat": {}, "electricity": {}, "storage": {}}
+    total_anual_costs = 0
+    total_energy_generation = 0
     total_heat_generation = 0
     total_electricity_generation = 0
 
@@ -189,57 +190,49 @@ def calculate_total_anual_costs(tech_instances, number_of_days):
                 + energy_costs
                 - energy_revenue
             )
+            total_anual_costs += tac
 
-            output_carrier = get_var(
-                tech_instances[tech],
-                "_output_carrier",
-                "output_carrier",
-                default="output_carrier_not_given",
-            )
-            if get_var(
-                tech_instances[tech],
-                "_q_h",
-                "_q_gas",
-                "_q_wd",
-                "_q_hyd",
-                "_q_e",
-                default=None,
-            ) is not None:
-                total_anual_costs["storage"][tech] = tac
-            elif output_carrier[0] == "h":
-                total_anual_costs["heat"][tech] = tac
-                total_heat_generation += get_var(tech_instances[tech], "_v_h").sum()
-            elif output_carrier[0] == "e":
-                total_anual_costs["electricity"][tech] = tac
-                total_electricity_generation += get_var(
-                    tech_instances[tech], "_v_e", "_m_e"
-                ).sum()
-            # else:
-            #     raise AttributeError(
-            #         "carrier must be 'heat' or 'electricity', or 'storage'"
-            #     )
+            storage_attributes = ['_q_e', '_q_h', '_q_gas', '_q_wd', 'q_hyd']
+            if not all(hasattr(tech_instances[tech], attr) for attr in storage_attributes):
+                if hasattr(tech_instances[tech], '_v_h'):
+                    total_energy_generation += tech_instances[tech]._v_h.sum()
+                    total_heat_generation += tech_instances[tech]._v_h.sum()
+                if hasattr(tech_instances[tech], '_v_e'):
+                    total_energy_generation += tech_instances[tech]._v_e.sum()
+                    total_electricity_generation += tech_instances[tech]._v_e.sum()
+                elif hasattr(tech_instances[tech], '_m_e'):
+                    total_energy_generation += tech_instances[tech]._m_e.sum()
+                    total_electricity_generation += tech_instances[tech]._m_e.sum()
 
-    print(total_electricity_generation)
-    total_anual_costs["heat"]["total"] = sum(total_anual_costs["heat"].values())
-    total_anual_costs["electricity"]["total"] = sum(
-        total_anual_costs["electricity"].values()
-    )
-    total_anual_costs["storage"]["total"] = sum(total_anual_costs["storage"].values())
-
-    tlc_electricity = (
-        total_anual_costs["electricity"]["total"] / total_electricity_generation
-    )
-    tlc_heat = total_anual_costs["heat"]["total"] / total_heat_generation
-    total = (
-        total_anual_costs["heat"]["total"]
-        + total_anual_costs["electricity"]["total"]
-        + total_anual_costs["storage"]["total"]
-    )
-
-    # tlc_electricity = 1685020.0745715834/total_electricity_generation
-    # tlc_heat = 1685020.0745715834/total_heat_generation
-
-    return {"electricity_tlc": tlc_electricity, "heat_tlc": tlc_heat, "total": total}
+    levelized_cost_of_energy = total_anual_costs/total_energy_generation
+    electricity_tlc = total_anual_costs/total_electricity_generation
+    heat_tlc = total_anual_costs/total_heat_generation
+            # output_carrier = get_var(
+            #     tech_instances[tech],
+            #     "_output_carrier",
+            #     "output_carrier",
+            #     default="output_carrier_not_given",
+            # )
+            # if get_var(
+            #     tech_instances[tech],
+            #     "_q_h",
+            #     "_q_gas",
+            #     "_q_wd",
+            #     "_q_hyd",
+            #     "_q_e",
+            #     default=None,
+            # ) is not None:
+            #     total_anual_costs["storage"][tech] = tac
+            # if output_carrier[0] == "h":
+            #     total_anual_costs["heat"][tech] = tac
+            #     total_heat_generation += get_var(tech_instances[tech], "_v_h").sum()
+            # elif output_carrier[0] == "e":
+            #     total_anual_costs["electricity"][tech] = tac
+            #     total_electricity_generation += get_var(
+            #         tech_instances[tech], "_v_e", "_m_e"
+            #     ).sum()
+   
+    return {"total": total_anual_costs, "levelized_cost_of_energy": levelized_cost_of_energy, "electricity_tlc": electricity_tlc, "heat_tlc": heat_tlc}
 
 
 # def calculate_levelized_cost_of_energy(tech_instances, number_of_days):
@@ -355,12 +348,11 @@ def calculate_CO2_emissions(supply, tech_instances):
 
     Current limitations:
     - lifecycle emissions are not included
-    - storage-related double counting is noted but not fully resolved
     - total emissions are divided by total heat and electricity generation
       separately, which may not reflect detailed source allocation
     - division by zero may occur if no heat or electricity is generated
     """
-    # Work in Progress...
+    
     # Calculate emissions from fossil fuels at import from the Supply Class / What about lifecycle emissions?
     # CO2 intensity for technologies?
     #
