@@ -41,6 +41,7 @@ class DistrictHeating(TechCore):
         self._m_h = [] # heat import [kWh]
         self._v_h = [] # heat output [kWh]
         self._v_co2 = []
+        self._v_h_by_categories = []
 
         self.update_district_heating_categories(df_com_yr, energy_demand, 'heat_energy_demand_estimate_kWh_combined')
         
@@ -274,6 +275,7 @@ class DistrictHeating(TechCore):
                     'name': 'District Heating Hub',
                     'parent':'conversion',
                     'carrier_in':'heat_dh',
+
                     'carrier_out':'heat',
                     },
                 'constraints':{
@@ -638,11 +640,20 @@ class DistrictHeating(TechCore):
         return sum(self._m_h*inp.dh_tariff)
 
     def get_energy_revenue(self):
-        return 0.0
+        return 0.0 
     
     def get_total_capex(self):
-        return self._capex*np.max(self._v_h)
+        capex = 0
+        for i, v_h in enumerate(self._v_h_by_categories):
+            capex += self._investment_cost_grid_categories[i]*np.max(v_h)
+        return capex
     
     def get_total_maintenance(self):
-        return self._maintenance_cost*np.max(self._v_h)
+        maintenance_cost = 0
+        for i, v_h in enumerate(self._v_h_by_categories):
+            maintenance_cost += self._maintenance_cost_grid_categories[i]*np.max(v_h)
+        return maintenance_cost
+    
+    def update_v_h_by_categories(self, new_v_h_of_category):
+        self._v_h_by_categories.append(new_v_h_of_category)
     

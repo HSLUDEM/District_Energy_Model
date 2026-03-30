@@ -112,6 +112,18 @@ class Biomass(TechCore):
         self.len_test(self._v_h)
         return self._v_h
     
+    def get_total_capex(self):
+        return 0
+    
+    def get_total_maintenance(self):
+        return 0
+    
+    def get_energy_costs(self):
+        return 0
+    
+    def get_energy_revenue(self):
+        return 0
+    
     # def _______():
     #     ...
         
@@ -150,9 +162,6 @@ class Biomass(TechCore):
     # def get_v_gas(self):
     #     self.len_test(self._v_gas)
     #     return self._v_gas
-
-    def get_total_capex(self):
-        return None
     
 class HydrothermalGasification(TechCore): # hg
     
@@ -208,6 +217,7 @@ class HydrothermalGasification(TechCore): # hg
         #Properties:
         self._eta = tech_dict['efficiency']
         self._maintenance_cost = tech_dict['maintenance_cost']
+        self._capex = tech_dict['capital_cost']
 
         # Update input dict:
         self.__tech_dict = tech_dict 
@@ -319,9 +329,8 @@ class HydrothermalGasification(TechCore): # hg
     def get_v_gas(self):
         self.len_test(self._v_gas)
         return self._v_gas        
-        
-    def get_total_capex(self):
-        return None
+    
+
 class AnaerobicDigestionUpgrade(TechCore): # agu
     
     def __init__(self, tech_dict):
@@ -375,6 +384,8 @@ class AnaerobicDigestionUpgrade(TechCore): # agu
         #Properties:
         self._eta = tech_dict['efficiency']
         self._maintenance_cost = tech_dict['maintenance_cost']
+        self._capex = tech_dict['capital_cost']
+
 
         # Update input dict:
         self.__tech_dict = tech_dict
@@ -490,7 +501,7 @@ class AnaerobicDigestionUpgrade(TechCore): # agu
         return self._v_gas
          
         
-class AnaerobicDigestionUpgradeHydrogen(): # aguh
+class AnaerobicDigestionUpgradeHydrogen(TechCore): # aguh
     
     def __init__(self, tech_dict):
         """
@@ -564,6 +575,8 @@ class AnaerobicDigestionUpgradeHydrogen(): # aguh
         self._eta_1 = tech_dict['efficiency_primary']
         self._methane_percentage = tech_dict['methane_percentage']
         self._maintenance_cost = tech_dict['maintenance_cost']
+        self._capex = tech_dict['capital_cost']
+
 
         if tech_dict['fluid']:
             self.__eta_e = 0.0205
@@ -796,6 +809,7 @@ class AnaerobicDigestionCHP(TechCore): # aguc
         self._eta_e = tech_dict['efficiency_electricity']
         self._eta_h = tech_dict['efficiency_heat']
         self._maintenance_cost = tech_dict['maintenance_cost']
+        self._capex = tech_dict['capital_cost']
 
         # Update input dict:
         self.__tech_dict = tech_dict
@@ -1018,6 +1032,7 @@ class WoodGasificationUpgrade(TechCore): # wgu
             
         self._eta = tech_dict['efficiency']
         self._maintenance_cost = tech_dict['maintenance_cost']
+        self._capex = tech_dict['capital_cost']
 
         # Update input dict:
         self.__tech_dict = tech_dict
@@ -1075,7 +1090,6 @@ class WoodGasificationUpgrade(TechCore): # wgu
         Returns
         -------
         None.
-
         """
         
         self.u_w = self._v_gas/self._eta
@@ -1241,6 +1255,7 @@ class WoodGasificationUpgradeHydrogen(TechCore): # wguh
         self._eta = tech_dict['efficiency_primary']
         self._eta_hyd = tech_dict['efficiency_secondary'] #TODO: Find actuall efficiency
         self._maintenance_cost = tech_dict['maintenance_cost']
+        self._capex = tech_dict['capital_cost']
 
         self._methane_percentage = tech_dict['methane_percentage']
         
@@ -1481,6 +1496,7 @@ class WoodGasificationCHP(TechCore): # wguc
         self._eta_e = tech_dict['efficiency_electricity']
         self._eta_h = tech_dict['efficiency_heat']
         self._maintenance_cost = tech_dict['maintenance_cost']
+        self._capex = tech_dict['capital_cost']
 
         # Update input dict:
         self.__tech_dict = tech_dict

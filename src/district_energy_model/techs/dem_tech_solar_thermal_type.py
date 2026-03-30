@@ -434,13 +434,15 @@ class SolarThermalType(TechCore):
     def get_total_capex(self):
         capex = 0
         for installation in self._installations:
-            capex += installation._capex*(installation.get_kwp() - installation._existing)
+            capex += installation._capex*(installation._v_h.max() - installation._existing)
+            print(installation._capex*(installation._v_h.max() - installation._existing))
         return capex
     
     def get_total_maintenance(self):
         maintenance = 0
         for installation in self._installations:
-            maintenance += installation._maintenance_cost*installation.get_kwp()
+            maintenance += installation._maintenance_cost*installation._v_h.max()
+            print(installation._maintenance_cost*installation._v_h.max())
         return maintenance
     
     
@@ -455,4 +457,4 @@ class SolarThermalType(TechCore):
 
     def get_existing(self):
         for installation in self._installations:
-            installation._existing = installation.get_output().max()/installation.specific_yield
+            installation._existing = installation._v_h.max()

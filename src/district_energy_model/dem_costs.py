@@ -4,7 +4,7 @@ Created on Thu Mar  7 14:12:26 2024
 
 @author: UeliSchilt, Tim Zurbriggen
 """
-
+import warnings
 _MISSING = object()
 
 
@@ -171,15 +171,19 @@ def calculate_total_anual_costs(tech_instances, number_of_days):
                 energy_revenue = tech_instances[tech].get_energy_revenue()
             energy_costs = tech_instances[tech].get_energy_costs()
 
-            annualized_capex = (
-                capex
-                * annuity_factor(
-                    tech_instances[tech]._lifetime,
-                    tech_instances[tech]._interest_rate,
+            if hasattr(tech_instances[tech], '_lifetime'):
+                annualized_capex = (
+                    capex
+                    * annuity_factor(
+                        tech_instances[tech]._lifetime,
+                        tech_instances[tech]._interest_rate,
+                    )
                 )
-                
-            )
-            print(annualized_capex, opex, energy_costs, energy_revenue)
+            else: 
+                warnings.warn("'lifetime' attribute does not exist. Annualized capex was set to 0")
+                annualized_capex = 0
+
+            print(annualized_capex*(number_of_days / 365), opex*(number_of_days / 365), energy_costs, energy_revenue)
             tac = (
                 (annualized_capex + opex) * (number_of_days / 365)
                 + energy_costs
@@ -190,7 +194,7 @@ def calculate_total_anual_costs(tech_instances, number_of_days):
                 tech_instances[tech],
                 "_output_carrier",
                 "output_carrier",
-                default=_MISSING,
+                default="output_carrier_not_given",
             )
             if get_var(
                 tech_instances[tech],
@@ -210,10 +214,10 @@ def calculate_total_anual_costs(tech_instances, number_of_days):
                 total_electricity_generation += get_var(
                     tech_instances[tech], "_v_e", "_m_e"
                 ).sum()
-            else:
-                raise AttributeError(
-                    "carrier must be 'heat' or 'electricity', or 'storage'"
-                )
+            # else:
+            #     raise AttributeError(
+            #         "carrier must be 'heat' or 'electricity', or 'storage'"
+            #     )
 
     print(total_electricity_generation)
     total_anual_costs["heat"]["total"] = sum(total_anual_costs["heat"].values())
@@ -229,7 +233,7 @@ def calculate_total_anual_costs(tech_instances, number_of_days):
     total = (
         total_anual_costs["heat"]["total"]
         + total_anual_costs["electricity"]["total"]
-        + sum(total_anual_costs["storage"].values())
+        + total_anual_costs["storage"]["total"]
     )
 
     # tlc_electricity = 1685020.0745715834/total_electricity_generation

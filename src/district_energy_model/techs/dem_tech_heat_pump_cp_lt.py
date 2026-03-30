@@ -266,7 +266,7 @@ class HeatPumpCPLT(TechCore):
         return 0.0
     
     def get_total_maintenance(self):
-        return self._maintenance_cost*self._v_h_max
+        return self._maintenance_cost*self._v_h.max()
     
         
     

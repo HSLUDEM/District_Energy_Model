@@ -245,7 +245,7 @@ scen_techs = {
         'lifetime':25,
         'interest_rate':interest_rate,
         'base_capex': 2857, # [CHF/kW_th]
-        'base_capex_one_to_one_replacement': 1000*0, #[CHF/kW_th] does nothing
+        'base_capex_one_to_one_replacement': 1000, #[CHF/kW_th] does nothing
         'base_maintenance_cost': 10, # [CHF/kW_th/year]
         'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
         'only_use_installed': False
@@ -779,7 +779,7 @@ scen_techs = {
         'solver_option_MIPGap':1e-4, # [-] Default: 1e-4; https://docs.gurobi.com/projects/optimizer/en/current/reference/parameters.html#mipgap
         'MIPGap_increase':False, # [-] If set to True, MIPGap will be increased to 0.01 if a storage technology is activated in order to avoid numerical problems.
         'save_math_model':False, # math. model formulations in .lp file; can take long to produce and result in large file;
-        'save_calliope_files':False, # Print Calliope input and results in csv files
+        'save_calliope_files':True, # Print Calliope input and results in csv files
         },
     
     'simulation':{

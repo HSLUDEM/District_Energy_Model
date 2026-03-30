@@ -116,8 +116,10 @@ class TechCore(ABC):
         return total_capex
     
     def get_total_maintenance(self):
-        pass
-        # --> To be implemented in child class
+        if hasattr(self, '_maintenance_cost'):
+            return self._maintenance_cost*self.get_output().max()
+        elif hasattr(self, 'maintenance_cost'):
+            return self.maintenance_cost*self.get_output().max()
 
 
     # def initialise_zero(self, variables, n_days):
@@ -132,7 +134,7 @@ class TechCore(ABC):
 
  
     def get_output(self):
-        for attr in ["_q_h", "_q_gas", "_q_wd", "_q_hyd", "_q_e", '_v_h', '_v_e', '_m_e',]:
+        for attr in ["_q_h", "_q_gas", "_q_wd", "_q_hyd", "_q_e", '_v_e', '_v_h', '_m_e', '_v_gas']: #List needs to be in this order
             if hasattr(self, attr):
                 return getattr(self, attr)
         print(self)
