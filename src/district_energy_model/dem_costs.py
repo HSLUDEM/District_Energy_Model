@@ -193,7 +193,7 @@ def calculate_total_anual_costs(tech_instances, number_of_days):
             total_anual_costs += tac
 
             storage_attributes = ['_q_e', '_q_h', '_q_gas', '_q_wd', 'q_hyd']
-            if not all(hasattr(tech_instances[tech], attr) for attr in storage_attributes):
+            if not any(hasattr(tech_instances[tech], attr) for attr in storage_attributes):
                 if hasattr(tech_instances[tech], '_v_h'):
                     total_energy_generation += tech_instances[tech]._v_h.sum()
                     total_heat_generation += tech_instances[tech]._v_h.sum()
@@ -207,30 +207,7 @@ def calculate_total_anual_costs(tech_instances, number_of_days):
     levelized_cost_of_energy = total_anual_costs/total_energy_generation
     electricity_tlc = total_anual_costs/total_electricity_generation
     heat_tlc = total_anual_costs/total_heat_generation
-            # output_carrier = get_var(
-            #     tech_instances[tech],
-            #     "_output_carrier",
-            #     "output_carrier",
-            #     default="output_carrier_not_given",
-            # )
-            # if get_var(
-            #     tech_instances[tech],
-            #     "_q_h",
-            #     "_q_gas",
-            #     "_q_wd",
-            #     "_q_hyd",
-            #     "_q_e",
-            #     default=None,
-            # ) is not None:
-            #     total_anual_costs["storage"][tech] = tac
-            # if output_carrier[0] == "h":
-            #     total_anual_costs["heat"][tech] = tac
-            #     total_heat_generation += get_var(tech_instances[tech], "_v_h").sum()
-            # elif output_carrier[0] == "e":
-            #     total_anual_costs["electricity"][tech] = tac
-            #     total_electricity_generation += get_var(
-            #         tech_instances[tech], "_v_e", "_m_e"
-            #     ).sum()
+        
    
     return {"total": total_anual_costs, "levelized_cost_of_energy": levelized_cost_of_energy, "electricity_tlc": electricity_tlc, "heat_tlc": heat_tlc}
 
