@@ -7,10 +7,9 @@ Created on Wed Oct 30 12:50:32 2024
 
 "Parent class for tech classes."
 import numpy as np
-from abc import ABC, abstractmethod
 import warnings
 
-class TechCore(ABC):
+class TechCore():
     
     def __init__(self, tech_dict):
         
@@ -134,11 +133,15 @@ class TechCore(ABC):
 
  
     def get_output(self):
-        for attr in ["_q_h", "_q_gas", "_q_wd", "_q_hyd", "_q_e", '_v_e', '_v_h', '_m_e', '_v_gas']: #List needs to be in this order
+        # First check for storage variables, then for flow variables:
+        for attr in ["_q_h", "_q_gas", "_q_wd", "_q_hyd", "_q_e"]:
+            if hasattr(self, attr):
+                return getattr(self, attr)
+        for attr in ['_v_e', '_v_h', '_m_e', '_v_gas']: 
             if hasattr(self, attr):
                 return getattr(self, attr)
         print(self)
-        raise AttributeError("No output attribute found (_v_h or _v_e or _q_xx)")
+        raise AttributeError("No storage or flow variable found in the technology class.")
     
     def get_v_max(self):
         for attr in ['_v_h_max', 'v_max', 'kw_max', 'kW_el_max', '_cap']:
@@ -149,10 +152,16 @@ class TechCore(ABC):
                 return 'inf'
     
     def get_power_up_for_replacement(self):
-        return 0
+        if hasattr(self, '_power_up_for_replacement'):
+            return self._power_up_for_replacement
+        else:
+            return False
     
     def get_only_allow_existing(self):
-        return False
+        if hasattr(self, '_only_allow_existing'):
+            return self._only_allow_existing
+        else:
+            return False
 
     def get_existing(self):
 

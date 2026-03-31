@@ -104,7 +104,7 @@ def prepare_cost_calculation(tech_instances):
     return 0
 
 
-def calculate_total_anual_costs(tech_instances, number_of_days):
+def calculate_total_annual_costs(tech_instances, number_of_days, debug=True):
     """
     Calculate total annualized monetary costs for all modeled technologies.
 
@@ -160,7 +160,6 @@ def calculate_total_anual_costs(tech_instances, number_of_days):
     total_electricity_generation = 0
 
     for tech in tech_instances:
-        print(tech, tech_instances[tech])
         capex = 0
         opex = 0
         energy_revenue = 0
@@ -184,7 +183,6 @@ def calculate_total_anual_costs(tech_instances, number_of_days):
                 warnings.warn("'lifetime' attribute does not exist. Annualized capex was set to 0")
                 annualized_capex = 0
 
-            print(annualized_capex*(number_of_days / 365), opex*(number_of_days / 365), energy_costs, energy_revenue)
             tac = (
                 (annualized_capex + opex) * (number_of_days / 365)
                 + energy_costs
@@ -192,6 +190,16 @@ def calculate_total_anual_costs(tech_instances, number_of_days):
             )
             total_anual_costs += tac
 
+            if debug:
+                print(f"Tech: {tech}")
+                print(f"  CAPEX: {capex:.2f} CHF")
+                print(f"  OPEX: {opex*(number_of_days / 365):.2f} CHF/year")
+                print(f"  Energy Costs: {energy_costs:.2f} CHF")
+                print(f"  Energy Revenue: {energy_revenue:.2f} CHF")
+                print(f"  Annualized CAPEX: {annualized_capex*(number_of_days / 365):.2f} CHF/year")
+                print(f"  Total Annual Cost (scaled): {tac:.2f} CHF\n")
+
+            # calculate total energy generation for levelized cost calculation, excluding storage technologies:
             storage_attributes = ['_q_e', '_q_h', '_q_gas', '_q_wd', 'q_hyd']
             if not any(hasattr(tech_instances[tech], attr) for attr in storage_attributes):
                 if hasattr(tech_instances[tech], '_v_h'):
@@ -277,10 +285,10 @@ def get_total_costs(tech_instances, supply, number_of_days):
         and the "co2" entry by `calculate_CO2_emissions(...)`.
     """
     return {
-        "monetary": calculate_total_anual_costs(tech_instances, number_of_days),
+        "monetary": calculate_total_annual_costs(tech_instances, number_of_days),
         "co2": calculate_CO2_emissions(supply, tech_instances),
     }
-    # return {"TAC": calculate_total_anual_costs(tech_instances), "LCOE": calculate_levelized_cost_of_energy(tech_instances, number_of_days)}
+    # return {"TAC": calculate_total_annual_costs(tech_instances), "LCOE": calculate_levelized_cost_of_energy(tech_instances, number_of_days)}
 
 
 def calculate_CO2_emissions(supply, tech_instances):
@@ -358,7 +366,7 @@ def calculate_CO2_emissions(supply, tech_instances):
     for tech in tech_instances:
         if tech == "waste_to_energy":
             co2_emissions["emissions_msw"] = (
-                sum(supply.supply_tech_dict["annual_msw_supply"])
+                sum(tech_instances["waste_to_energy"]._u_msw)
                 * supply.supply_tech_dict["co2_content_msw"]
                 * supply.supply_tech_dict["msw_share_fossile"]
             )
@@ -375,9 +383,9 @@ def calculate_CO2_emissions(supply, tech_instances):
 
     for tech in tech_instances:
         total_heat_generation += sum(getattr(tech_instances[tech], "_v_h", [0]))
-        total_electricity_generation += sum(
-            get_var(tech_instances[tech], "_v_e", "_m_e", default=[0])
-        )
+        total_electricity_generation += sum(getattr(tech_instances[tech], "_v_e", [0])) 
+        total_electricity_generation += sum(getattr(tech_instances[tech], "_m_e", [0]))
+
 
     co2_emissions["total"] = sum(co2_emissions.values())
     co2_emissions["electricity_tlc"] = (

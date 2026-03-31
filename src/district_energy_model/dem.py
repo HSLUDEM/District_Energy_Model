@@ -1716,7 +1716,7 @@ class DistrictEnergyModel:
             
             # Compute costs in case no optimisation is applied:
             dict_total_costs = {} # !!! a separate module for cost calculations must be implemented
-            dict_total_costs = dem_costs.get_total_costs(self.tech_instances, 1)
+            dict_total_costs = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"])
             model = 0
 
         #----------------------------------------------------------------------
