@@ -779,7 +779,7 @@ scen_techs = {
         'solver_option_MIPGap':1e-4, # [-] Default: 1e-4; https://docs.gurobi.com/projects/optimizer/en/current/reference/parameters.html#mipgap
         'MIPGap_increase':False, # [-] If set to True, MIPGap will be increased to 0.01 if a storage technology is activated in order to avoid numerical problems.
         'save_math_model':False, # math. model formulations in .lp file; can take long to produce and result in large file;
-        'save_calliope_files':True, # Print Calliope input and results in csv files
+        'save_calliope_files':False, # Print Calliope input and results in csv files
         },
     
     'simulation':{

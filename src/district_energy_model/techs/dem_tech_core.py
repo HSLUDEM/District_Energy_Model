@@ -100,6 +100,8 @@ class TechCore():
         # --> To be implemented in child class
 
     def get_total_capex(self):
+        if not hasattr(self, "_capex"):
+            return 0
         if hasattr(self, "_capex_one_to_one_replacement"):
             new_capex = self._capex*(self.get_output().max() - self.existing - self.needs_replacement)
             if new_capex < 0:
@@ -113,6 +115,8 @@ class TechCore():
         return total_capex
     
     def get_total_maintenance(self):
+        if not hasattr(self, "_maintenance_cost"):
+            return 0
         if hasattr(self, '_maintenance_cost'):
             return self._maintenance_cost*self.get_output().max()
         elif hasattr(self, 'maintenance_cost'):
@@ -135,7 +139,7 @@ class TechCore():
         for attr in ["_q_h", "_q_gas", "_q_wd", "_q_hyd", "_q_e"]:
             if hasattr(self, attr):
                 return getattr(self, attr)
-        for attr in ['_v_e', '_v_h', '_m_e', '_v_gas']: 
+        for attr in ['_v_e', '_v_h', '_m_e', '_v_gas', '_v_hyd']: 
             if hasattr(self, attr):
                 return getattr(self, attr)
         print(self)

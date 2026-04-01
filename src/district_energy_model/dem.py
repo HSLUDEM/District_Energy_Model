@@ -940,7 +940,7 @@ class DistrictEnergyModel:
         #----------------------------------------------------------------------
         # Check overall energy balance:        
         
-        
+        dem_costs.prepare_cost_calculation(self.tech_instances)
         
         if self.toggle_energy_balance_tests:
             dem_eb.electricity_balance_test(
@@ -1364,7 +1364,7 @@ class DistrictEnergyModel:
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
                     diff_sum_accepted = C.DIFF_SUM_ACC,
-                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                     )
             
         if scen_techs['scenarios']['pv_integration'] == True:
@@ -1474,7 +1474,7 @@ class DistrictEnergyModel:
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
                     diff_sum_accepted = C.DIFF_SUM_ACC,
-                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                     )
         if (scen_techs['scenarios']['battery_energy_storage'] == True 
             and scen_techs['scenarios']['thermal_energy_storage'] == True):
@@ -1545,7 +1545,7 @@ class DistrictEnergyModel:
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
                     diff_sum_accepted = C.DIFF_SUM_ACC,
-                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                     )
 
 
@@ -1617,7 +1617,7 @@ class DistrictEnergyModel:
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
                     diff_sum_accepted = C.DIFF_SUM_ACC,
-                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                     )
             
         if scen_techs['scenarios']['nuclear_phaseout'] == True:
@@ -1658,6 +1658,7 @@ class DistrictEnergyModel:
                 df_scen
                 )
             
+        
         """--------------------------------------------------------------------
         Apply optimisation:
         """
@@ -1679,7 +1680,7 @@ class DistrictEnergyModel:
                 files_path = self.results_path
                 )
             
-            dem_costs.prepare_cost_calculation(self.tech_instances)
+            # dem_costs.prepare_cost_calculation(self.tech_instances)
             opt_results, model = optimiser.run_optimisation()
             dict_total_costs =\
                 optimiser.get_optimal_output_df(
@@ -1716,7 +1717,7 @@ class DistrictEnergyModel:
             
             # Compute costs in case no optimisation is applied:
             dict_total_costs = {} # !!! a separate module for cost calculations must be implemented
-            dem_costs.prepare_cost_calculation(self.tech_instances)
+            
             dict_total_costs = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"])
             model = 0
 

@@ -47,15 +47,17 @@ def annuity_factor(lifetime_years, interest_rate=0.05):
 
         return af
     
-def prepare_cost_calculation(tech_instances):
+def prepare_cost_calculation(tech_instances, debug=True):
     # Get existing capacities for all technologies and save them as attributes of the respective techs
     for tech in tech_instances:
+        print(f"Preparing cost calculation for technology: {tech}")
         if tech != 'grid_supply' and tech != 'pile_of_berries':
             tech_instances[tech].get_existing()
+        print(f"preparation of {tech} completed.\n")
     return 0
 
 
-def calculate_total_annual_costs(tech_instances, number_of_days, debug=False):
+def calculate_total_annual_costs(tech_instances, number_of_days, debug=True):
     """
     Calculate total annualized monetary costs for all modeled technologies.
 
@@ -113,6 +115,8 @@ def calculate_total_annual_costs(tech_instances, number_of_days, debug=False):
     cost_breakdown = {}
 
     for tech in tech_instances:
+        if debug:
+            print(f"Calculating costs for technology: {tech}")
         capex = 0
         opex = 0
         energy_revenue = 0
@@ -152,7 +156,6 @@ def calculate_total_annual_costs(tech_instances, number_of_days, debug=False):
                 }
 
             if debug:
-                print(f"Tech: {tech}")
                 print(f"  CAPEX: {capex:.2f} CHF")
                 print(f"  OPEX: {opex*(number_of_days / 365):.2f} CHF/year")
                 print(f"  Energy Costs: {energy_costs:.2f} CHF")
