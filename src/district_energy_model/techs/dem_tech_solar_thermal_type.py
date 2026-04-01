@@ -65,8 +65,6 @@ class SolarThermalType(TechCore):
         
         # Annual values:
         self._v_h_yr = ...
-        
-        self.kwh_to_kwp = 1000
     
     def initialize_installation_instances(self):
 
@@ -435,7 +433,6 @@ class SolarThermalType(TechCore):
         capex = 0
         for installation in self._installations:
             capex += installation._capex*(installation._v_h.max() - installation._existing)
-            print(installation._capex*(installation._v_h.max() - installation._existing))
         if capex <= 0:
             return 0
         else: 
@@ -446,7 +443,6 @@ class SolarThermalType(TechCore):
         maintenance = 0
         for installation in self._installations:
             maintenance += installation._maintenance_cost*installation._v_h.max()
-            print(installation._maintenance_cost*installation._v_h.max())
         return maintenance
     
     
@@ -461,4 +457,4 @@ class SolarThermalType(TechCore):
 
     def get_existing(self):
         for installation in self._installations:
-            installation._existing = installation._v_h.max()
+            installation._existing = installation._max_profile.max()*installation._share_occupied

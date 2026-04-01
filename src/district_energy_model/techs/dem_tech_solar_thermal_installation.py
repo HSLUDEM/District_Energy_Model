@@ -225,6 +225,7 @@ class SolarThermalInstallation(TechCore):
         self._share_occupied
 
         p_max_occ = self._max_profile.max() * self._share_occupied
+        print(f"p_max_occ: {p_max_occ} This should be the power of the existing installation")
         p_max_unocc = self._max_profile.max() * np.round((1.0 - self._share_occupied),5)
 
         # print("VALUES = ", p_max_occ, p_max_unocc, self._share_occupied, self._max_profile.max())

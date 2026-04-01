@@ -106,12 +106,10 @@ class TechCore():
                 new_capex = 0
             total_capex = self.needs_replacement*self._capex_one_to_one_replacement + new_capex
         else: 
-            print(self.get_output().max())
             new_capex = self._capex*(self.get_output().max() - self.existing)
             if new_capex < 0:
                 new_capex = 0
             total_capex = new_capex
-        print("capex", total_capex)
         return total_capex
     
     def get_total_maintenance(self):

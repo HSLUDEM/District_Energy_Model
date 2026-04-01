@@ -409,4 +409,4 @@ class SolarPVType(TechCore):
     
     def get_existing(self):
         for installation in self._installations:
-            installation._existing = installation.get_output().max()
+            installation._existing = installation._max_profile.max()*installation._share_occupied

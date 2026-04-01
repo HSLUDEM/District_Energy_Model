@@ -5,56 +5,6 @@ Created on Thu Mar  7 14:12:26 2024
 @author: UeliSchilt, Tim Zurbriggen
 """
 import warnings
-_MISSING = object()
-
-
-def get_var(obj, *names, default=_MISSING):
-    """
-    Return the first existing attribute from an object among several candidate names.
-
-    This helper is used where equivalent attributes are named differently across
-    technology classes. It tries each name in order and returns the first match.
-
-    Parameters
-    ----------
-    obj : object
-        Object from which the attribute should be read.
-    *names : str
-        Candidate attribute names to try in order.
-    default : any, optional
-        Value to return if none of the attributes exist. If not provided,
-        an AttributeError is raised.
-
-    Returns
-    -------
-    any
-        Value of the first matching attribute, or `default` if given and no
-        attribute is found.
-
-    Raises
-    ------
-    AttributeError
-        If none of the requested attributes exist and no default is provided.
-
-    Notes
-    -----
-    This works for:
-    - instance attributes
-    - class attributes
-    - inherited class attributes
-    """
-    for name in names:
-        value = getattr(obj, name, _MISSING)
-        if value is not _MISSING:
-            return value
-
-    if default is not _MISSING:
-        return default
-
-    raise AttributeError(
-        f"{type(obj).__name__} instance has none of attributes: {names}"
-    )
-
 
 def annuity_factor(lifetime_years, interest_rate=0.05):
     """
@@ -98,13 +48,14 @@ def annuity_factor(lifetime_years, interest_rate=0.05):
         return af
     
 def prepare_cost_calculation(tech_instances):
+    # Get existing capacities for all technologies and save them as attributes of the respective techs
     for tech in tech_instances:
         if tech != 'grid_supply' and tech != 'pile_of_berries':
             tech_instances[tech].get_existing()
     return 0
 
 
-def calculate_total_annual_costs(tech_instances, number_of_days, debug=True):
+def calculate_total_annual_costs(tech_instances, number_of_days, debug=False):
     """
     Calculate total annualized monetary costs for all modeled technologies.
 
@@ -158,6 +109,8 @@ def calculate_total_annual_costs(tech_instances, number_of_days, debug=True):
     total_energy_generation = 0
     total_heat_generation = 0
     total_electricity_generation = 0
+    total_electricity_cost = 0
+    cost_breakdown = {}
 
     for tech in tech_instances:
         capex = 0
@@ -179,6 +132,7 @@ def calculate_total_annual_costs(tech_instances, number_of_days, debug=True):
                         tech_instances[tech]._interest_rate,
                     )
                 )
+                annualized_capex_scaled = annualized_capex * (number_of_days / 365)
             else: 
                 warnings.warn("'lifetime' attribute does not exist. Annualized capex was set to 0")
                 annualized_capex = 0
@@ -189,6 +143,13 @@ def calculate_total_annual_costs(tech_instances, number_of_days, debug=True):
                 - energy_revenue
             )
             total_anual_costs += tac
+            cost_breakdown[tech] = {
+                "tac": tac,
+                "annualized_capex": annualized_capex*(number_of_days / 365),
+                "opex": opex * (number_of_days / 365),
+                "energy_costs": energy_costs,
+                "energy_revenue": energy_revenue,
+                }
 
             if debug:
                 print(f"Tech: {tech}")
@@ -204,20 +165,22 @@ def calculate_total_annual_costs(tech_instances, number_of_days, debug=True):
             if not any(hasattr(tech_instances[tech], attr) for attr in storage_attributes):
                 if hasattr(tech_instances[tech], '_v_h'):
                     total_energy_generation += tech_instances[tech]._v_h.sum()
-                    total_heat_generation += tech_instances[tech]._v_h.sum()
+                    # total_heat_generation += tech_instances[tech]._v_h.sum()
                 if hasattr(tech_instances[tech], '_v_e'):
                     total_energy_generation += tech_instances[tech]._v_e.sum()
-                    total_electricity_generation += tech_instances[tech]._v_e.sum()
+                    # total_electricity_generation += tech_instances[tech]._v_e.sum()
+                    # total_electricity_cost += tac
                 elif hasattr(tech_instances[tech], '_m_e'):
                     total_energy_generation += tech_instances[tech]._m_e.sum()
-                    total_electricity_generation += tech_instances[tech]._m_e.sum()
+                    # total_electricity_generation += tech_instances[tech]._m_e.sum()
+                    # total_electricity_cost += tac
 
     levelized_cost_of_energy = total_anual_costs/total_energy_generation
-    electricity_tlc = total_anual_costs/total_electricity_generation
-    heat_tlc = total_anual_costs/total_heat_generation
+    # electricity_tlc = total_electricity_cost/total_electricity_generation
+    # heat_tlc = total_anual_costs/total_heat_generation
         
    
-    return {"total": total_anual_costs, "levelized_cost_of_energy": levelized_cost_of_energy, "electricity_tlc": electricity_tlc, "heat_tlc": heat_tlc}
+    return {"total": total_anual_costs, "levelized_cost_of_energy": levelized_cost_of_energy}, cost_breakdown
 
 
 # def calculate_levelized_cost_of_energy(tech_instances, number_of_days):
@@ -284,10 +247,13 @@ def get_total_costs(tech_instances, supply, number_of_days):
         The "monetary" entry is produced by `calculate_total_anual_costs(...)`
         and the "co2" entry by `calculate_CO2_emissions(...)`.
     """
-    return {
-        "monetary": calculate_total_annual_costs(tech_instances, number_of_days),
-        "co2": calculate_CO2_emissions(supply, tech_instances),
+    monetary_costs, monetary_breakdown = calculate_total_annual_costs(tech_instances, number_of_days)
+    co2_emissions, co2_emissions_breakdown = calculate_CO2_emissions(supply, tech_instances)
+    cost_overwiew = {
+        "monetary": monetary_costs,
+        "co2": co2_emissions,
     }
+    return {"cost_overwiew": cost_overwiew, "monetary_breakdown": monetary_breakdown, "co2_breakdown": co2_emissions_breakdown}
     # return {"TAC": calculate_total_annual_costs(tech_instances), "LCOE": calculate_levelized_cost_of_energy(tech_instances, number_of_days)}
 
 
@@ -387,14 +353,6 @@ def calculate_CO2_emissions(supply, tech_instances):
         total_electricity_generation += sum(getattr(tech_instances[tech], "_m_e", [0]))
 
 
-    co2_emissions["total"] = sum(co2_emissions.values())
-    co2_emissions["electricity_tlc"] = (
-        co2_emissions["total"] / total_electricity_generation
-    )
-    co2_emissions["heat_tlc"] = co2_emissions["total"] / total_heat_generation
+    co2_emissions_total = sum(co2_emissions.values())
 
-    return {
-        "electricity_tlc": co2_emissions["electricity_tlc"],
-        "heat_tlc": co2_emissions["heat_tlc"],
-        "total": co2_emissions["total"],
-    }
+    return co2_emissions_total, co2_emissions
