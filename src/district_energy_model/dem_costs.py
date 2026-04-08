@@ -5,8 +5,9 @@ Created on Thu Mar  7 14:12:26 2024
 @author: UeliSchilt, Tim Zurbriggen
 """
 import warnings
+import district_energy_model.dem_constants as C
 
-def annuity_factor(lifetime_years, interest_rate=0.05):
+def annuity_factor(lifetime_years, interest_rate=0.025):
     """
     Calculate the annuity factor for annualizing investment costs.
 
@@ -47,7 +48,7 @@ def annuity_factor(lifetime_years, interest_rate=0.05):
 
         return af
     
-def prepare_cost_calculation(tech_instances, debug=True):
+def get_old_capacities(tech_instances, debug=True):
     # Get existing capacities for all technologies and save them as attributes of the respective techs
     for tech in tech_instances:
         print(f"Preparing cost calculation for technology: {tech}")
@@ -56,8 +57,17 @@ def prepare_cost_calculation(tech_instances, debug=True):
         print(f"preparation of {tech} completed.\n")
     return 0
 
+def get_one_to_one_replacement_capacities(tech_instances, debug=True):
+    # Get replacement capacities for all technologies and save them as attributes of the respective techs
+    for tech in tech_instances:
+        print(f"Calculating replacement needs for technology: {tech}")
+        if tech != 'grid_supply' and tech != 'pile_of_berries':
+            tech_instances[tech].get_needs_replacement_cap()
+        print(f"replacement calculation for {tech} completed.\n")
+    return 0
 
-def calculate_total_annual_costs(tech_instances, number_of_days, debug=True):
+
+def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=True):
     """
     Calculate total annualized monetary costs for all modeled technologies.
 
@@ -74,16 +84,21 @@ def calculate_total_annual_costs(tech_instances, number_of_days, debug=True):
     number_of_days : int or float
         Length of the modeled period in days. Fixed annual costs are scaled
         by `number_of_days / 365`.
+    supply : object
+        Supply object containing imported resource flows and cost data for energy cost calculation.
 
     Returns
     -------
     dict
         Dictionary with aggregated monetary cost indicators:
         {
-            "electricity_tlc": float,
-            "heat_tlc": float,
-            "total": float
+            "total": total_annual_costs, 
+            "levelized_cost_of_energy": levelized_cost_of_energy
         }
+    
+    dict 
+        cost_breakdown: nested dictionary with detailed cost components for each technology
+
 
     Notes
     -----
@@ -93,26 +108,57 @@ def calculate_total_annual_costs(tech_instances, number_of_days, debug=True):
     - energy costs
     - energy revenues
 
-    Technologies are classified as:
-    - storage, if one of the storage state variables exists
-    - heat-producing, if output carrier starts with "h"
-    - electricity-producing, if output carrier starts with "e"
 
     Special cases in current implementation:
     - "pile_of_berries" is skipped
     - "grid_supply" excludes CAPEX, maintenance, and revenue calculation
 
     Important assumptions / limitations:
-    - division by zero may occur if no heat or electricity is generated
-    - debug print statements are currently active
-    - function name contains a typo ("anual" instead of "annual")
+    - division by zero may occur if no heat and electricity is generated
+
     """
-    total_anual_costs = 0
+    total_annual_costs = 0
     total_energy_generation = 0
-    total_heat_generation = 0
-    total_electricity_generation = 0
-    total_electricity_cost = 0
+    # total_heat_generation = 0
+    # total_electricity_generation = 0
+    # total_electricity_cost = 0
     cost_breakdown = {}
+
+
+
+    price_CHFpl=supply.supply_tech_dict['oil_price_CHFpl']
+    hv_oil_MJpkg=supply.supply_tech_dict['hv_oil_MJpkg']
+    hv_oil_MJpl = hv_oil_MJpkg*C.DENSITY_oil_kgpl # [MJ/l]
+    hv_oil_kWhpl = hv_oil_MJpl*C.CONV_MJ_to_kWh
+    price_CHFpkWh = price_CHFpl/hv_oil_kWhpl
+    energy_costs = sum(supply._m_oil) * price_CHFpkWh
+    total_annual_costs += energy_costs
+    cost_breakdown["oil"] = energy_costs
+
+    energy_costs = sum(supply._m_gas) * supply.supply_tech_dict["gas_price_CHFpkWh"]
+    total_annual_costs += energy_costs
+    cost_breakdown["gas"] = energy_costs    
+    
+    price_CHFpkg=supply.supply_tech_dict['wood_price_CHFpkg_local']
+    hv_wood_MJpkg=supply.supply_tech_dict['hv_wood_MJpkg']
+    hv_wood_kWhpkg=hv_wood_MJpkg*C.CONV_MJ_to_kWh
+    price_CHFpkWh = price_CHFpkg/hv_wood_kWhpkg
+    energy_costs = sum(supply._s_wd) * price_CHFpkWh
+    total_annual_costs += energy_costs
+    cost_breakdown["wood_local"] = energy_costs
+
+    price_CHFpkg=supply.supply_tech_dict['wood_price_CHFpkg_imported']
+    hv_wood_MJpkg=supply.supply_tech_dict['hv_wood_MJpkg']
+    hv_wood_kWhpkg=hv_wood_MJpkg*C.CONV_MJ_to_kWh
+    price_CHFpkWh = price_CHFpkg/hv_wood_kWhpkg
+    energy_costs = sum(supply._m_wd) * price_CHFpkWh
+    total_annual_costs += energy_costs
+    cost_breakdown["wood_import"] = energy_costs
+        
+    energy_costs = sum(supply._s_wet_bm) * 0.001  # currently minimum miniscule cost to favor truly free resources (e.g. PV)
+    total_annual_costs += energy_costs
+    cost_breakdown["wet_biomass"] = energy_costs
+    
 
     for tech in tech_instances:
         if debug:
@@ -128,7 +174,7 @@ def calculate_total_annual_costs(tech_instances, number_of_days, debug=True):
                 energy_revenue = tech_instances[tech].get_energy_revenue()
             energy_costs = tech_instances[tech].get_energy_costs()
 
-            if hasattr(tech_instances[tech], '_lifetime'):
+            if hasattr(tech_instances[tech], '_lifetime') and hasattr(tech_instances[tech], '_interest_rate'):
                 annualized_capex = (
                     capex
                     * annuity_factor(
@@ -136,7 +182,9 @@ def calculate_total_annual_costs(tech_instances, number_of_days, debug=True):
                         tech_instances[tech]._interest_rate,
                     )
                 )
-                annualized_capex_scaled = annualized_capex * (number_of_days / 365)
+            elif hasattr(tech_instances[tech], '_lifetime') and not hasattr(tech_instances[tech], '_interest_rate'):
+                warnings.warn("'interest_rate' attribute does not exist. Annuity factor was calculated with default interest rate of 0.025.")   
+                annualized_capex = capex * annuity_factor(tech_instances[tech]._lifetime, interest_rate=0.025)
             else: 
                 warnings.warn("'lifetime' attribute does not exist. Annualized capex was set to 0")
                 annualized_capex = 0
@@ -146,7 +194,7 @@ def calculate_total_annual_costs(tech_instances, number_of_days, debug=True):
                 + energy_costs
                 - energy_revenue
             )
-            total_anual_costs += tac
+            total_annual_costs += tac
             cost_breakdown[tech] = {
                 "tac": tac,
                 "annualized_capex": annualized_capex*(number_of_days / 365),
@@ -178,12 +226,12 @@ def calculate_total_annual_costs(tech_instances, number_of_days, debug=True):
                     # total_electricity_generation += tech_instances[tech]._m_e.sum()
                     # total_electricity_cost += tac
 
-    levelized_cost_of_energy = total_anual_costs/total_energy_generation
+    levelized_cost_of_energy = total_annual_costs/total_energy_generation
     # electricity_tlc = total_electricity_cost/total_electricity_generation
-    # heat_tlc = total_anual_costs/total_heat_generation
+    # heat_tlc = total_annual_costs/total_heat_generation
         
    
-    return {"total": total_anual_costs, "levelized_cost_of_energy": levelized_cost_of_energy}, cost_breakdown
+    return {"total": total_annual_costs, "levelized_cost_of_energy": levelized_cost_of_energy}, cost_breakdown
 
 
 # def calculate_levelized_cost_of_energy(tech_instances, number_of_days):
@@ -250,7 +298,7 @@ def get_total_costs(tech_instances, supply, number_of_days):
         The "monetary" entry is produced by `calculate_total_anual_costs(...)`
         and the "co2" entry by `calculate_CO2_emissions(...)`.
     """
-    monetary_costs, monetary_breakdown = calculate_total_annual_costs(tech_instances, number_of_days)
+    monetary_costs, monetary_breakdown = calculate_total_annual_costs(tech_instances, number_of_days, supply)
     co2_emissions, co2_emissions_breakdown = calculate_CO2_emissions(supply, tech_instances)
     cost_overwiew = {
         "monetary": monetary_costs,

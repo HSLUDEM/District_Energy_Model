@@ -350,14 +350,9 @@ class SteamTurbine(TechCore):
         self.len_test(self._v_h_wbsg_waste)
         return self._v_h_wbsg_waste
     
-    def get_energy_costs(self):
-        return 0.0
-    
     def get_total_capex(self):
         return self._capex*np.max(self._v_e + self._v_h)
     
     def get_total_maintenance(self):
         return self._maintenance_cost*np.max(self._v_h + self._v_e)
     
-    def get_energy_revenue(self):
-        return 0.0

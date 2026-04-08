@@ -294,5 +294,3 @@ class WasteToEnergy(TechCore):
     def get_total_maintenance(self):
         return self._maintenance_cost*np.max(self._v_e)
     
-    def get_energy_revenue(self):
-        return 0.0

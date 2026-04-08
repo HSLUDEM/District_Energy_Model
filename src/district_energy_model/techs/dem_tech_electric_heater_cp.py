@@ -191,14 +191,7 @@ class ElectricHeaterCP(TechCore):
             raise ValueError("u_oil_ehcp has not yet been computed!")        
         return self._u_e
         
-    def get_energy_revenue(self):
-        return 0.0
-    
-    def get_energy_costs(self):
-        return 0.0
-    
-    def get_total_maintenance(self):
-        return self._maintenance_cost*np.max(self._v_h)
+
     
 
     

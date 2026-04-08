@@ -940,7 +940,7 @@ class DistrictEnergyModel:
         #----------------------------------------------------------------------
         # Check overall energy balance:        
         
-        dem_costs.prepare_cost_calculation(self.tech_instances)
+        
         
         if self.toggle_energy_balance_tests:
             dem_eb.electricity_balance_test(
@@ -1058,6 +1058,9 @@ class DistrictEnergyModel:
             df_scen
             )
         
+        
+        
+        dem_costs.get_old_capacities(self.tech_instances)
         """--------------------------------------------------------------------
         Apply scenarios:
         """
@@ -1658,7 +1661,7 @@ class DistrictEnergyModel:
                 df_scen
                 )
             
-        
+        dem_costs.get_one_to_one_replacement_capacities(self.tech_instances)
         """--------------------------------------------------------------------
         Apply optimisation:
         """

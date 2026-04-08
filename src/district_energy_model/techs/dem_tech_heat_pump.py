@@ -410,14 +410,7 @@ class HeatPump(HeatPumpCore):
         
         return u_e_i
     
-    def get_energy_costs(self):
-        return 0.0
 
-    def get_energy_revenue(self):
-        return 0.0
-    
-    def get_total_maintenance(self):
-        return self._maintenance_cost*np.max(self._v_h)
     
    
 

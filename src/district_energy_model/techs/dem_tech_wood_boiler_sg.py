@@ -255,9 +255,6 @@ class WoodBoilerSG(TechCore):
         self.len_test(self._u_wd_kg)
         return self._u_wd_kg
     
-    def get_energy_costs(self):
-        return np.sum(self._u_wd_kg)*inp.wood_price
-    
     def get_total_capex(self):
         return self._capex*np.max(self._v_steam)
     

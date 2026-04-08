@@ -143,15 +143,7 @@ class HeatPumpCP(HeatPumpCore):
     def get_temperature_based_cop(self):
         return self._temperature_based_cop
         
-        
-    def get_energy_costs(self):
-        return 0.0 #np.sum(self._u_e)*inp._tariff_CHFpkWh
     
-    def get_energy_revenue(self):
-        return 0.0
-    
-    def get_total_maintenance(self):
-        return self._maintenance_cost*self._v_h.max()
     
     
     

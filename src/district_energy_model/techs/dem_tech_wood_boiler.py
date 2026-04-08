@@ -237,14 +237,9 @@ class WoodBoiler(TechCore):
     def set_power_up_for_replacement(self, value):
         self._power_up_for_replacement = value
 
-    def get_energy_costs(self):
-        return sum(self._u_wd_kg*inp.wood_price)
 
-    def get_energy_revenue(self):
-        return 0.0
-    
-    def get_total_maintenance(self):
-        return self._maintenance_cost*np.max(self._v_h)
+
+
     
 
     # @staticmethod

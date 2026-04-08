@@ -191,14 +191,6 @@ class ElectricHeater(TechCore):
     def set_power_up_for_replacement(self, value):
         self._power_up_for_replacement = value
 
-    def get_energy_costs(self):
-        return 0.0 #sum(self._u_e*inp.grid_tariff_CHFpkWh)
-    
-    def get_energy_revenue(self):
-        return 0.0
-    
-    def get_total_maintenance(self):
-        return self._maintenance_cost*np.max(self._v_h)
 
     
     

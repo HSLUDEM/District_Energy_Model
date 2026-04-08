@@ -103,10 +103,15 @@ class TechCore():
         if not hasattr(self, "_capex"):
             return 0
         if hasattr(self, "_capex_one_to_one_replacement"):
-            new_capex = self._capex*(self.get_output().max() - self.existing - self.needs_replacement)
-            if new_capex < 0:
-                new_capex = 0
-            total_capex = self.needs_replacement*self._capex_one_to_one_replacement + new_capex
+            total_capacity = self.get_output().max()
+            if total_capacity <= self.existing:
+                return 0
+            elif total_capacity <= self.needs_replacement + self.existing:
+                return self._capex_one_to_one_replacement*(total_capacity - self.existing)
+            else:
+                new_capex = self._capex*(self.get_output().max() - self.existing - self.needs_replacement)
+                replacement_capex = self._capex_one_to_one_replacement*self.needs_replacement
+                return replacement_capex + new_capex
         else: 
             new_capex = self._capex*(self.get_output().max() - self.existing)
             if new_capex < 0:
@@ -146,7 +151,7 @@ class TechCore():
         raise AttributeError("No storage or flow variable found in the technology class.")
     
     def get_v_max(self):
-        for attr in ['_v_h_max', 'v_max', 'kw_max', 'kW_el_max', '_cap']:
+        for attr in ['_v_h_max', 'v_max', 'kw_max', 'kW_el_max', '_cap', '_p_max']:
             if hasattr(self, attr):
                 return getattr(self, attr)
             else: 
@@ -164,10 +169,15 @@ class TechCore():
             return self._only_allow_existing
         else:
             return False
-
+        
     def get_existing(self):
+        self.existing = self.get_output().max()
 
-        energy_cap_old = self.get_output().max()
+    def get_needs_replacement_cap(self, debug=True):
+        if hasattr(self, 'existing'):
+            energy_cap_old = self.existing
+        else:
+            return 0,0,self.get_v_max()
         needs_replacement = self.get_power_up_for_replacement()
 
         energy_cap_zero_capex = energy_cap_old-needs_replacement if energy_cap_old>=needs_replacement else 0.0
@@ -196,5 +206,13 @@ class TechCore():
         self.existing = energy_cap_zero_capex
         self.needs_replacement = cap_one_to_one_replacement
         self.cap_new = cap_new
+
+        if debug:
+            print(f"Energy cap old: {energy_cap_old}")
+            print(f"Needs replacement: {needs_replacement}")
+            print(f"Energy cap zero capex: {energy_cap_zero_capex}")
+            print(f"Energy cap low capex: {energy_cap_low_capex}")
+            print(f"Cap one to one replacement: {cap_one_to_one_replacement}")
+            print(f"Cap new: {cap_new}")
 
         return energy_cap_zero_capex, cap_one_to_one_replacement, cap_new

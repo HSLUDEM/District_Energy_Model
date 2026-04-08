@@ -638,9 +638,6 @@ class DistrictHeating(TechCore):
 
     def get_energy_costs(self):
         return sum(self._m_h*inp.dh_tariff)
-
-    def get_energy_revenue(self):
-        return 0.0 
     
     def get_total_capex(self):
         capex = 0

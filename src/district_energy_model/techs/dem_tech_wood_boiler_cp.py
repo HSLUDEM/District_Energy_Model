@@ -236,16 +236,9 @@ class WoodBoilerCP(TechCore):
     
     # def get_only_allow_existing(self):
     #     return self._only_allow_existing
-    
-    def get_energy_costs(self):
-        return sum(self._u_wd_kg*inp.wood_price)
 
-    def get_energy_revenue(self):
-        return 0.0
-    
-    def get_maintenance(self):
-        return self._maintenance_cost*np.max(self._v_h)
-    
+
+
     
     
     

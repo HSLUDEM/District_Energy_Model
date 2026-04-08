@@ -230,12 +230,9 @@ class HydroPower(TechCore):
         
     #     return v_e_hydro_pot_remain
 
-    def get_energy_costs(self):
-        return 0.0
 
     def get_energy_revenue(self):
         return np.sum(self._v_e_exp)*self._export_subsidy
     
-    def get_total_maintenance(self):
-        return self._maintenance_cost*np.max(self._v_e)
+
     

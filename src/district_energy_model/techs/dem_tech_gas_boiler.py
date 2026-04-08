@@ -326,11 +326,6 @@ class GasBoiler(TechCore):
     def get_v_h_max(self):
         return self._v_h_max
     
-    def get_energy_costs(self):
-        return np.sum(self._u_gas)*self._gas_price_CHFpkWh
+
     
-    def get_energy_revenue(self):
-        return 0.0
-    
-    def get_total_maintenance(self):
-        return self._maintenance_cost*np.max(self._v_h)
+

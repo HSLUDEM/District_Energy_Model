@@ -360,14 +360,9 @@ class OilBoilerCP(TechCore):
     # def get_only_allow_existing(self):
     #     return self._only_allow_existing
     
-    def get_energy_costs(self):
-        return np.sum(self._u_oil)*self.convert_price_CHFpl_to_CHFpkWh(self._oil_price_CHFpl, self._hv_oil)
+
     
-    def get_energy_revenue(self):
-        return 0.0
- 
-    def get_total_maintenance(self):
-        return self._maintenance_cost*np.max(self._v_h)
+
     
     
     
