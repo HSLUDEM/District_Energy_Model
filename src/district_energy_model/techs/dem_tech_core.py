@@ -147,7 +147,6 @@ class TechCore():
         for attr in ['_v_e', '_v_h', '_m_e', '_v_gas', '_v_hyd']: 
             if hasattr(self, attr):
                 return getattr(self, attr)
-        print(self)
         raise AttributeError("No storage or flow variable found in the technology class.")
     
     def get_v_max(self):
@@ -173,7 +172,7 @@ class TechCore():
     def get_existing(self):
         self.existing = self.get_output().max()
 
-    def get_needs_replacement_cap(self, debug=True):
+    def get_needs_replacement_cap(self, debug=False):
         if hasattr(self, 'existing'):
             energy_cap_old = self.existing
         else:

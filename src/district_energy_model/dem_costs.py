@@ -48,26 +48,30 @@ def annuity_factor(lifetime_years, interest_rate=0.025):
 
         return af
     
-def get_old_capacities(tech_instances, debug=True):
+def get_old_capacities(tech_instances, debug=False):
     # Get existing capacities for all technologies and save them as attributes of the respective techs
     for tech in tech_instances:
-        print(f"Preparing cost calculation for technology: {tech}")
+        if debug:
+            print(f"Preparing cost calculation for technology: {tech}")
         if tech != 'grid_supply' and tech != 'pile_of_berries':
             tech_instances[tech].get_existing()
-        print(f"preparation of {tech} completed.\n")
+        if debug:
+            print(f"preparation of {tech} completed.\n")
     return 0
 
-def get_one_to_one_replacement_capacities(tech_instances, debug=True):
+def get_one_to_one_replacement_capacities(tech_instances, debug=False):
     # Get replacement capacities for all technologies and save them as attributes of the respective techs
     for tech in tech_instances:
-        print(f"Calculating replacement needs for technology: {tech}")
+        if debug:
+            print(f"Calculating replacement needs for technology: {tech}")
         if tech != 'grid_supply' and tech != 'pile_of_berries':
             tech_instances[tech].get_needs_replacement_cap()
-        print(f"replacement calculation for {tech} completed.\n")
+        if debug:
+            print(f"replacement calculation for {tech} completed.\n")
     return 0
 
 
-def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=True):
+def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=False):
     """
     Calculate total annualized monetary costs for all modeled technologies.
 
@@ -226,12 +230,12 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=T
                     # total_electricity_generation += tech_instances[tech]._m_e.sum()
                     # total_electricity_cost += tac
 
-    levelized_cost_of_energy = total_annual_costs/total_energy_generation
+    # levelized_cost_of_energy = total_annual_costs/total_energy_generation
     # electricity_tlc = total_electricity_cost/total_electricity_generation
     # heat_tlc = total_annual_costs/total_heat_generation
         
    
-    return {"total": total_annual_costs, "levelized_cost_of_energy": levelized_cost_of_energy}, cost_breakdown
+    return {"total": total_annual_costs}, cost_breakdown
 
 
 # def calculate_levelized_cost_of_energy(tech_instances, number_of_days):
