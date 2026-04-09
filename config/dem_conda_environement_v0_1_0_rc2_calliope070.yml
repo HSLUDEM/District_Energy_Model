@@ -1,0 +1,33 @@
+name: dem_test_calliope070
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.10
+  - numpy=1.23.5
+  - pandas=2.1
+  - scipy=1.9.3
+  - scikit-learn=1.2.2
+  - matplotlib=3.6.2
+  - pyarrow=11.0.0
+  - cftime=1.6.2
+  - jupyter
+  - ipykernel
+  - pytest=8.0.2
+  - pip
+  - pip:
+      - concave-hull==0.0.7
+      - cryptography==42.0.8
+      - district-energy-model==0.1.0rc2
+      - kaleido==0.2.1
+      - meteostat==1.6.7
+      - openpyxl==3.1.5
+      - patsy==0.5.3
+      - plotly==6.5.2
+      - pyopenssl==24.1.0
+      - rich==14.2.0
+      - statsmodels==0.14.0
+      - tenacity==8.2.3
+      - triangle==20230923
+      
