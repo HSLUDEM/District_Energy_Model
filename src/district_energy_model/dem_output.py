@@ -377,6 +377,8 @@ col_wood_boiler_cp = f'rgba(175,52,31,{opac})' #
 col_waste_heat = f'rgba(105, 92, 89,{opac})' # brown1
 col_waste_heat_low_temperature = f'rgba(155, 186, 201,{opac})' # brown1
 
+col_deep_geothermal = f'rgba(197, 104, 43,{opac})' # brown1
+
 col_gas_boiler_cp = f'rgba(255,97,3,{opac})' # cadmiumorange
 col_tes_chg = f'rgba(239, 0, 140,{opac*opac_red_factor})' # '#EF008C'
 col_tes_dchg = f'rgba(239, 0, 140,{opac})' # '#EF008C'
@@ -452,6 +454,10 @@ col_mpl_electric_heater_cp = (102/255, 205/255, 170/255, opac)
 col_mpl_wood_boiler_cp = (175/255, 52/255, 31/255, opac)
 
 col_mpl_gas_boiler_cp = (255/255, 97/255, 3/255, opac)
+
+col_mpl_deep_geothermal = (197/255, 104/255, 43/255, opac)
+
+
 col_mpl_waste_heat = (105/255, 92/255, 89/255, opac)
 col_mpl_waste_heat_low_temperature = (155/255, 186/255, 201/255, opac)
 
@@ -634,6 +640,7 @@ heat_balance_y=[
     'v_h_wbcp',
     'v_h_gbcp',
     'v_h_wh',
+    'v_h_dgt',
     'u_h_tes_negative',
     'v_h_tes',
     'u_h_tesdc_negative',
@@ -662,6 +669,7 @@ heat_sources_dhn=[
     'v_h_wbcp',
     'v_h_gbcp',
     'v_h_wh',
+    'v_h_dgt',
     'v_h_tes',
     'v_h_bm',
     'u_h_tes_negative',
@@ -697,6 +705,7 @@ heat_balance_legend_labels = [
     'Wood boiler (large scale)',
     'Gas boiler (large scale)',
     'Waste heat',
+    'Deep Geothermal',
     'TES (DHN) charging',
     'TES (DHN) discharging',
     'TES (decentralised) charging',
@@ -732,6 +741,7 @@ heat_balance_colors = [
     col_wood_boiler_cp,
     col_gas_boiler_cp,
     col_waste_heat,
+    col_deep_geothermal,
     col_tes_chg,
     col_tes_dchg,
     col_tesdc_chg,
@@ -765,6 +775,7 @@ heat_balance_colors_mpl = [
     col_mpl_wood_boiler_cp,
     col_mpl_gas_boiler_cp,
     col_mpl_waste_heat,
+    col_mpl_deep_geothermal,
     col_mpl_tes_chg,
     col_mpl_tes_dchg,
     col_mpl_tesdc_chg,
@@ -3874,7 +3885,7 @@ def plot_sankey_total(df_scen,
                          'u_wd_wgu','u_wd_wguc','u_wd_wguh',
                          'v_gas_wgu', 'v_gas_wguh',
                          'v_h_wgu', 'v_h_wguc','v_gas_hg',
-                         'v_steam_wbsg', 'u_wd_wbsg', 'v_h_other', 'v_h_wh',
+                         'v_steam_wbsg', 'u_wd_wbsg', 'v_h_other', 'v_h_wh', 'v_h_dgt',
                          'v_h_chpgt', 
                          'v_h_st', #'v_h_chpgt_waste', 'v_h_chpgt', 
                          'v_hlt_whlt',
@@ -3897,7 +3908,7 @@ def plot_sankey_total(df_scen,
                               'obcp', 'gbcp', 'gtes', 
                               'ws','hes', 'wbsg', 
                               'wbcp', 'ehcp', 
-                              'other',
+                              'other', 'dgt',
                               'wh', 'whlt']
     
     #energy carriers

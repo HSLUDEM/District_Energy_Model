@@ -704,6 +704,12 @@ class DistrictEnergyModel:
             self.tech_whlt.initialise_finite(n_days)
             self.tech_instances['waste_heat_low_temperature'] = self.tech_whlt
 
+        # Deep geothermal
+        if scen_techs['deep_geothermal']['deployment']:                
+            self.tech_dgt = dem_techs.DeepGeothermal(scen_techs['deep_geothermal'])
+            self.tech_dgt.initialise_zero(n_days)
+            self.tech_instances['deep_geothermal'] = self.tech_dgt
+
 
         # Thermal energy storage
         if scen_techs['tes']['deployment']:                

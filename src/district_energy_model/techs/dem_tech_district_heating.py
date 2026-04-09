@@ -162,6 +162,7 @@ class DistrictHeating(TechCore):
         self._source_wood_boiler_cp = tech_dict['heat_sources']['wood_boiler_cp']
         self._source_gas_boiler_cp = tech_dict['heat_sources']['gas_boiler_cp']
         self._source_waste_heat = tech_dict['heat_sources']['waste_heat']
+        self._source_deep_geothermal = tech_dict['heat_sources']['deep_geothermal']
 
         self._source_biomass = tech_dict['heat_sources']['biomass']
 
@@ -556,6 +557,29 @@ class DistrictHeating(TechCore):
                 }
             dh_techs_label_list.append('conv_wh_dh')
 
+
+        # Deep geothermal (dgt)
+        if self._source_deep_geothermal:
+            techs_dict['conv_dgt_dh'] = {
+                'essentials':{
+                    'name':'Conversion: DGT to DH',
+                    'parent':'conversion',
+                    'carrier_in':'heat_dgt',
+                    'carrier_out':'heat_dh',
+                    },
+                'constraints':{
+                    'energy_cap_max':'inf',
+                    'energy_eff':1.0, # Here we could account for transmission losses
+                    'lifetime':self._lifetime,
+                    },
+                'costs':{
+                    'monetary':{
+                        'om_con': 0.0, # costs are reflected in supply techs
+                        'interest_rate':0.0,
+                        },
+                    } 
+                }
+            dh_techs_label_list.append('conv_dgt_dh')
 
         # Gas boiler central plant (gbcp):
         if self._source_gas_boiler_cp:

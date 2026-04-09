@@ -195,6 +195,9 @@ class CalliopeOptimiser:
         if 'gas_boiler_cp' in self.tech_list:
             self.tech_gas_boiler_cp = tech_instances['gas_boiler_cp']
 
+        if 'deep_geothermal' in self.tech_list:
+            self.tech_deep_geothermal = tech_instances['deep_geothermal']
+
         if 'waste_heat' in self.tech_list:
             self.tech_waste_heat = tech_instances['waste_heat']
         
@@ -1272,6 +1275,13 @@ class CalliopeOptimiser:
             self.tech_wood_boiler_cp.update_v_h(v_h_wbcp)
 
         # -------------------
+        # Deep_Geothermal
+        if 'deep_geothermal' in self.tech_list:
+
+            v_h_dgt = opt_results['carrier_prod'].loc['X1::deep_geothermal_exists::heat_dgt'].values*self.energy_scaling_factor
+            self.tech_deep_geothermal.update_v_h(v_h_dgt)
+
+        # -------------------
         # Waste_heat
         if 'waste_heat' in self.tech_list:
             # rasa = opt_results['carrier_prod'].loc['X1::waste_heat_exists']
@@ -1429,6 +1439,9 @@ class CalliopeOptimiser:
 
         if 'waste_heat' in self.tech_list:
             d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_wh'].values*self.energy_scaling_factor
+
+        if 'deep_geothermal' in self.tech_list:
+            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_dgt'].values*self.energy_scaling_factor
 
         if 'gas_boiler_cp' in self.tech_list:
             d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_gbcp'].values*self.energy_scaling_factor
@@ -1858,6 +1871,12 @@ class CalliopeOptimiser:
                     tech_groups_dict
                     )
             
+        if 'deep_geothermal' in self.tech_list:
+            tech_groups_dict =\
+                self.tech_deep_geothermal.create_tech_groups_dict(
+                    tech_groups_dict
+                    )
+            
         if 'waste_heat_low_temperature' in self.tech_list:
             tech_groups_dict =\
                 self.tech_waste_heat_low_temperature.create_tech_groups_dict(
@@ -1917,7 +1936,8 @@ class CalliopeOptimiser:
             'wood_line': '#6e4500',
             'wet_biomass_line': '#024200',
             'waste_heat': '#918686',
-            'waste_heat_low_temperature': "#9BBAC9"
+            'waste_heat_low_temperature': "#9BBAC9",
+            'deep_geothermal': '#c56019',
             }
         
         techs_dict = {}
@@ -2572,6 +2592,17 @@ class CalliopeOptimiser:
                 )
             
             self.tech_list_old.append('wood_boiler_cp_exist')
+
+        if 'deep_geothermal' in self.tech_list:
+            techs_dict = self.tech_deep_geothermal.create_techs_dict(
+                techs_dict=techs_dict,
+                header='deep_geothermal_exists',
+                name='Deep Geothermal',
+                color=colors['deep_geothermal'],
+                energy_scaling_factor = self.energy_scaling_factor
+                )
+            
+            self.tech_list_old.append('deep_geothermal_exists')
 
         if 'waste_heat' in self.tech_list:
             techs_dict = self.tech_waste_heat.create_techs_dict(
