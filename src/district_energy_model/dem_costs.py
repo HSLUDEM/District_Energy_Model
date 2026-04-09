@@ -59,7 +59,7 @@ def get_old_capacities(tech_instances, debug=False):
             print(f"preparation of {tech} completed.\n")
     return 0
 
-def get_one_to_one_replacement_capacities(tech_instances, debug=False):
+def get_replacement_capacities(tech_instances, debug=False):
     # Get replacement capacities for all technologies and save them as attributes of the respective techs
     for tech in tech_instances:
         if debug:
