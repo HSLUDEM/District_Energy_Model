@@ -221,6 +221,7 @@ scen_techs = {
             'electric_heater_cp' :True,
             'wood_boiler_cp' :True,
             'gas_boiler_cp' :True,
+            'deep_geothermal': True, #deep geothermal well
             'waste_heat': True,
             'biomass': True
             },
@@ -316,6 +317,7 @@ scen_techs = {
             'gas_boiler_cp':True,
             'heat_pump_cp':True, # heat pump central plant
             'heat_pump_cp_lt':True, # heat pump central plant
+            'deep_geothermal': True, #deep geothermal well
             'waste_heat': False,
             'biomass': True
             },
@@ -611,7 +613,7 @@ scen_techs = {
         },
 
     'oil_boiler_cp':{ # obcp
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'kW_th_max':'inf',
         'hv_oil_MJpkg':hv_oil, # 42.9, # [MJ/kg] Heating value (lower) of oil
@@ -645,6 +647,14 @@ scen_techs = {
         'maintenance_cost': 1.26, # [CHF/kW/year]
         },
 
+    'deep_geothermal':{ # deep geothermal energy
+        'deployment':False,
+        'capex': 25000.0,
+        'maintenance_cost': 0.0,
+        'lifetime':50,
+        'co2_intensity':0.0, # [kgCO2/kWh]
+        'interest_rate':interest_rate,
+        },
 
     'waste_heat':{ # wh
         'deployment':False,

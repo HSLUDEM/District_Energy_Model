@@ -150,6 +150,12 @@ class ThermalEnergyStorage(TechCore):
                                          'heatflow_in': 'heat_wh', 
                                          'heatflow_out': 'heat_tes'})
 
+        if tech_dict['connections']['deep_geothermal']:
+            self._connections.append({'name': 'Conversion: DGT to TES', 
+                                         'techs_dict_symb': 'conv_dgt_tes',
+                                         'heatflow_in': 'heat_dgt', 
+                                         'heatflow_out': 'heat_tes'})
+
         if tech_dict['connections']['biomass']:
             self._connections.append({'name': 'Conversion: Heat_biomass to TES',
                                          'techs_dict_symb': 'conv_biomass_tes',

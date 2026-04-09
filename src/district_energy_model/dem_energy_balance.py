@@ -930,6 +930,7 @@ def heat_balance_test(df_scen,
         'v_h_ehcp',
         'v_h_wbcp',
         'v_h_wh',
+        'v_h_dgt',
         'v_h_gbcp',
         'u_e_aguh',
         'm_h_dh',
@@ -1054,6 +1055,7 @@ def heat_balance_test(df_scen,
         + df_scen['v_h_ehcp']
         + df_scen['v_h_wbcp']
         + df_scen['v_h_wh']
+        + df_scen['v_h_dgt']
         + df_scen['v_h_gbcp']
         + df_scen['v_h_bm']
         + df_scen['v_h_tes']
