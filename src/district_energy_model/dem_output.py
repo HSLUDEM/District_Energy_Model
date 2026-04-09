@@ -785,6 +785,25 @@ heat_balance_colors_mpl = [
     col_mpl_demand_unmet_dhn,
     ]
 
+
+heatlt_balance_y=[
+    'v_hlt_whlt', 
+    ]
+
+   
+heatlt_balance_legend_labels = [
+    'Waste heat (low temperature)',
+    ]
+
+heatlt_balance_colors = [
+    col_waste_heat_low_temperature,
+    ]
+
+heatlt_balance_colors_mpl = [
+    col_mpl_waste_heat_low_temperature,
+    ]
+
+
 # Pattern for district heating network:
 patterns = ['/', '\\', '|', '-', '+', 'x', 'o', '.']
 pattern_index = 1
