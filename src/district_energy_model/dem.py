@@ -1059,8 +1059,9 @@ class DistrictEnergyModel:
             )
         
         
+        # Prepare cost calculation by getting already installed capacities before applying scenarios or optimization
+        dem_costs.get_old_capacities(self.tech_instances) 
         
-        dem_costs.get_old_capacities(self.tech_instances)
         """--------------------------------------------------------------------
         Apply scenarios:
         """
@@ -1660,8 +1661,10 @@ class DistrictEnergyModel:
                 self.tech_instances,
                 df_scen
                 )
-            
+        
+        # Prepare cost calculation by calculating the capacities that need to be replaced one-to-one based on scenarios
         dem_costs.get_one_to_one_replacement_capacities(self.tech_instances)
+
         """--------------------------------------------------------------------
         Apply optimisation:
         """
