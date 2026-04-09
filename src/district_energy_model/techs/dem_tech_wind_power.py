@@ -1296,7 +1296,7 @@ class WindPower(TechCore):
         return self._v_e_pot_winter_kWhpkW   
 
     def get_existing(self):
-        print(f"Existing capacity wind power: {self.p_e_wp}")
+        # print(f"Existing capacity wind power: {self.p_e_wp}")
         return self.p_e_wp 
 
     def get_total_capex(self):
