@@ -188,10 +188,10 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
                     )
                 )
             elif hasattr(tech_instances[tech], '_lifetime') and not hasattr(tech_instances[tech], '_interest_rate'):
-                warnings.warn("'interest_rate' attribute does not exist. Annuity factor was calculated with default interest rate of 0.025.")   
+                warnings.warn(f"{tech} has no '_interest_rate' attribute. Annuity factor was calculated with default interest rate of 0.025.")   
                 annualized_capex = capex * annuity_factor(tech_instances[tech]._lifetime, interest_rate=0.025)
             else: 
-                warnings.warn("'lifetime' attribute does not exist. Annualized capex was set to capex without annualization.")
+                warnings.warn(f"{tech} has no '_lifetime' attribute. Annualized capex was set to capex without annualization.")
                 annualized_capex = capex
 
             tac = (
