@@ -6,6 +6,7 @@ Created on Thu Mar  7 14:12:26 2024
 """
 import warnings
 import district_energy_model.dem_constants as C
+import numpy as np
 
 def annuity_factor(lifetime_years, interest_rate=0.025):
     """
@@ -190,8 +191,8 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
                 warnings.warn("'interest_rate' attribute does not exist. Annuity factor was calculated with default interest rate of 0.025.")   
                 annualized_capex = capex * annuity_factor(tech_instances[tech]._lifetime, interest_rate=0.025)
             else: 
-                warnings.warn("'lifetime' attribute does not exist. Annualized capex was set to 0")
-                annualized_capex = 0
+                warnings.warn("'lifetime' attribute does not exist. Annualized capex was set to capex without annualization.")
+                annualized_capex = capex
 
             tac = (
                 (annualized_capex + opex) * (number_of_days / 365)
@@ -393,8 +394,8 @@ def calculate_CO2_emissions(supply, tech_instances):
             )
         if tech == "grid_supply":
             co2_emissions["emissions_grid"] = (
-                sum(tech_instances["grid_supply"]._m_e)
-                * tech_instances["grid_supply"]._co2_intensity
+                np.sum(np.array(tech_instances["grid_supply"]._m_e)
+                * tech_instances["grid_supply"]._co2_intensity_timeseries)
             )
         if tech == "district_heating":
             co2_emissions["district_heating"] = (

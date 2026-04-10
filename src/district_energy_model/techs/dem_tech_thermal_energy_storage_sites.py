@@ -779,7 +779,56 @@ class ThermalEnergyStorageSites(TechCore):
         return res
 
 
+    def get_total_capex(self):
+        capex = 0.0
+        for i in range(len(self._sites_list)):
+            storage = [max(self._q_hhtht[i])/self._sites_list[i]['rel_size_t_levels']['htht'] if self._sites_list[i]['rel_size_t_levels']['htht'] != 0 else 0,
+                    max(self._q_hhtlt[i])/self._sites_list[i]['rel_size_t_levels']['htlt'] if self._sites_list[i]['rel_size_t_levels']['htlt'] != 0 else 0,
+                    max(self._q_hltlt[i])/self._sites_list[i]['rel_size_t_levels']['ltlt'] if self._sites_list[i]['rel_size_t_levels']['ltlt'] != 0 else 0]
+            cap = max(storage)
+            if cap > 0:
+                capex += (self._sites_list[0]['capex_per_kWh'] * cap + self._sites_list[0]['capex_base'])*self.calculate_annuity_factor()[i]
+            else:
+                capex += 0.0
+        return capex
 
+    def get_total_maintenance(self):
+        maintenance_cost = 0.0
+        for i in range(len(self._sites_list)):
+            storage = [max(self._q_hhtht[i])/self._sites_list[i]['rel_size_t_levels']['htht'] if self._sites_list[i]['rel_size_t_levels']['htht'] != 0 else 0,
+                    max(self._q_hhtlt[i])/self._sites_list[i]['rel_size_t_levels']['htlt'] if self._sites_list[i]['rel_size_t_levels']['htlt'] != 0 else 0,
+                    max(self._q_hltlt[i])/self._sites_list[i]['rel_size_t_levels']['ltlt'] if self._sites_list[i]['rel_size_t_levels']['ltlt'] != 0 else 0]
+            cap = max(storage)
+            if cap > 0:
+                maintenance_cost += self._sites_list[0]['maintenance_cost_per_kWh'] * cap + self._sites_list[0]['maintenance_cost_base']
+            else:
+                maintenance_cost += 0.0
+        return maintenance_cost
+
+
+    def get_output(self):
+        storage = []
+        for i in range(len(self._sites_list)):
+            storage = [x + y + z for x,y,z in zip(self.q_hhtht[i], self.q_hhtlt[i], self.q_hltlt[i])]
+            storage.append(storage.max())
+        return storage
+
+    def get_existing(self):
+        return 0.0
+
+    def get_needs_replacement_cap(self):
+        return 0.0
+    
+    def calculate_annuity_factor(self):
+        annuity_factors = []
+        for i in range(len(self._sites_list)):
+            if self._sites_list[i]['interest_rate'] > 0:
+                q = (1 + self._sites_list[i]['interest_rate'])
+                annuity_factor = ((q**self._sites_list[i]['lifetime'])*(q - 1))/((q**self._sites_list[i]['lifetime'])-1)
+            else:
+                annuity_factor = 1.0 / self._sites_list[i]['lifetime']
+            annuity_factors.append(annuity_factor)
+        return annuity_factors
 
 
 

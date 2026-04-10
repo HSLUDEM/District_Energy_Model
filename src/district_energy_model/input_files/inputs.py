@@ -287,8 +287,12 @@ scen_techs = {
         'deployment':True,
         # 'deployment':False,
         'kW_max':'inf',
-        'tariff_CHFpkWh':grid_tariff_CHFpkWh, #0.29, # [CHF/kWh] electricity tariff !!! MUST BE CHANGED TO A TIME SERIES
-        'co2_intensity':0.128,
+        'tariff_mode': 'const', # 'const' or 'file'
+        'co2_intensity_mode': 'const',
+        'tariff_timeseries_filepath': '',
+        'co2_intensity_timeseries_filepath': '',
+        'constant_tariff_CHFpkWh':grid_tariff_CHFpkWh, #0.29, # [CHF/kWh] electricity tariff !!! MUST BE CHANGED TO A TIME SERIES
+        'constant_co2_intensity':0.128,
         'lifetime':25,
         'interest_rate':interest_rate
         },

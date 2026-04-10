@@ -31,7 +31,10 @@ Created on Wed Mar 13 14:39:11 2024
 
 class DEMPaths:
     
-    def __init__(self, root_dir):
+    def __init__(self, 
+                 root_dir, 
+                 config_dir = '', 
+                 output_dir = ''):
 
         path_strt1 = root_dir
         self.root_dir = root_dir
@@ -60,7 +63,11 @@ class DEMPaths:
         
         # input_files_dir = '../../config/input_files'
         # self.input_files_dir = path_strt1 + '/config/input_files'
-        self.input_files_dir = path_strt1 + '/config/config_files'
+
+        if config_dir == '':
+            self.input_files_dir = path_strt1 + '/config/config_files'
+        else:
+            self.input_files_dir = config_dir
         
         # Input data directories:
         self.weather_data_dir = path_strt1 + '/data/heat_demand/weather_data/' # location of meteostat files
@@ -99,4 +106,7 @@ class DEMPaths:
         self.ev_munic_name_nr_file = 'ev_munic_name_nr.feather' # municipalities and BFS numnbers for ev data
         
         # Output directory:
-        self.output_dir_name = 'dem_output'
+        if output_dir == '':
+            self.output_dir_name = 'dem_output'
+        else:
+            self.output_dir_name = output_dir

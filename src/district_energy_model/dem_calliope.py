@@ -418,6 +418,14 @@ class CalliopeOptimiser:
         else:
             waste_heat_resource = null_array.copy()
 
+        if 'grid_supply' in self.tech_list:
+            grid_supply_resource_tariff_timeseries = self.tech_grid_supply.get_tariff_timeseries()
+            grid_supply_resource_co2_intensity_timeseries = self.tech_grid_supply.get_co2_intensity_timeseries()
+        else:
+            grid_supply_resource_tariff_timeseries = null_array.copy()
+            grid_supply_resource_co2_intensity_timeseries = null_array.copy()
+
+
         if 'waste_heat_low_temperature' in self.tech_list:
             waste_heat_low_temperature_resource = self.tech_waste_heat_low_temperature.get_v_hlt_resource()
         else:
@@ -473,6 +481,10 @@ class CalliopeOptimiser:
         waste_heat_resource = pd.Series(waste_heat_resource, index=date_index)
         waste_heat_low_temperature_resource = pd.Series(waste_heat_low_temperature_resource, index=date_index)
 
+        grid_supply_resource_tariff_timeseries = pd.Series(grid_supply_resource_tariff_timeseries, index=date_index)
+        grid_supply_resource_co2_intensity_timeseries = pd.Series(grid_supply_resource_co2_intensity_timeseries, index=date_index)
+
+
         heat_pump_cp_cops = pd.Series(heat_pump_cp_cops, index=date_index)
 
         heat_pump_cops_existing = pd.Series(heat_pump_cops_existing, index=date_index)
@@ -511,6 +523,12 @@ class CalliopeOptimiser:
         df_waste_heat_resource = waste_heat_resource.to_frame('v_h_wh')
         df_waste_heat_low_temperature_resource = waste_heat_low_temperature_resource.to_frame('v_hlt_whlt')
 
+        df_grid_supply_timeseries = pd.DataFrame({
+                                    "tariff_timeseries": grid_supply_resource_tariff_timeseries * self.energy_scaling_factor,
+                                    "co2_intensity_timeseries": grid_supply_resource_co2_intensity_timeseries * self.energy_scaling_factor
+                                })
+
+
         df_heat_pump_cp_cops = heat_pump_cp_cops.to_frame('cop')
 
         df_heat_pump_cops_existing = heat_pump_cops_existing.to_frame('heat_pump_cops_existing')
@@ -545,6 +563,7 @@ class CalliopeOptimiser:
             'wp_resource_winter':df_wp_resource_winter, #/ self.energy_scaling_factor,
             'hydro_resource':df_hydro_resource / self.energy_scaling_factor,
             'waste_heat':df_waste_heat_resource / self.energy_scaling_factor,
+            'grid_supply':df_grid_supply_timeseries,
             'waste_heat_low_temperature':df_waste_heat_low_temperature_resource / self.energy_scaling_factor,
             'heat_pump_cp': df_heat_pump_cp_cops,
             'heat_pump_cops_existing': df_heat_pump_cops_existing,
@@ -2375,6 +2394,8 @@ class CalliopeOptimiser:
             techs_dict = self.tech_grid_supply.create_techs_dict(
                 techs_dict,
                 colors['grid_supply'],
+                resource_tariff_timeseries = "df=grid_supply:tariff_timeseries",
+                resource_co2_intensity_timeseries = "df=grid_supply:co2_intensity_timeseries",
                 energy_scaling_factor = self.energy_scaling_factor
                 )
             
