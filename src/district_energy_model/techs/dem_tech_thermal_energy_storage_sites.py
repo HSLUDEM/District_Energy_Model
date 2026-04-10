@@ -782,12 +782,9 @@ class ThermalEnergyStorageSites(TechCore):
     def get_total_capex(self):
         capex = 0.0
         for i in range(len(self._sites_list)):
-            storage = [max(self._q_hhtht[i])/self._sites_list[i]['rel_size_t_levels']['htht'] if self._sites_list[i]['rel_size_t_levels']['htht'] != 0 else 0,
-                    max(self._q_hhtlt[i])/self._sites_list[i]['rel_size_t_levels']['htlt'] if self._sites_list[i]['rel_size_t_levels']['htlt'] != 0 else 0,
-                    max(self._q_hltlt[i])/self._sites_list[i]['rel_size_t_levels']['ltlt'] if self._sites_list[i]['rel_size_t_levels']['ltlt'] != 0 else 0]
-            cap = max(storage)
+            cap = self._cap_htht[i] + self._cap_htlt[i] + self._cap_ltlt[i]
             if cap > 0:
-                capex += (self._sites_list[0]['capex_per_kWh'] * cap + self._sites_list[0]['capex_base'])*self.calculate_annuity_factor()[i]
+                capex += (self._sites_list[i]['capex_per_kWh'] * cap + self._sites_list[i]['capex_base'])*self.calculate_annuity_factor()[i]
             else:
                 capex += 0.0
         return capex
@@ -795,12 +792,9 @@ class ThermalEnergyStorageSites(TechCore):
     def get_total_maintenance(self):
         maintenance_cost = 0.0
         for i in range(len(self._sites_list)):
-            storage = [max(self._q_hhtht[i])/self._sites_list[i]['rel_size_t_levels']['htht'] if self._sites_list[i]['rel_size_t_levels']['htht'] != 0 else 0,
-                    max(self._q_hhtlt[i])/self._sites_list[i]['rel_size_t_levels']['htlt'] if self._sites_list[i]['rel_size_t_levels']['htlt'] != 0 else 0,
-                    max(self._q_hltlt[i])/self._sites_list[i]['rel_size_t_levels']['ltlt'] if self._sites_list[i]['rel_size_t_levels']['ltlt'] != 0 else 0]
-            cap = max(storage)
+            cap = self._cap_htht[i] + self._cap_htlt[i] + self._cap_ltlt[i]
             if cap > 0:
-                maintenance_cost += self._sites_list[0]['maintenance_cost_per_kWh'] * cap + self._sites_list[0]['maintenance_cost_base']
+                maintenance_cost += self._sites_list[i]['maintenance_cost_per_kWh'] * cap + self._sites_list[i]['maintenance_cost_base']
             else:
                 maintenance_cost += 0.0
         return maintenance_cost
