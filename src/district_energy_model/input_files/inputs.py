@@ -366,7 +366,7 @@ scen_techs = {
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
         'bes_gamma':0.001,
         'capacity_kWh':bes_cap*1e6 if bes_cap != 'inf' else 'inf',
-        'chg_dchg_per_cap_max':0.1, # max. charge/discharge (kW) per storage cap (kWh) per timestep
+        'chg_dchg_per_cap_max':1.0, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':bes_ic,
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
         'lifetime':10,
