@@ -384,8 +384,11 @@ class SolarPVType(TechCore):
     
     def get_total_capex(self):
         capex = 0
-        for installation in self._installations:
-            capex += installation._capex*(installation._v_e.max() - installation._existing)
+        for i, installation in enumerate(self._installations):
+            print(f"Installation_{i} Capex: {installation._capex*(installation._v_e.max() - installation._existing)}")
+            capex_installation = installation._capex*(installation._v_e.max() - installation._existing)
+            if capex_installation >= 0:
+                capex += capex_installation
         if capex <= 0:
             return 0
         else:
@@ -393,7 +396,8 @@ class SolarPVType(TechCore):
     
     def get_total_maintenance(self):
         maintenance = 0
-        for installation in self._installations:
+        for i, installation in enumerate(self._installations):
+            print(f"Installation_{i} maintenance: {installation._maintenance_cost*installation._v_e.max()}")
             maintenance += installation._maintenance_cost*installation._v_e.max()
         return maintenance
     
@@ -403,10 +407,11 @@ class SolarPVType(TechCore):
     
     def get_energy_revenue(self):
         export_revenue = 0
-        for installation in self._installations:
+        for i, installation in enumerate(self._installations):
+            print(f"Installation_{i} export revenue: {installation._export_subsidy*np.sum(installation._v_e_exp)}")
             export_revenue += installation._export_subsidy*np.sum(installation._v_e_exp)
         return export_revenue
     
     def get_existing(self):
-        for installation in self._installations:
+        for i, installation in enumerate(self._installations):
             installation._existing = installation._max_profile.max()*installation._share_occupied

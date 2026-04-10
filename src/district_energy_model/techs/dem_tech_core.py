@@ -144,7 +144,7 @@ class TechCore():
         for attr in ["_q_h", "_q_gas", "_q_wd", "_q_hyd", "_q_e"]:
             if hasattr(self, attr):
                 return getattr(self, attr)
-        for attr in ['_v_e', '_v_h', '_m_e', '_v_gas', '_v_hyd']: 
+        for attr in ['_v_e', '_v_h', '_v_hlt', '_m_e', '_v_gas', '_v_hyd']: 
             if hasattr(self, attr):
                 return getattr(self, attr)
         raise AttributeError("No storage or flow variable found in the technology class.")
