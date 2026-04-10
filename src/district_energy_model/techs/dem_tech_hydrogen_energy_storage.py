@@ -356,3 +356,8 @@ class HydrogenEnergyStorage(TechCore):
         self.num_test(val)
         self._sos[i] = float(val)
 
+    def get_total_capex(self):
+        return self._capex*self.get_cap()
+
+    def get_total_maintenance(self):
+        return self._maintenance_cost*self.get_cap()

@@ -800,11 +800,11 @@ class ThermalEnergyStorageSites(TechCore):
         return maintenance_cost
 
 
-    def get_output(self):
+    def get_output_max(self):
         storage = []
         for i in range(len(self._sites_list)):
-            storage = [x + y + z for x,y,z in zip(self.q_hhtht[i], self.q_hhtlt[i], self.q_hltlt[i])]
-            storage.append(storage.max())
+            cap = self._cap_htht[i] + self._cap_htlt[i] + self._cap_ltlt[i]
+            storage.append(cap)
         return storage
 
     def get_existing(self):
