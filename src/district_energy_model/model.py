@@ -17,6 +17,9 @@ Created on Mon Apr  3 11:43:49 2023
 # import dem
 # import paths
 # import dem_helper
+import importlib
+import importlib.util
+import sys
 
 from district_energy_model import dem
 from district_energy_model import dem_helper
@@ -25,14 +28,30 @@ from district_energy_model import dem_paths
 # Generic input file:
 # -----------------------
 # import input_files.inputs as inp
-from district_energy_model.input_files import inputs as inp
+# from district_energy_model.input_files import inputs as inp
 
-def launch(root_dir=None, config_files=True, config_dict=''):
+def launch(root_dir=None, 
+           config_files=True, 
+           config_dict='', 
+           input_dir = "district_energy_model.input_files.inputs",
+           config_dir = "",
+           output_dir = ""):
     """
     root_dir: directory where the user provides `data/` and `config/` folders
     If None: use current working directory.
     """
     
+    #Load input file from specified location, if requested to do so.
+    if input_dir == "district_energy_model.input_files.inputs":
+        inp = importlib.import_module(input_dir)
+    else:
+        spec = importlib.util.spec_from_file_location("inputs", input_dir)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["inputs"] = module
+        spec.loader.exec_module(module)
+        inp = module
+    
+
     from pathlib import Path
 
     root_dir = str(Path(root_dir or ".").resolve())    
@@ -42,7 +61,7 @@ def launch(root_dir=None, config_files=True, config_dict=''):
     print("------------------------------")
     print('\nGenerate model ...')
     
-    paths = dem_paths.DEMPaths(root_dir)
+    paths = dem_paths.DEMPaths(root_dir, output_dir=output_dir, config_dir=config_dir)
     
     # Read input files and update scen_techs:
     paths.input_files_dir
