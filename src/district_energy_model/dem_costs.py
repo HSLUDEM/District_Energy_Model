@@ -191,8 +191,8 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
                 warnings.warn("'interest_rate' attribute does not exist. Annuity factor was calculated with default interest rate of 0.025.")   
                 annualized_capex = capex * annuity_factor(tech_instances[tech]._lifetime, interest_rate=0.025)
             else: 
-                warnings.warn("'lifetime' attribute does not exist. Annualized capex was set to 0")
-                annualized_capex = 0
+                warnings.warn("'lifetime' attribute does not exist. Annualized capex was set to capex without annualization.")
+                annualized_capex = capex
 
             tac = (
                 (annualized_capex + opex) * (number_of_days / 365)
