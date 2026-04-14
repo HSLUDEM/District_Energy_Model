@@ -499,7 +499,8 @@ keys_add_negative_if_available = ['v_e_pv_exp',
                                   'v_h_chpgt_waste',
                                   'v_h_st_gtcp_waste',
                                   'v_h_st_wbsg_waste',
-                                  'v_h_solarthermalrooftop_exp']
+                                  'v_h_solarthermalrooftop_exp',
+                                  'u_hlt_hpcplt']
 
 
 electricity_balance_y=[
@@ -788,19 +789,22 @@ heat_balance_colors_mpl = [
 
 heatlt_balance_y=[
     'v_hlt_whlt', 
+    'u_hlt_hpcplt_negative', 
     ]
-
    
 heatlt_balance_legend_labels = [
     'Waste heat (low temperature)',
+    'Heat pump (low temperature)',
     ]
 
 heatlt_balance_colors = [
     col_waste_heat_low_temperature,
+    col_heat_pump_cp_lt,
     ]
 
 heatlt_balance_colors_mpl = [
     col_mpl_waste_heat_low_temperature,
+    col_mpl_heat_pump_cp_lt
     ]
 
 
@@ -827,6 +831,20 @@ def add_tes_sites_plotting_keys(tes_sites_plotting_inf):
                                             tes_sites_plotting_inf[k]['color'][2]/255,
                                             opac*opac_red_factor))
 
+        for entry in tes_sites_plotting_inf[k]['u_lt']:
+            keys_add_negative_if_available.append(entry)
+            heatlt_balance_y.append(entry+'_negative')
+            heatlt_balance_legend_labels.append(k+ ' charging')
+            heatlt_balance_colors.append(f'rgba('+str(tes_sites_plotting_inf[k]['color'][0])
+                                       +', '+str(tes_sites_plotting_inf[k]['color'][1])
+                                       +', '+str(tes_sites_plotting_inf[k]['color'][2])
+                                       +', '+str(opac*opac_red_factor)+')')
+            heatlt_balance_colors_mpl.append((tes_sites_plotting_inf[k]['color'][0]/255,
+                                            tes_sites_plotting_inf[k]['color'][1]/255,
+                                            tes_sites_plotting_inf[k]['color'][2]/255,
+                                            opac*opac_red_factor))
+
+
         for entry in tes_sites_plotting_inf[k]['v']:
             heat_balance_y.append(entry)
             heat_sources_dhn.append(entry)
@@ -839,6 +857,19 @@ def add_tes_sites_plotting_keys(tes_sites_plotting_inf):
                                             tes_sites_plotting_inf[k]['color'][1]/255,
                                             tes_sites_plotting_inf[k]['color'][2]/255,
                                             opac))
+            
+        for entry in tes_sites_plotting_inf[k]['v_lt']:
+            heatlt_balance_y.append(entry)
+            heatlt_balance_legend_labels.append(k +' discharging')
+            heatlt_balance_colors.append(f'rgba('+str(tes_sites_plotting_inf[k]['color'][0])
+                                       +', '+str(tes_sites_plotting_inf[k]['color'][1])
+                                       +', '+str(tes_sites_plotting_inf[k]['color'][2])
+                                       +', '+str(opac*opac_red_factor)+')')
+            heatlt_balance_colors_mpl.append((tes_sites_plotting_inf[k]['color'][0]/255,
+                                            tes_sites_plotting_inf[k]['color'][1]/255,
+                                            tes_sites_plotting_inf[k]['color'][2]/255,
+                                            opac))
+
 
         for entry in tes_sites_plotting_inf[k]['u_hht_to_hlt']:
             keys_add_negative_if_available.append(entry)
@@ -854,7 +885,18 @@ def add_tes_sites_plotting_keys(tes_sites_plotting_inf):
                                             tes_sites_plotting_inf[k]['color'][2]/255,
                                             opac*opac_red_factor*0.5))
 
-        
+            heatlt_balance_y.append(entry)
+            heatlt_balance_legend_labels.append(k+ ' HT->LT conversion')
+            heatlt_balance_colors.append(f'rgba('+str(tes_sites_plotting_inf[k]['color'][0])
+                                       +', '+str(tes_sites_plotting_inf[k]['color'][1])
+                                       +', '+str(tes_sites_plotting_inf[k]['color'][2])
+                                       +', '+str(opac*opac_red_factor*0.5)+')')
+            heatlt_balance_colors_mpl.append((tes_sites_plotting_inf[k]['color'][0]/255,
+                                            tes_sites_plotting_inf[k]['color'][1]/255,
+                                            tes_sites_plotting_inf[k]['color'][2]/255,
+                                            opac*opac_red_factor*0.5))
+
+
 
 #%% Plot functions
 
@@ -1864,6 +1906,618 @@ def plot_electricity_balance_weekly(df_scen,
 #         fig.write_html(file_html)
 
 #     del df_plot
+
+
+
+def plot_heatlt_balance_hourly(df_scen,
+                             dir_path,
+                             output_svg = False,
+                             output_html = True,
+                             filename = 'heatlt_balance_hourly',
+                             timeframe = False,
+                             timeframe_start = '01-01',
+                             timeframe_end = '12-31',
+                             axes_font_size = 16,
+                             title_font_size = 24
+                             ):
+    
+    """
+    Generates a stacked bar plot with the hourly heat supply split by
+    sources.
+    
+    Parameters
+    ----------
+    df_scen : pandas dataframe
+        Dataframe with resulting hourly values.
+    dir_path : string
+        Path to directory, where plots shall be saved.
+    output_svg : bool
+        If set to 'True', a (static) plot in .svg format will be generated.
+        Default: False
+    output_svg : bool
+        If set to 'True', a (dynamic) plot in .html format will be generated.
+        Default: True
+    filename : string
+        Name of generated plot file(s).
+    timeframe : bool
+        If set to 'True', only the selected timeframe will be plotted.
+        [not yet implemented]
+    timeframe_start : string
+        Beginning of selected timeframe.
+        [not yet implemented]
+    timeframe_end : string
+        End of selected timeframe.
+        [not yet implemented]
+    axes_font_size : int
+        Font size for x- and y-axis labels, tick-mark labels, and legend
+        labels.
+    title_font_size : int
+        Font size of plot title.
+
+    Returns
+    -------
+    n/a
+    """
+    
+    df_plot = df_scen.copy()
+
+    for x in keys_add_negative_if_available:
+        if x in df_plot.columns:
+            df_plot[x+'_negative'] = -df_plot[x]
+
+    # Convert from kWh to MWh:
+    df_plot = df_plot/1000
+    
+    # Identify available columns
+    valid_columns = df_plot.columns.intersection(heatlt_balance_y).tolist()
+        
+    # Use zip to filter the lists based on valid_columns
+    filtered_data = [
+        (col, label, color) 
+        for col, label, color in zip(heatlt_balance_y, heatlt_balance_legend_labels, heatlt_balance_colors) 
+        if col in valid_columns
+    ]
+    
+    # Unzip the filtered data back into separate lists
+    heatlt_balance_y_, heatlt_balance_legend_labels_, heatlt_balance_colors_ = map(list, zip(*filtered_data))
+
+    # Identify nonzero columns
+    nonzero_mask = df_plot[heatlt_balance_y_].sum() != 0
+
+    # Filter out zero-value columns
+    y = [col for col, nz in zip(heatlt_balance_y_, nonzero_mask) if nz]
+    legend_labels = [label for label, nz in zip(heatlt_balance_legend_labels_, nonzero_mask) if nz]
+    colors = [color for color, nz in zip(heatlt_balance_colors_, nonzero_mask) if nz]
+    
+    # Ensure the index is in datetime format
+    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
+    
+    fig = px.bar(
+        df_plot, 
+        x=df_plot.index,
+        y=y,
+        labels={'x': 'Time'},
+        title='Hourly Heat (Low Temperature) Balance',
+        category_orders={'x': df_plot.index},
+        pattern_shape_sequence=patterns,  # Apply patterns
+        #height=400,
+        #width=1200
+        )
+    
+    fig.add_trace(go.Bar(
+        x=[None], y=[None],
+        name=DHN_label,
+        marker=dict(pattern_shape=patterns[pattern_index], color='white'),
+        showlegend=True
+    ))
+   
+    # Update each trace individually (color, label):
+    for i, trace_name in enumerate(y):
+        fig.update_traces(
+            marker_color=colors[i],
+            marker_line_width=0,
+            selector=dict(name=trace_name),
+            name = legend_labels[i],
+            marker_pattern_shape=patterns[pattern_index % len(patterns)] if trace_name in heat_sources_dhn else ''
+            )
+        # if trace_name in heat_sources_dhn:
+        #     pattern_index += 1
+        
+    
+    fig.update_layout(
+        plot_bgcolor='white',
+        bargap = 0.01,
+        bargroupgap = 0.00,
+        title_x=0.5,  # Center the title
+        legend_title_text='',
+        title_font_size=title_font_size,
+        legend_font=dict(size=axes_font_size)
+        )
+    
+    fig.update_xaxes(
+        # title_text='Time',
+        title_text='',
+        title_standoff=0,
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey',
+        title_font_size=axes_font_size,
+        tickfont=dict(size=axes_font_size),
+        tickformat="%d %b %H:%M"  # Formats as '3 Jan 15:00'
+    )
+    fig.update_yaxes(
+        title_text='Heat Balance [MWh]',
+        title_standoff=0,
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey',
+        title_font_size=axes_font_size,
+        tickfont=dict(size=axes_font_size)
+    )
+    
+    file_svg = dir_path + '/' + filename + '.svg'
+    file_html = dir_path + '/' + filename + '.html'
+    
+    if output_svg == True:
+        fig.write_image(file_svg, width=svg_width, height=svg_height)
+    
+    if output_html == True:
+        fig.write_html(file_html)
+    
+    del df_plot
+
+def plot_heatlt_balance_daily(df_scen,
+                             dir_path,
+                             output_svg = False,
+                             output_html = False,
+                             filename = 'heatlt_balance_daily',
+                             axes_font_size = 16,
+                             title_font_size = 24
+                             ):
+    
+    """
+    Generates a stacked bar plot with the daily heat supply split by
+    sources.
+    
+    Parameters
+    ----------
+    df_scen : pandas dataframe
+        Dataframe with resulting hourly values.
+    dir_path : string
+        Path to directory, where plots shall be saved.
+    output_svg : bool
+        If set to 'True', a (static) plot in .svg format will be generated.
+        Default: False
+    output_svg : bool
+        If set to 'True', a (dynamic) plot in .html format will be generated.
+        Default: True
+    filename : string
+        Name of generated plot file(s).
+    axes_font_size : int
+        Font size for x- and y-axis labels, tick-mark labels, and legend
+        labels.
+    title_font_size : int
+        Font size of plot title.
+
+    Returns
+    -------
+    n/a
+    """
+    
+    df_plot = df_scen.copy()
+
+    for x in keys_add_negative_if_available:
+        if x in df_plot.columns:
+            df_plot[x+'_negative'] = -df_plot[x]
+
+
+    # Convert from kWh to MWh:
+    df_plot = df_plot/1000
+    
+    #--------------------------------------------------------------------------
+    # Calculate weekly sums:
+
+    # Calculate the day number (starting from 0) for each entry
+    df_plot['day'] = (df_plot.index // 24)  # 24 hours in a day
+
+    # Group by day and calculate the sum for each day
+    df_daily_sum = df_plot.groupby('day').sum()
+        
+    # Shift the index by 1 (to start at day 1)
+    df_daily_sum.index = df_daily_sum.index + 1
+    
+    #--------------------------------------------------------------------------
+    # Create plot:
+        
+    # Identify available columns
+    valid_columns = df_plot.columns.intersection(heatlt_balance_y).tolist()
+        
+    # Use zip to filter the lists based on valid_columns
+    filtered_data = [
+        (col, label, color) 
+        for col, label, color in zip(heatlt_balance_y, heatlt_balance_legend_labels, heatlt_balance_colors) 
+        if col in valid_columns
+    ]
+    
+    # Unzip the filtered data back into separate lists
+    heatlt_balance_y_, heatlt_balance_legend_labels_, heatlt_balance_colors_ = map(list, zip(*filtered_data))
+
+    # # Identify nonzero columns
+    nonzero_mask = df_plot[heatlt_balance_y_].sum() != 0
+
+    # Filter out zero-value columns
+    y = [col for col, nz in zip(heatlt_balance_y_, nonzero_mask) if nz]
+    legend_labels = [label for label, nz in zip(heatlt_balance_legend_labels_, nonzero_mask) if nz]
+    colors = [color for color, nz in zip(heatlt_balance_colors_, nonzero_mask) if nz]
+
+    # # Filter out zero-value columns
+    # y = [col for col, nz in zip(heat_balance_y, nonzero_mask) if nz]
+    # legend_labels = [label for label, nz in zip(heat_balance_legend_labels, nonzero_mask) if nz]
+    # colors = [color for color, nz in zip(heat_balance_colors, nonzero_mask) if nz]
+
+    # Ensure the index is in datetime format
+    df_daily_sum.index = pd.date_range(start='2050-01-01', periods=len(df_daily_sum), freq='D')
+        
+    fig = px.bar(
+        df_daily_sum, 
+        x=df_daily_sum.index,
+        y=y,
+        labels={'x': 'Time'},
+        title='Daily Heat (LT) Balance',
+        category_orders={'x': df_daily_sum.index},
+        pattern_shape_sequence=patterns,
+        #height=400,
+        #width=1200
+        )
+    
+    fig.add_trace(go.Bar(
+        x=[None], y=[None],
+        name=DHN_label,
+        marker=dict(pattern_shape=patterns[pattern_index], color='white'),
+        showlegend=True,
+        ))
+      
+    # Update each trace individually (color, label):
+    for i, trace_name in enumerate(y):
+        fig.update_traces(
+            marker_color=colors[i],
+            marker_line_width=0,
+            selector=dict(name=trace_name),
+            name = legend_labels[i],
+            marker_pattern_shape=''
+            )
+    
+    fig.update_layout(
+        plot_bgcolor='white',
+        bargap = 0.01,
+        bargroupgap = 0.00,
+        title_x=0.5,  # Center the title
+        legend_title_text='',
+        title_font_size=title_font_size,
+        legend_font=dict(size=axes_font_size)
+        )
+    
+    fig.update_xaxes(
+        # title_text='Day of the year',
+        title_text='',
+        title_standoff=0,
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey',
+        title_font_size=axes_font_size,
+        tickfont=dict(size=axes_font_size),
+        tickformat="%d %b",  # Example: "03 Jan"
+    )
+    fig.update_yaxes(
+        title_text='Heat (LT) balance [MWh]',
+        title_standoff=0,
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey',
+        title_font_size=axes_font_size,
+        tickfont=dict(size=axes_font_size),
+    )
+    
+    file_svg = dir_path + '/' + filename + '.svg'
+    file_html = dir_path + '/' + filename + '.html'
+    
+    if output_svg == True:
+        fig.write_image(file_svg, width=svg_width, height=svg_height)
+    
+    if output_html == True:
+        fig.write_html(file_html)
+    
+    del df_plot
+    del df_daily_sum
+
+def plot_heatlt_balance_weekly(df_scen,
+                             dir_path,
+                             output_svg = False,
+                             output_html = False,
+                             filename = 'heatlt_balance_weekly',
+                             axes_font_size = 16,
+                             title_font_size = 24
+                             ):
+    
+    """
+    Generates a stacked bar plot with the weekly heat supply split by
+    sources.
+    
+    Parameters
+    ----------
+    df_scen : pandas dataframe
+        Dataframe with resulting hourly values.
+    dir_path : string
+        Path to directory, where plots shall be saved.
+    output_svg : bool
+        If set to 'True', a (static) plot in .svg format will be generated.
+        Default: False
+    output_svg : bool
+        If set to 'True', a (dynamic) plot in .html format will be generated.
+        Default: True
+    filename : string
+        Name of generated plot file(s).
+    axes_font_size : int
+        Font size for x- and y-axis labels, tick-mark labels, and legend
+        labels.
+    title_font_size : int
+        Font size of plot title.
+
+    Returns
+    -------
+    n/a
+    """
+    
+    df_plot = df_scen.copy()
+
+    for x in keys_add_negative_if_available:
+        if x in df_plot.columns:
+            df_plot[x+'_negative'] = -df_plot[x]
+
+
+    # Convert from kWh to GWh:
+    df_plot = df_plot/1000000
+    
+    #--------------------------------------------------------------------------
+    # Calculate weekly sums:
+
+    # Calculate the week number (starting from 0) for each entry
+    df_plot['week'] = (df_plot.index // 168)  # 168 hours in a week (24 hours * 7 days)
+
+    # Group by week and calculate the sum for each week
+    df_weekly_sum = df_plot.groupby('week').sum()
+    
+    if len(df_weekly_sum) > 52:
+        # Last week consists of fewer days
+        # Remove the last row (i.e. week)
+        df_weekly_sum = df_weekly_sum.drop(df_weekly_sum.index[-1])
+        
+    # Shift the index by 1 (to start at week 1)
+    df_weekly_sum.index = df_weekly_sum.index + 1
+    
+    #--------------------------------------------------------------------------
+    # Create plot:
+        
+    # Identify available columns
+    valid_columns = df_plot.columns.intersection(heatlt_balance_y).tolist()
+        
+    # Use zip to filter the lists based on valid_columns
+    filtered_data = [
+        (col, label, color) 
+        for col, label, color in zip(heatlt_balance_y, heatlt_balance_legend_labels, heatlt_balance_colors) 
+        if col in valid_columns
+    ]
+    
+    # Unzip the filtered data back into separate lists
+    heatlt_balance_y_, heatlt_balance_legend_labels_, heatlt_balance_colors_ = map(list, zip(*filtered_data))
+    
+    # # Identify nonzero columns
+    nonzero_mask = df_plot[heatlt_balance_y_].sum() != 0
+
+    # Filter out zero-value columns
+    y = [col for col, nz in zip(heatlt_balance_y_, nonzero_mask) if nz]
+    legend_labels = [label for label, nz in zip(heatlt_balance_legend_labels_, nonzero_mask) if nz]
+    colors = [color for color, nz in zip(heatlt_balance_colors_, nonzero_mask) if nz]
+
+    # # Filter out zero-value columns
+    # y = [col for col, nz in zip(heat_balance_y, nonzero_mask) if nz]
+    # legend_labels = [label for label, nz in zip(heat_balance_legend_labels, nonzero_mask) if nz]
+    # colors = [color for color, nz in zip(heat_balance_colors, nonzero_mask) if nz]
+
+    # Ensure the index is in datetime format
+    df_weekly_sum.index = pd.date_range(start='2050-01-01', periods=len(df_weekly_sum), freq='W')
+        
+    fig = px.bar(
+        df_weekly_sum, 
+        x=df_weekly_sum.index,
+        y=y,
+        labels={'x': 'Time'},
+        title='Weekly Heat (LT) Balance',
+        category_orders={'x': df_weekly_sum.index},
+        pattern_shape_sequence=patterns,
+        #height=400,
+        #width=1200
+        )
+    
+    fig.add_trace(go.Bar(
+        x=[None], y=[None],
+        name=DHN_label,
+        marker=dict(pattern_shape=patterns[pattern_index], color='white'),
+        showlegend=True,
+        ))
+     
+    # Update each trace individually (color, label):
+    for i, trace_name in enumerate(y):
+        fig.update_traces(
+            marker_color=colors[i],
+            marker_line_width=0,
+            selector=dict(name=trace_name),
+            name = legend_labels[i],
+            marker_pattern_shape=''
+            )
+
+    fig.update_layout(
+        plot_bgcolor='white',
+        bargap = 0.01,
+        bargroupgap = 0.00,
+        title_x=0.5,  # Center the title
+        legend_title_text='',
+        title_font_size=title_font_size,
+        legend_font=dict(size=axes_font_size)
+        )    
+    fig.update_xaxes(
+        # title_text='Week of the year',
+        title_text='',
+        title_standoff=0,
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey',
+        title_font_size=axes_font_size,
+        tickfont=dict(size=axes_font_size),
+        tickformat="%d %b",  # Example: "03 Jan"
+    )
+    fig.update_yaxes(
+        title_text='Heat (LT) balance [GWh]',
+        title_standoff=0,
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linecolor='black',
+        gridcolor='lightgrey',
+        title_font_size=axes_font_size,
+        tickfont=dict(size=axes_font_size)
+    )
+    
+    file_svg = dir_path + '/' + filename + '.svg'
+    file_html = dir_path + '/' + filename + '.html'
+    
+    if output_svg == True:
+        fig.write_image(file_svg, width=svg_width, height=svg_height)
+    
+    if output_html == True:
+        fig.write_html(file_html)
+        
+    del df_plot
+    del df_weekly_sum
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     
 def plot_heat_balance_hourly(df_scen,
@@ -5377,13 +6031,22 @@ def plot(
                 dir_path=results_path,
                 output_svg = toggle_svg,
                 output_html = toggle_html,
-                )
+                )            
+
             plot_heat_balance_hourly(
                 df_scen=df_scen,
                 dir_path=results_path,
                 output_svg = toggle_svg,
                 output_html = toggle_html,
                 )
+            
+            plot_heatlt_balance_hourly(
+                df_scen=df_scen,
+                dir_path=results_path,
+                output_svg = toggle_svg,
+                output_html = toggle_html,
+                )
+
             plot_electricity_balance_daily(
                 df_scen=df_scen,
                 dir_path=results_path,
@@ -5396,6 +6059,14 @@ def plot(
                 output_svg = toggle_svg,
                 output_html = toggle_html,
                 )
+            
+            plot_heatlt_balance_daily(
+                df_scen=df_scen,
+                dir_path=results_path,
+                output_svg = toggle_svg,
+                output_html = toggle_html,
+                )
+
             plot_electricity_balance_weekly(
                 df_scen=df_scen,
                 dir_path=results_path,
@@ -5408,6 +6079,13 @@ def plot(
                 output_svg = toggle_svg,
                 output_html = toggle_html,
                 )
+            plot_heatlt_balance_weekly(
+                df_scen=df_scen,
+                dir_path=results_path,
+                output_svg = toggle_svg,
+                output_html = toggle_html,
+                )
+
             plot_tes_sos_hourly(
                 df_scen=df_scen,
                 dir_path=results_path,
@@ -5516,12 +6194,8 @@ def plot(
             output_svg = toggle_svg,
             output_html = toggle_html,
             )
-        # plot_electricity_balance_hourly_share(
-        #     df_scen=df_scen,
-        #     dir_path=results_path,
-        #     output_svg = toggle_svg,
-        #     output_html = toggle_html,
-        #     )
+        
+
         plot_heat_balance_hourly(
             df_scen=df_scen,
             dir_path=results_path,
@@ -5529,6 +6203,13 @@ def plot(
             output_html = toggle_html,
             )
         
+        plot_heatlt_balance_hourly(
+            df_scen=df_scen,
+            dir_path=results_path,
+            output_svg = toggle_svg,
+            output_html = toggle_html,
+            )
+
         plot_electricity_balance_daily(
             df_scen=df_scen,
             dir_path=results_path,
@@ -5541,6 +6222,14 @@ def plot(
             output_svg = toggle_svg,
             output_html = toggle_html,
             )
+        
+        plot_heatlt_balance_daily(
+            df_scen=df_scen,
+            dir_path=results_path,
+            output_svg = toggle_svg,
+            output_html = toggle_html,
+            )
+
         plot_electricity_balance_weekly(
             df_scen=df_scen,
             dir_path=results_path,
@@ -5553,6 +6242,13 @@ def plot(
             output_svg = toggle_svg,
             output_html = toggle_html,
             )
+        plot_heatlt_balance_weekly(
+            df_scen=df_scen,
+            dir_path=results_path,
+            output_svg = toggle_svg,
+            output_html = toggle_html,
+            )
+
         plot_tes_sos_hourly(
             df_scen=df_scen,
             dir_path=results_path,

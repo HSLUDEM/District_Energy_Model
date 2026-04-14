@@ -232,7 +232,7 @@ class WasteHeatLowTemperature(TechCore):
         self._v_hlt_resource = np.array(v_hlt_resource_updated)
                 
     def get_energy_costs(self):
-        return self._tariff_CHFpkWh*np.sum(self._v_h)
+        return self._tariff_CHFpkWh*np.sum(self._v_hlt)
     
  
     
