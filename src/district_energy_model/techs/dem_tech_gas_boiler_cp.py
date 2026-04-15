@@ -336,8 +336,7 @@ class GasBoilerCP(TechCore):
         self.num_test(self._fixed_demand_share_val)
         return self._fixed_demand_share_val
     
-    def get_only_allow_existing(self):
-        return self._only_allow_existing
+
     
   
     

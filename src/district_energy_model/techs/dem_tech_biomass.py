@@ -1671,8 +1671,7 @@ class WoodGasificationCHP(TechCore): # wguc
         self.len_test(self._v_h)
         return self._v_h
 
-    def get_energy_costs(self):
-        return self._u_wd
+    
             
 
 

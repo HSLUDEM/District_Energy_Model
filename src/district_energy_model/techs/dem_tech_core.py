@@ -102,6 +102,8 @@ class TechCore():
     def get_total_capex(self):
         if not hasattr(self, "_capex"):
             return 0
+        if hasattr(self, '_cap') and self._cap != 'inf': 
+            return self._capex*(self.get_cap() - self.existing)
         if hasattr(self, "_capex_one_to_one_replacement"):
             total_capacity = self.get_output().max()
             if total_capacity <= self.existing:
@@ -122,6 +124,8 @@ class TechCore():
     def get_total_maintenance(self):
         if not hasattr(self, "_maintenance_cost"):
             return 0
+        if hasattr(self, '_cap') and self._cap != 'inf':
+            return self._maintenance_cost*self.get_cap()
         if hasattr(self, '_maintenance_cost'):
             return self._maintenance_cost*self.get_output().max()
         elif hasattr(self, 'maintenance_cost'):
@@ -144,17 +148,17 @@ class TechCore():
         for attr in ["_q_h", "_q_gas", "_q_wd", "_q_hyd", "_q_e"]:
             if hasattr(self, attr):
                 return getattr(self, attr)
-        for attr in ['_v_e', '_v_h', '_v_hlt', '_m_e', '_v_gas', '_v_hyd']: 
+        for attr in ['_v_e', '_v_h', '_v_hlt', '_m_e', '_v_gas', '_v_hyd', '_v_steam']: 
             if hasattr(self, attr):
                 return getattr(self, attr)
-        raise AttributeError("No storage or flow variable found in the technology class.")
+        raise AttributeError(f"No storage or flow variable found in the technology object {self}")
     
     def get_v_max(self):
         for attr in ['_v_h_max', 'v_max', 'kw_max', 'kW_el_max', '_cap', '_p_max']:
             if hasattr(self, attr):
                 return getattr(self, attr)
             else: 
-                warnings.warn("No max_capacity attribute found returning 'inf'")
+                warnings.warn(f"No max_capacity attribute found returning 'inf' for object {self}")
                 return 'inf'
     
     def get_power_up_for_replacement(self):
