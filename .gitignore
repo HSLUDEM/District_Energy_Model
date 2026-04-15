@@ -29,6 +29,7 @@ tests/.pytest_cache/
 tests/tmp*/
 bkp/
 00_superseded/
+**/00_*/
 __pycache__/
 results*/
 Results*/
