@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file.
 - Deep Geothermal Technology
 - Cost calculation module for manual scenarios
 - Added possibility to call run_dem_local.py with location of input_file, config_files and output_files
+- Added heatlt heat balance plot
+- Add consideration of construction period in calculation of space heating heat demand profile.
 
 ### Fixed
 - Configuration YAML files are checked for valid keywords. An error is thrown if a keyword is invalid (e.g., due to incorrect spelling). Previously, the simulation just continued.

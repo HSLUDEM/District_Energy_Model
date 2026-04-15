@@ -288,7 +288,8 @@ class DistrictEnergyModel:
         """
         
         self.energy_demand.compute_d_h_yr(
-            df_meta=self.df_meta
+            df_meta=self.df_meta,
+            df_com =self.df_com_yr
             )
 
         # Hourly heat demand:
@@ -1173,7 +1174,9 @@ class DistrictEnergyModel:
             # 'd_h_s_yr_future_renov_adjusted'
             
             self.energy_demand.compute_d_h_yr(
-                df_meta = self.df_meta
+                df_meta = self.df_meta,
+                df_com = self.df_com_yr,
+                spaceheating_column = post_renovation_sh_heat_demand_name
                 )
 
             # Hourly heat demand:

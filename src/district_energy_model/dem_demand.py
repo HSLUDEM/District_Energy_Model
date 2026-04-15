@@ -111,6 +111,8 @@ class EnergyDemand:
         self._d_e_h_yr = ...
         self._d_h_yr = ...
         self._d_h_s_yr = ...
+        self._d_h_s_old_yr = ...
+        self._d_h_s_new_yr = ...
         self._d_h_hw_yr = ...
         
         self._d_e_sfh_yr = ... # formerly: d_e_yr_sfh
@@ -1001,7 +1003,9 @@ class EnergyDemand:
     # def get_d_h_yr(
     def compute_d_h_yr(
             self,
-            df_meta
+            df_meta,
+            df_com,
+            spaceheating_column = 'heat_energy_demand_estimate_kWh_combined'
             ):
         
         """Returns the annual heat demand (d_e_yr) of the selected community.
@@ -1026,6 +1030,18 @@ class EnergyDemand:
         d_h_yr = d_h_s_yr + d_h_hw_yr
         
         self._d_h_s_yr = d_h_s_yr
+        self._d_h_s_new_yr = df_com.loc[~(df_com['GBAUP'] <= 8015), spaceheating_column].sum()
+        self._d_h_s_old_yr = df_com.loc[df_com['GBAUP'] <= 8015, spaceheating_column].sum()
+
+        if 'total_renovation_flag' in df_com.columns:
+            self._d_h_s_new_yr = (df_com.loc[~(df_com['GBAUP'] <= 8015), spaceheating_column].sum() 
+                                  + (df_com.loc[df_com['GBAUP'] <= 8015, spaceheating_column]
+                                     *df_com.loc[df_com['GBAUP'] <= 8015, 'total_renovation_flag']).sum()
+                                  )
+            self._d_h_s_old_yr = (df_com.loc[df_com['GBAUP'] <= 8015, spaceheating_column]
+                                     *(1.0 - df_com.loc[df_com['GBAUP'] <= 8015, 'total_renovation_flag'])
+                                  ).sum()
+
         self._d_h_hw_yr = d_h_hw_yr
         self._d_h_yr = d_h_yr
         
@@ -1174,12 +1190,16 @@ class EnergyDemand:
                     ((1.0-accumulated_new_weight)*df_com_yr['d_h_s_yr_future']
                     +accumulated_new_weight*df_com_yr['d_h_s_yr_renov_future']) #adjust heat consumption
                 df_com_yr['total_renovation_flag'] = accumulated_new_weight #float between 0 and 1
+                df_com_yr['GBAUP'] = df_com_yr['GBAUP']*(1.0 - accumulated_new_weight) + accumulated_new_weight * 8023
+                df_com_yr['GBAUP'] = df_com_yr['GBAUP'].round().astype('Int64')
                 # 'd_h_s_yr_future'
 
             else: #use Streicher data
                 df_com_yr['total_renovation_flag'] = df_com_yr[renovation_scenario] <= year #if renovation year < simulation year--> mark for renovation
                 df_com_yr.loc[df_com_yr['total_renovation_flag'], new_header] =\
                     df_com_yr['d_h_s_yr_renov_future'] #adjust heat consumption
+                df_com_yr.loc[df_com_yr['total_renovation_flag'], "GBAUP"] =\
+                    8023 #adjust building period to get other profiles
 
 
             #In case of total renovation, the old heat and dhw generator is thrown out.
@@ -1360,6 +1380,46 @@ class EnergyDemand:
         return scaling_factor_t12, scaling_factor_t15
     
     # def get_d_h_hr(
+
+
+    #Helper function to calculate space heating demand for specific base_temp
+    def _compute_d_h_hr_basetemp(
+            self, 
+            df_hour_, 
+            d_h_s_cat_yr, 
+            temp_base
+            ):
+        
+        df_hour = df_hour_.copy()
+
+        df_hour["hdd"] = pd.Series(False, index=df_hour.index, dtype="boolean")
+        df_hour["hdh"] = pd.Series(False, index=df_hour.index, dtype="boolean")
+        df_hour["tmp_diffT"] = np.nan
+        df_hour["d_h_hr"] = np.nan # [kWh] 
+    
+        df_day = df_hour['temp'].resample("D").mean()
+    
+        for index_day, tempAverDay in df_day.items() :
+            # on days where the avg temperature < base temperature, heat is required:
+            if tempAverDay<temp_base :
+                df_hour.loc[str(pd.to_datetime(index_day).date()),'hdd'] = True
+      
+        # determine during which hours of the heating days heat is required:
+        df_hour.loc[ (df_hour['hdd']==True) & (df_hour['temp']<temp_base), "hdh"] = True
+    
+        df_hour.loc[ (df_hour['hdh']==True), 'tmp_diffT'] = df_hour.loc[ (df_hour['hdh']==True),'temp']-temp_base
+    
+        sum_diffT = df_hour.loc[(df_hour['hdh']==True),'tmp_diffT'].sum()
+    
+        df_hour.loc[ (df_hour['hdh']==True), 'd_h_hr'] = (d_h_s_cat_yr/sum_diffT)*df_hour.loc[(df_hour['hdh']==True),'tmp_diffT']
+                
+        df_hour.loc[ (df_hour['hdh']!=True), 'd_h_hr'] = 0
+    
+        df_hour = df_hour.drop(['tmp_diffT'], axis=1)
+    
+        
+        return df_hour
+
     def compute_d_h_hr(
             self,
             com_name,
@@ -1402,7 +1462,8 @@ class EnergyDemand:
         """
         
         # Inputs:
-        temp_base = 12.0 # Basis Temperatur [°C]
+        temp_base_new = 12.0 # Basis Temperatur [°C]
+        temp_base_old = 15.0 # Basis Temperatur [°C]
         # hwb =  d_h_yr # Heizwärmebedarf [kWh/y]
         weather_data_dir = self.paths.weather_data_dir
     
@@ -1443,32 +1504,12 @@ class EnergyDemand:
 
         # df_hour["hdd"] = np.nan
         # df_hour["hdh"] = np.nan
-        df_hour["hdd"] = pd.Series(False, index=df_hour.index, dtype="boolean")
-        df_hour["hdh"] = pd.Series(False, index=df_hour.index, dtype="boolean")
-    
-        df_hour["tmp_diffT"] = np.nan
-        df_hour["d_h_hr"] = np.nan # [kWh] 
-    
-        df_day = df_hour['temp'].resample("D").mean()
-    
-        for index_day, tempAverDay in df_day.items() :
-            # on days where the avg temperature < base temperature, heat is required:
-            if tempAverDay<temp_base :
-                df_hour.loc[str(pd.to_datetime(index_day).date()),'hdd'] = True
-      
-        # determine during which hours of the heating days heat is required:
-        df_hour.loc[ (df_hour['hdd']==True) & (df_hour['temp']<temp_base), "hdh"] = True
-    
-        df_hour.loc[ (df_hour['hdh']==True), 'tmp_diffT'] = df_hour.loc[ (df_hour['hdh']==True),'temp']-temp_base
-    
-        sum_diffT = df_hour.loc[(df_hour['hdh']==True),'tmp_diffT'].sum()
-    
-        df_hour.loc[ (df_hour['hdh']==True), 'd_h_hr'] = (self._d_h_s_yr/sum_diffT)*df_hour.loc[(df_hour['hdh']==True),'tmp_diffT']
-                
-        df_hour.loc[ (df_hour['hdh']!=True), 'd_h_hr'] = 0
-    
-        df_hour = df_hour.drop(['tmp_diffT'], axis=1)
-    
+
+        df_hour['d_h_s_new_hr'] = self._compute_d_h_hr_basetemp(df_hour, self._d_h_s_new_yr, temp_base_new)['d_h_hr']
+        df_hour['d_h_s_old_hr'] = self._compute_d_h_hr_basetemp(df_hour, self._d_h_s_old_yr, temp_base_old)['d_h_hr']
+
+        df_hour['d_h_hr'] = df_hour['d_h_s_new_hr']+df_hour['d_h_s_old_hr']
+
         df_hour.reset_index(inplace=True)
         
         df_hour = df_hour.drop(['datetime'], axis=1)
@@ -1482,6 +1523,8 @@ class EnergyDemand:
         df_hour['d_h_hr'] += dhw_hr
         
         self._d_h = np.array(df_hour['d_h_hr'])
+        self._d_h_s_new = np.array(df_hour['d_h_s_new_hr'])
+        self._d_h_s_old = np.array(df_hour['d_h_s_old_hr'])
         self._d_h_s = np.array(d_h_s)
         self._d_h_hw = np.array(d_h_hw)
 
