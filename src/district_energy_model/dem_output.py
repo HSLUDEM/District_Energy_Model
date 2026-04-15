@@ -1958,7 +1958,9 @@ def plot_heatlt_balance_hourly(df_scen,
     -------
     n/a
     """
-    
+    file_svg = dir_path + '/' + filename + '.svg'
+    file_html = dir_path + '/' + filename + '.html'
+
     df_plot = df_scen.copy()
 
     for x in keys_add_negative_if_available:
@@ -1970,7 +1972,16 @@ def plot_heatlt_balance_hourly(df_scen,
     
     # Identify available columns
     valid_columns = df_plot.columns.intersection(heatlt_balance_y).tolist()
+    
+    if len(valid_columns) == 0:
+        fig = px.scatter() 
+        if output_svg == True:
+            fig.write_image(file_svg, width=svg_width, height=svg_height)
         
+        if output_html == True:
+            fig.write_html(file_html)
+        return
+
     # Use zip to filter the lists based on valid_columns
     filtered_data = [
         (col, label, color) 
@@ -2059,8 +2070,6 @@ def plot_heatlt_balance_hourly(df_scen,
         tickfont=dict(size=axes_font_size)
     )
     
-    file_svg = dir_path + '/' + filename + '.svg'
-    file_html = dir_path + '/' + filename + '.html'
     
     if output_svg == True:
         fig.write_image(file_svg, width=svg_width, height=svg_height)
@@ -2107,7 +2116,10 @@ def plot_heatlt_balance_daily(df_scen,
     -------
     n/a
     """
-    
+
+    file_svg = dir_path + '/' + filename + '.svg'
+    file_html = dir_path + '/' + filename + '.html'
+
     df_plot = df_scen.copy()
 
     for x in keys_add_negative_if_available:
@@ -2136,6 +2148,15 @@ def plot_heatlt_balance_daily(df_scen,
     # Identify available columns
     valid_columns = df_plot.columns.intersection(heatlt_balance_y).tolist()
         
+    if len(valid_columns) == 0:
+        fig = px.scatter() 
+        if output_svg == True:
+            fig.write_image(file_svg, width=svg_width, height=svg_height)
+        
+        if output_html == True:
+            fig.write_html(file_html)
+        return
+
     # Use zip to filter the lists based on valid_columns
     filtered_data = [
         (col, label, color) 
@@ -2226,8 +2247,6 @@ def plot_heatlt_balance_daily(df_scen,
         tickfont=dict(size=axes_font_size),
     )
     
-    file_svg = dir_path + '/' + filename + '.svg'
-    file_html = dir_path + '/' + filename + '.html'
     
     if output_svg == True:
         fig.write_image(file_svg, width=svg_width, height=svg_height)
@@ -2275,7 +2294,10 @@ def plot_heatlt_balance_weekly(df_scen,
     -------
     n/a
     """
-    
+
+    file_svg = dir_path + '/' + filename + '.svg'
+    file_html = dir_path + '/' + filename + '.html'
+
     df_plot = df_scen.copy()
 
     for x in keys_add_negative_if_available:
@@ -2308,7 +2330,16 @@ def plot_heatlt_balance_weekly(df_scen,
         
     # Identify available columns
     valid_columns = df_plot.columns.intersection(heatlt_balance_y).tolist()
+
+    if len(valid_columns) == 0:
+        fig = px.scatter() 
+        if output_svg == True:
+            fig.write_image(file_svg, width=svg_width, height=svg_height)
         
+        if output_html == True:
+            fig.write_html(file_html)
+        return
+
     # Use zip to filter the lists based on valid_columns
     filtered_data = [
         (col, label, color) 
@@ -2398,8 +2429,6 @@ def plot_heatlt_balance_weekly(df_scen,
         tickfont=dict(size=axes_font_size)
     )
     
-    file_svg = dir_path + '/' + filename + '.svg'
-    file_html = dir_path + '/' + filename + '.html'
     
     if output_svg == True:
         fig.write_image(file_svg, width=svg_width, height=svg_height)
