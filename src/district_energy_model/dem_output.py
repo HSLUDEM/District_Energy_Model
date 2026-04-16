@@ -400,6 +400,8 @@ col_solar_thermal_waste = f'rgba(238,238,0,{opac*opac_red_factor})' # 'yellow2'
 col_other =  f'rgba(119,136,153,{opac})' # 'lightslategray'
 col_hydrothermal_gasification = f'rgba(0,255,193,{opac})'
 
+col_grid_export = f'rgba(119,136,153,{opac*opac_red_factor})'
+
 # -----------------------------------------------------------------------------
 # Colors for Matplotlib:
     
@@ -480,6 +482,7 @@ col_mpl_solar_thermal = (238/255, 238/255, 0/255, opac)
 col_mpl_other = (119/255, 136/255, 153/255, opac)
 col_mpl_hydrothermal_gasification = (0/255, 255/255, 193/255, opac)
 
+col_mpl_grid_export = (119/255, 136/255, 153/255, opac * opac_red_factor)
 
 # -----------------------------------------------------------------------------
 
@@ -500,7 +503,8 @@ keys_add_negative_if_available = ['v_e_pv_exp',
                                   'v_h_st_gtcp_waste',
                                   'v_h_st_wbsg_waste',
                                   'v_h_solarthermalrooftop_exp',
-                                  'u_hlt_hpcplt']
+                                  'u_hlt_hpcplt',
+                                  'f_e']
 
 
 electricity_balance_y=[
@@ -529,6 +533,7 @@ electricity_balance_y=[
     'm_e_ch_other',
     'm_e_cbimport',
     'd_e_unmet',
+    'f_e_negative'
     ]
     
 electricity_balance_legend_labels = [
@@ -556,6 +561,7 @@ electricity_balance_legend_labels = [
     'CH other',
     'Cross-border import',
     'Unmet demand',
+    'Exported electricity'
     ]
 
 electricity_balance_colors = [
@@ -583,7 +589,8 @@ electricity_balance_colors = [
     col_CH_biomass,
     col_CH_other,
     col_cross_border_import,    
-    col_demand_unmet        
+    col_demand_unmet,
+    col_grid_export        
     ]
 
 electricity_balance_colors_mpl = [
@@ -611,7 +618,8 @@ electricity_balance_colors_mpl = [
     col_mpl_CH_biomass,
     col_mpl_CH_other,
     col_mpl_cross_border_import,    
-    col_mpl_demand_unmet        
+    col_mpl_demand_unmet,
+    col_mpl_grid_export        
     ]
 
 heat_balance_y=[

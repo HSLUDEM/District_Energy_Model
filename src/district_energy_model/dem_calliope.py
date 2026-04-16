@@ -71,6 +71,7 @@ class CalliopeOptimiser:
         
         self.tech_list_new = []
         self.tech_list_old = []
+        self.tech_list_grid_connection = []
         self.tech_list_pv = []
         self.tech_list_solarthermal = [] #Always same length as pv!
         
@@ -110,7 +111,10 @@ class CalliopeOptimiser:
         
         if 'grid_supply' in self.tech_list:
             self.tech_grid_supply = tech_instances['grid_supply']
-        
+
+        if 'grid_export' in self.tech_list:
+            self.tech_grid_export = tech_instances['grid_export']
+
         if 'other' in self.tech_list:
             self.tech_other = tech_instances['other']
 
@@ -425,6 +429,13 @@ class CalliopeOptimiser:
             grid_supply_resource_tariff_timeseries = null_array.copy()
             grid_supply_resource_co2_intensity_timeseries = null_array.copy()
 
+        if 'grid_export' in self.tech_list:
+            grid_export_resource_tariff_timeseries = self.tech_grid_export.get_tariff_timeseries()
+            grid_export_resource_co2_intensity_timeseries = self.tech_grid_export.get_co2_intensity_timeseries()
+        else:
+            grid_export_resource_tariff_timeseries = null_array.copy()
+            grid_export_resource_co2_intensity_timeseries = null_array.copy()
+
 
         if 'waste_heat_low_temperature' in self.tech_list:
             waste_heat_low_temperature_resource = self.tech_waste_heat_low_temperature.get_v_hlt_resource()
@@ -483,6 +494,9 @@ class CalliopeOptimiser:
 
         grid_supply_resource_tariff_timeseries = pd.Series(grid_supply_resource_tariff_timeseries, index=date_index)
         grid_supply_resource_co2_intensity_timeseries = pd.Series(grid_supply_resource_co2_intensity_timeseries, index=date_index)
+        
+        grid_export_resource_tariff_timeseries = pd.Series(grid_export_resource_tariff_timeseries, index=date_index)
+        grid_export_resource_co2_intensity_timeseries = pd.Series(grid_export_resource_co2_intensity_timeseries, index=date_index)
 
 
         heat_pump_cp_cops = pd.Series(heat_pump_cp_cops, index=date_index)
@@ -527,6 +541,10 @@ class CalliopeOptimiser:
                                     "tariff_timeseries": grid_supply_resource_tariff_timeseries * self.energy_scaling_factor,
                                     "co2_intensity_timeseries": grid_supply_resource_co2_intensity_timeseries * self.energy_scaling_factor
                                 })
+        df_grid_export_timeseries = pd.DataFrame({
+                                    "tariff_timeseries": - grid_export_resource_tariff_timeseries * self.energy_scaling_factor,
+                                    "co2_intensity_timeseries": - grid_export_resource_co2_intensity_timeseries * self.energy_scaling_factor
+                                })
 
 
         df_heat_pump_cp_cops = heat_pump_cp_cops.to_frame('cop')
@@ -564,6 +582,7 @@ class CalliopeOptimiser:
             'hydro_resource':df_hydro_resource / self.energy_scaling_factor,
             'waste_heat':df_waste_heat_resource / self.energy_scaling_factor,
             'grid_supply':df_grid_supply_timeseries,
+            'grid_export':df_grid_export_timeseries,
             'waste_heat_low_temperature':df_waste_heat_low_temperature_resource / self.energy_scaling_factor,
             'heat_pump_cp': df_heat_pump_cp_cops,
             'heat_pump_cops_existing': df_heat_pump_cops_existing,
@@ -1477,11 +1496,18 @@ class CalliopeOptimiser:
         # Electricity import:
         if 'grid_supply' in self.tech_list:
             m_e =\
-                opt_results['carrier_prod'].loc['X1::grid_supply::electricity'].values*self.energy_scaling_factor
+                opt_results['carrier_prod'].loc['Grid_Connection_Node::grid_supply::electricity'].values*self.energy_scaling_factor
                 
             # Recalculate electricity mix:
             self.tech_grid_supply.update_m_e(m_e)
-        
+
+        if 'grid_export' in self.tech_list:
+            f_e =\
+                -opt_results['carrier_con'].loc['Grid_Connection_Node::grid_export::electricity'].values*self.energy_scaling_factor
+                
+            # Recalculate electricity mix:
+            self.tech_grid_export.update_f_e(f_e)
+
         # -------------------
         # Thermal energy storage: # LOSSES TO BE ADDED
         if 'tes' in self.tech_list:
@@ -1939,6 +1965,7 @@ class CalliopeOptimiser:
             'hydro_power': '#0000FF',
             'wind_power': '#3333FF',
             'grid_supply':'#C5ABE3',
+            'grid_export':"#98EBDD",
             'tes':'#EF008C',
             'tes_sites':'#EF008C',
             'tes_decentralised':'#EF008C',
@@ -2399,8 +2426,19 @@ class CalliopeOptimiser:
                 energy_scaling_factor = self.energy_scaling_factor
                 )
             
-            self.tech_list_old.append('grid_supply')
+            self.tech_list_grid_connection.append('grid_supply')
+
+        if 'grid_export' in self.tech_list:
+            techs_dict = self.tech_grid_export.create_techs_dict(
+                techs_dict,
+                colors['grid_export'],
+                resource_tariff_timeseries = "df=grid_export:tariff_timeseries",
+                resource_co2_intensity_timeseries = "df=grid_export:co2_intensity_timeseries",
+                energy_scaling_factor = self.energy_scaling_factor
+                )
             
+            self.tech_list_grid_connection.append('grid_export')
+
         if 'tes' in self.tech_list:
             techs_dict, tes_techs_label_list = self.tech_tes.create_techs_dict(
                 techs_dict,
@@ -2691,6 +2729,15 @@ class CalliopeOptimiser:
                 # 'available_area': 1, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
                 'coordinates':{} 
                 },
+            'Grid_Connection_Node':{
+                'techs':{
+                    },
+                'coordinates':{
+                  'lat': 0,
+                  'lon': 0
+                } 
+                },
+
             'New_Techs':{
                 'techs':{},
                 # 'available_area': self.available_area_scaling, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
@@ -2723,27 +2770,7 @@ class CalliopeOptimiser:
 
         else:
             loc_dict['X1']['techs']['demand_electricity_ev'] = {}
-        
-        # if 'solar_thermal' in self.tech_list:
-        #     loc_dict['Old_Solar_Thermal'] = {
-        #         'techs':{},
-        #         'available_area': self.available_area_scaling, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
-        #         'coordinates':{
-        #             'lat': 3,
-        #             'lon': 3
-        #             }
-        #         }
-        
-        # if 'solar_pv' in self.tech_list:
-        #     loc_dict['Old_Solar_PV'] = {
-        #         'techs':{},
-        #         'available_area': self.available_area_scaling, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
-        #         'coordinates':{
-        #           'lat': 3,
-        #           'lon': 4
-        #           }
-        #         }
-        
+                
         if len(self.tech_list_pv) > 0:
             for i in range(len(self.tech_list_pv)):
                 for j in range(len(self.tech_list_pv[i])):
@@ -2764,6 +2791,13 @@ class CalliopeOptimiser:
                 pass
             else:
                 loc_dict['X1']['techs'][tech] = None
+        for tech in self.tech_list_grid_connection:
+            if tech in tech_locs:
+                # This tech will have a separate location
+                pass
+            else:
+                loc_dict['Grid_Connection_Node']['techs'][tech] = None
+
         for tech in self.tech_list_new:
             if tech in tech_locs:
                 # This tech will have a separate location
@@ -2990,6 +3024,17 @@ class CalliopeOptimiser:
         # Initialise dict:
         links_dict = {}
         
+        links_dict[f'X1,Grid_Connection_Node'] = {
+            'techs':{}
+            }
+        links_dict[f'X1,Grid_Connection_Node']['techs']['power_line'] = {
+            'constraints':{
+                }
+            }
+        if self.tech_grid_supply._kW_max != 'inf':
+            links_dict[f'X1,Grid_Connection_Node']['techs']['power_line']['constraints']['energy_cap_equals'] \
+                = self.tech_grid_supply._kW_max / self.energy_scaling_factor
+
         # Add links:
         for loc in link_locs:
             links_dict[f'X1,{loc}'] = {

@@ -67,7 +67,7 @@ wh_tariff = 0.01 # [CHF/kWh_th]
 whlt_tariff = 0.01 # [CHF/kWh_th]
 
 grid_tariff_CHFpkWh = 0.29 # [CHF/kWh] electricity tariff
-
+grid_feed_in_tariff_CHFpkWh = 0.06
 interest_rate = 0.025
 
 virtual_export_tariff_pv = 0.0
@@ -293,6 +293,20 @@ scen_techs = {
         'co2_intensity_timeseries_filepath': '',
         'constant_tariff_CHFpkWh':grid_tariff_CHFpkWh, #0.29, # [CHF/kWh] electricity tariff !!! MUST BE CHANGED TO A TIME SERIES
         'constant_co2_intensity':0.128,
+        'lifetime':25,
+        'interest_rate':interest_rate
+        },
+
+    'grid_export':{ # grid
+        'deployment':True,
+        'kW_max': None, #Defined in grid_supply
+        'tariff_mode': 'const', # 'const' or 'file'
+        'co2_intensity_mode': 'const',
+        'tariff_timeseries_filepath': '',
+        'co2_intensity_timeseries_filepath': '',
+
+        'constant_tariff_CHFpkWh':grid_feed_in_tariff_CHFpkWh, #0.29, # [CHF/kWh] electricity feed-in tariff
+        'constant_co2_intensity':0.0,
         'lifetime':25,
         'interest_rate':interest_rate
         },
@@ -897,8 +911,7 @@ scen_techs = {
         'co2_content_msw': 0.3312, #co2 content of msw # https://www.bafu.admin.ch/dam/en/sd-web/NlGIhzJ8OW0t/CO2_Emissionsfaktoren_THG_Inventar.pdf
         'annual_msw_supply':'inf', # [kg] Annual municipal solid waste supply; Options: float value or 'inf'
 
-        }
-
+        },
     }
 
 # -----------------------------------------------------------------------------

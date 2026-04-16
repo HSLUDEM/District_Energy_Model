@@ -462,7 +462,14 @@ class DistrictEnergyModel:
             scen_techs['grid_supply']
             )
         self.tech_instances['grid_supply'] = self.tech_grid_supply
-        
+
+        self.tech_grid_export = dem_techs.GridExport(
+            self.paths,
+            scen_techs['grid_export']
+            )
+        self.tech_grid_export.initialise_zero(365)
+        self.tech_instances['grid_export'] = self.tech_grid_export
+
         self.tech_other = dem_techs.Other(0)
         self.tech_instances['other'] = self.tech_other
 
@@ -1214,15 +1221,6 @@ class DistrictEnergyModel:
                     power_up_for_replacement = scen_techs['demand_side']['heat_generator_replacement_rates']['v_h_'+k]*self.tech_instances[techstoacton[k]].get_v_h().max()
                     self.tech_instances[techstoacton[k]].set_power_up_for_replacement(power_up_for_replacement)
 
-            # d_h_new = self.energy_demand.get_d_h()
-            # d_h_unmet = d_h_new - d_h_prev
-            # self.energy_demand.update_d_h_unmet(d_h_unmet)
-            
-            # -----------------------------------------------------------------             
-            # Recalculate electricity demand:
-            # -------------------------------
-            # d_e_prev = self.energy_demand.get_d_e()
-            # m_e_prev = self.tech_grid_supply.get_m_e()        
             
             if scen_techs['demand_side']['ev_integration']:
                 print('\n demand_side')

@@ -578,7 +578,7 @@ def electricity_balance_test(scen_techs,
         else:
             df_scen[k] = 0
         
-    electricity_consumption = df_scen['d_e'] + df_scen['u_e_bes']
+    electricity_consumption = df_scen['d_e'] + df_scen['u_e_bes'] + df_scen['f_e']
     
     electricity_generation = (
                                 # df_scen['v_e_pv_cons']
@@ -603,6 +603,7 @@ def electricity_balance_test(scen_techs,
                                 + df_scen['u_e_wguh']# TEMPORARY!!!
                                 + df_scen['u_e_hydp']
                                 + df_scen['u_e_bes']
+                                + df_scen['f_e']
                                 )
     
     electricity_for_heating = df_scen['d_e_h']
@@ -739,6 +740,10 @@ def electricity_balance_test(scen_techs,
     max_diff_9 = diff_9.max()
     
     # diff_10: Battery Energy Storage(BES) losses are only checked as sums
+
+    print(diff_1.max(), df_scen['f_e'].max())
+
+    print(max_diff_1)
 
     if max_diff_1 > diff_accepted:
         print("Electricity balance (1) is not fulfilled!")

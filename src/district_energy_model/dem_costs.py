@@ -54,7 +54,7 @@ def get_old_capacities(tech_instances, debug=False):
     for tech in tech_instances:
         if debug:
             print(f"Preparing cost calculation for technology: {tech}")
-        if tech != 'grid_supply' and tech != 'pile_of_berries':
+        if tech != 'grid_export' and tech != 'grid_supply' and tech != 'pile_of_berries':
             tech_instances[tech].get_existing()
         if debug:
             print(f"preparation of {tech} completed.\n")
@@ -65,7 +65,7 @@ def get_replacement_capacities(tech_instances, debug=False):
     for tech in tech_instances:
         if debug:
             print(f"Calculating replacement needs for technology: {tech}")
-        if tech != 'grid_supply' and tech != 'pile_of_berries':
+        if tech != 'grid_export' and tech != 'grid_supply' and tech != 'pile_of_berries':
             tech_instances[tech].get_needs_replacement_cap()
         if debug:
             print(f"replacement calculation for {tech} completed.\n")
@@ -117,6 +117,7 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
     Special cases in current implementation:
     - "pile_of_berries" is skipped
     - "grid_supply" excludes CAPEX, maintenance, and revenue calculation
+    - "grid_export" excludes CAPEX, maintenance, and revenue calculation
 
     Important assumptions / limitations:
     - division by zero may occur if no heat and electricity is generated
@@ -173,7 +174,7 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
         energy_revenue = 0
         energy_costs = 0
         if tech != "pile_of_berries":  # !!! this should be adapted to the actual technologies included in the model    |||  and tech != "solar_pvrooftop" and tech != "solarthermal_rooftop"
-            if tech != "grid_supply":
+            if tech != "grid_supply" and tech != "grid_export":
                 capex = tech_instances[tech].get_total_capex()
                 opex = tech_instances[tech].get_total_maintenance()
                 energy_revenue = tech_instances[tech].get_energy_revenue()
@@ -397,6 +398,12 @@ def calculate_CO2_emissions(supply, tech_instances):
                 np.sum(np.array(tech_instances["grid_supply"]._m_e)
                 * tech_instances["grid_supply"]._co2_intensity_timeseries)
             )
+        if tech == "grid_export":
+            co2_emissions["emissions_grid_export"] = (
+                np.sum(np.array(tech_instances["grid_export"]._f_e)
+                * tech_instances["grid_export"]._co2_intensity_timeseries)
+            )
+
         if tech == "district_heating":
             co2_emissions["district_heating"] = (
                 sum(tech_instances["district_heating"]._m_h)
