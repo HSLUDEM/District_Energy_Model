@@ -673,7 +673,7 @@ def create_results_directory(arg_path, arg_results_dir_name):
     Creates a new directory and returns the path to the directory.
     """
     
-    arg_path = arg_path + '\\'
+    arg_path = arg_path + '/'
     
     tmp_i = 0
     tmp_results_dir = arg_results_dir_name
