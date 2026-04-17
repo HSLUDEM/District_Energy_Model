@@ -700,6 +700,12 @@ class DistrictEnergyModel:
         #----------------------------------------------------------------------
         # Add additional techs for new scenario:
         
+        # Heat demand manual flow
+        if scen_techs['heat_demand_manual']['deployment']:                
+            self.tech_heat_demand_manual = dem_techs.HeatDemandManual(scen_techs['heat_demand_manual'])
+            self.tech_heat_demand_manual.initialise_zero(n_days)
+            self.tech_instances['heat_demand_manual'] = self.tech_heat_demand_manual
+
         # Waste heat flow
         if scen_techs['waste_heat']['deployment']:                
             self.tech_wh = dem_techs.WasteHeat(scen_techs['waste_heat'])

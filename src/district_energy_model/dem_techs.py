@@ -52,6 +52,7 @@ from district_energy_model.techs.dem_tech_electric_heater_cp import ElectricHeat
 from district_energy_model.techs.dem_tech_wood_boiler_cp import WoodBoilerCP
 from district_energy_model.techs.dem_tech_gas_boiler_cp import GasBoilerCP
 from district_energy_model.techs.dem_tech_deep_geothermal import DeepGeothermal
+from district_energy_model.techs.dem_tech_heat_demand_manual import HeatDemandManual
 from district_energy_model.techs.dem_tech_waste_heat import WasteHeat
 from district_energy_model.techs.dem_tech_waste_heat_low_temperature import WasteHeatLowTemperature
 

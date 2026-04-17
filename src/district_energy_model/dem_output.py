@@ -2685,7 +2685,7 @@ def plot_heat_balance_hourly(df_scen,
         
     fig.add_trace(go.Scatter(
         x=df_plot.index,
-        y=df_plot['d_h'],
+        y=df_plot['d_h']+df_plot['d_h_m'],
         mode='lines',
         line=dict(color=col_demand_heat, width=1),
         name='Total heat demand'
@@ -2862,7 +2862,7 @@ def plot_heat_balance_daily(df_scen,
 
     fig.add_trace(go.Scatter(
         x=df_daily_sum.index,
-        y=df_daily_sum['d_h'],
+        y=df_daily_sum['d_h']+df_daily_sum['d_h_m'],
         mode='lines',
         line=dict(color=col_demand_heat, width=1),
         name='Total heat demand'
@@ -3284,7 +3284,7 @@ def plot_heat_balance_weekly(df_scen,
 
     fig.add_trace(go.Scatter(
         x=df_weekly_sum.index,
-        y=df_weekly_sum['d_h'],
+        y=df_weekly_sum['d_h']+df_weekly_sum['d_h_m'],
         mode='lines',
         line=dict(color=col_demand_heat, width=1),
         name='Total heat demand'

@@ -202,6 +202,9 @@ class CalliopeOptimiser:
         if 'deep_geothermal' in self.tech_list:
             self.tech_deep_geothermal = tech_instances['deep_geothermal']
 
+        if 'heat_demand_manual' in self.tech_list:
+            self.tech_heat_demand_manual = tech_instances['heat_demand_manual']
+
         if 'waste_heat' in self.tech_list:
             self.tech_waste_heat = tech_instances['waste_heat']
         
@@ -422,6 +425,12 @@ class CalliopeOptimiser:
         else:
             waste_heat_resource = null_array.copy()
 
+        if 'heat_demand_manual' in self.tech_list:
+            heat_demand_manual_resource = self.tech_heat_demand_manual.get_timeseries()
+        else:
+            heat_demand_manual_resource = null_array.copy()
+
+
         if 'grid_supply' in self.tech_list:
             grid_supply_resource_tariff_timeseries = self.tech_grid_supply.get_tariff_timeseries()
             grid_supply_resource_co2_intensity_timeseries = self.tech_grid_supply.get_co2_intensity_timeseries()
@@ -489,6 +498,7 @@ class CalliopeOptimiser:
         wp_resource_annual = pd.Series(wp_resource_annual, index=date_index)
         wp_resource_winter = pd.Series(wp_resource_winter, index=date_index)
         hydro_resource = pd.Series(hydro_resource, index=date_index)
+        heat_demand_manual_resource = pd.Series(heat_demand_manual_resource, index=date_index)
         waste_heat_resource = pd.Series(waste_heat_resource, index=date_index)
         waste_heat_low_temperature_resource = pd.Series(waste_heat_low_temperature_resource, index=date_index)
 
@@ -534,6 +544,7 @@ class CalliopeOptimiser:
         df_wp_resource_annual = wp_resource_annual.to_frame('v_e_wp')
         df_wp_resource_winter = wp_resource_winter.to_frame('v_e_wp')
         df_hydro_resource = hydro_resource.to_frame('v_e_hydro')
+        df_heat_demand_manual_resource = - heat_demand_manual_resource.to_frame('d_h_m')
         df_waste_heat_resource = waste_heat_resource.to_frame('v_h_wh')
         df_waste_heat_low_temperature_resource = waste_heat_low_temperature_resource.to_frame('v_hlt_whlt')
 
@@ -580,6 +591,7 @@ class CalliopeOptimiser:
             'wp_resource_annual':df_wp_resource_annual, #/ self.energy_scaling_factor,
             'wp_resource_winter':df_wp_resource_winter, #/ self.energy_scaling_factor,
             'hydro_resource':df_hydro_resource / self.energy_scaling_factor,
+            'heat_demand_manual':df_heat_demand_manual_resource / self.energy_scaling_factor,
             'waste_heat':df_waste_heat_resource / self.energy_scaling_factor,
             'grid_supply':df_grid_supply_timeseries,
             'grid_export':df_grid_export_timeseries,
@@ -1324,6 +1336,13 @@ class CalliopeOptimiser:
             self.tech_deep_geothermal.update_v_h(v_h_dgt)
 
         # -------------------
+        # Heat_demand_manual
+        if 'heat_demand_manual' in self.tech_list:
+
+            d_h_m = - opt_results['carrier_con'].loc['X1::heat_demand_manual_exists::heat'].values*self.energy_scaling_factor
+            self.tech_heat_demand_manual.update_d_h(d_h_m)
+
+        # -------------------
         # Waste_heat
         if 'waste_heat' in self.tech_list:
             # rasa = opt_results['carrier_prod'].loc['X1::waste_heat_exists']
@@ -1985,6 +2004,7 @@ class CalliopeOptimiser:
             'gas_line': '#808080',
             'wood_line': '#6e4500',
             'wet_biomass_line': '#024200',
+            'heat_demand_manual': "#B62929",
             'waste_heat': '#918686',
             'waste_heat_low_temperature': "#9BBAC9",
             'deep_geothermal': '#c56019',
@@ -2666,6 +2686,20 @@ class CalliopeOptimiser:
                 )
             
             self.tech_list_old.append('deep_geothermal_exists')
+
+        if 'heat_demand_manual' in self.tech_list:
+            techs_dict = self.tech_heat_demand_manual.create_techs_dict(
+                techs_dict=techs_dict,
+                header='heat_demand_manual_exists',
+                name='Heat demand manual (sink)',
+                color=colors['heat_demand_manual'],
+                resource="df=heat_demand_manual:d_h_m",
+                energy_scaling_factor = self.energy_scaling_factor
+                )
+            
+            self.tech_list_old.append('heat_demand_manual_exists')
+
+
 
         if 'waste_heat' in self.tech_list:
             techs_dict = self.tech_waste_heat.create_techs_dict(

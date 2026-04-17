@@ -54,7 +54,7 @@ def get_old_capacities(tech_instances, debug=False):
     for tech in tech_instances:
         if debug:
             print(f"Preparing cost calculation for technology: {tech}")
-        if tech != 'grid_export' and tech != 'grid_supply' and tech != 'pile_of_berries':
+        if tech != 'grid_export' and tech != 'grid_supply' and tech != 'pile_of_berries' and tech != 'heat_demand_manual':
             tech_instances[tech].get_existing()
         if debug:
             print(f"preparation of {tech} completed.\n")
@@ -174,7 +174,7 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
         energy_revenue = 0
         energy_costs = 0
         if tech != "pile_of_berries":  # !!! this should be adapted to the actual technologies included in the model    |||  and tech != "solar_pvrooftop" and tech != "solarthermal_rooftop"
-            if tech != "grid_supply" and tech != "grid_export":
+            if tech != "grid_supply" and tech != "grid_export" and tech != "heat_demand_manual":
                 capex = tech_instances[tech].get_total_capex()
                 opex = tech_instances[tech].get_total_maintenance()
                 energy_revenue = tech_instances[tech].get_energy_revenue()

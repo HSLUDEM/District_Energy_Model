@@ -902,6 +902,7 @@ def heat_balance_test(df_scen,
     """
     # Fill dataframe with 0s if columns are missing:
     missing_keys = [
+        'd_h_m',
         'u_h_tes',
         'u_h_tesdc',
         'v_h_tes',
@@ -957,6 +958,7 @@ def heat_balance_test(df_scen,
     heat_consumption = (df_scen['d_h']
                         + df_scen['u_h_tesdc']
                         + df_scen['v_h_solarthermalrooftop_exp']
+                        + df_scen['d_h_m']
                         # + df_scen['u_h_tes'] # INCLUDED IN DISTRICT HEATING
                         )
     

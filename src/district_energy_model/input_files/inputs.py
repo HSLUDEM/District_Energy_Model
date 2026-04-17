@@ -674,6 +674,14 @@ scen_techs = {
         'interest_rate':interest_rate,
         },
 
+    'heat_demand_manual':{ # hdm / d_h_m
+        'deployment':False,
+        'timeseries_file_path': '',
+        'demand_mode': 'file', #'const' or 'file'
+        'constant_value': 0.0, # kW
+        },
+
+
     'waste_heat':{ # wh
         'deployment':False,
         'capex': 0.0,
