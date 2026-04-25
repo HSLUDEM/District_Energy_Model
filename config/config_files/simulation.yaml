@@ -1,4 +1,0 @@
-number_of_days: 21 #365
-district_number: 2762 # 2762: Allschwil #351:Bern # 230: Winterthur # 51: Bachenbülach
-generate_plots: true
-save_results: true
