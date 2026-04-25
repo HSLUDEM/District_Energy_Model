@@ -9,6 +9,7 @@
 # ignore specific files:
 # ---------------------
 config/config_files/*.yml
+config/config_files/*.yaml
 src/dem_OLD.py
 #src/paths.py
 data/
