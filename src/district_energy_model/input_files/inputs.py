@@ -850,7 +850,11 @@ scen_techs = {
         
         'heat_generator_renovation': True, #retrofit old heat generators. Affects buildings without total renovation. 
                         # Only has effects when optimization is enabled. Forces a CAPEX for one-to-one replacement.
-        'act_on_fossil_heater_retrofit': False
+        'act_on_fossil_heater_retrofit': False,
+        
+        'dr_flexibility_building_inertia': False, # demand response (dr) flexibility from building inertia; only active in combination with optimisation.
+        'dr_flexibility_building_inertia_dT': 2.0, # [degC] accepted deviation (upwards and downwards) from reference room temperate.
+        'dr_flexibility_building_inertia_no_of_clusters': 5, # [-] Number of clusters into which buildings are grouped according to their thermal characteristics.
         },
 
     'nuclear_phaseout':{
