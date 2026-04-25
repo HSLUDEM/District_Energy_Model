@@ -1,4 +1,5 @@
 # ignore file types:
+# -----------------
 *.log
 *.xlxs
 *.pdf
@@ -6,6 +7,7 @@
 #*.jpg
 
 # ignore specific files:
+# ---------------------
 src/dem_OLD.py
 #src/paths.py
 data/
@@ -16,7 +18,11 @@ doc/documentation.md
 tests/tmp*
 data/
 data/*
-# ignore directories
+**/tmp*
+**/dev_us_*
+
+# ignore directories:
+# ------------------
 dem_output*/
 #dist/
 tmp*/
