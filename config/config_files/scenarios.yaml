@@ -1,1 +1,6 @@
-
+demand_side: true
+fossil_heater_retrofit: true
+pv_integration: true
+wind_integration: true
+thermal_energy_storage: true
+nuclear_phaseout: true
