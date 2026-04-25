@@ -45,7 +45,7 @@ Results*/
 .gitignore
 .gitignore
 
-# ignore content of data directory:
+# ignore content in data directory:
 # --------------------------------
 data/community_data/
 data/electricity_demand/
@@ -56,3 +56,4 @@ data/tech_wind_power/
 data/weather_data/
 data/read_data.py
 data/read_and_cluster_data.py
+data/*.feather
