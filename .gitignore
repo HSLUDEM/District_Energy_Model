@@ -56,4 +56,5 @@ data/tech_wind_power/
 data/weather_data/
 data/read_data.py
 data/read_and_cluster_data.py
+data/tech_solar_pv/
 data/*.feather
