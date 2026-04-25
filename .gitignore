@@ -8,6 +8,7 @@
 
 # ignore specific files:
 # ---------------------
+config/config_files/*.yml
 src/dem_OLD.py
 #src/paths.py
 data/
@@ -25,6 +26,7 @@ data/*
 # ------------------
 dem_output*/
 #dist/
+**/tmp*/
 tmp*/
 src/tmp*/
 src/00_superseded/
