@@ -7,6 +7,7 @@ Created on Fri Jul 19 11:20:17 2024
 
 import numpy as np
 import pandas as pd
+import input_files.inputs as inp
 
 from district_energy_model.techs.dem_tech_core import TechCore
 
@@ -72,6 +73,8 @@ class HydroPower(TechCore):
         self._capex = tech_dict['capex']
         self._maintenance_cost = tech_dict['maintenance_cost']
         self._export_subsidy = tech_dict['export_subsidy']
+        self._lifetime = tech_dict['lifetime']
+        self._interest_rate = tech_dict['interest_rate']
 
         # Update input dict:
         self.__tech_dict = tech_dict
@@ -226,3 +229,10 @@ class HydroPower(TechCore):
     #     v_e_hydro_pot_remain = v_e_hydro_pot - v_e_hydro
         
     #     return v_e_hydro_pot_remain
+
+
+    def get_energy_revenue(self):
+        return np.sum(self._v_e_exp)*self._export_subsidy
+    
+
+    

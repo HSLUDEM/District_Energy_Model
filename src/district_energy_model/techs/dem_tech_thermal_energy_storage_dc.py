@@ -297,7 +297,6 @@ class ThermalEnergyStorageDC(TechCore):
             
         techs_dict['tes_decentralised'] = {}
 
-
         capex_plus_maintenace = self._capex
 
         if self._interest_rate > 0:
@@ -330,9 +329,9 @@ class ThermalEnergyStorageDC(TechCore):
                 'monetary':{
                     # 'om_annual':0.0, # !!!TEMPORARY - KOSTEN MÜSSEN DYNAMISCH HINZUGEFÜGT WERDEN!!!
                     'om_prod':0.0000, # [CHF/kWh_dchg] artificial cost per discharged kWh; used to avoid cycling within timestep
-                    'storage_cap':capex_plus_maintenace * energy_scaling_factor,
+                    'storage_cap':capex_plus_maintenace* energy_scaling_factor,
                     'interest_rate':self._interest_rate,
-                    #'om_annual': self._maintenance_cost * energy_scaling_factor
+                    # 'om_annual': self._maintenance_cost * energy_scaling_factor
                     },
                 }
             }
@@ -448,3 +447,4 @@ class ThermalEnergyStorageDC(TechCore):
     def get_ic(self):
         self.num_test(self._ic)
         return self._ic
+  

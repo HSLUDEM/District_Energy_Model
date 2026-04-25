@@ -7,6 +7,7 @@ Created on Wed Apr 10 16:25:10 2024
 
 import pandas as pd
 import numpy as np
+import input_files.inputs as inp
 
 from district_energy_model import dem_constants as C
 from district_energy_model.techs.dem_tech_core import TechCore
@@ -324,3 +325,7 @@ class GasBoiler(TechCore):
 
     def get_v_h_max(self):
         return self._v_h_max
+    
+
+    
+

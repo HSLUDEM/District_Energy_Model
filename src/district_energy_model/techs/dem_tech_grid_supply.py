@@ -38,7 +38,7 @@ class GridSupply(TechCore):
         
         # Initialize properties:
         self.update_tech_properties(tech_dict)
-        
+        self.init_timeseries()
         # Carrier types:
         self.output_carrier = 'electricity'
         
@@ -69,12 +69,62 @@ class GridSupply(TechCore):
         """
         self._kW_max = tech_dict['kW_max'] # Max electric capacity
         self._lifetime = tech_dict['lifetime']
-        self._tariff_CHFpkWh = tech_dict['tariff_CHFpkWh']
+
+
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
+
+        self._tariff_mode = tech_dict['tariff_mode']
+        self._co2_intensity_mode = tech_dict['co2_intensity_mode']
+
+        self._tariff_timeseries_filepath = tech_dict['tariff_timeseries_filepath']
+        self._co2_intensity_timeseries_filepath = tech_dict['co2_intensity_timeseries_filepath']
+
+        self._constant_tariff_CHFpkWh = tech_dict['constant_tariff_CHFpkWh']
+        self._constant_co2_intensity = tech_dict['constant_co2_intensity']
+
+        self._capex = 0
+        self._capex_one_to_one_replacement = 0
+        self._maintenance_cost = 0
         
-        # Update input dict:
         self.__tech_dict = tech_dict
+        
+    def init_timeseries(self):
+
+        #Price
+
+        n_hours = 365*24
+
+        self._tariff_timeseries = np.zeros(n_hours)
+        self._co2_intensity_timeseries = np.zeros(n_hours)
+
+        if self._tariff_mode == 'const':
+            self._tariff_timeseries = self._tariff_timeseries + self._constant_tariff_CHFpkWh
+        elif self._tariff_mode == 'file':
+            if self._tariff_timeseries_filepath.endswith(".feather"):
+                self._tariff_timeseries = pd.read_feather(self._tariff_timeseries_filepath).to_numpy()[:n_hours, 0]
+            elif self._tariff_timeseries_filepath.endswith(".npy"):
+                self._tariff_timeseries = np.load(self._tariff_timeseries_filepath)
+            else:
+                raise ValueError("Unknown file format for timeseries of electricity prices. Use feather or npy.")
+        else:
+            raise ValueError("Unknown mode for timeseries of electricity prices. Use 'const' or 'file'.")
+
+        #CO2 intensity
+
+        if self._co2_intensity_mode == 'const':
+            self._co2_intensity_timeseries = self._co2_intensity_timeseries + self._constant_co2_intensity
+        elif self._co2_intensity_mode == 'file':
+            if self._co2_intensity_timeseries_filepath.endswith(".feather"):
+                self._co2_intensity_timeseries = pd.read_feather(self._co2_intensity_timeseries_filepath).to_numpy()[:n_hours, 0]
+            elif self._co2_intensity_timeseries_filepath.endswith(".npy"):
+                self._co2_intensity_timeseries = np.load(self._co2_intensity_timeseries_filepath)
+            else:
+                raise ValueError("Unknown file format for timeseries of electricity co2 intensity. Use feather or npy.")
+        else:
+            raise ValueError("Unknown mode for timeseries of electricity co2 intensity. Use 'const' or 'file'.")
+
+
+        
         
     def update_df_results(self, df):
         
@@ -116,6 +166,9 @@ class GridSupply(TechCore):
         self._m_e_ch_biomass = self._m_e_ch_biomass[:n_hours]
         self._m_e_ch_other = self._m_e_ch_other[:n_hours]
         self._m_co2 = self._m_co2[:n_hours]
+
+        self._co2_intensity_timeseries = self._co2_intensity_timeseries[:n_hours]
+        self._tariff_timeseries = self._tariff_timeseries[:n_hours]
         
     # def return_balance(self):
         
@@ -167,7 +220,7 @@ class GridSupply(TechCore):
         # return m_e_mix
     
     def __compute_m_co2(self):        
-        self._m_co2 = self._m_e*self.__tech_dict['co2_intensity']
+        self._m_co2 = self._m_e*self._co2_intensity_timeseries
         # !!! THIS MUST BE SPLIT UP (cbimport vs national production)
         
     def compute_m_e_cbimport(self):
@@ -370,7 +423,11 @@ class GridSupply(TechCore):
         
     #     return df_mix_new
     
-    def create_techs_dict(self, techs_dict, color, energy_scaling_factor):
+    def create_techs_dict(self, 
+                          techs_dict, color, 
+                          resource_tariff_timeseries,
+                          resource_co2_intensity_timeseries,
+                          energy_scaling_factor):
             
         techs_dict['grid_supply'] = {
             'essentials':{
@@ -387,12 +444,12 @@ class GridSupply(TechCore):
             'costs':{
                 'monetary':{
                     # 'energy_cap':1000,
-                    'om_con':self._tariff_CHFpkWh * energy_scaling_factor, # [CHF/kWh]
+                    'om_con': resource_tariff_timeseries, # [CHF/kWh]
                     # 'om_prod':self.scen_techs['grid_supply']['tariff_CHFpkWh'], # [CHF/kWh]
                     'interest_rate':self._interest_rate
                     },
                 'emissions_co2':{
-                    'om_prod':self._co2_intensity * energy_scaling_factor
+                    'om_prod': resource_co2_intensity_timeseries
                     }
                 }
             }
@@ -445,3 +502,11 @@ class GridSupply(TechCore):
     def set_m_e_ch(self, val):
         self._m_e_ch = val
 
+    def get_energy_costs(self):
+        return np.sum(np.array(self._m_e)*self._tariff_timeseries)
+
+    def get_tariff_timeseries(self):
+        return self._tariff_timeseries
+    
+    def get_co2_intensity_timeseries(self):
+        return self._co2_intensity_timeseries

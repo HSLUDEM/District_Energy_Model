@@ -779,7 +779,50 @@ class ThermalEnergyStorageSites(TechCore):
         return res
 
 
+    def get_total_capex(self):
+        capex = 0.0
+        for i in range(len(self._sites_list)):
+            cap = self._cap_htht[i] + self._cap_htlt[i] + self._cap_ltlt[i]
+            if cap > 0:
+                capex += (self._sites_list[i]['capex_per_kWh'] * cap + self._sites_list[i]['capex_base'])*self.calculate_annuity_factor()[i]
+            else:
+                capex += 0.0
+        return capex
 
+    def get_total_maintenance(self):
+        maintenance_cost = 0.0
+        for i in range(len(self._sites_list)):
+            cap = self._cap_htht[i] + self._cap_htlt[i] + self._cap_ltlt[i]
+            if cap > 0:
+                maintenance_cost += self._sites_list[i]['maintenance_cost_per_kWh'] * cap + self._sites_list[i]['maintenance_cost_base']
+            else:
+                maintenance_cost += 0.0
+        return maintenance_cost
+
+
+    def get_output_max(self):
+        storage = []
+        for i in range(len(self._sites_list)):
+            cap = self._cap_htht[i] + self._cap_htlt[i] + self._cap_ltlt[i]
+            storage.append(cap)
+        return storage
+
+    def get_existing(self):
+        return 0.0
+
+    def get_needs_replacement_cap(self):
+        return 0.0
+    
+    def calculate_annuity_factor(self):
+        annuity_factors = []
+        for i in range(len(self._sites_list)):
+            if self._sites_list[i]['interest_rate'] > 0:
+                q = (1 + self._sites_list[i]['interest_rate'])
+                annuity_factor = ((q**self._sites_list[i]['lifetime'])*(q - 1))/((q**self._sites_list[i]['lifetime'])-1)
+            else:
+                annuity_factor = 1.0 / self._sites_list[i]['lifetime']
+            annuity_factors.append(annuity_factor)
+        return annuity_factors
 
 
 
@@ -959,3 +1002,4 @@ class ThermalEnergyStorageSites(TechCore):
     #     self.num_test(val)
     #     self._q_h[i] = float(val)
 
+   

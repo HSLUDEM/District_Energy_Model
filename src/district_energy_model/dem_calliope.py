@@ -71,6 +71,7 @@ class CalliopeOptimiser:
         
         self.tech_list_new = []
         self.tech_list_old = []
+        self.tech_list_grid_connection = []
         self.tech_list_pv = []
         self.tech_list_solarthermal = [] #Always same length as pv!
         
@@ -110,7 +111,10 @@ class CalliopeOptimiser:
         
         if 'grid_supply' in self.tech_list:
             self.tech_grid_supply = tech_instances['grid_supply']
-        
+
+        if 'grid_export' in self.tech_list:
+            self.tech_grid_export = tech_instances['grid_export']
+
         if 'other' in self.tech_list:
             self.tech_other = tech_instances['other']
 
@@ -194,6 +198,12 @@ class CalliopeOptimiser:
 
         if 'gas_boiler_cp' in self.tech_list:
             self.tech_gas_boiler_cp = tech_instances['gas_boiler_cp']
+
+        if 'deep_geothermal' in self.tech_list:
+            self.tech_deep_geothermal = tech_instances['deep_geothermal']
+
+        if 'heat_demand_manual' in self.tech_list:
+            self.tech_heat_demand_manual = tech_instances['heat_demand_manual']
 
         if 'waste_heat' in self.tech_list:
             self.tech_waste_heat = tech_instances['waste_heat']
@@ -415,6 +425,27 @@ class CalliopeOptimiser:
         else:
             waste_heat_resource = null_array.copy()
 
+        if 'heat_demand_manual' in self.tech_list:
+            heat_demand_manual_resource = self.tech_heat_demand_manual.get_timeseries()
+        else:
+            heat_demand_manual_resource = null_array.copy()
+
+
+        if 'grid_supply' in self.tech_list:
+            grid_supply_resource_tariff_timeseries = self.tech_grid_supply.get_tariff_timeseries()
+            grid_supply_resource_co2_intensity_timeseries = self.tech_grid_supply.get_co2_intensity_timeseries()
+        else:
+            grid_supply_resource_tariff_timeseries = null_array.copy()
+            grid_supply_resource_co2_intensity_timeseries = null_array.copy()
+
+        if 'grid_export' in self.tech_list:
+            grid_export_resource_tariff_timeseries = self.tech_grid_export.get_tariff_timeseries()
+            grid_export_resource_co2_intensity_timeseries = self.tech_grid_export.get_co2_intensity_timeseries()
+        else:
+            grid_export_resource_tariff_timeseries = null_array.copy()
+            grid_export_resource_co2_intensity_timeseries = null_array.copy()
+
+
         if 'waste_heat_low_temperature' in self.tech_list:
             waste_heat_low_temperature_resource = self.tech_waste_heat_low_temperature.get_v_hlt_resource()
         else:
@@ -467,8 +498,16 @@ class CalliopeOptimiser:
         wp_resource_annual = pd.Series(wp_resource_annual, index=date_index)
         wp_resource_winter = pd.Series(wp_resource_winter, index=date_index)
         hydro_resource = pd.Series(hydro_resource, index=date_index)
+        heat_demand_manual_resource = pd.Series(heat_demand_manual_resource, index=date_index)
         waste_heat_resource = pd.Series(waste_heat_resource, index=date_index)
         waste_heat_low_temperature_resource = pd.Series(waste_heat_low_temperature_resource, index=date_index)
+
+        grid_supply_resource_tariff_timeseries = pd.Series(grid_supply_resource_tariff_timeseries, index=date_index)
+        grid_supply_resource_co2_intensity_timeseries = pd.Series(grid_supply_resource_co2_intensity_timeseries, index=date_index)
+        
+        grid_export_resource_tariff_timeseries = pd.Series(grid_export_resource_tariff_timeseries, index=date_index)
+        grid_export_resource_co2_intensity_timeseries = pd.Series(grid_export_resource_co2_intensity_timeseries, index=date_index)
+
 
         heat_pump_cp_cops = pd.Series(heat_pump_cp_cops, index=date_index)
 
@@ -505,8 +544,19 @@ class CalliopeOptimiser:
         df_wp_resource_annual = wp_resource_annual.to_frame('v_e_wp')
         df_wp_resource_winter = wp_resource_winter.to_frame('v_e_wp')
         df_hydro_resource = hydro_resource.to_frame('v_e_hydro')
+        df_heat_demand_manual_resource = - heat_demand_manual_resource.to_frame('d_h_m')
         df_waste_heat_resource = waste_heat_resource.to_frame('v_h_wh')
         df_waste_heat_low_temperature_resource = waste_heat_low_temperature_resource.to_frame('v_hlt_whlt')
+
+        df_grid_supply_timeseries = pd.DataFrame({
+                                    "tariff_timeseries": grid_supply_resource_tariff_timeseries * self.energy_scaling_factor,
+                                    "co2_intensity_timeseries": grid_supply_resource_co2_intensity_timeseries * self.energy_scaling_factor
+                                })
+        df_grid_export_timeseries = pd.DataFrame({
+                                    "tariff_timeseries": - grid_export_resource_tariff_timeseries * self.energy_scaling_factor,
+                                    "co2_intensity_timeseries": - grid_export_resource_co2_intensity_timeseries * self.energy_scaling_factor
+                                })
+
 
         df_heat_pump_cp_cops = heat_pump_cp_cops.to_frame('cop')
 
@@ -541,7 +591,10 @@ class CalliopeOptimiser:
             'wp_resource_annual':df_wp_resource_annual, #/ self.energy_scaling_factor,
             'wp_resource_winter':df_wp_resource_winter, #/ self.energy_scaling_factor,
             'hydro_resource':df_hydro_resource / self.energy_scaling_factor,
+            'heat_demand_manual':df_heat_demand_manual_resource / self.energy_scaling_factor,
             'waste_heat':df_waste_heat_resource / self.energy_scaling_factor,
+            'grid_supply':df_grid_supply_timeseries,
+            'grid_export':df_grid_export_timeseries,
             'waste_heat_low_temperature':df_waste_heat_low_temperature_resource / self.energy_scaling_factor,
             'heat_pump_cp': df_heat_pump_cp_cops,
             'heat_pump_cops_existing': df_heat_pump_cops_existing,
@@ -802,6 +855,10 @@ class CalliopeOptimiser:
             v_h_dh = opt_results['carrier_prod'].loc['X1::district_heating_hub_0::heat'].values * self.energy_scaling_factor
             for i in range(self.tech_district_heating.dhn_qty -1):
                 v_h_dh += opt_results['carrier_prod'].loc['X1::district_heating_hub_'+str(i+1)+'::heat'].values * self.energy_scaling_factor
+            
+            for i in range(self.tech_district_heating.dhn_qty):
+                v_h_of_category = opt_results['carrier_prod'].loc['X1::district_heating_hub_'+str(i)+'::heat'].values * self.energy_scaling_factor
+                self.tech_district_heating.update_v_h_by_categories(v_h_of_category)
             
             self.tech_district_heating.update_v_h(v_h_dh)
 
@@ -1272,6 +1329,20 @@ class CalliopeOptimiser:
             self.tech_wood_boiler_cp.update_v_h(v_h_wbcp)
 
         # -------------------
+        # Deep_Geothermal
+        if 'deep_geothermal' in self.tech_list:
+
+            v_h_dgt = opt_results['carrier_prod'].loc['X1::deep_geothermal_exists::heat_dgt'].values*self.energy_scaling_factor
+            self.tech_deep_geothermal.update_v_h(v_h_dgt)
+
+        # -------------------
+        # Heat_demand_manual
+        if 'heat_demand_manual' in self.tech_list:
+
+            d_h_m = - opt_results['carrier_con'].loc['X1::heat_demand_manual_exists::heat'].values*self.energy_scaling_factor
+            self.tech_heat_demand_manual.update_d_h(d_h_m)
+
+        # -------------------
         # Waste_heat
         if 'waste_heat' in self.tech_list:
             # rasa = opt_results['carrier_prod'].loc['X1::waste_heat_exists']
@@ -1430,6 +1501,9 @@ class CalliopeOptimiser:
         if 'waste_heat' in self.tech_list:
             d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_wh'].values*self.energy_scaling_factor
 
+        if 'deep_geothermal' in self.tech_list:
+            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_dgt'].values*self.energy_scaling_factor
+
         if 'gas_boiler_cp' in self.tech_list:
             d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_gbcp'].values*self.energy_scaling_factor
 
@@ -1441,11 +1515,18 @@ class CalliopeOptimiser:
         # Electricity import:
         if 'grid_supply' in self.tech_list:
             m_e =\
-                opt_results['carrier_prod'].loc['X1::grid_supply::electricity'].values*self.energy_scaling_factor
+                opt_results['carrier_prod'].loc['Grid_Connection_Node::grid_supply::electricity'].values*self.energy_scaling_factor
                 
             # Recalculate electricity mix:
             self.tech_grid_supply.update_m_e(m_e)
-        
+
+        if 'grid_export' in self.tech_list:
+            f_e =\
+                -opt_results['carrier_con'].loc['Grid_Connection_Node::grid_export::electricity'].values*self.energy_scaling_factor
+                
+            # Recalculate electricity mix:
+            self.tech_grid_export.update_f_e(f_e)
+
         # -------------------
         # Thermal energy storage: # LOSSES TO BE ADDED
         if 'tes' in self.tech_list:
@@ -1858,6 +1939,12 @@ class CalliopeOptimiser:
                     tech_groups_dict
                     )
             
+        if 'deep_geothermal' in self.tech_list:
+            tech_groups_dict =\
+                self.tech_deep_geothermal.create_tech_groups_dict(
+                    tech_groups_dict
+                    )
+            
         if 'waste_heat_low_temperature' in self.tech_list:
             tech_groups_dict =\
                 self.tech_waste_heat_low_temperature.create_tech_groups_dict(
@@ -1897,6 +1984,7 @@ class CalliopeOptimiser:
             'hydro_power': '#0000FF',
             'wind_power': '#3333FF',
             'grid_supply':'#C5ABE3',
+            'grid_export':"#98EBDD",
             'tes':'#EF008C',
             'tes_sites':'#EF008C',
             'tes_decentralised':'#EF008C',
@@ -1916,8 +2004,10 @@ class CalliopeOptimiser:
             'gas_line': '#808080',
             'wood_line': '#6e4500',
             'wet_biomass_line': '#024200',
+            'heat_demand_manual': "#B62929",
             'waste_heat': '#918686',
-            'waste_heat_low_temperature': "#9BBAC9"
+            'waste_heat_low_temperature': "#9BBAC9",
+            'deep_geothermal': '#c56019',
             }
         
         techs_dict = {}
@@ -2042,31 +2132,7 @@ class CalliopeOptimiser:
         
         # Add user-selected techologies:
         if 'heat_pump' in self.tech_list:
-            energy_cap_old = self.tech_heat_pump.get_v_h().max()
-            needs_replacement = self.tech_heat_pump.get_power_up_for_replacement()
-
-            energy_cap_zero_capex = energy_cap_old-needs_replacement if energy_cap_old>=needs_replacement else 0.0
-            energy_cap_low_capex = needs_replacement if energy_cap_old>=needs_replacement else energy_cap_old
-            
-            if self.tech_heat_pump.get_only_allow_existing():
-                cap_one_to_one_replacement = 0.0
-                cap_new = 0.0
-            else:
-                cap_one_to_one_replacement = energy_cap_low_capex
-                if self.tech_heat_pump._v_h_max == 'inf':
-                    cap_new = 'inf'
-                else:
-                    cap_new = self.tech_heat_pump._v_h_max - cap_one_to_one_replacement - energy_cap_zero_capex
-            
-            if self.tech_heat_pump._v_h_max != 'inf':
-                if cap_new < 0.0:
-                    cap_one_to_one_replacement += cap_new
-                    cap_new = 0.0
-                if cap_one_to_one_replacement < 0.0:
-                    energy_cap_zero_capex += cap_one_to_one_replacement
-                    cap_one_to_one_replacement = 0.0
-                if energy_cap_zero_capex <= 0.0:
-                    energy_cap_zero_capex = 0.0
+            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_heat_pump.get_needs_replacement_cap()
 
             techs_dict, additional_techs_label = self.tech_heat_pump.create_techs_dict(
                 techs_dict, 
@@ -2103,11 +2169,8 @@ class CalliopeOptimiser:
             self.tech_list_new.append('heat_pump_new')
 
         if 'electric_heater' in self.tech_list:
-            energy_cap_old = self.tech_electric_heater.get_v_h().max()
-            needs_replacement = self.tech_electric_heater.get_power_up_for_replacement()
-
-            energy_cap_eh = energy_cap_old-needs_replacement if energy_cap_old > needs_replacement else 0
-
+            energy_cap_eh, needs_replacement, _ = self.tech_electric_heater.get_needs_replacement_cap()
+        
             techs_dict = self.tech_electric_heater.create_techs_dict(
                     techs_dict, 
                     header = 'electric_heater_old', 
@@ -2121,11 +2184,7 @@ class CalliopeOptimiser:
            
         if 'oil_boiler' in self.tech_list:
 
-            energy_cap_old = self.tech_oil_boiler.get_v_h().max()
-            needs_replacement = self.tech_oil_boiler.get_power_up_for_replacement()
-
-            energy_cap_zero_capex = energy_cap_old-needs_replacement if energy_cap_old>=needs_replacement else 0.0
-            energy_cap_low_capex = needs_replacement if energy_cap_old>=needs_replacement else energy_cap_old
+            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_oil_boiler.get_needs_replacement_cap()
 
             techs_dict = self.tech_oil_boiler.create_techs_dict(
                 techs_dict, 
@@ -2136,12 +2195,6 @@ class CalliopeOptimiser:
                 capex_level = 'zero',
                 energy_scaling_factor = self.energy_scaling_factor)
             
-            if self.tech_oil_boiler.get_only_allow_existing():
-                cap_one_to_one_replacement = 0.0
-            else:
-                cap_one_to_one_replacement = energy_cap_low_capex
-
-            
             techs_dict = self.tech_oil_boiler.create_techs_dict(
                 techs_dict, 
                 header = 'oil_boiler_one_to_one_replacement', 
@@ -2151,12 +2204,6 @@ class CalliopeOptimiser:
                 capex_level = 'one-to-one-replacement',
                 energy_scaling_factor = self.energy_scaling_factor)                
             self.tech_list_old.append('oil_boiler_one_to_one_replacement')
-
-
-            if self.tech_oil_boiler.get_only_allow_existing():
-                cap_new = 0.0
-            else:
-                cap_new = 'inf'
             
             techs_dict = self.tech_oil_boiler.create_techs_dict(
                 techs_dict, 
@@ -2172,13 +2219,8 @@ class CalliopeOptimiser:
             self.tech_list_new.append('oil_boiler_new')
                  
         if 'gas_boiler' in self.tech_list:
-            
-            energy_cap_old = self.tech_gas_boiler.get_v_h().max()
-            needs_replacement = self.tech_gas_boiler.get_power_up_for_replacement()
 
-            energy_cap_zero_capex = energy_cap_old-needs_replacement if energy_cap_old>=needs_replacement else 0.0
-            energy_cap_low_capex = needs_replacement if energy_cap_old>=needs_replacement else energy_cap_old
-
+            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_gas_boiler.get_needs_replacement_cap()
 
             techs_dict = self.tech_gas_boiler.create_techs_dict(
                 techs_dict, 
@@ -2189,11 +2231,6 @@ class CalliopeOptimiser:
                 capex_level = 'zero',
                 energy_scaling_factor = self.energy_scaling_factor
                 )
-            
-            if self.tech_gas_boiler.get_only_allow_existing():
-                cap_one_to_one_replacement = 0.0
-            else:
-                cap_one_to_one_replacement = energy_cap_low_capex
 
             techs_dict = self.tech_gas_boiler.create_techs_dict(
                 techs_dict, 
@@ -2205,12 +2242,6 @@ class CalliopeOptimiser:
                 energy_scaling_factor = self.energy_scaling_factor
                 )                
             self.tech_list_old.append('gas_boiler_one_to_one_replacement')
-
-
-            if self.tech_gas_boiler.get_only_allow_existing():
-                cap_new = 0.0
-            else:
-                cap_new = 'inf'
             
             techs_dict = self.tech_gas_boiler.create_techs_dict(
                 techs_dict, 
@@ -2226,12 +2257,7 @@ class CalliopeOptimiser:
            
         if 'wood_boiler' in self.tech_list:
             
-            energy_cap_old = self.tech_wood_boiler.get_v_h().max()
-            needs_replacement = self.tech_wood_boiler.get_power_up_for_replacement()
-
-            energy_cap_zero_capex = energy_cap_old-needs_replacement if energy_cap_old>=needs_replacement else 0.0
-            energy_cap_low_capex = needs_replacement if energy_cap_old>=needs_replacement else energy_cap_old
-
+            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_wood_boiler.get_needs_replacement_cap()
 
             techs_dict = self.tech_wood_boiler.create_techs_dict(
                 techs_dict, 
@@ -2243,11 +2269,6 @@ class CalliopeOptimiser:
                 energy_scaling_factor = self.energy_scaling_factor
                 )
 
-            if self.tech_wood_boiler.get_only_allow_existing():
-                cap_one_to_one_replacement = 0.0
-            else:
-                cap_one_to_one_replacement = energy_cap_low_capex
-
             techs_dict = self.tech_wood_boiler.create_techs_dict(
                 techs_dict, 
                 header = 'wood_boiler_one_to_one_replacement', 
@@ -2258,11 +2279,6 @@ class CalliopeOptimiser:
                 energy_scaling_factor = self.energy_scaling_factor
                 )                
             self.tech_list_old.append('wood_boiler_one_to_one_replacement')
-    
-            if self.tech_wood_boiler.get_only_allow_existing():
-                cap_new = 0.0
-            else:
-                cap_new = 'inf'
             
             techs_dict = self.tech_wood_boiler.create_techs_dict(
                 techs_dict, 
@@ -2402,7 +2418,7 @@ class CalliopeOptimiser:
             self.tech_list_new.append('wind_power_new')
             
         if 'hydro_power' in self.tech_list:
-            energy_cap = self.tech_hydro_power.get_v_e().max()
+            energy_cap, _ , _ = self.tech_hydro_power.get_needs_replacement_cap()
             
             techs_dict = self.tech_hydro_power.create_techs_dict(
                 techs_dict=techs_dict,
@@ -2425,11 +2441,24 @@ class CalliopeOptimiser:
             techs_dict = self.tech_grid_supply.create_techs_dict(
                 techs_dict,
                 colors['grid_supply'],
+                resource_tariff_timeseries = "df=grid_supply:tariff_timeseries",
+                resource_co2_intensity_timeseries = "df=grid_supply:co2_intensity_timeseries",
                 energy_scaling_factor = self.energy_scaling_factor
                 )
             
-            self.tech_list_old.append('grid_supply')
+            self.tech_list_grid_connection.append('grid_supply')
+
+        if 'grid_export' in self.tech_list:
+            techs_dict = self.tech_grid_export.create_techs_dict(
+                techs_dict,
+                colors['grid_export'],
+                resource_tariff_timeseries = "df=grid_export:tariff_timeseries",
+                resource_co2_intensity_timeseries = "df=grid_export:co2_intensity_timeseries",
+                energy_scaling_factor = self.energy_scaling_factor
+                )
             
+            self.tech_list_grid_connection.append('grid_export')
+
         if 'tes' in self.tech_list:
             techs_dict, tes_techs_label_list = self.tech_tes.create_techs_dict(
                 techs_dict,
@@ -2647,6 +2676,31 @@ class CalliopeOptimiser:
             
             self.tech_list_old.append('wood_boiler_cp_exist')
 
+        if 'deep_geothermal' in self.tech_list:
+            techs_dict = self.tech_deep_geothermal.create_techs_dict(
+                techs_dict=techs_dict,
+                header='deep_geothermal_exists',
+                name='Deep Geothermal',
+                color=colors['deep_geothermal'],
+                energy_scaling_factor = self.energy_scaling_factor
+                )
+            
+            self.tech_list_old.append('deep_geothermal_exists')
+
+        if 'heat_demand_manual' in self.tech_list:
+            techs_dict = self.tech_heat_demand_manual.create_techs_dict(
+                techs_dict=techs_dict,
+                header='heat_demand_manual_exists',
+                name='Heat demand manual (sink)',
+                color=colors['heat_demand_manual'],
+                resource="df=heat_demand_manual:d_h_m",
+                energy_scaling_factor = self.energy_scaling_factor
+                )
+            
+            self.tech_list_old.append('heat_demand_manual_exists')
+
+
+
         if 'waste_heat' in self.tech_list:
             techs_dict = self.tech_waste_heat.create_techs_dict(
                 techs_dict=techs_dict,
@@ -2709,6 +2763,15 @@ class CalliopeOptimiser:
                 # 'available_area': 1, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
                 'coordinates':{} 
                 },
+            'Grid_Connection_Node':{
+                'techs':{
+                    },
+                'coordinates':{
+                  'lat': 0,
+                  'lon': 0
+                } 
+                },
+
             'New_Techs':{
                 'techs':{},
                 # 'available_area': self.available_area_scaling, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
@@ -2741,27 +2804,7 @@ class CalliopeOptimiser:
 
         else:
             loc_dict['X1']['techs']['demand_electricity_ev'] = {}
-        
-        # if 'solar_thermal' in self.tech_list:
-        #     loc_dict['Old_Solar_Thermal'] = {
-        #         'techs':{},
-        #         'available_area': self.available_area_scaling, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
-        #         'coordinates':{
-        #             'lat': 3,
-        #             'lon': 3
-        #             }
-        #         }
-        
-        # if 'solar_pv' in self.tech_list:
-        #     loc_dict['Old_Solar_PV'] = {
-        #         'techs':{},
-        #         'available_area': self.available_area_scaling, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
-        #         'coordinates':{
-        #           'lat': 3,
-        #           'lon': 4
-        #           }
-        #         }
-        
+                
         if len(self.tech_list_pv) > 0:
             for i in range(len(self.tech_list_pv)):
                 for j in range(len(self.tech_list_pv[i])):
@@ -2782,6 +2825,13 @@ class CalliopeOptimiser:
                 pass
             else:
                 loc_dict['X1']['techs'][tech] = None
+        for tech in self.tech_list_grid_connection:
+            if tech in tech_locs:
+                # This tech will have a separate location
+                pass
+            else:
+                loc_dict['Grid_Connection_Node']['techs'][tech] = None
+
         for tech in self.tech_list_new:
             if tech in tech_locs:
                 # This tech will have a separate location
@@ -3008,6 +3058,17 @@ class CalliopeOptimiser:
         # Initialise dict:
         links_dict = {}
         
+        links_dict[f'X1,Grid_Connection_Node'] = {
+            'techs':{}
+            }
+        links_dict[f'X1,Grid_Connection_Node']['techs']['power_line'] = {
+            'constraints':{
+                }
+            }
+        if self.tech_grid_supply._kW_max != 'inf':
+            links_dict[f'X1,Grid_Connection_Node']['techs']['power_line']['constraints']['energy_cap_equals'] \
+                = self.tech_grid_supply._kW_max / self.energy_scaling_factor
+
         # Add links:
         for loc in link_locs:
             links_dict[f'X1,{loc}'] = {

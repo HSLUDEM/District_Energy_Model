@@ -10,6 +10,7 @@ import numpy as np
 
 from district_energy_model import dem_constants as C
 from district_energy_model.techs.dem_tech_core import TechCore
+from input_files import inputs as inp
 
 class WoodBoiler(TechCore):
     
@@ -235,6 +236,11 @@ class WoodBoiler(TechCore):
     
     def set_power_up_for_replacement(self, value):
         self._power_up_for_replacement = value
+
+
+
+
+    
 
     # @staticmethod
     # def get_u_wd(v_h_wb, eta):

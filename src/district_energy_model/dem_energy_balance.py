@@ -578,7 +578,7 @@ def electricity_balance_test(scen_techs,
         else:
             df_scen[k] = 0
         
-    electricity_consumption = df_scen['d_e'] + df_scen['u_e_bes']
+    electricity_consumption = df_scen['d_e'] + df_scen['u_e_bes'] + df_scen['f_e']
     
     electricity_generation = (
                                 # df_scen['v_e_pv_cons']
@@ -603,6 +603,7 @@ def electricity_balance_test(scen_techs,
                                 + df_scen['u_e_wguh']# TEMPORARY!!!
                                 + df_scen['u_e_hydp']
                                 + df_scen['u_e_bes']
+                                + df_scen['f_e']
                                 )
     
     electricity_for_heating = df_scen['d_e_h']
@@ -739,6 +740,10 @@ def electricity_balance_test(scen_techs,
     max_diff_9 = diff_9.max()
     
     # diff_10: Battery Energy Storage(BES) losses are only checked as sums
+
+    print(diff_1.max(), df_scen['f_e'].max())
+
+    print(max_diff_1)
 
     if max_diff_1 > diff_accepted:
         print("Electricity balance (1) is not fulfilled!")
@@ -897,6 +902,7 @@ def heat_balance_test(df_scen,
     """
     # Fill dataframe with 0s if columns are missing:
     missing_keys = [
+        'd_h_m',
         'u_h_tes',
         'u_h_tesdc',
         'v_h_tes',
@@ -930,6 +936,7 @@ def heat_balance_test(df_scen,
         'v_h_ehcp',
         'v_h_wbcp',
         'v_h_wh',
+        'v_h_dgt',
         'v_h_gbcp',
         'u_e_aguh',
         'm_h_dh',
@@ -951,6 +958,7 @@ def heat_balance_test(df_scen,
     heat_consumption = (df_scen['d_h']
                         + df_scen['u_h_tesdc']
                         + df_scen['v_h_solarthermalrooftop_exp']
+                        + df_scen['d_h_m']
                         # + df_scen['u_h_tes'] # INCLUDED IN DISTRICT HEATING
                         )
     
@@ -1054,6 +1062,7 @@ def heat_balance_test(df_scen,
         + df_scen['v_h_ehcp']
         + df_scen['v_h_wbcp']
         + df_scen['v_h_wh']
+        + df_scen['v_h_dgt']
         + df_scen['v_h_gbcp']
         + df_scen['v_h_bm']
         + df_scen['v_h_tes']

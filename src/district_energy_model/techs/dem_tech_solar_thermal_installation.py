@@ -74,7 +74,9 @@ class SolarThermalInstallation(TechCore):
 
         # Initialize properties:
         self.update_tech_properties(tech_dict)
-        
+        self.specific_yield = 1600*0.7 # annual kwh solar irradiance*conversion effiency
+        self._existing = ...
+
         # Carrier types:
         self.output_carrier = output_carrier
         
@@ -90,6 +92,7 @@ class SolarThermalInstallation(TechCore):
 
         self.power_up_for_replacement = 0
 
+        
     def update_tech_properties(self, tech_dict):
 
         """        
@@ -222,6 +225,7 @@ class SolarThermalInstallation(TechCore):
         self._share_occupied
 
         p_max_occ = self._max_profile.max() * self._share_occupied
+        print(f"p_max_occ: {p_max_occ} This should be the power of the existing installation")
         p_max_unocc = self._max_profile.max() * np.round((1.0 - self._share_occupied),5)
 
         # print("VALUES = ", p_max_occ, p_max_unocc, self._share_occupied, self._max_profile.max())
@@ -304,3 +308,6 @@ class SolarThermalInstallation(TechCore):
     def get_v_h_pot_remain(self):
         self.len_test(self._v_h_pot_remain)
         return self._v_h_pot_remain
+
+    def get_kwp(self):
+        return self._v_h.sum()/self.specific_yield

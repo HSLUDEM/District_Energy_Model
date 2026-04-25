@@ -69,6 +69,7 @@ class SolarPV(TechCore):
         
         # Initialize properties:
         self.update_tech_properties(tech_dict)
+        self._specific_yield = 950
         
         # self.com_lat = com_lat
         # self.com_lon = com_lon
@@ -472,6 +473,21 @@ class SolarPV(TechCore):
     
     def get_only_use_installed(self):
         return self._only_use_installed
+
+    def get_kWp(self):
+        return self._v_e.sum()/self._specific_yield
+    
+    def get_total_capex(self):
+        return self._capex*self.get_kWp()
+    
+    def get_total_maintenance(self):
+        return self._capex*self.get_kWp()
+    
+    def get_energy_revenue(self):
+        return self._v_e_exp.sum()*self._export_subsidy
+    
+    def get_energy_costs(self):
+        return 0.0
         
         
     # @staticmethod

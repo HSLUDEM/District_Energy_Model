@@ -7,6 +7,7 @@ Created on Wed Apr 10 16:20:25 2024
 
 import numpy as np
 import pandas as pd
+import input_files.inputs as inp
 
 from district_energy_model.techs.dem_tech_heat_pump_core import HeatPumpCore
 
@@ -34,6 +35,9 @@ class HeatPump(HeatPumpCore):
         # Initialize properties:
         # self._cop = tech_dict['cop'] # Coefficient of performance
         self.update_tech_properties(tech_dict)
+        self.existing = 0
+        self.needs_replacement = 0
+        self.cap_new = 0
         
         # Carrier types:
         self._input_carrier = 'electricity'
@@ -45,6 +49,7 @@ class HeatPump(HeatPumpCore):
         self._u_e = [] # heat pump input - electricity
         self._u_h = [] # heat pump input - heat from environment
         self._v_h = [] # heat pump output (heat)
+        
         
     def update_tech_properties(self, tech_dict):
         
@@ -77,6 +82,7 @@ class HeatPump(HeatPumpCore):
         self._fixed_demand_share_val = tech_dict['fixed_demand_share_val']
         self._only_allow_existing = tech_dict['only_allow_existing']
         self._power_up_for_replacement = 0.0
+       
  
         
         
@@ -403,7 +409,10 @@ class HeatPump(HeatPumpCore):
         u_e_i = v_h_i/self._cops_eff[i]
         
         return u_e_i
+    
 
     
-    
+   
+
+        
     

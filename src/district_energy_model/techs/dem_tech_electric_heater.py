@@ -7,6 +7,7 @@ Created on Wed Apr 10 16:21:45 2024
 
 import numpy as np
 import pandas as pd
+import input_files.inputs as inp
 
 from district_energy_model.techs.dem_tech_core import TechCore
 
@@ -189,6 +190,7 @@ class ElectricHeater(TechCore):
     
     def set_power_up_for_replacement(self, value):
         self._power_up_for_replacement = value
+
 
     
     

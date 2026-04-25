@@ -14,6 +14,7 @@ import numpy as np
 
 from district_energy_model import dem_constants as C
 from district_energy_model.techs.dem_tech_core import TechCore
+from input_files import inputs as inp
 
 class WoodBoilerCP(TechCore):
     
@@ -235,9 +236,9 @@ class WoodBoilerCP(TechCore):
     
     # def get_only_allow_existing(self):
     #     return self._only_allow_existing
-    
-    
-    
+
+
+
     
     
     

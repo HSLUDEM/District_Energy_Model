@@ -285,3 +285,12 @@ class WasteToEnergy(TechCore):
         self.len_test(self._v_h_waste)
         return self._v_h_waste
     
+    def get_energy_costs(self):
+        return self._price_msw*np.sum(self._u_msw_kg)
+    
+    def get_total_capex(self):
+        return self._capex*np.max(self._v_e)
+    
+    def get_total_maintenance(self):
+        return self._maintenance_cost*np.max(self._v_e)
+    

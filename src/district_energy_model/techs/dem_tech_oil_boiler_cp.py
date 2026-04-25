@@ -10,6 +10,7 @@ network, mostly to provide peak heat.
 
 import pandas as pd
 import numpy as np
+import input_files.inputs as inp
 
 from district_energy_model import dem_constants as C
 from district_energy_model.techs.dem_tech_core import TechCore
@@ -356,10 +357,12 @@ class OilBoilerCP(TechCore):
         self.num_test(self._fixed_demand_share_val)
         return self._fixed_demand_share_val
     
-    def get_only_allow_existing(self):
-        return self._only_allow_existing
+    # def get_only_allow_existing(self):
+    #     return self._only_allow_existing
     
+
     
+
     
     
     

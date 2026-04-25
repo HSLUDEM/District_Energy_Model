@@ -7,6 +7,7 @@ Created on Wed Apr 10 16:27:46 2024
 import numpy as np
 import pandas as pd
 
+from input_files import inputs as inp
 from district_energy_model.techs.dem_tech_core import TechCore
 
 NUM_DH_CATEGORIES = 3 # includes category "already built", does not include category "too expensive to build"
@@ -40,6 +41,7 @@ class DistrictHeating(TechCore):
         self._m_h = [] # heat import [kWh]
         self._v_h = [] # heat output [kWh]
         self._v_co2 = []
+        self._v_h_by_categories = []
 
         self.update_district_heating_categories(df_com_yr, energy_demand, 'heat_energy_demand_estimate_kWh_combined')
         
@@ -162,6 +164,7 @@ class DistrictHeating(TechCore):
         self._source_wood_boiler_cp = tech_dict['heat_sources']['wood_boiler_cp']
         self._source_gas_boiler_cp = tech_dict['heat_sources']['gas_boiler_cp']
         self._source_waste_heat = tech_dict['heat_sources']['waste_heat']
+        self._source_deep_geothermal = tech_dict['heat_sources']['deep_geothermal']
 
         self._source_biomass = tech_dict['heat_sources']['biomass']
 
@@ -273,6 +276,7 @@ class DistrictHeating(TechCore):
                     'name': 'District Heating Hub',
                     'parent':'conversion',
                     'carrier_in':'heat_dh',
+
                     'carrier_out':'heat',
                     },
                 'constraints':{
@@ -557,6 +561,29 @@ class DistrictHeating(TechCore):
             dh_techs_label_list.append('conv_wh_dh')
 
 
+        # Deep geothermal (dgt)
+        if self._source_deep_geothermal:
+            techs_dict['conv_dgt_dh'] = {
+                'essentials':{
+                    'name':'Conversion: DGT to DH',
+                    'parent':'conversion',
+                    'carrier_in':'heat_dgt',
+                    'carrier_out':'heat_dh',
+                    },
+                'constraints':{
+                    'energy_cap_max':'inf',
+                    'energy_eff':1.0, # Here we could account for transmission losses
+                    'lifetime':self._lifetime,
+                    },
+                'costs':{
+                    'monetary':{
+                        'om_con': 0.0, # costs are reflected in supply techs
+                        'interest_rate':0.0,
+                        },
+                    } 
+                }
+            dh_techs_label_list.append('conv_dgt_dh')
+
         # Gas boiler central plant (gbcp):
         if self._source_gas_boiler_cp:
             techs_dict['conv_gbcp_dh'] = {
@@ -632,3 +659,23 @@ class DistrictHeating(TechCore):
     
     def set_power_up_for_replacement(self, value):
         self._power_up_for_replacement = value
+
+    def get_energy_costs(self):
+        return sum(self._m_h*inp.dh_tariff)
+    
+    def get_total_capex(self):
+        capex = 0
+        for i, v_h in enumerate(self._v_h_by_categories):
+            capex += self._investment_cost_grid_categories[i]*np.max(v_h)
+            #print(f"Category {i} capex: {self._investment_cost_grid_categories[i]*np.max(v_h)}", f"Category {i}: maintencance: {self._maintenance_cost_grid_categories[i]*np.max(v_h)}")
+        return capex
+    
+    def get_total_maintenance(self):
+        maintenance_cost = 0
+        for i, v_h in enumerate(self._v_h_by_categories):
+            maintenance_cost += self._maintenance_cost_grid_categories[i]*np.max(v_h)
+        return maintenance_cost
+    
+    def update_v_h_by_categories(self, new_v_h_of_category):
+        self._v_h_by_categories.append(new_v_h_of_category)
+    

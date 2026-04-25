@@ -67,7 +67,7 @@ wh_tariff = 0.01 # [CHF/kWh_th]
 whlt_tariff = 0.01 # [CHF/kWh_th]
 
 grid_tariff_CHFpkWh = 0.29 # [CHF/kWh] electricity tariff
-
+grid_feed_in_tariff_CHFpkWh = 0.06
 interest_rate = 0.025
 
 virtual_export_tariff_pv = 0.0
@@ -221,6 +221,7 @@ scen_techs = {
             'electric_heater_cp' :True,
             'wood_boiler_cp' :True,
             'gas_boiler_cp' :True,
+            'deep_geothermal': True, #deep geothermal well
             'waste_heat': True,
             'biomass': True
             },
@@ -245,7 +246,7 @@ scen_techs = {
         'lifetime':25,
         'interest_rate':interest_rate,
         'base_capex': 2857, # [CHF/kW_th]
-        'base_capex_one_to_one_replacement': 1000*0, #[CHF/kW_th] does nothing
+        'base_capex_one_to_one_replacement': 1000, #[CHF/kW_th] does nothing
         'base_maintenance_cost': 10, # [CHF/kW_th/year]
         'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
         'only_use_installed': False
@@ -286,8 +287,26 @@ scen_techs = {
         'deployment':True,
         # 'deployment':False,
         'kW_max':'inf',
-        'tariff_CHFpkWh':grid_tariff_CHFpkWh, #0.29, # [CHF/kWh] electricity tariff !!! MUST BE CHANGED TO A TIME SERIES
-        'co2_intensity':0.128,
+        'tariff_mode': 'const', # 'const' or 'file'
+        'co2_intensity_mode': 'const',
+        'tariff_timeseries_filepath': '',
+        'co2_intensity_timeseries_filepath': '',
+        'constant_tariff_CHFpkWh':grid_tariff_CHFpkWh, #0.29, # [CHF/kWh] electricity tariff !!! MUST BE CHANGED TO A TIME SERIES
+        'constant_co2_intensity':0.128,
+        'lifetime':25,
+        'interest_rate':interest_rate
+        },
+
+    'grid_export':{ # grid
+        'deployment':True,
+        'kW_max': None, #Defined in grid_supply
+        'tariff_mode': 'const', # 'const' or 'file'
+        'co2_intensity_mode': 'const',
+        'tariff_timeseries_filepath': '',
+        'co2_intensity_timeseries_filepath': '',
+
+        'constant_tariff_CHFpkWh':grid_feed_in_tariff_CHFpkWh, #0.29, # [CHF/kWh] electricity feed-in tariff
+        'constant_co2_intensity':0.0,
         'lifetime':25,
         'interest_rate':interest_rate
         },
@@ -316,6 +335,7 @@ scen_techs = {
             'gas_boiler_cp':True,
             'heat_pump_cp':True, # heat pump central plant
             'heat_pump_cp_lt':True, # heat pump central plant
+            'deep_geothermal': True, #deep geothermal well
             'waste_heat': False,
             'biomass': True
             },
@@ -360,7 +380,7 @@ scen_techs = {
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
         'bes_gamma':0.001,
         'capacity_kWh':bes_cap*1e6 if bes_cap != 'inf' else 'inf',
-        'chg_dchg_per_cap_max':0.1, # max. charge/discharge (kW) per storage cap (kWh) per timestep
+        'chg_dchg_per_cap_max':1.0, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':bes_ic,
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
         'lifetime':10,
@@ -611,7 +631,7 @@ scen_techs = {
         },
 
     'oil_boiler_cp':{ # obcp
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'kW_th_max':'inf',
         'hv_oil_MJpkg':hv_oil, # 42.9, # [MJ/kg] Heating value (lower) of oil
@@ -643,6 +663,22 @@ scen_techs = {
         'interest_rate':interest_rate,
         'capex':2000.0,
         'maintenance_cost': 1.26, # [CHF/kW/year]
+        },
+
+    'deep_geothermal':{ # deep geothermal energy
+        'deployment':False,
+        'capex': 25000.0,
+        'maintenance_cost': 0.0,
+        'lifetime':50,
+        'co2_intensity':0.0, # [kgCO2/kWh]
+        'interest_rate':interest_rate,
+        },
+
+    'heat_demand_manual':{ # hdm / d_h_m
+        'deployment':False,
+        'timeseries_file_path': '',
+        'demand_mode': 'file', #'const' or 'file'
+        'constant_value': 0.0, # kW
         },
 
 
@@ -883,8 +919,7 @@ scen_techs = {
         'co2_content_msw': 0.3312, #co2 content of msw # https://www.bafu.admin.ch/dam/en/sd-web/NlGIhzJ8OW0t/CO2_Emissionsfaktoren_THG_Inventar.pdf
         'annual_msw_supply':'inf', # [kg] Annual municipal solid waste supply; Options: float value or 'inf'
 
-        }
-
+        },
     }
 
 # -----------------------------------------------------------------------------

@@ -13,7 +13,7 @@ import numpy as np
 import time
 import copy
 
-from district_energy_model import dem_techs
+from district_energy_model import dem_costs, dem_techs
 from district_energy_model import dem_demand
 from district_energy_model import dem_hp_cop_calculation
 from district_energy_model import dem_helper
@@ -288,7 +288,8 @@ class DistrictEnergyModel:
         """
         
         self.energy_demand.compute_d_h_yr(
-            df_meta=self.df_meta
+            df_meta=self.df_meta,
+            df_com =self.df_com_yr
             )
 
         # Hourly heat demand:
@@ -461,7 +462,14 @@ class DistrictEnergyModel:
             scen_techs['grid_supply']
             )
         self.tech_instances['grid_supply'] = self.tech_grid_supply
-        
+
+        self.tech_grid_export = dem_techs.GridExport(
+            self.paths,
+            scen_techs['grid_export']
+            )
+        self.tech_grid_export.initialise_zero(365)
+        self.tech_instances['grid_export'] = self.tech_grid_export
+
         self.tech_other = dem_techs.Other(0)
         self.tech_instances['other'] = self.tech_other
 
@@ -692,6 +700,12 @@ class DistrictEnergyModel:
         #----------------------------------------------------------------------
         # Add additional techs for new scenario:
         
+        # Heat demand manual flow
+        if scen_techs['heat_demand_manual']['deployment']:                
+            self.tech_heat_demand_manual = dem_techs.HeatDemandManual(scen_techs['heat_demand_manual'])
+            self.tech_heat_demand_manual.initialise_zero(n_days)
+            self.tech_instances['heat_demand_manual'] = self.tech_heat_demand_manual
+
         # Waste heat flow
         if scen_techs['waste_heat']['deployment']:                
             self.tech_wh = dem_techs.WasteHeat(scen_techs['waste_heat'])
@@ -703,6 +717,12 @@ class DistrictEnergyModel:
             self.tech_whlt = dem_techs.WasteHeatLowTemperature(scen_techs['waste_heat_low_temperature'])
             self.tech_whlt.initialise_finite(n_days)
             self.tech_instances['waste_heat_low_temperature'] = self.tech_whlt
+
+        # Deep geothermal
+        if scen_techs['deep_geothermal']['deployment']:                
+            self.tech_dgt = dem_techs.DeepGeothermal(scen_techs['deep_geothermal'])
+            self.tech_dgt.initialise_zero(n_days)
+            self.tech_instances['deep_geothermal'] = self.tech_dgt
 
 
         # Thermal energy storage
@@ -1058,6 +1078,10 @@ class DistrictEnergyModel:
             df_scen
             )
         
+        
+        # Prepare cost calculation by getting already installed capacities before applying scenarios or optimization
+        dem_costs.get_old_capacities(self.tech_instances) 
+
         """--------------------------------------------------------------------
         Apply scenarios:
         """
@@ -1163,7 +1187,9 @@ class DistrictEnergyModel:
             # 'd_h_s_yr_future_renov_adjusted'
             
             self.energy_demand.compute_d_h_yr(
-                df_meta = self.df_meta
+                df_meta = self.df_meta,
+                df_com = self.df_com_yr,
+                spaceheating_column = post_renovation_sh_heat_demand_name
                 )
 
             # Hourly heat demand:
@@ -1201,15 +1227,6 @@ class DistrictEnergyModel:
                     power_up_for_replacement = scen_techs['demand_side']['heat_generator_replacement_rates']['v_h_'+k]*self.tech_instances[techstoacton[k]].get_v_h().max()
                     self.tech_instances[techstoacton[k]].set_power_up_for_replacement(power_up_for_replacement)
 
-            # d_h_new = self.energy_demand.get_d_h()
-            # d_h_unmet = d_h_new - d_h_prev
-            # self.energy_demand.update_d_h_unmet(d_h_unmet)
-            
-            # -----------------------------------------------------------------             
-            # Recalculate electricity demand:
-            # -------------------------------
-            # d_e_prev = self.energy_demand.get_d_e()
-            # m_e_prev = self.tech_grid_supply.get_m_e()        
             
             if scen_techs['demand_side']['ev_integration']:
                 print('\n demand_side')
@@ -1364,7 +1381,7 @@ class DistrictEnergyModel:
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
                     diff_sum_accepted = C.DIFF_SUM_ACC,
-                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                     )
             
         if scen_techs['scenarios']['pv_integration'] == True:
@@ -1474,7 +1491,7 @@ class DistrictEnergyModel:
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
                     diff_sum_accepted = C.DIFF_SUM_ACC,
-                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                     )
         if (scen_techs['scenarios']['battery_energy_storage'] == True 
             and scen_techs['scenarios']['thermal_energy_storage'] == True):
@@ -1545,7 +1562,7 @@ class DistrictEnergyModel:
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
                     diff_sum_accepted = C.DIFF_SUM_ACC,
-                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                     )
 
 
@@ -1617,7 +1634,7 @@ class DistrictEnergyModel:
                     optimisation=False,
                     diff_accepted = C.DIFF_ACC,
                     diff_sum_accepted = C.DIFF_SUM_ACC,
-                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
+                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                     )
             
         if scen_techs['scenarios']['nuclear_phaseout'] == True:
@@ -1657,7 +1674,10 @@ class DistrictEnergyModel:
                 self.tech_instances,
                 df_scen
                 )
-            
+        
+        # Prepare cost calculation by calculating the capacities that need to be replaced based on scenarios
+        dem_costs.get_replacement_capacities(self.tech_instances)
+
         """--------------------------------------------------------------------
         Apply optimisation:
         """
@@ -1678,11 +1698,15 @@ class DistrictEnergyModel:
                 # opt_metrics=scen_techs['optimisation'],
                 files_path = self.results_path
                 )
+            
+            # dem_costs.prepare_cost_calculation(self.tech_instances)
             opt_results, model = optimiser.run_optimisation()
             dict_total_costs =\
                 optimiser.get_optimal_output_df(
                 opt_results=opt_results
                 )
+                
+            dict_total_costs["Kostenmodul"] = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"])
                 
             # -------------------------------------------------------------
             # Update df_scen:
@@ -1712,6 +1736,8 @@ class DistrictEnergyModel:
             
             # Compute costs in case no optimisation is applied:
             dict_total_costs = {} # !!! a separate module for cost calculations must be implemented
+            
+            dict_total_costs = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"])
             model = 0
 
         #----------------------------------------------------------------------

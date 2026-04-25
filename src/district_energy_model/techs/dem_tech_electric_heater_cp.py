@@ -11,6 +11,7 @@ network, mostly to provide peak heat.
 import pandas as pd
 import numpy as np
 import dem_constants as C
+import input_files.inputs as inp
 from techs.dem_tech_core import TechCore
 
 class ElectricHeaterCP(TechCore):
@@ -190,7 +191,9 @@ class ElectricHeaterCP(TechCore):
             raise ValueError("u_oil_ehcp has not yet been computed!")        
         return self._u_e
         
+
     
+
     
     
     

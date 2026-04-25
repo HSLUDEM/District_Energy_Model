@@ -349,3 +349,6 @@ class SteamTurbine(TechCore):
     def get_v_h_wbsg_waste(self):
         self.len_test(self._v_h_wbsg_waste)
         return self._v_h_wbsg_waste
+    
+
+    

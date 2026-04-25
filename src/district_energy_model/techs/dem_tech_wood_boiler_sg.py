@@ -17,6 +17,7 @@ to generate electricitsy and heat.
 
 # import pandas as pd
 import numpy as np
+import input_files.inputs as inp
 
 from district_energy_model import dem_constants as C
 from district_energy_model.techs.dem_tech_core import TechCore
@@ -254,3 +255,11 @@ class WoodBoilerSG(TechCore):
         self.len_test(self._u_wd_kg)
         return self._u_wd_kg
     
+    def get_total_capex(self):
+        return self._capex*np.max(self._v_steam)
+    
+    def get_total_maintenance(self):
+        return self._maintenance_cost*np.max(self._v_steam)
+    
+    def get_energy_revenue(self):
+        return 0.0

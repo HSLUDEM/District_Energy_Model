@@ -7,6 +7,7 @@ Created on Wed Apr 10 16:20:25 2024
 
 import numpy as np
 import pandas as pd
+import input_files.inputs as inp
 
 from district_energy_model.techs.dem_tech_core import TechCore
 from district_energy_model.techs.dem_tech_heat_pump_core import HeatPumpCore
@@ -141,7 +142,6 @@ class HeatPumpCP(HeatPumpCore):
         self._temperature_based_cop = coplist
     def get_temperature_based_cop(self):
         return self._temperature_based_cop
-        
         
     
     
