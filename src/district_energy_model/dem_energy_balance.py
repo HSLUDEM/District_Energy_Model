@@ -874,7 +874,8 @@ def electricity_balance_test(scen_techs,
         raise Exception("Electricity balance (sum) is not fulfilled!")
         
 
-def heat_balance_test(df_scen,
+def heat_balance_test(scen_techs,
+                      df_scen,
                       optimisation=False,
                       diff_accepted = 1e-5,
                       diff_sum_accepted = 0.1,
@@ -887,6 +888,8 @@ def heat_balance_test(df_scen,
     
     Parameters
     ----------
+    scen_techs : dictionary
+        Dictionary containing info about technologies.
     df_scen : pandas dataframe
         Dataframe with resulting hourly values.
     diff_accepted : float
@@ -900,15 +903,19 @@ def heat_balance_test(df_scen,
     -------
     n/a
     """
+
     # Fill dataframe with 0s if columns are missing:
     missing_keys = [
         'd_h_m',
         'u_h_tes',
         'u_h_tesdc',
+        'u_h_vs_0',
         'v_h_tes',
         'v_h_tesdc',
+        'v_h_vs_0',
         'q_h_tes',
         'q_h_tesdc',
+        'q_h_vs_0',
         'l_u_h_tes',
         'l_u_h_tesdc',
         'l_v_h_tes',
@@ -955,10 +962,21 @@ def heat_balance_test(df_scen,
         else:
             df_scen[k] = 0
     
-    heat_consumption = (df_scen['d_h']
+    # flex_label
+    if (
+        scen_techs['optimisation']['enabled']
+        and scen_techs['scenarios']['demand_side']
+        and scen_techs['demand_side']['dr_flexibility_building_inertia']
+        ):        
+        heat_demand = df_scen['d_h_flex_ll']
+    else:
+        heat_demand = df_scen['d_h']
+    
+    heat_consumption = (heat_demand # df_scen['d_h']
                         + df_scen['u_h_tesdc']
                         + df_scen['v_h_solarthermalrooftop_exp']
                         + df_scen['d_h_m']
+                        + df_scen['u_h_vs_0'] # Virtual storage for flexiblity modelling
                         # + df_scen['u_h_tes'] # INCLUDED IN DISTRICT HEATING
                         )
     
@@ -972,7 +990,7 @@ def heat_balance_test(df_scen,
     #                    + df_scen['v_h_other']
     #                    + df_scen['v_h_tes']
     #                    + df_scen['v_h_bm']
-    #                     + df_scen['v_h_chpgt']
+    #                    + df_scen['v_h_chpgt']
     #                    + df_scen['v_h_st']
     #                    + df_scen['v_h_wte']
     #                    + df_scen['d_h_unmet']
@@ -986,10 +1004,11 @@ def heat_balance_test(df_scen,
                        + df_scen['v_h_dh']
                        + df_scen['v_h_solarthermalrooftop']
                        + df_scen['v_h_other']
-                        + df_scen['v_h_tesdc']
+                       + df_scen['v_h_tesdc']
+                       + df_scen['v_h_vs_0']  # Virtual storage for flexiblity modelling
                        # + df_scen['v_h_tes'] # INCLUDED IN DISTRICT HEATING
-                    #    + df_scen['v_h_bm'] # INCLUDED IN DISTRICT HEATING
-                        # + df_scen['v_h_chpgt'] # INCLUDED IN DISTRICT HEATING
+                       # + df_scen['v_h_bm'] # INCLUDED IN DISTRICT HEATING
+                       # + df_scen['v_h_chpgt'] # INCLUDED IN DISTRICT HEATING
                        # + df_scen['v_h_st'] # INCLUDED IN DISTRICT HEATING
                        # + df_scen['v_h_wte'] # INCLUDED IN DISTRICT HEATING
                        # + df_scen['v_h_hpcp'] # INCLUDED IN DISTRICT HEATING

@@ -29,7 +29,17 @@ from district_energy_model import dem_calliope_cc
 class CalliopeOptimiser:
     
     # def __init__(self, tech_list, tech_instances, energy_demand, supply, com_name, opt_metrics, files_path):
-    def __init__(self, tech_list, tech_instances, energy_demand, supply, com_name, scen_techs, files_path):
+    def __init__(
+            self,
+            tech_list,
+            tech_instances,
+            energy_demand,
+            supply,
+            building_inertia_flex,
+            com_name,
+            scen_techs,
+            files_path
+            ):
         """
         Optimisation based on modelling framework Calliope.
     
@@ -54,6 +64,7 @@ class CalliopeOptimiser:
         self.tech_list = tech_list
         self.energy_demand = energy_demand
         self.supply = supply
+        self.building_inertia_flex = building_inertia_flex
         self.com_name = com_name
         self.scen_techs = scen_techs
         self.opt_metrics = scen_techs['optimisation']
@@ -69,6 +80,27 @@ class CalliopeOptimiser:
         
         self.custom_constraints = False
         
+        # Flexibility:
+        # -----------
+        if (
+            self.scen_techs['scenarios']['demand_side']
+            and self.scen_techs['demand_side']['ev_integration']
+            and self.scen_techs['demand_side']['ev_flexibility']
+                ):
+            self.ev_flex_flag = True
+        else:
+            self.ev_flex_flag = False            
+            
+        if (
+            self.scen_techs['scenarios']['demand_side']
+            and self.scen_techs['demand_side']['dr_flexibility_building_inertia']
+                ):
+            self.building_inertia_flex_flag = True
+        else:
+            self.building_inertia_flex_flag = False
+        
+        # Techs:
+        # -----
         self.tech_list_new = []
         self.tech_list_old = []
         self.tech_list_grid_connection = []
@@ -334,10 +366,14 @@ class CalliopeOptimiser:
         #     + self.energy_demand.get_d_e_ev()
         #     )
         
-        # demand_power = -(
-        #     self.energy_demand.get_d_e()
-        #     - self.energy_demand.get_d_e_h()
-        #     )
+        # flex_label
+        if (
+            self.scen_techs['scenarios']['demand_side']
+            and self.scen_techs['demand_side']['dr_flexibility_building_inertia']
+            ):
+            demand_heat = -(self.energy_demand.get_d_h_flex_ll())
+        else:
+            demand_heat = -(self.energy_demand.get_d_h())
         
         demand_power_hh = -(self.energy_demand.get_d_e_hh())
         
@@ -637,25 +673,21 @@ class CalliopeOptimiser:
         # Run model:
         calliope.set_log_verbosity('INFO')
 
-        self.custom_constraint_ev_flexibility = (self.scen_techs['scenarios']['demand_side']
-                                        and self.scen_techs['demand_side']['ev_integration']
-                                        and self.scen_techs['demand_side']['ev_flexibility'])
         if self.scen_techs['tes_sites']['deployment']:
             self.custom_constraint_tes_sites = self.tech_tes_sites.get_custom_constraints_required()
         else:
             self.custom_constraint_tes_sites = False
 
+        if self.custom_constraint_tes_sites:
+            self.custom_constraints = True
 
-        if (
-            self.custom_constraint_ev_flexibility or self.custom_constraint_tes_sites
-                ):
+        if (self.ev_flex_flag or self.building_inertia_flex_flag):
             self.custom_constraints = True
 
         if self.custom_constraints:
             model.run(build_only = True)
         else:
-            model.run()
-        
+            model.run()        
         
         if self.custom_constraints:
         
@@ -682,7 +714,7 @@ class CalliopeOptimiser:
                 
 
                 
-            if self.custom_constraint_ev_flexibility:
+            if self.ev_flex_flag:
                 ts_len = len(demand_heat)
                 n_days = int(ts_len/24.0) # assuming hourly timesteps and full days
                 
@@ -698,6 +730,17 @@ class CalliopeOptimiser:
                     energy_demand=self.energy_demand,
                     energy_scaling_factor=self.energy_scaling_factor
                     )
+            
+            if self.building_inertia_flex_flag:
+                model = dem_calliope_cc.building_inertia_flex_constraints(
+                    model=model,
+                    ts_len=ts_len,
+                    energy_demand=self.energy_demand,
+                    building_inertia_flex=self.building_inertia_flex
+                    )
+            
+            # print(model.backend)
+            # exit()
         
         #----------------------------------------------------------------------
         # Save LP file: (prints file with human-readable mathematical formulation of the model)
@@ -772,7 +815,49 @@ class CalliopeOptimiser:
         # ---------------------------------------------------------------------       
         n_hours = len(self.energy_demand.get_d_e())
         null_array = np.array([0.0]*n_hours)
-        
+
+        # -------------------------------------------------------------------------
+        # Virtual storage for flexibility:
+        # flex_label
+        if (
+            self.scen_techs['scenarios']['demand_side']
+            and self.scen_techs['demand_side']['dr_flexibility_building_inertia']
+            ):
+            # Lists to store the values for each virtual storage (one per building cluster)
+            list_u_h_vs = []
+            list_v_h_vs = []
+            list_q_h_vs = []
+            list_sos_vs = []
+            list_cap_vs = []
+            for i in range(self.building_inertia_flex.get_no_of_clusters()):
+                u_h_vs_ = -opt_results['carrier_con'].loc[f'X1::virtual_storage_flex_{i}::heat'].values
+                v_h_vs_ = opt_results['carrier_prod'].loc[f'X1::virtual_storage_flex_{i}::heat'].values
+                
+                # Compute relative charge/discharge (due to simultaneous charging/discharging):
+                vs_diff = v_h_vs_ - u_h_vs_
+                
+                v_h_vs = np.where(vs_diff > 0, vs_diff, 0)
+                u_h_vs = np.where(vs_diff < 0, -vs_diff, 0)
+
+                q_h_vs = opt_results['storage'].loc[f'X1::virtual_storage_flex_{i}'].values
+                cap_vs = float(opt_results['storage_cap'].loc[f'X1::virtual_storage_flex_{i}'].values)
+                
+                if cap_vs > 0:
+                    sos_vs = q_h_vs / cap_vs                    
+                else:
+                    sos_vs = q_h_vs*0
+                                        
+                list_u_h_vs.append(u_h_vs)
+                list_v_h_vs.append(v_h_vs)
+                list_q_h_vs.append(q_h_vs)
+                list_sos_vs.append(sos_vs)
+                list_cap_vs.append(cap_vs)
+
+            self.building_inertia_flex.update_list_u_h(list_u_h_vs)
+            self.building_inertia_flex.update_list_v_h(list_v_h_vs)
+            self.building_inertia_flex.update_list_q_h(list_q_h_vs)            
+            self.building_inertia_flex.update_list_sos(list_sos_vs)
+            self.building_inertia_flex.update_list_cap(list_cap_vs)        
         
         # ---------------------------------------------------------------------
         # Extract hourly values as numpy arrays:
@@ -1427,12 +1512,38 @@ class CalliopeOptimiser:
             -opt_results['carrier_con'].loc['X1::demand_electricity_hh::electricity'].values*self.energy_scaling_factor
             )        
         d_e_h = u_e_hp + u_e_eh + u_e_hpcp + u_e_hpcplt + u_e_ehcp
-        d_h = -opt_results['carrier_con'].loc['X1::demand_heat::heat'].values*self.energy_scaling_factor        
+
+        # flex_label
+        if (
+            self.scen_techs['scenarios']['demand_side']
+            and self.scen_techs['demand_side']['dr_flexibility_building_inertia']
+            ):
+            d_h = self.energy_demand.get_d_h()
+            
+            # d_h_flex_ll = np.zeros(len(d_h))
+            # d_h_flex_ul = np.zeros(len(d_h))
+            losses = np.zeros(len(d_h)) # losses of virtual storages (are part of heat demand)
+            for i in range(self.building_inertia_flex.get_no_of_clusters()):
+                losses = losses + self.building_inertia_flex.get_list_l_q_h()[i]
+            d_h_flex = -opt_results['carrier_con'].loc['X1::demand_heat::heat'].values*self.energy_scaling_factor + losses
+            
+            d_h_flex_ll = self.energy_demand.get_d_h_flex_ll()       
+            d_h_flex_ul = self.energy_demand.get_d_h_flex_ul()
+            
+        else:
+            d_h = -opt_results['carrier_con'].loc['X1::demand_heat::heat'].values*self.energy_scaling_factor
+            d_h_flex = d_h
+            d_h_flex_ll = d_h
+            d_h_flex_ul = d_h        
+        
         self.energy_demand.update_d_e(d_e)
         self.energy_demand.update_d_e_hh(d_e_hh)
         self.energy_demand.update_d_e_h(d_e_h)
         self.energy_demand.update_d_e_ev(d_e_ev)
         self.energy_demand.update_d_h(d_h)
+        self.energy_demand.update_d_h_flex(d_h_flex)
+        self.energy_demand.update_d_h_flex_ll(d_h_flex_ll)
+        self.energy_demand.update_d_h_flex_ul(d_h_flex_ul)
         
         # Unmet demand:
 
@@ -1810,7 +1921,7 @@ class CalliopeOptimiser:
 
         model_dict = {
             'name':self.com_name,
-            'calliope_version':'0.6.8', # !!! How to handle the model version dynamically?
+            'calliope_version':'0.6.10', #'0.6.8', # !!! How to handle the model version dynamically?
             'timeseries_data_path':'timeseries_data',
             # 'subset_time':['2050-02-01', '2050-02-15']
             }
@@ -2008,11 +2119,13 @@ class CalliopeOptimiser:
             'waste_heat': '#918686',
             'waste_heat_low_temperature': "#9BBAC9",
             'deep_geothermal': '#c56019',
+	    'flexibility_vs': '#FF0000',
             }
         
         techs_dict = {}
         
         # Add demands: # !!! ADD THESE TO DEMAND CLASS?
+        # ===========
         techs_dict['demand_electricity_hh'] = {
             'essentials':{
                 'name':'Electrical Demand Household',
@@ -2097,7 +2210,8 @@ class CalliopeOptimiser:
                 }
             }
         
-        #Add Supplies:        
+        # Add Supplies:
+	# ============        
         techs_dict = self.supply.create_supply_dict_wet_biomass(techs_dict, energy_scaling_factor = self.energy_scaling_factor)
         techs_dict = self.supply.create_supply_dict_wood(techs_dict, energy_scaling_factor = self.energy_scaling_factor)
         techs_dict = self.supply.create_supply_dict_oil(
@@ -2130,7 +2244,20 @@ class CalliopeOptimiser:
         self.tech_list_old.append('wood_supply_import')
         self.tech_list_new.append('wood_supply_import')
         
+        # Add flexibility from building inertia:
+        # =====================================
+        # flex_label
+        if (
+            self.scen_techs['scenarios']['demand_side']
+            and self.scen_techs['demand_side']['dr_flexibility_building_inertia']
+            ):
+            techs_dict = self.building_inertia_flex.create_techs_dict(
+                techs_dict=techs_dict,
+                color=colors['flexibility_vs']
+                )
+        
         # Add user-selected techologies:
+        # =============================
         if 'heat_pump' in self.tech_list:
             energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_heat_pump.get_needs_replacement_cap()
 
@@ -2804,6 +2931,16 @@ class CalliopeOptimiser:
 
         else:
             loc_dict['X1']['techs']['demand_electricity_ev'] = {}
+            
+        # flex_label
+        if (
+            self.scen_techs['scenarios']['demand_side']
+            and self.scen_techs['demand_side']['dr_flexibility_building_inertia']
+            ):
+            for i in range(self.building_inertia_flex.get_no_of_clusters()):
+                loc_dict['X1']['techs'][f'virtual_storage_flex_{i}'] = {}
+
+
                 
         if len(self.tech_list_pv) > 0:
             for i in range(len(self.tech_list_pv)):

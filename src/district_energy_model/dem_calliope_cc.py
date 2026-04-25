@@ -398,7 +398,26 @@ def tes_sites_charge_constraints(model, ts_len, sites_list):
 
 
 def ev_flexibility_constraints(model, ts_len, n_days, energy_demand, energy_scaling_factor):
+    """
     
+
+    Parameters
+    ----------
+    model : Callipe model
+        Calliope model instance.
+    ts_len : int
+        Total number of timesteps.
+    n_days : int
+        Total number of days.
+    energy_demand : class instance
+        Instance of EnergyDemand class.
+
+    Returns
+    -------
+    Calliope model
+        Calliope model instance.
+
+    """    
     # Constraint: Daily EV electricity demand
     # -----------------------------------------
     
@@ -519,5 +538,82 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand, energy_scal
             constraint_sets,
             f_e_ev_dy_constraint_rule
             )
+    
+    return model
+
+def building_inertia_flex_constraints(
+        model,
+        ts_len,
+        energy_demand,
+        building_inertia_flex
+        ):
+    """
+    Custom constraint: ensures that the cummulative annual heat demand in a
+    flexibility scenario is equal to the cummulative annual base demand.
+    Avoids permanently lowering setpoint temperature as an optimal solution.
+
+    Parameters
+    ----------
+    model : Callipe model
+        Calliope model instance.
+    ts_len : int
+        Total number of timesteps.
+    energy_demand : class instance
+        Instance of EnergyDemand class.
+    building_inertia_flex: class instance
+        Instance of BuildingInertiaFlexibility class.
+
+    Returns
+    -------
+    Calliope model
+        Calliope model instance.
+
+    """
+    
+    # The sum of the flexible demand across a year must be equal to the sum of the base demand.
+    
+    # Get the annual demand d_h_yr
+    # Sum the flexible demand across a year
+    
+    # NOTE: consider multiple clusters!!!
+    
+    # Flexibility metrics:
+    list_r_cluster = building_inertia_flex.get_list_r_cluster() # storage loss rate
+    no_of_clusters = building_inertia_flex.get_no_of_clusters()
+    
+    for cluster in range(no_of_clusters):
+        
+        d_h_sum = energy_demand.get_d_h().sum() # !!! THIS MUST BE ADJUSTED FOR MULTIPLE CLUSTERS
+        
+        r = list_r_cluster[cluster]
+
+        constraint_name = f'd_h_flex_constraint_{cluster}'        
+        constraint_sets = ['loc_techs_demand']
+        
+        def d_h_flex_constraint_rule(backend_model, loc_tech):
+            
+            ts = backend_model.timesteps # retrieve timesteps            
+    
+            tmp_sum = 0 # daily sum
+            i = 0 # timestep
+            
+            while i < ts_len:
+                
+                d_h_flex_ll_i = energy_demand.get_d_h_flex_ll()[i] # !!! THIS MUST BE ADJUSTED FOR MULTIPLE CLUSTERS
+                q_h_vs_i = backend_model.storage[f'X1::virtual_storage_flex_{cluster}', ts[i + 1]] # Pyomo Sets are 1-indexed
+                loss_i = q_h_vs_i*r
+    
+                tmp_sum += (d_h_flex_ll_i + loss_i) # Flexibility-adjusted heat demand
+                
+                i+=1
+            
+            # Annual cummulative demands must match:                    
+            return tmp_sum == d_h_sum
+             
+    model.backend.add_constraint(
+        constraint_name,
+        constraint_sets,
+        d_h_flex_constraint_rule
+        )
     
     return model

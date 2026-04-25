@@ -118,6 +118,18 @@ def update_scen_techs_from_yaml(input_files_dir, scen_techs):
             else:
                 dst[k] = v
 
+    # helper to validate that all keys in src already exist in dst
+    def _validate_keys_exist(dst, src, *, context):
+        if not isinstance(src, dict):
+            return
+        for k, v in src.items():
+            if k not in dst:
+                raise KeyError(f"{context}: unknown key '{k}'. Allowed keys: {sorted(dst.keys())}")
+            if isinstance(v, dict):
+                if not isinstance(dst.get(k), dict):
+                    raise KeyError(f"{context}: key '{k}' is not a dict in scen_techs, cannot have subkeys.")
+                _validate_keys_exist(dst[k], v, context=f"{context}.{k}")
+
     input_dir = Path(input_files_dir)
     if not input_dir.exists():
         raise FileNotFoundError(f"Directory not found: {input_dir}")
@@ -138,8 +150,25 @@ def update_scen_techs_from_yaml(input_files_dir, scen_techs):
                     raise ValueError(
                         f"In {techs_path.name}, top-level key '{top_key}' must map to a dictionary."
                     )
-                if top_key not in scen_techs or not isinstance(scen_techs.get(top_key), dict):
-                    scen_techs[top_key] = {}
+
+               # technologies.yml may only reference existing technologies in scen_techs
+                if top_key not in scen_techs:
+                    raise KeyError(
+                        f"{techs_path.name}: unknown technology '{top_key}'. "
+                        f"Allowed technologies: {sorted(scen_techs.keys())}"
+                    )
+                if not isinstance(scen_techs.get(top_key), dict):
+                    raise TypeError(
+                        f"{techs_path.name}: scen_techs['{top_key}'] must be a dict, got {type(scen_techs.get(top_key))}."
+                    )
+
+                # no new subkeys allowed
+                _validate_keys_exist(
+                    scen_techs[top_key],
+                    subcontent,
+                    context=f"{techs_path.name}:{top_key}",
+                )
+                
                 deep_merge(scen_techs[top_key], subcontent)
             break  # Only one of .yaml/.yml is needed
 
@@ -156,8 +185,23 @@ def update_scen_techs_from_yaml(input_files_dir, scen_techs):
         if not isinstance(content, dict):
             raise ValueError(f"YAML file {file.name} must contain a dictionary at top level.")
 
-        if top_key not in scen_techs or not isinstance(scen_techs.get(top_key), dict):
-            scen_techs[top_key] = {}
+        # per-technology file must correspond to existing top_key in scen_techs
+        if top_key not in scen_techs:
+            raise KeyError(
+                f"{file.name}: unknown top-level key '{top_key}'. "
+                f"Allowed top-level keys: {sorted(scen_techs.keys())}"
+            )
+        if not isinstance(scen_techs.get(top_key), dict):
+            raise TypeError(
+                f"{file.name}: scen_techs['{top_key}'] must be a dict, got {type(scen_techs.get(top_key))}."
+            )
+
+        # no new subkeys allowed
+        _validate_keys_exist(
+            scen_techs[top_key],
+            content,
+            context=f"{file.name}:{top_key}",
+        )
 
         deep_merge(scen_techs[top_key], content)
 
@@ -213,7 +257,13 @@ def update_scen_techs_from_yaml(input_files_dir, scen_techs):
 #     return scen_techs
 
 
-def update_df_results(energy_demand, supply, tech_instances, df_results):
+def update_df_results(
+        energy_demand,
+        supply,
+        building_inertia_flex,
+        tech_instances,
+        df_results
+        ):
     
     # Setting all values to 0
     df_results.loc[:, :] = 0
@@ -223,6 +273,10 @@ def update_df_results(energy_demand, supply, tech_instances, df_results):
     
     # Update supply data:
     df_results = supply.update_df_results(df_results)
+    
+    # Update flexibility (building inertia) data:
+    if building_inertia_flex is not None:
+        df_results = building_inertia_flex.update_df_results(df_results)
     
     # Update tech data:
     for tech_name, tech_instance in tech_instances.items():
@@ -673,7 +727,7 @@ def create_results_directory(arg_path, arg_results_dir_name):
     Creates a new directory and returns the path to the directory.
     """
     
-    arg_path = arg_path + '/'
+    arg_path = arg_path + '\\'
     
     tmp_i = 0
     tmp_results_dir = arg_results_dir_name

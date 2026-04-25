@@ -98,6 +98,9 @@ class EnergyDemand:
         self._d_e_unmet = []
         self._d_h_unmet = []
         self._d_h_unmet_dhn = [] # [kWh] Unmet heat demand in district heating network
+        self._d_h_flex = [] # [kWh] Flexible demand from building inertia (determined in optimisation)
+        self._d_h_flex_ll = [] # [kWh] Flexible demand from building inertia: lower limit (ll)
+        self._d_h_flex_ul = [] # [kWh] Flexible demand from building inertia: upper limit (ll)
         
         # Daily values:
         self._f_e_ev_pot_dy = [] # [kWh] Daily available flexible energy for EV charging (i.e. flexibility potential)
@@ -114,6 +117,8 @@ class EnergyDemand:
         self._d_h_s_old_yr = ...
         self._d_h_s_new_yr = ...
         self._d_h_hw_yr = ...
+        self._d_h_flex_ll_yr = ...
+        self._d_h_flex_ul_yr = ...
         
         self._d_e_sfh_yr = ... # formerly: d_e_yr_sfh
         self._d_e_mfh_yr = ... # formerly: d_e_yr_mfh
@@ -141,6 +146,9 @@ class EnergyDemand:
         df['d_e_unmet'] = self.get_d_e_unmet()
         df['d_h_unmet'] = self.get_d_h_unmet()
         df['d_h_unmet_dhn'] = self.get_d_h_unmet_dhn()
+        df['d_h_flex'] = self.get_d_h_flex()
+        df['d_h_flex_ll'] = self.get_d_h_flex_ll()
+        df['d_h_flex_ul'] = self.get_d_h_flex_ul()
         
         return df
     
@@ -177,6 +185,9 @@ class EnergyDemand:
         self._d_e_unmet = self._d_e_unmet[:n_hours]
         self._d_h_unmet = self._d_h_unmet[:n_hours]
         self._d_h_unmet_dhn = self._d_h_unmet_dhn[:n_hours]
+        self._d_h_flex = self._d_h_flex[:n_hours]
+        self._d_h_flex_ll = self._d_h_flex_ll[:n_hours]
+        self._d_h_flex_ul = self._d_h_flex_ul[:n_hours]
         
 
     # def get_d_e_hh_yr(
@@ -684,6 +695,15 @@ class EnergyDemand:
         """
         
         self._d_h = np.array(d_h_udpated)
+        
+    def update_d_h_flex(self, d_h_flex_udpated):
+        self._d_h_flex = np.array(d_h_flex_udpated)
+    
+    def update_d_h_flex_ll(self, d_h_flex_ll_udpated):
+        self._d_h_flex_ll = np.array(d_h_flex_ll_udpated)
+        
+    def update_d_h_flex_ul(self, d_h_flex_ul_udpated):
+        self._d_h_flex_ul = np.array(d_h_flex_ul_udpated)
 
     def update_d_e_unmet(self, d_e_unmet_updated):
         self._d_e_unmet = np.array(d_e_unmet_updated)
@@ -1527,10 +1547,58 @@ class EnergyDemand:
         self._d_h_s_old = np.array(df_hour['d_h_s_old_hr'])
         self._d_h_s = np.array(d_h_s)
         self._d_h_hw = np.array(d_h_hw)
+        
+        # Initialise flexible profile with base profile d_h:
+        # flex_label
+        self._d_h_flex = self._d_h.copy()
+        self._d_h_flex_ll = self._d_h.copy()
+        self._d_h_flex_ul = self._d_h.copy()
 
         # return df_hour['d_h_hr']
         return self._d_h, self._d_h_s, self._d_h_hw
     
+    def compute_d_h_flex_ll(self, delta_loss_max):
+        """
+        Compute the lower limit (ll) of the flexible heat demand profile.
+
+        Parameters
+        ----------
+        delta_loss_max : float
+            Max. additional loss due to overheating of building. Computed in
+            dem_flexibility.py.
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        self.len_test(self._d_h)
+        
+        self._d_h_flex_ll = self._d_h - delta_loss_max
+        self._d_h_flex_ll[self._d_h_flex_ll < 0] = 0
+        self._d_h_flex_ll_yr = float(self._d_h_flex_ll.sum())
+        
+    def compute_d_h_flex_ul(self, delta_loss_max):
+        """
+        Compute the upper limit (ul) of the flexible heat demand profile.
+
+        Parameters
+        ----------
+        delta_loss_max : float
+            Max. additional loss due to overheating of building. Computed in
+            dem_flexibility.py.
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        self.len_test(self._d_h)
+        
+        self._d_h_flex_ul = self._d_h + delta_loss_max
+        self._d_h_flex_ul_yr = float(self._d_h_flex_ul.sum())        
     
     def __compute_d_h_profile(self, n_days = 365):
         
@@ -1749,6 +1817,18 @@ class EnergyDemand:
     def get_d_h_hw(self):
         self.len_test(self._d_h_hw)
         return self._d_h_hw
+    
+    def get_d_h_flex(self):
+        self.len_test(self._d_h_flex)
+        return self._d_h_flex
+    
+    def get_d_h_flex_ll(self):
+        self.len_test(self._d_h_flex_ll)
+        return self._d_h_flex_ll
+    
+    def get_d_h_flex_ul(self):
+        self.len_test(self._d_h_flex_ul)
+        return self._d_h_flex_ul
 
     def get_d_e_yr(self):
         self.num_test(self._d_e_yr)

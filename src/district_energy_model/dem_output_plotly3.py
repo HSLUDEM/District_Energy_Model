@@ -13,12 +13,152 @@ Created on Tue Sep 12 10:17:25 2023
 
 import pandas as pd
 import numpy as np
-import plotly.express as px
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
+from plotly.offline import plot as plotly_plot
 
-#import plotly.io as io
-#io.renderers.default='svg' # set the default renderer to svg to display figures as static images
+
+# ---------------------------------------------------------------------------
+# Plotly 3.x compatibility layer
+# ---------------------------------------------------------------------------
+
+def _save_html_figure(fig, file_html):
+    plotly_plot(fig, filename=file_html, auto_open=False)
+
+
+def _write_html(self, file, *args, **kwargs):
+    _save_html_figure(self, file)
+
+
+def _write_image(self, *args, **kwargs):
+    raise NotImplementedError(
+        "Static image export is disabled in this Plotly 3.x version of dem_output.py. "
+        "Use output_html=True and output_svg=False."
+    )
+
+
+def _matches_selector(trace, selector):
+    if selector is None:
+        return True
+    name = selector.get('name')
+    if name is not None and getattr(trace, 'name', None) != name:
+        return False
+    return True
+
+
+def _set_nested_trace_attr(trace, key, value):
+    # Ignore unsupported pattern fills in Plotly 3.x
+    if key in ('marker_pattern_shape', 'pattern_shape', 'pattern_shape_sequence'):
+        return
+
+    if key == 'marker_color':
+        trace.marker.color = value
+        return
+    if key == 'marker_line_width':
+        trace.marker.line.width = value
+        return
+
+    if '_' in key:
+        parts = key.split('_')
+        obj = trace
+        for part in parts[:-1]:
+            obj = getattr(obj, part)
+        setattr(obj, parts[-1], value)
+    else:
+        setattr(trace, key, value)
+
+
+def _figure_update_traces(self, selector=None, **kwargs):
+    for trace in self.data:
+        if _matches_selector(trace, selector):
+            for key, value in kwargs.items():
+                _set_nested_trace_attr(trace, key, value)
+    return self
+
+
+def _translate_axis_kwargs(kwargs):
+    out = {}
+    titlefont = {}
+
+    for key, value in kwargs.items():
+        if key == 'title_text':
+            out['title'] = value
+        elif key == 'title_font_size':
+            titlefont['size'] = value
+        elif key == 'title_standoff':
+            # not available in Plotly 3.x
+            continue
+        else:
+            out[key] = value
+
+    if titlefont:
+        out['titlefont'] = titlefont
+    return out
+
+
+def _figure_update_xaxes(self, **kwargs):
+    translated = _translate_axis_kwargs(kwargs)
+    if 'xaxis' not in self.layout:
+        self.layout.xaxis = {}
+    self.layout.xaxis.update(translated)
+    return self
+
+
+def _figure_update_yaxes(self, **kwargs):
+    translated = _translate_axis_kwargs(kwargs)
+    if 'yaxis' not in self.layout:
+        self.layout.yaxis = {}
+    self.layout.yaxis.update(translated)
+    return self
+
+
+go.Figure.write_html = _write_html
+go.Figure.write_image = _write_image
+go.Figure.update_traces = _figure_update_traces
+go.Figure.update_xaxes = _figure_update_xaxes
+go.Figure.update_yaxes = _figure_update_yaxes
+
+
+class _PXCompat(object):
+    def bar(self, data_frame, x=None, y=None, title=None, labels=None,
+            category_orders=None, pattern_shape_sequence=None, **kwargs):
+        fig = go.Figure()
+        if y is None:
+            raise ValueError("Parameter 'y' is required.")
+        if isinstance(y, str):
+            y = [y]
+        x_values = x
+        for col in y:
+            fig.add_trace(go.Bar(
+                x=x_values,
+                y=data_frame[col],
+                name=col
+            ))
+        if title is not None:
+            fig.update_layout(title=title)
+        fig.update_layout(barmode='relative')
+        return fig
+
+    def line(self, data_frame, x=None, y=None, title=None, labels=None, **kwargs):
+        fig = go.Figure()
+        if y is None:
+            raise ValueError("Parameter 'y' is required.")
+        if isinstance(y, str):
+            y = [y]
+        x_values = x
+        for col in y:
+            fig.add_trace(go.Scatter(
+                x=x_values,
+                y=data_frame[col],
+                mode='lines',
+                name=col
+            ))
+        if title is not None:
+            fig.update_layout(title=title)
+        return fig
+
+
+px = _PXCompat()
 
 """----------------------------------------------------------------------------
 RESULTS:
@@ -437,13 +577,10 @@ col_heat_pump = f'rgba(134, 7, 32,{opac})' # '#860720'
 col_heat_pump_cp = f'rgba(134, 7, 100,{opac})' # '#860720'
 col_heat_pump_cp_lt = f'rgba(94, 7, 134,{opac})' # '#860720'
 col_oil_boiler_cp = f'rgba(255,64,64,{opac})' # brown1
-col_electric_heater_cp = f'rgba(102,205,170,{opac})' # aquamarine3
 col_wood_boiler_cp = f'rgba(175,52,31,{opac})' # 
 
 col_waste_heat = f'rgba(105, 92, 89,{opac})' # brown1
 col_waste_heat_low_temperature = f'rgba(155, 186, 201,{opac})' # brown1
-
-col_deep_geothermal = f'rgba(197, 104, 43,{opac})' # brown1
 
 col_gas_boiler_cp = f'rgba(255,97,3,{opac})' # cadmiumorange
 col_tes_chg = f'rgba(239, 0, 140,{opac*opac_red_factor})' # '#EF008C'
@@ -462,11 +599,9 @@ col_wood_boiler_sg_waste = f'rgba(184,76,40,{opac*opac_red_factor})' #
 
 col_district_heating = f'rgba(0,178,238,{opac})' # 'deepskyblue2'
 col_solar_thermal = f'rgba(238,238,0,{opac})' # 'yellow2'
-col_solar_thermal_waste = f'rgba(238,238,0,{opac*opac_red_factor})' # 'yellow2'
 col_other =  f'rgba(119,136,153,{opac})' # 'lightslategray'
 col_hydrothermal_gasification = f'rgba(0,255,193,{opac})'
 
-col_grid_export = f'rgba(119,136,153,{opac*opac_red_factor})'
 col_thermal_mass_charge = f'rgba(255,0,0,{opac*opac_red_factor})'
 col_thermal_mass_discharge = f'rgba(255,0,0,{opac})'
 
@@ -520,14 +655,9 @@ col_mpl_heat_pump_cp = (134/255, 7/255, 100/255, opac)
 col_mpl_heat_pump_cp_lt = (94/255, 7/255, 134/255, opac)
 
 col_mpl_oil_boiler_cp = (255/255, 64/255, 64/255, opac)
-col_mpl_electric_heater_cp = (102/255, 205/255, 170/255, opac)
 col_mpl_wood_boiler_cp = (175/255, 52/255, 31/255, opac)
 
 col_mpl_gas_boiler_cp = (255/255, 97/255, 3/255, opac)
-
-col_mpl_deep_geothermal = (197/255, 104/255, 43/255, opac)
-
-
 col_mpl_waste_heat = (105/255, 92/255, 89/255, opac)
 col_mpl_waste_heat_low_temperature = (155/255, 186/255, 201/255, opac)
 
@@ -550,7 +680,6 @@ col_mpl_solar_thermal = (238/255, 238/255, 0/255, opac)
 col_mpl_other = (119/255, 136/255, 153/255, opac)
 col_mpl_hydrothermal_gasification = (0/255, 255/255, 193/255, opac)
 
-col_mpl_grid_export = (119/255, 136/255, 153/255, opac * opac_red_factor)
 
 # -----------------------------------------------------------------------------
 
@@ -558,28 +687,9 @@ col_mpl_grid_export = (119/255, 136/255, 153/255, opac * opac_red_factor)
 svg_width = 1000
 svg_height = 500
 
-keys_add_negative_if_available = ['v_e_pv_exp', 
-                                  'v_e_pvrooftop_exp',
-                                  'v_e_wp_exp', 
-                                  'v_e_bm_exp', 
-                                  'v_e_hydro_exp', 
-                                  'u_e_bes',
-                                  'u_h_tes',
-                                  'u_h_tesdc',
-                                  'v_h_wte_waste',
-                                  'v_h_chpgt_waste',
-                                  'v_h_st_gtcp_waste',
-                                  'v_h_st_wbsg_waste',
-                                  'v_h_solarthermalrooftop_exp',
-                                  'u_hlt_hpcplt',
-                                  'f_e']
-
-
 electricity_balance_y=[
     'v_e_pv_cons',
     'v_e_pv_exp_negative',
-    'v_e_pvrooftop_cons',
-    'v_e_pvrooftop_exp_negative',
     'v_e_wp_cons',
     'v_e_wp_exp_negative',
     'v_e_bm_cons',
@@ -601,14 +711,11 @@ electricity_balance_y=[
     'm_e_ch_other',
     'm_e_cbimport',
     'd_e_unmet',
-    'f_e_negative'
     ]
     
 electricity_balance_legend_labels = [
     'PV consumption',
     'PV export',
-    'PV rooftop consumption',
-    'PV rooftop export',
     'Wind consumption',
     'Wind export',
     'Biomass consumption',
@@ -629,12 +736,9 @@ electricity_balance_legend_labels = [
     'CH other',
     'Cross-border import',
     'Unmet demand',
-    'Exported electricity'
     ]
 
 electricity_balance_colors = [
-    col_pv,
-    col_pv_exp,
     col_pv,
     col_pv_exp,
     col_wp,
@@ -657,13 +761,10 @@ electricity_balance_colors = [
     col_CH_biomass,
     col_CH_other,
     col_cross_border_import,    
-    col_demand_unmet,
-    col_grid_export        
+    col_demand_unmet        
     ]
 
 electricity_balance_colors_mpl = [
-    col_mpl_pv,
-    col_mpl_pv_exp,
     col_mpl_pv,
     col_mpl_pv_exp,
     col_mpl_wp,
@@ -686,8 +787,7 @@ electricity_balance_colors_mpl = [
     col_mpl_CH_biomass,
     col_mpl_CH_other,
     col_mpl_cross_border_import,    
-    col_mpl_demand_unmet,
-    col_mpl_grid_export        
+    col_mpl_demand_unmet        
     ]
 
 heat_balance_y=[
@@ -699,8 +799,7 @@ heat_balance_y=[
     'v_h_wb',
     # 'v_h_dh',
     'm_h_dh',
-    'v_h_solarthermalrooftop',
-    'v_h_solarthermalrooftop_exp_negative',
+    'v_h_solar',
     'v_h_chpgt_con',
     'v_h_chpgt_waste_negative',
     # 'v_h_st',
@@ -713,11 +812,9 @@ heat_balance_y=[
     'v_h_hpcp',
     'v_h_hpcplt',
     'v_h_obcp',
-    'v_h_ehcp',
     'v_h_wbcp',
     'v_h_gbcp',
     'v_h_wh',
-    'v_h_dgt',
     'u_h_tes_negative',
     'v_h_tes',
     'u_h_tesdc_negative',
@@ -742,15 +839,13 @@ heat_sources_dhn=[
     'v_h_st_wbsg_con',
     'v_h_st_wbsg_waste_negative',
     'v_h_wte_con',
-    'v_h_wte_waste_negative',
+    'v_h_wte_waste_negative'
     'v_h_hpcp',
     'v_h_hpcplt',
     'v_h_obcp',
-    'v_h_ehcp',
     'v_h_wbcp',
     'v_h_gbcp',
     'v_h_wh',
-    'v_h_dgt',
     'v_h_tes',
     'v_h_bm',
     'u_h_tes_negative',
@@ -768,8 +863,7 @@ heat_balance_legend_labels = [
     # 'Heat import',
     # 'District heating',
     # 'District heat import',
-    'Solar thermal (roof top)',
-    'Solar thermal (roof top) surplus heat',
+    'Solar thermal',
     'Gas turbine CHP (small)',
     'Gas turbine CHP (small) surplus heat',
     # 'Steam Turbine',
@@ -782,11 +876,9 @@ heat_balance_legend_labels = [
     'Heat pump (large scale)',
     'Heat pump (large scale, from low temperature)',
     'Oil boiler (large scale)',
-    'Electric heater (large scale)',
     'Wood boiler (large scale)',
     'Gas boiler (large scale)',
     'Waste heat',
-    'Deep Geothermal',
     'TES (DHN) charging',
     'TES (DHN) discharging',
     'TES (decentralised) charging',
@@ -807,7 +899,6 @@ heat_balance_colors = [
     col_wood_boiler,
     col_district_heating,
     col_solar_thermal,
-    col_solar_thermal_waste,
     col_chp_gt_con,
     col_chp_gt_waste,
     # col_st,
@@ -820,11 +911,9 @@ heat_balance_colors = [
     col_heat_pump_cp,
     col_heat_pump_cp_lt,
     col_oil_boiler_cp,
-    col_electric_heater_cp,
     col_wood_boiler_cp,
     col_gas_boiler_cp,
     col_waste_heat,
-    col_deep_geothermal,
     col_tes_chg,
     col_tes_dchg,
     col_tesdc_chg,
@@ -833,7 +922,7 @@ heat_balance_colors = [
     col_demand_unmet,
     col_demand_unmet_dhn,
     col_thermal_mass_charge,
-    col_thermal_mass_discharge,
+    col_thermal_mass_discharge
     ]
 
 heat_balance_colors_mpl = [
@@ -845,7 +934,6 @@ heat_balance_colors_mpl = [
     col_mpl_wood_boiler,
     col_mpl_district_heating,
     col_mpl_solar_thermal,
-    col_mpl_solar_thermal,
     col_mpl_chp_gt,
     col_mpl_chp_gt,
     # col_mpl_st,
@@ -856,11 +944,9 @@ heat_balance_colors_mpl = [
     col_mpl_heat_pump_cp,
     col_mpl_heat_pump_cp_lt,
     col_mpl_oil_boiler_cp,
-    col_mpl_electric_heater_cp,
     col_mpl_wood_boiler_cp,
     col_mpl_gas_boiler_cp,
     col_mpl_waste_heat,
-    col_mpl_deep_geothermal,
     col_mpl_tes_chg,
     col_mpl_tes_dchg,
     col_mpl_tesdc_chg,
@@ -870,124 +956,12 @@ heat_balance_colors_mpl = [
     col_mpl_demand_unmet_dhn,
     ]
 
-
-heatlt_balance_y=[
-    'v_hlt_whlt', 
-    'u_hlt_hpcplt_negative', 
-    ]
-   
-heatlt_balance_legend_labels = [
-    'Waste heat (low temperature)',
-    'Heat pump (low temperature)',
-    ]
-
-heatlt_balance_colors = [
-    col_waste_heat_low_temperature,
-    col_heat_pump_cp_lt,
-    ]
-
-heatlt_balance_colors_mpl = [
-    col_mpl_waste_heat_low_temperature,
-    col_mpl_heat_pump_cp_lt
-    ]
-
-
 # Pattern for district heating network:
 patterns = ['/', '\\', '|', '-', '+', 'x', 'o', '.']
 pattern_index = 1
 DHN_label = 'District heating network'
 
-
-
-def add_tes_sites_plotting_keys(tes_sites_plotting_inf):
-    for k in tes_sites_plotting_inf.keys():
-        for entry in tes_sites_plotting_inf[k]['u']:
-            keys_add_negative_if_available.append(entry)
-            heat_balance_y.append(entry+'_negative')
-            heat_sources_dhn.append(entry+'_negative')
-            heat_balance_legend_labels.append(k+ ' charging')
-            heat_balance_colors.append(f'rgba('+str(tes_sites_plotting_inf[k]['color'][0])
-                                       +', '+str(tes_sites_plotting_inf[k]['color'][1])
-                                       +', '+str(tes_sites_plotting_inf[k]['color'][2])
-                                       +', '+str(opac*opac_red_factor)+')')
-            heat_balance_colors_mpl.append((tes_sites_plotting_inf[k]['color'][0]/255,
-                                            tes_sites_plotting_inf[k]['color'][1]/255,
-                                            tes_sites_plotting_inf[k]['color'][2]/255,
-                                            opac*opac_red_factor))
-
-        for entry in tes_sites_plotting_inf[k]['u_lt']:
-            keys_add_negative_if_available.append(entry)
-            heatlt_balance_y.append(entry+'_negative')
-            heatlt_balance_legend_labels.append(k+ ' charging')
-            heatlt_balance_colors.append(f'rgba('+str(tes_sites_plotting_inf[k]['color'][0])
-                                       +', '+str(tes_sites_plotting_inf[k]['color'][1])
-                                       +', '+str(tes_sites_plotting_inf[k]['color'][2])
-                                       +', '+str(opac*opac_red_factor)+')')
-            heatlt_balance_colors_mpl.append((tes_sites_plotting_inf[k]['color'][0]/255,
-                                            tes_sites_plotting_inf[k]['color'][1]/255,
-                                            tes_sites_plotting_inf[k]['color'][2]/255,
-                                            opac*opac_red_factor))
-
-
-        for entry in tes_sites_plotting_inf[k]['v']:
-            heat_balance_y.append(entry)
-            heat_sources_dhn.append(entry)
-            heat_balance_legend_labels.append(k +' discharging')
-            heat_balance_colors.append(f'rgba('+str(tes_sites_plotting_inf[k]['color'][0])
-                                       +', '+str(tes_sites_plotting_inf[k]['color'][1])
-                                       +', '+str(tes_sites_plotting_inf[k]['color'][2])
-                                       +', '+str(opac*opac_red_factor)+')')
-            heat_balance_colors_mpl.append((tes_sites_plotting_inf[k]['color'][0]/255,
-                                            tes_sites_plotting_inf[k]['color'][1]/255,
-                                            tes_sites_plotting_inf[k]['color'][2]/255,
-                                            opac))
-            
-        for entry in tes_sites_plotting_inf[k]['v_lt']:
-            heatlt_balance_y.append(entry)
-            heatlt_balance_legend_labels.append(k +' discharging')
-            heatlt_balance_colors.append(f'rgba('+str(tes_sites_plotting_inf[k]['color'][0])
-                                       +', '+str(tes_sites_plotting_inf[k]['color'][1])
-                                       +', '+str(tes_sites_plotting_inf[k]['color'][2])
-                                       +', '+str(opac*opac_red_factor)+')')
-            heatlt_balance_colors_mpl.append((tes_sites_plotting_inf[k]['color'][0]/255,
-                                            tes_sites_plotting_inf[k]['color'][1]/255,
-                                            tes_sites_plotting_inf[k]['color'][2]/255,
-                                            opac))
-
-
-        for entry in tes_sites_plotting_inf[k]['u_hht_to_hlt']:
-            keys_add_negative_if_available.append(entry)
-            heat_balance_y.append(entry+'_negative')
-            heat_sources_dhn.append(entry+'_negative')
-            heat_balance_legend_labels.append(k+ ' HT->LT conversion')
-            heat_balance_colors.append(f'rgba('+str(tes_sites_plotting_inf[k]['color'][0])
-                                       +', '+str(tes_sites_plotting_inf[k]['color'][1])
-                                       +', '+str(tes_sites_plotting_inf[k]['color'][2])
-                                       +', '+str(opac*opac_red_factor*0.5)+')')
-            heat_balance_colors_mpl.append((tes_sites_plotting_inf[k]['color'][0]/255,
-                                            tes_sites_plotting_inf[k]['color'][1]/255,
-                                            tes_sites_plotting_inf[k]['color'][2]/255,
-                                            opac*opac_red_factor*0.5))
-
-            heatlt_balance_y.append(entry)
-            heatlt_balance_legend_labels.append(k+ ' HT->LT conversion')
-            heatlt_balance_colors.append(f'rgba('+str(tes_sites_plotting_inf[k]['color'][0])
-                                       +', '+str(tes_sites_plotting_inf[k]['color'][1])
-                                       +', '+str(tes_sites_plotting_inf[k]['color'][2])
-                                       +', '+str(opac*opac_red_factor*0.5)+')')
-            heatlt_balance_colors_mpl.append((tes_sites_plotting_inf[k]['color'][0]/255,
-                                            tes_sites_plotting_inf[k]['color'][1]/255,
-                                            tes_sites_plotting_inf[k]['color'][2]/255,
-                                            opac*opac_red_factor*0.5))
-
-
-
 #%% Plot functions
-
-
-
-
-
 
 #------------------------------------------------------------------------------
 # Electricity balance:
@@ -1042,13 +1016,13 @@ def plot_electricity_balance_hourly(df_scen,
     n/a
     """
     
-    
-
     df_plot = df_scen.copy()
-    
-    for x in keys_add_negative_if_available:
-        if x in df_plot.columns:
-            df_plot[x+'_negative'] = -df_plot[x]
+    df_plot['v_e_pv_exp_negative'] = -df_plot['v_e_pv_exp']
+    df_plot['v_e_wp_exp_negative'] = -df_plot['v_e_wp_exp']
+    df_plot['v_e_bm_exp_negative'] = -df_plot['v_e_bm_exp']
+    df_plot['v_e_hydro_exp_negative'] = -df_plot['v_e_hydro_exp']
+    if 'u_e_bes' in df_plot.columns:
+        df_plot['u_e_bes_negative'] = -df_plot['u_e_bes']
 
     if 'v_e_gtcp' in df_plot.columns:
         df_plot['v_e_gtcp_total'] = df_plot['v_e_gtcp'] + df_plot['v_e_st_gtcp']
@@ -1538,10 +1512,12 @@ def plot_electricity_balance_daily(
     """
     
     df_plot = df_scen.copy()
-
-    for x in keys_add_negative_if_available:
-        if x in df_plot.columns:
-            df_plot[x+'_negative'] = -df_plot[x]
+    df_plot['v_e_pv_exp_negative'] = -df_plot['v_e_pv_exp']
+    df_plot['v_e_wp_exp_negative'] = -df_plot['v_e_wp_exp']
+    df_plot['v_e_bm_exp_negative'] = -df_plot['v_e_bm_exp']
+    df_plot['v_e_hydro_exp_negative'] = -df_plot['v_e_hydro_exp']
+    if 'u_e_bes' in df_plot.columns:
+        df_plot['u_e_bes_negative'] = -df_plot['u_e_bes']
 
     if 'v_e_gtcp' in df_plot.columns:
         df_plot['v_e_gtcp_total'] = df_plot['v_e_gtcp'] + df_plot['v_e_st_gtcp']
@@ -1735,10 +1711,12 @@ def plot_electricity_balance_weekly(df_scen,
     """
     
     df_plot = df_scen.copy()
-
-    for x in keys_add_negative_if_available:
-        if x in df_plot.columns:
-            df_plot[x+'_negative'] = -df_plot[x]
+    df_plot['v_e_pv_exp_negative'] = -df_plot['v_e_pv_exp']
+    df_plot['v_e_wp_exp_negative'] = -df_plot['v_e_wp_exp']
+    df_plot['v_e_bm_exp_negative'] = -df_plot['v_e_bm_exp']
+    df_plot['v_e_hydro_exp_negative'] = -df_plot['v_e_hydro_exp']
+    if 'u_e_bes' in df_plot.columns:
+        df_plot['u_e_bes_negative'] = -df_plot['u_e_bes']
 
     if 'v_e_gtcp' in df_plot.columns:
         df_plot['v_e_gtcp_total'] = df_plot['v_e_gtcp'] + df_plot['v_e_st_gtcp']
@@ -1988,647 +1966,6 @@ def plot_electricity_balance_weekly(df_scen,
 
 #     del df_plot
 
-
-
-def plot_heatlt_balance_hourly(df_scen,
-                             dir_path,
-                             output_svg = False,
-                             output_html = True,
-                             filename = 'heatlt_balance_hourly',
-                             timeframe = False,
-                             timeframe_start = '01-01',
-                             timeframe_end = '12-31',
-                             axes_font_size = 16,
-                             title_font_size = 24
-                             ):
-    
-    """
-    Generates a stacked bar plot with the hourly heat supply split by
-    sources.
-    
-    Parameters
-    ----------
-    df_scen : pandas dataframe
-        Dataframe with resulting hourly values.
-    dir_path : string
-        Path to directory, where plots shall be saved.
-    output_svg : bool
-        If set to 'True', a (static) plot in .svg format will be generated.
-        Default: False
-    output_svg : bool
-        If set to 'True', a (dynamic) plot in .html format will be generated.
-        Default: True
-    filename : string
-        Name of generated plot file(s).
-    timeframe : bool
-        If set to 'True', only the selected timeframe will be plotted.
-        [not yet implemented]
-    timeframe_start : string
-        Beginning of selected timeframe.
-        [not yet implemented]
-    timeframe_end : string
-        End of selected timeframe.
-        [not yet implemented]
-    axes_font_size : int
-        Font size for x- and y-axis labels, tick-mark labels, and legend
-        labels.
-    title_font_size : int
-        Font size of plot title.
-
-    Returns
-    -------
-    n/a
-    """
-    file_svg = dir_path + '/' + filename + '.svg'
-    file_html = dir_path + '/' + filename + '.html'
-
-    df_plot = df_scen.copy()
-
-    for x in keys_add_negative_if_available:
-        if x in df_plot.columns:
-            df_plot[x+'_negative'] = -df_plot[x]
-
-    # Convert from kWh to MWh:
-    df_plot = df_plot/1000
-    
-    # Identify available columns
-    valid_columns = df_plot.columns.intersection(heatlt_balance_y).tolist()
-    
-    if len(valid_columns) == 0:
-        fig = px.scatter() 
-        if output_svg == True:
-            fig.write_image(file_svg, width=svg_width, height=svg_height)
-        
-        if output_html == True:
-            fig.write_html(file_html)
-        return
-
-    # Use zip to filter the lists based on valid_columns
-    filtered_data = [
-        (col, label, color) 
-        for col, label, color in zip(heatlt_balance_y, heatlt_balance_legend_labels, heatlt_balance_colors) 
-        if col in valid_columns
-    ]
-    
-    # Unzip the filtered data back into separate lists
-    heatlt_balance_y_, heatlt_balance_legend_labels_, heatlt_balance_colors_ = map(list, zip(*filtered_data))
-
-    # Identify nonzero columns
-    nonzero_mask = df_plot[heatlt_balance_y_].sum() != 0
-
-    # Filter out zero-value columns
-    y = [col for col, nz in zip(heatlt_balance_y_, nonzero_mask) if nz]
-    legend_labels = [label for label, nz in zip(heatlt_balance_legend_labels_, nonzero_mask) if nz]
-    colors = [color for color, nz in zip(heatlt_balance_colors_, nonzero_mask) if nz]
-    
-    # Ensure the index is in datetime format
-    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
-    
-    fig = px.bar(
-        df_plot, 
-        x=df_plot.index,
-        y=y,
-        labels={'x': 'Time'},
-        title='Hourly Heat (Low Temperature) Balance',
-        category_orders={'x': df_plot.index},
-        pattern_shape_sequence=patterns,  # Apply patterns
-        #height=400,
-        #width=1200
-        )
-    
-    fig.add_trace(go.Bar(
-        x=[None], y=[None],
-        name=DHN_label,
-        marker=dict(pattern_shape=patterns[pattern_index], color='white'),
-        showlegend=True
-    ))
-   
-    # Update each trace individually (color, label):
-    for i, trace_name in enumerate(y):
-        fig.update_traces(
-            marker_color=colors[i],
-            marker_line_width=0,
-            selector=dict(name=trace_name),
-            name = legend_labels[i],
-            marker_pattern_shape=patterns[pattern_index % len(patterns)] if trace_name in heat_sources_dhn else ''
-            )
-        # if trace_name in heat_sources_dhn:
-        #     pattern_index += 1
-        
-    
-    fig.update_layout(
-        plot_bgcolor='white',
-        bargap = 0.01,
-        bargroupgap = 0.00,
-        title_x=0.5,  # Center the title
-        legend_title_text='',
-        title_font_size=title_font_size,
-        legend_font=dict(size=axes_font_size)
-        )
-    
-    fig.update_xaxes(
-        # title_text='Time',
-        title_text='',
-        title_standoff=0,
-        mirror=True,
-        ticks='outside',
-        showline=True,
-        linecolor='black',
-        gridcolor='lightgrey',
-        title_font_size=axes_font_size,
-        tickfont=dict(size=axes_font_size),
-        tickformat="%d %b %H:%M"  # Formats as '3 Jan 15:00'
-    )
-    fig.update_yaxes(
-        title_text='Heat Balance [MWh]',
-        title_standoff=0,
-        mirror=True,
-        ticks='outside',
-        showline=True,
-        linecolor='black',
-        gridcolor='lightgrey',
-        title_font_size=axes_font_size,
-        tickfont=dict(size=axes_font_size)
-    )
-    
-    
-    if output_svg == True:
-        fig.write_image(file_svg, width=svg_width, height=svg_height)
-    
-    if output_html == True:
-        fig.write_html(file_html)
-    
-    del df_plot
-
-def plot_heatlt_balance_daily(df_scen,
-                             dir_path,
-                             output_svg = False,
-                             output_html = False,
-                             filename = 'heatlt_balance_daily',
-                             axes_font_size = 16,
-                             title_font_size = 24
-                             ):
-    
-    """
-    Generates a stacked bar plot with the daily heat supply split by
-    sources.
-    
-    Parameters
-    ----------
-    df_scen : pandas dataframe
-        Dataframe with resulting hourly values.
-    dir_path : string
-        Path to directory, where plots shall be saved.
-    output_svg : bool
-        If set to 'True', a (static) plot in .svg format will be generated.
-        Default: False
-    output_svg : bool
-        If set to 'True', a (dynamic) plot in .html format will be generated.
-        Default: True
-    filename : string
-        Name of generated plot file(s).
-    axes_font_size : int
-        Font size for x- and y-axis labels, tick-mark labels, and legend
-        labels.
-    title_font_size : int
-        Font size of plot title.
-
-    Returns
-    -------
-    n/a
-    """
-
-    file_svg = dir_path + '/' + filename + '.svg'
-    file_html = dir_path + '/' + filename + '.html'
-
-    df_plot = df_scen.copy()
-
-    for x in keys_add_negative_if_available:
-        if x in df_plot.columns:
-            df_plot[x+'_negative'] = -df_plot[x]
-
-
-    # Convert from kWh to MWh:
-    df_plot = df_plot/1000
-    
-    #--------------------------------------------------------------------------
-    # Calculate weekly sums:
-
-    # Calculate the day number (starting from 0) for each entry
-    df_plot['day'] = (df_plot.index // 24)  # 24 hours in a day
-
-    # Group by day and calculate the sum for each day
-    df_daily_sum = df_plot.groupby('day').sum()
-        
-    # Shift the index by 1 (to start at day 1)
-    df_daily_sum.index = df_daily_sum.index + 1
-    
-    #--------------------------------------------------------------------------
-    # Create plot:
-        
-    # Identify available columns
-    valid_columns = df_plot.columns.intersection(heatlt_balance_y).tolist()
-        
-    if len(valid_columns) == 0:
-        fig = px.scatter() 
-        if output_svg == True:
-            fig.write_image(file_svg, width=svg_width, height=svg_height)
-        
-        if output_html == True:
-            fig.write_html(file_html)
-        return
-
-    # Use zip to filter the lists based on valid_columns
-    filtered_data = [
-        (col, label, color) 
-        for col, label, color in zip(heatlt_balance_y, heatlt_balance_legend_labels, heatlt_balance_colors) 
-        if col in valid_columns
-    ]
-    
-    # Unzip the filtered data back into separate lists
-    heatlt_balance_y_, heatlt_balance_legend_labels_, heatlt_balance_colors_ = map(list, zip(*filtered_data))
-
-    # # Identify nonzero columns
-    nonzero_mask = df_plot[heatlt_balance_y_].sum() != 0
-
-    # Filter out zero-value columns
-    y = [col for col, nz in zip(heatlt_balance_y_, nonzero_mask) if nz]
-    legend_labels = [label for label, nz in zip(heatlt_balance_legend_labels_, nonzero_mask) if nz]
-    colors = [color for color, nz in zip(heatlt_balance_colors_, nonzero_mask) if nz]
-
-    # # Filter out zero-value columns
-    # y = [col for col, nz in zip(heat_balance_y, nonzero_mask) if nz]
-    # legend_labels = [label for label, nz in zip(heat_balance_legend_labels, nonzero_mask) if nz]
-    # colors = [color for color, nz in zip(heat_balance_colors, nonzero_mask) if nz]
-
-    # Ensure the index is in datetime format
-    df_daily_sum.index = pd.date_range(start='2050-01-01', periods=len(df_daily_sum), freq='D')
-        
-    fig = px.bar(
-        df_daily_sum, 
-        x=df_daily_sum.index,
-        y=y,
-        labels={'x': 'Time'},
-        title='Daily Heat (LT) Balance',
-        category_orders={'x': df_daily_sum.index},
-        pattern_shape_sequence=patterns,
-        #height=400,
-        #width=1200
-        )
-    
-    fig.add_trace(go.Bar(
-        x=[None], y=[None],
-        name=DHN_label,
-        marker=dict(pattern_shape=patterns[pattern_index], color='white'),
-        showlegend=True,
-        ))
-      
-    # Update each trace individually (color, label):
-    for i, trace_name in enumerate(y):
-        fig.update_traces(
-            marker_color=colors[i],
-            marker_line_width=0,
-            selector=dict(name=trace_name),
-            name = legend_labels[i],
-            marker_pattern_shape=''
-            )
-    
-    fig.update_layout(
-        plot_bgcolor='white',
-        bargap = 0.01,
-        bargroupgap = 0.00,
-        title_x=0.5,  # Center the title
-        legend_title_text='',
-        title_font_size=title_font_size,
-        legend_font=dict(size=axes_font_size)
-        )
-    
-    fig.update_xaxes(
-        # title_text='Day of the year',
-        title_text='',
-        title_standoff=0,
-        mirror=True,
-        ticks='outside',
-        showline=True,
-        linecolor='black',
-        gridcolor='lightgrey',
-        title_font_size=axes_font_size,
-        tickfont=dict(size=axes_font_size),
-        tickformat="%d %b",  # Example: "03 Jan"
-    )
-    fig.update_yaxes(
-        title_text='Heat (LT) balance [MWh]',
-        title_standoff=0,
-        mirror=True,
-        ticks='outside',
-        showline=True,
-        linecolor='black',
-        gridcolor='lightgrey',
-        title_font_size=axes_font_size,
-        tickfont=dict(size=axes_font_size),
-    )
-    
-    
-    if output_svg == True:
-        fig.write_image(file_svg, width=svg_width, height=svg_height)
-    
-    if output_html == True:
-        fig.write_html(file_html)
-    
-    del df_plot
-    del df_daily_sum
-
-def plot_heatlt_balance_weekly(df_scen,
-                             dir_path,
-                             output_svg = False,
-                             output_html = False,
-                             filename = 'heatlt_balance_weekly',
-                             axes_font_size = 16,
-                             title_font_size = 24
-                             ):
-    
-    """
-    Generates a stacked bar plot with the weekly heat supply split by
-    sources.
-    
-    Parameters
-    ----------
-    df_scen : pandas dataframe
-        Dataframe with resulting hourly values.
-    dir_path : string
-        Path to directory, where plots shall be saved.
-    output_svg : bool
-        If set to 'True', a (static) plot in .svg format will be generated.
-        Default: False
-    output_svg : bool
-        If set to 'True', a (dynamic) plot in .html format will be generated.
-        Default: True
-    filename : string
-        Name of generated plot file(s).
-    axes_font_size : int
-        Font size for x- and y-axis labels, tick-mark labels, and legend
-        labels.
-    title_font_size : int
-        Font size of plot title.
-
-    Returns
-    -------
-    n/a
-    """
-
-    file_svg = dir_path + '/' + filename + '.svg'
-    file_html = dir_path + '/' + filename + '.html'
-
-    df_plot = df_scen.copy()
-
-    for x in keys_add_negative_if_available:
-        if x in df_plot.columns:
-            df_plot[x+'_negative'] = -df_plot[x]
-
-
-    # Convert from kWh to GWh:
-    df_plot = df_plot/1000000
-    
-    #--------------------------------------------------------------------------
-    # Calculate weekly sums:
-
-    # Calculate the week number (starting from 0) for each entry
-    df_plot['week'] = (df_plot.index // 168)  # 168 hours in a week (24 hours * 7 days)
-
-    # Group by week and calculate the sum for each week
-    df_weekly_sum = df_plot.groupby('week').sum()
-    
-    if len(df_weekly_sum) > 52:
-        # Last week consists of fewer days
-        # Remove the last row (i.e. week)
-        df_weekly_sum = df_weekly_sum.drop(df_weekly_sum.index[-1])
-        
-    # Shift the index by 1 (to start at week 1)
-    df_weekly_sum.index = df_weekly_sum.index + 1
-    
-    #--------------------------------------------------------------------------
-    # Create plot:
-        
-    # Identify available columns
-    valid_columns = df_plot.columns.intersection(heatlt_balance_y).tolist()
-
-    if len(valid_columns) == 0:
-        fig = px.scatter() 
-        if output_svg == True:
-            fig.write_image(file_svg, width=svg_width, height=svg_height)
-        
-        if output_html == True:
-            fig.write_html(file_html)
-        return
-
-    # Use zip to filter the lists based on valid_columns
-    filtered_data = [
-        (col, label, color) 
-        for col, label, color in zip(heatlt_balance_y, heatlt_balance_legend_labels, heatlt_balance_colors) 
-        if col in valid_columns
-    ]
-    
-    # Unzip the filtered data back into separate lists
-    heatlt_balance_y_, heatlt_balance_legend_labels_, heatlt_balance_colors_ = map(list, zip(*filtered_data))
-    
-    # # Identify nonzero columns
-    nonzero_mask = df_plot[heatlt_balance_y_].sum() != 0
-
-    # Filter out zero-value columns
-    y = [col for col, nz in zip(heatlt_balance_y_, nonzero_mask) if nz]
-    legend_labels = [label for label, nz in zip(heatlt_balance_legend_labels_, nonzero_mask) if nz]
-    colors = [color for color, nz in zip(heatlt_balance_colors_, nonzero_mask) if nz]
-
-    # # Filter out zero-value columns
-    # y = [col for col, nz in zip(heat_balance_y, nonzero_mask) if nz]
-    # legend_labels = [label for label, nz in zip(heat_balance_legend_labels, nonzero_mask) if nz]
-    # colors = [color for color, nz in zip(heat_balance_colors, nonzero_mask) if nz]
-
-    # Ensure the index is in datetime format
-    df_weekly_sum.index = pd.date_range(start='2050-01-01', periods=len(df_weekly_sum), freq='W')
-        
-    fig = px.bar(
-        df_weekly_sum, 
-        x=df_weekly_sum.index,
-        y=y,
-        labels={'x': 'Time'},
-        title='Weekly Heat (LT) Balance',
-        category_orders={'x': df_weekly_sum.index},
-        pattern_shape_sequence=patterns,
-        #height=400,
-        #width=1200
-        )
-    
-    fig.add_trace(go.Bar(
-        x=[None], y=[None],
-        name=DHN_label,
-        marker=dict(pattern_shape=patterns[pattern_index], color='white'),
-        showlegend=True,
-        ))
-     
-    # Update each trace individually (color, label):
-    for i, trace_name in enumerate(y):
-        fig.update_traces(
-            marker_color=colors[i],
-            marker_line_width=0,
-            selector=dict(name=trace_name),
-            name = legend_labels[i],
-            marker_pattern_shape=''
-            )
-
-    fig.update_layout(
-        plot_bgcolor='white',
-        bargap = 0.01,
-        bargroupgap = 0.00,
-        title_x=0.5,  # Center the title
-        legend_title_text='',
-        title_font_size=title_font_size,
-        legend_font=dict(size=axes_font_size)
-        )    
-    fig.update_xaxes(
-        # title_text='Week of the year',
-        title_text='',
-        title_standoff=0,
-        mirror=True,
-        ticks='outside',
-        showline=True,
-        linecolor='black',
-        gridcolor='lightgrey',
-        title_font_size=axes_font_size,
-        tickfont=dict(size=axes_font_size),
-        tickformat="%d %b",  # Example: "03 Jan"
-    )
-    fig.update_yaxes(
-        title_text='Heat (LT) balance [GWh]',
-        title_standoff=0,
-        mirror=True,
-        ticks='outside',
-        showline=True,
-        linecolor='black',
-        gridcolor='lightgrey',
-        title_font_size=axes_font_size,
-        tickfont=dict(size=axes_font_size)
-    )
-    
-    
-    if output_svg == True:
-        fig.write_image(file_svg, width=svg_width, height=svg_height)
-    
-    if output_html == True:
-        fig.write_html(file_html)
-        
-    del df_plot
-    del df_weekly_sum
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     
 def plot_heat_balance_hourly(df_scen,
                              dir_path,
@@ -2681,10 +2018,22 @@ def plot_heat_balance_hourly(df_scen,
     """
     
     df_plot = df_scen.copy()
-
-    for x in keys_add_negative_if_available:
-        if x in df_plot.columns:
-            df_plot[x+'_negative'] = -df_plot[x]
+    if 'u_h_tes' in df_plot.columns:
+        df_plot['u_h_tes_negative'] = -df_plot['u_h_tes']
+    if 'u_h_tesdc' in df_plot.columns:
+        df_plot['u_h_tesdc_negative'] = -df_plot['u_h_tesdc']
+    if 'v_h_wte_waste' in df_plot.columns:
+        df_plot['v_h_wte_waste_negative'] = -df_plot['v_h_wte_waste']
+    if 'v_h_chpgt_waste' in df_plot.columns:
+        df_plot['v_h_chpgt_waste_negative'] = -df_plot['v_h_chpgt_waste']
+    if 'v_h_st_gtcp_waste' in df_plot.columns:
+        df_plot['v_h_st_gtcp_waste_negative'] = -df_plot['v_h_st_gtcp_waste']
+    if 'v_h_st_wbcp_waste' in df_plot.columns:
+        df_plot['v_h_st_wbcp_waste_negative'] = -df_plot['v_h_st_wbcp_waste']
+    if 'q_h_vs_tot' in df_plot.columns:
+        # NOTE: the labels "positive" and "negative" are reversed here, because the stem from two different system perspectives: a positive change of q_h ('dq_h_vs_pos_tot') means charging of the virtual storage, which is negative in the plotting ('dq_h_vs_tot_negative') and vice versa.
+        df_plot['dq_h_vs_tot_negative'] = -df_plot['dq_h_vs_pos_tot']
+        df_plot['dq_h_vs_tot_positive'] = df_plot['dq_h_vs_neg_tot']
 
     # Convert from kWh to MWh:
     df_plot = df_plot/1000
@@ -2758,14 +2107,6 @@ def plot_heat_balance_hourly(df_scen,
     # for trace in fig.data:
     #     if trace.name != "District heating network" and isinstance(trace, go.Bar):
     #         trace.update(showlegend=True, legendgrouptitle=dict(text=trace.name), marker=dict(pattern_shape=""))
-        
-    fig.add_trace(go.Scatter(
-        x=df_plot.index,
-        y=df_plot['d_h']+df_plot['d_h_m'],
-        mode='lines',
-        line=dict(color=col_demand_heat, width=1),
-        name='Total heat demand'
-    ))
     
     if 'q_h_vs_tot' in df_plot.columns:
         fig.add_trace(go.Scatter(
@@ -2893,11 +2234,22 @@ def plot_heat_balance_daily(df_scen,
     """
     
     df_plot = df_scen.copy()
-
-    for x in keys_add_negative_if_available:
-        if x in df_plot.columns:
-            df_plot[x+'_negative'] = -df_plot[x]
-
+    if 'u_h_tes' in df_plot.columns:
+        df_plot['u_h_tes_negative'] = -df_plot['u_h_tes']
+    if 'u_h_tesdc' in df_plot.columns:
+        df_plot['u_h_tesdc_negative'] = -df_plot['u_h_tesdc']
+    if 'v_h_wte_waste' in df_plot.columns:
+        df_plot['v_h_wte_waste_negative'] = -df_plot['v_h_wte_waste']
+    if 'v_h_chpgt_waste' in df_plot.columns:
+        df_plot['v_h_chpgt_waste_negative'] = -df_plot['v_h_chpgt_waste']
+    if 'v_h_st_gtcp_waste' in df_plot.columns:
+        df_plot['v_h_st_gtcp_waste_negative'] = -df_plot['v_h_st_gtcp_waste']
+    if 'v_h_st_wbcp_waste' in df_plot.columns:
+        df_plot['v_h_st_wbcp_waste_negative'] = -df_plot['v_h_st_wbcp_waste']
+    if 'q_h_vs_tot' in df_plot.columns:
+        # NOTE: the labels "positive" and "negative" are reversed here, because the stem from two different system perspectives: a positive change of q_h ('dq_h_vs_pos_tot') means charging of the virtual storage, which is negative in the plotting ('dq_h_vs_tot_negative') and vice versa.
+        df_plot['dq_h_vs_tot_negative'] = -df_plot['dq_h_vs_pos_tot']
+        df_plot['dq_h_vs_tot_positive'] = df_plot['dq_h_vs_neg_tot']
 
     # Convert from kWh to MWh:
     df_plot = df_plot/1000
@@ -3178,10 +2530,18 @@ def plot_heat_balance_daily_mpl(df_scen,
 
     df_plot = df_scen.copy()
     
-    for x in keys_add_negative_if_available:
-        if x in df_plot.columns:
-            df_plot[x+'_negative'] = -df_plot[x]
-
+    if 'u_h_tes' in df_plot.columns:
+        df_plot['u_h_tes_negative'] = -df_plot['u_h_tes']
+    if 'u_h_tesdc' in df_plot.columns:
+        df_plot['u_h_tesdc_negative'] = -df_plot['u_h_tesdc']
+    if 'v_h_wte_waste' in df_plot.columns:
+        df_plot['v_h_wte_waste_negative'] = -df_plot['v_h_wte_waste']
+    if 'v_h_chpgt_waste' in df_plot.columns:
+        df_plot['v_h_chpgt_waste_negative'] = -df_plot['v_h_chpgt_waste']
+    if 'v_h_st_gtcp_waste' in df_plot.columns:
+        df_plot['v_h_st_gtcp_waste_negative'] = -df_plot['v_h_st_gtcp_waste']
+    if 'v_h_st_wbcp_waste' in df_plot.columns:
+        df_plot['v_h_st_wbcp_waste_negative'] = -df_plot['v_h_st_wbcp_waste']
 
     if custom_heat_balance:
         filename = 'dhn_heat_supply'
@@ -3342,11 +2702,22 @@ def plot_heat_balance_weekly(df_scen,
     """
     
     df_plot = df_scen.copy()
-
-    for x in keys_add_negative_if_available:
-        if x in df_plot.columns:
-            df_plot[x+'_negative'] = -df_plot[x]
-
+    if 'u_h_tes' in df_plot.columns:
+        df_plot['u_h_tes_negative'] = -df_plot['u_h_tes']
+    if 'u_h_tesdc' in df_plot.columns:
+        df_plot['u_h_tesdc_negative'] = -df_plot['u_h_tesdc']
+    if 'v_h_wte_waste' in df_plot.columns:
+        df_plot['v_h_wte_waste_negative'] = -df_plot['v_h_wte_waste']
+    if 'v_h_chpgt_waste' in df_plot.columns:
+        df_plot['v_h_chpgt_waste_negative'] = -df_plot['v_h_chpgt_waste']
+    if 'v_h_st_gtcp_waste' in df_plot.columns:
+        df_plot['v_h_st_gtcp_waste_negative'] = -df_plot['v_h_st_gtcp_waste']
+    if 'v_h_st_wbcp_waste' in df_plot.columns:
+        df_plot['v_h_st_wbcp_waste_negative'] = -df_plot['v_h_st_wbcp_waste']
+    if 'q_h_vs_tot' in df_plot.columns:
+        # NOTE: the labels "positive" and "negative" are reversed here, because the stem from two different system perspectives: a positive change of q_h ('dq_h_vs_pos_tot') means charging of the virtual storage, which is negative in the plotting ('dq_h_vs_tot_negative') and vice versa.
+        df_plot['dq_h_vs_tot_negative'] = -df_plot['dq_h_vs_pos_tot']
+        df_plot['dq_h_vs_tot_positive'] = df_plot['dq_h_vs_neg_tot']
 
     # Convert from kWh to GWh:
     df_plot = df_plot/1000000
@@ -3635,7 +3006,7 @@ def plot_tes_sos_hourly(df_scen,
         fig.write_html(file_html)
     
     del df_plot
-
+    
 def plot_flex_vs_sos_hourly(df_scen,
                         dir_path,
                         output_svg = False,
@@ -3758,156 +3129,6 @@ def plot_flex_vs_sos_hourly(df_scen,
         fig.write_html(file_html)
     
     del df_plot
-
-
-def plot_tes_sites_soc_hourly(df_scen,
-                        dir_path,
-                        output_svg = False,
-                        output_html = False,
-                        filename_parts = ['tes_site_', '_soc_hourly'],
-                        timeframe = False,
-                        timeframe_start = '01-01',
-                        timeframe_end = '12-31',
-                        axes_font_size = 16,
-                        title_font_size = 24,
-                        tes_sites_plotting_inf = {}
-                        ):
-    
-    """
-    Generates a line plot of the thermal energy storage state of charge.
-    
-    Parameters
-    ----------
-    df_scen : pandas dataframe
-        Dataframe with resulting hourly values.
-    dir_path : string
-        Path to directory, where plots shall be saved.
-    output_svg : bool
-        If set to 'True', a (static) plot in .svg format will be generated.
-        Default: False
-    output_svg : bool
-        If set to 'True', a (dynamic) plot in .html format will be generated.
-        Default: True
-    filename : string
-        Name of generated plot file(s).
-    timeframe : bool
-        If set to 'True', only the selected timeframe will be plotted.
-        [not yet implemented]
-    timeframe_start : string
-        Beginning of selected timeframe.
-        [not yet implemented]
-    timeframe_end : string
-        End of selected timeframe.
-        [not yet implemented]
-    axes_font_size : int
-        Font size for x- and y-axis labels, tick-mark labels, and legend
-        labels.
-    title_font_size : int
-        Font size of plot title.
-
-    Returns
-    -------
-    n/a
-    """
-    
-    for k in tes_sites_plotting_inf:
-
-        filename = filename_parts[0] + k + filename_parts[1]
-
-        df_plot = df_scen.copy()
-        
-        # :
-        df_plot = df_plot*100
-        
-        # Ensure the index is in datetime format
-        df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='h')
-        
-
-        relevant_keys_list = (
-            tes_sites_plotting_inf[k]['soc']
-            +tes_sites_plotting_inf[k]['soc_lt']
-            )
-
-        for x in relevant_keys_list:
-            if x in df_plot.columns:
-                pass
-            else:
-                df_plot[x] = 0
-
-        
-
-        y=relevant_keys_list
-
-        color_discrete_map = {}
-        for yval in y:
-            if 'ltlt' in yval:
-                color_discrete_map[yval] = "#61d2ff"
-            if 'htlt' in yval:
-                color_discrete_map[yval] = "#29dd19"
-            if 'htht' in yval:
-                color_discrete_map[yval] = "#ff9100"
-
-
-        fig = px.line(
-            df_plot, 
-            x=df_plot.index,
-            y=y,
-            labels={'x': 'Time'},
-            title='TES - Stored Energy (Hourly)',
-            category_orders={'x': df_plot.index},
-            color_discrete_map= color_discrete_map
-            #height=400,
-            #width=1200
-            )
-        
-        fig.update_layout(
-            plot_bgcolor='white',
-            bargap = 0.01,
-            bargroupgap = 0.00,
-            title_x=0.5,  # Center the title
-            legend_title_text='',
-            title_font_size=title_font_size,
-            legend_font=dict(size=axes_font_size)
-            )
-        
-        fig.update_xaxes(
-            # title_text='Hour of the year',
-            title_text='',
-            title_standoff=0,
-            mirror=True,
-            ticks='outside',
-            showline=True,
-            linecolor='black',
-            gridcolor='lightgrey',
-            title_font_size=axes_font_size,
-            tickfont=dict(size=axes_font_size),
-            tickformat="%d %b %H:%M"  # Formats as '3 Jan 15:00'
-        )
-        fig.update_yaxes(
-            title_text='SOC [%]',
-            title_standoff=0,
-            mirror=True,
-            ticks='outside',
-            showline=True,
-            linecolor='black',
-            gridcolor='lightgrey',
-            title_font_size=axes_font_size,
-            tickfont=dict(size=axes_font_size)
-        )
-        
-        file_svg = dir_path + '/' + filename + '.svg'
-        file_html = dir_path + '/' + filename + '.html'
-        
-        if output_svg == True:
-            fig.write_image(file_svg, width=svg_width, height=svg_height)
-        
-        if output_html == True:
-            fig.write_html(file_html)
-        
-        del df_plot
-
-        # exit()
-
 
 def plot_tes_cyclecount_hourly(df_scen,
                         dir_path,
@@ -4554,126 +3775,6 @@ def plot_gtes_sos_hourly(df_scen,
     
     del df_plot
 
-def plot_ws_sos_hourly(df_scen,
-                        dir_path,
-                        output_svg = False,
-                        output_html = False,
-                        filename = 'ws_sos_hourly',
-                        timeframe = False,
-                        timeframe_start = '01-01',
-                        timeframe_end = '12-31',
-                        axes_font_size = 16,
-                        title_font_size = 24
-                        ):
-    
-    """
-    Generates a line plot of the wood storage state of charge.
-    
-    Parameters
-    ----------
-    df_scen : pandas dataframe
-        Dataframe with resulting hourly values.
-    dir_path : string
-        Path to directory, where plots shall be saved.
-    output_svg : bool
-        If set to 'True', a (static) plot in .svg format will be generated.
-        Default: False
-    output_svg : bool
-        If set to 'True', a (dynamic) plot in .html format will be generated.
-        Default: True
-    filename : string
-        Name of generated plot file(s).
-    timeframe : bool
-        If set to 'True', only the selected timeframe will be plotted.
-        [not yet implemented]
-    timeframe_start : string
-        Beginning of selected timeframe.
-        [not yet implemented]
-    timeframe_end : string
-        End of selected timeframe.
-        [not yet implemented]
-    axes_font_size : int
-        Font size for x- and y-axis labels, tick-mark labels, and legend
-        labels.
-    title_font_size : int
-        Font size of plot title.
-
-    Returns
-    -------
-    n/a
-    """
-    
-    df_plot = df_scen.copy()
-    
-    # Convert from kWh to MWh:
-    df_plot = df_plot/1000
-    
-    # Ensure the index is in datetime format
-    df_plot.index = pd.date_range(start='2050-01-01', periods=len(df_plot), freq='H')
-    
-    if 'q_wd_ws' in df_plot.columns:
-        pass
-    else:
-        df_plot['q_wd_ws'] = 0
-    
-    y=['q_wd_ws']
-        
-    fig = px.line(
-        df_plot, 
-        x=df_plot.index,
-        y=y,
-        labels={'x': 'Time'},
-        title='WS - Stored Wood (Hourly)',
-        category_orders={'x': df_plot.index},
-        #height=400,
-        #width=1200
-        )
-    
-    fig.update_layout(
-        plot_bgcolor='white',
-        bargap = 0.01,
-        bargroupgap = 0.00,
-        title_x=0.5,  # Center the title
-        legend_title_text='',
-        title_font_size=title_font_size,
-        legend_font=dict(size=axes_font_size)
-        )
-    
-    fig.update_xaxes(
-        # title_text='Hour of the year',
-        title_text='',
-        title_standoff=0,
-        mirror=True,
-        ticks='outside',
-        showline=True,
-        linecolor='black',
-        gridcolor='lightgrey',
-        title_font_size=axes_font_size,
-        tickfont=dict(size=axes_font_size),
-        tickformat="%d %b %H:%M"  # Formats as '3 Jan 15:00'
-    )
-    fig.update_yaxes(
-        title_text='Stored wood [k wood unit]',
-        title_standoff=0,
-        mirror=True,
-        ticks='outside',
-        showline=True,
-        linecolor='black',
-        gridcolor='lightgrey',
-        title_font_size=axes_font_size,
-        tickfont=dict(size=axes_font_size),
-    )
-    
-    file_svg = dir_path + '/' + filename + '.svg'
-    file_html = dir_path + '/' + filename + '.html'
-    
-    if output_svg == True:
-        fig.write_image(file_svg, width=svg_width, height=svg_height)
-    
-    if output_html == True:
-        fig.write_html(file_html)
-    
-    del df_plot
 
 def plot_hes_sos_hourly(df_scen,
                         dir_path,
@@ -4849,18 +3950,9 @@ def plot_sankey_total(df_scen,
     """
 
 
-
     df_plot = df_scen.copy().sum(axis = 0)
     
-    #Generate list of distinct TES sites
-    distinct_tes_sites = []
-
-    for c in df_plot.index:
-        if 'tes_site' in c:
-            sitename = c.split('tes_site_')[1]
-            if sitename not in distinct_tes_sites:
-                distinct_tes_sites.append(sitename)
-
+    
     # Convert from kWh to MWh:
     df_plot = df_plot/1000
 
@@ -4868,11 +3960,10 @@ def plot_sankey_total(df_scen,
 
     #In- Out- Flows into or out of devices
     flows_to_consider = ['u_e_bes','u_gas_gtes','v_gas_gtes',
-                         'u_wd_ws','v_wd_ws',
                          'u_hyd_hes','v_hyd_hes',
                          'u_e_eh','u_e_hp','u_e_hpcp','u_e_hpcplt','u_e_hydp',
                          'u_e_wguh','u_gas_chpgt','u_gas_gb','u_gas_gtcp',
-                         'u_oil_obcp', 'u_gas_gbcp','u_e_ehcp', 
+                         'u_oil_obcp', 'u_gas_gbcp',
                          'u_wd_wbcp',
                          #'u_gas_gtcp_kg',
                          'u_h_tes','u_h_tesdc',
@@ -4881,13 +3972,13 @@ def plot_sankey_total(df_scen,
                          'v_h_eh', 'v_h_gb', 'v_h_hp', 
                          'v_h_hpcp', 
                          'v_h_hpcplt', 
-                         'u_hlt_hpcplt', 'v_h_ob', 'v_h_solarthermalrooftop', 'v_h_tes', 
-                         'v_h_tesdc', 'v_h_wb',  'v_h_obcp', 'v_h_ehcp',
+                         'u_hlt_hpcplt', 'v_h_ob', 'v_h_solar', 'v_h_tes', 
+                         'v_h_tesdc', 'v_h_wb',  'v_h_obcp',
                          'v_h_wbcp',
                          'v_h_gbcp',
                          'v_h_wguh', 'v_h_wte', 'v_e_bes',  
                          'v_e_chpgt', 'v_e_gtcp', 'v_e_hydro', 
-                         'v_e_pv', 'v_e_pvrooftop', 'v_e_st', 
+                         'v_e_pv', 'v_e_st', 
                          'v_e_wp', 'v_e_wte', 'v_hyd_hydp', 'v_steam_gtcp',
                          'v_e_wguc','u_hyd_wguh',
                          'u_e_wgu','u_e_aguh','u_hyd_aguh',
@@ -4896,7 +3987,7 @@ def plot_sankey_total(df_scen,
                          'u_wd_wgu','u_wd_wguc','u_wd_wguh',
                          'v_gas_wgu', 'v_gas_wguh',
                          'v_h_wgu', 'v_h_wguc','v_gas_hg',
-                         'v_steam_wbsg', 'u_wd_wbsg', 'v_h_other', 'v_h_wh', 'v_h_dgt',
+                         'v_steam_wbsg', 'u_wd_wbsg', 'v_h_other', 'v_h_wh',
                          'v_h_chpgt', 
                          'v_h_st', #'v_h_chpgt_waste', 'v_h_chpgt', 
                          'v_hlt_whlt',
@@ -4915,11 +4006,10 @@ def plot_sankey_total(df_scen,
                               'hydp', 'wgu', 'wguh', 'chpgt', 'gb', 
                               'gtcp', 'tes', 'tesdc', 'wte', 'ob', 
                               'st', 'wb', 'wguc', 'agu', 'hg', 'aguc', 
-                              'bm', 'dh', 'solarthermalrooftop', 'pvrooftop', 'hydro', 'pv', 'wp',
-                              'obcp', 'gbcp', 'gtes', 
-                              'ws','hes', 'wbsg', 
-                              'wbcp', 'ehcp', 
-                              'other', 'dgt',
+                              'bm', 'dh', 'solar', 'hydro', 'pv', 'wp',
+                              'obcp', 'gbcp', 'gtes', 'hes', 'wbsg', 
+                              'wbcp',
+                              'other',
                               'wh', 'whlt']
     
     #energy carriers
@@ -4929,7 +4019,7 @@ def plot_sankey_total(df_scen,
 
     # input streams (import)
     inputs = ['m_e_cbimport', 
-              'm_gas', 'm_h_dh']+['m_e_ch_biomass','m_e_ch_hydro','m_e_ch_nuclear','m_e_ch_other','m_e_ch_wind'] + ['m_wd', 's_wd']
+              'm_gas', 'm_h_dh']+['m_e_ch_biomass','m_e_ch_hydro','m_e_ch_nuclear','m_e_ch_other','m_e_ch_wind']
 
     #output streams
     outputs = ['d_e_ev', 'd_e_hh', 'd_h_hw', 'd_h_s']
@@ -4937,17 +4027,17 @@ def plot_sankey_total(df_scen,
 
     #export streams
     export_streams = ['v_e_aguc_exp', 'v_e_bm_exp', 'v_e_hydro_exp', 'v_e_pv_exp', 'v_e_wguc_exp', 'v_e_wp_exp', 
-                      'v_h_chpgt_waste', 'v_h_st_wbsg_waste', 'v_h_st_gtcp_waste']
+                      'v_h_chpgt_waste', 'v_h_st_wbcp_waste', 'v_h_st_gtcp_waste']
     # heat_wastes = []
 
-    listOfAllNodes = link_nodes_to_consider + carriers + inputs + outputs + outputs_inverted + ["env_heat"] + exports + distinct_tes_sites
-    nodeNames = {'tes': 'TES', 'pv': 'PV', 'pvrooftop': 'PV (rooftop)', 'hyd': 'H₂', 'm_gas': 'Import Gas', 
+    listOfAllNodes = link_nodes_to_consider + carriers + inputs + outputs + outputs_inverted + ["env_heat"] + exports
+    nodeNames = {'tes': 'TES', 'pv': 'PV', 'hyd': 'H₂', 'm_gas': 'Import Gas', 
                  'm_h_dh': 'Fernwärme', 'tesdc': 'TES dezentral', 
                  'm_e_ch': 'Strom CH', 'm_e_cbimport': 'Stromimport internat.', 
                  'hydro': 'Wasserkraft', 'bes': 'Batteriespeicher', 'exp_e': 'Export', 
                  'd_e_ev': 'Elektromobilität', 'd_e_hh': 'Stromverbrauch Haushalte', 
                  'd_h_s': 'Wärme Heizung', 'd_h_hw': 'Wärme Brauchwasser', 'h': 'Wärme', 
-                 'oil': 'Öl', 'solarthermalrooftop': 'Solarthermie (aufdach)', 'ob': 'Ölkessel', 'wb': 'Holzkessel',
+                 'oil': 'Öl', 'solar': 'Solarthermie', 'ob': 'Ölkessel', 'wb': 'Holzkessel',
                  'gas': 'Gas', 'gb': 'Gaskessel', 'wte': 'KVA', 'wd': 'Holz',
                  'bm': 'Biomasse', 'wet_bm': 'Feuchte Biomasse', 'wp': 'Windkraft',
                  'gtcp': 'Gasturbine', 'msw': 'Kehricht', 'hydp': 'Elektrolyseur',
@@ -4958,52 +4048,45 @@ def plot_sankey_total(df_scen,
                  'aguc': 'Anaerobe Vergärungsanlage WKK', 'agu': 'Anaerobe Vergärungsanlage',
                  'hg': 'HG', 'wguh': 'Holzvergaser H₂-Upgrade', 
                  'aguh': 'Anaerobe Vergärungsanlage H₂-Upgrade',
-                 'bmc': 'Biomasse-Umwandlung', 'gtes': 'Gas-Tank', 
-                 'ws': 'Holzspeicher', 'hes' : 'Wasserstoff-Speicher', 
+                 'bmc': 'Biomasse-Umwandlung', 'gtes': 'Gas-Tank', 'hes' : 'Wasserstoff-Speicher', 
                  'm_e_ch_biomass': "Biomasse-Strom CH",'m_e_ch_hydro': 'Wasserkraft CH',
                  'm_e_ch_nuclear': "Kernkraft CH",
                  'm_e_ch_other': 'Andere Stromerzeugung CH',
                  'm_e_ch_wind': "Windkraft CH", 'd_e_unmet': 'Nicht befriedigte Stromnachfrage',
                  'd_h_unmet': 'Nicht befriedigte Wärmenachfrage', "env_heat": "Umweltwärme", 'other': 'Andere'}
     
-    nodeNames = {'tes': 'TES', 'pv': 'PV', 'pvrooftop': 'PV (rooftop)', 'hyd': 'H₂', 'm_gas': 'Import Gas', 
+    nodeNames = {'tes': 'TES', 'pv': 'PV', 'hyd': 'H₂', 'm_gas': 'Import Gas', 
                  'm_h_dh': 'Import District Heat', 'tesdc': 'TES decentralized', 
                  'm_e_ch': 'Electricity Import CH', 'm_e_cbimport': 'Electricity Import internat.', 
                  'hydro': 'Hydropower (local)', 'bes': 'Battery storage', 'exp_e': 'Export electricity', 
                  'exp_h': 'Export heat', 
                  'd_e_ev': 'Electric mobility', 'd_e_hh': 'Households', 
                  'd_h_s': 'Heat for space heating', 'd_h_hw': 'Heat for DHW', 'h': 'Heat', 
-                 'oil': 'Oil', 'solarthermalrooftop': 'Solar thermal (on roof)', 'ob': 'Oil boiler', 'wb': 'Wood boiler',
+                 'oil': 'Oil', 'solar': 'Solar thermal', 'ob': 'Oil boiler', 'wb': 'Wood boiler',
                  'gas': 'Gas', 'gb': 'Gas boiler', 'wte': 'Waste-to-Energy', 'wd': 'Wood',
                  'bm': 'Biomass', 'wet_bm': 'Wet biomass', 'wp': 'Wind power',
                  'gtcp': 'Gas turbine', 'msw': 'Municipal solid waste', 'hydp': 'Electrolyser',
                  'steam': 'Steam', 'st': 'Steam turbine', 'e': 'Electricity', 
                  'hp': 'Heat pump', 'eh': 'Electric heater', 'hpcp': 'Heat pump (centralized)',
-                 'hpcplt': 'Heat pump (centralized, from low-T heat)',
+                 'hpcp': 'Heat pump (centralized, from low-T heat)',
                  'chpgt': 'CHP Gas turbine', 'wgu': 'Wood gasification', 'wguc': 'Wood Gasification CHP', 
                  'aguc': 'Anaerobic digestion CHP', 'agu': 'Anaerobic digestion',
                  'hg': 'Hydrothermal gasification', 'wguh': 'Wood gasification H₂ upgrade', 
                  'aguh': 'Anaerobic digestion H₂ upgrade',
                  'bmc': 'Biomass conversion', 'obcp': 'Oil boiler (centralized)', 
-                 'ehcp': 'Electric heater (centralized)', 
-                 'gbcp': 'Gas boiler (centralized)', 'gtes': 'Gas tank', 
-                 'ws': 'Wood storage', 'hes': 'Hydrogen storage', 
+                 'gbcp': 'Gas boiler (centralized)', 'gtes': 'Gas tank', 'hes': 'Hydrogen storage', 
                  'm_e_ch_biomass': "Biomass electricity CH",'m_e_ch_hydro': 'Hydro power CH',
                  'm_e_ch_nuclear': "Nuclear power CH",
                  'm_e_ch_other': 'Other domestic electricity generation',
                  'm_e_ch_wind': "Wind power CH", 'd_e_unmet': 'Unmet electricity demand',
                  'd_h_unmet': 'Unmet heat demand', "env_heat": "Environmental heat", 'other': 'Other',
                  'wh': 'Waste heat', 'whlt': 'Waste heat (low temperature)', 'wbsg': 'Wood boiler (steam generator)', 
-                 'wbcp': 'Wood boiler (central plant)', 'hlt': 'Heat (Low Temperature)',
-                 'm_wd': 'Wood import', 's_wd': 'Local Wood Harvest'}
-    
-    for sitename in distinct_tes_sites:
-        nodeNames[sitename]  = sitename
+                 'wbcp': 'Wood boiler (central plant)'}
 
     specialColornames = {'d_e_hh': carriercolors[carriers.index('e')], 'd_e_ev': carriercolors[carriers.index('e')],
                          'd_h_s': carriercolors[carriers.index('h')], 'd_h_hw': carriercolors[carriers.index('h')], 
                          'm_gas': carriercolors[carriers.index('gas')], 'm_wd': carriercolors[carriers.index('wd')], 
-                         'pv': '#f7b201', 'm_h_dh': carriercolors[carriers.index('h')], 'solarthermalrooftop': '#f7b201',
+                         'pv': '#f7b201', 'm_h_dh': carriercolors[carriers.index('h')], 'solar': '#f7b201',
                          'm_e_ch': carriercolors[carriers.index('e')], 'm_e_cbimport': carriercolors[carriers.index('e')],
                          'd_e_unmet': '#1f1f1f', 'd_h_unmet': '#1f1f1f',
                          }
@@ -5118,49 +4201,6 @@ def plot_sankey_total(df_scen,
                 targets.append(device_index)
                 values.append(df_plot[keyword]+offset)
                 colors.append(torgbop(carriercolors[carriers.index(carrier)], carrieropacity))
-
-    for sitename in distinct_tes_sites:
-
-        flows = {
-            'ht_to_lt_flow': [0, [], 'h', 'hlt', 'h'],
-            'ht_charging_flow': [0, ['u_hhtlt', 'u_hhtht'], 'h', sitename, 'h'],
-            'lt_charging_flow': [0, ['u_hltlt'], 'hlt', sitename, 'hlt'],
-            'ht_discharging_flow': [0, ['v_hhtht'], sitename, 'h', 'h'],
-            'lt_discharging_flow': [0, ['v_hhtlt', 'v_hltlt'], sitename, 'hlt', 'hlt'],
-            'loss_flow': [0, ['l_q_hhtht', 'l_u_hhtht', 'l_v_hhtht', 'l_q_hhtlt', 'l_q_hltlt', 'l_u_hhtlt', 'l_u_hltlt', 'l_v_hhtlt', 'l_v_hltlt'], sitename, 'loss', 'loss'],
-        }
-
-        conv_ht_lt_name = 'u_hht_to_hlt'
-
-        for c in df_plot.index:
-            if 'tes_site_'+sitename in c:
-                value = df_plot[c]
-                for k in flows.keys():
-                    for startstring in flows[k][1]:
-                        if c.startswith(startstring):
-                            flows[k][0] += value
-
-                
-                if c.startswith(conv_ht_lt_name):
-                    flows['ht_to_lt_flow'][0] += value
-
-                    
-        for k in flows.keys():
-
-            value, _, sourcename, targetname, carriername = tuple(flows[k])
-
-            sourceIndex = listOfAllNodes.index(sourcename)
-            targetIndex = listOfAllNodes.index(targetname)
-
-            sources.append(sourceIndex)
-            targets.append(targetIndex)
-            values.append(value)
-            colors.append(torgbop(carriercolors[carriers.index(carriername)], carrieropacity))
-
-                
-
-    # print(distinct_tes_sites)
-
 
     # for keyword in :
 
@@ -5766,7 +4806,7 @@ def plot_annual_heat_and_electricity(
         'v_h_gb_yr',
         'v_h_wb_yr',
         'm_h_dh_yr',
-        'v_h_solarthermalrooftop_yr',
+        'v_h_solar_yr',
         'v_h_chpgt_yr',
         # 'v_h_st_yr',
         'v_h_st_gtcp_yr',
@@ -5803,7 +4843,7 @@ def plot_annual_heat_and_electricity(
         # 'Heat import',
         # 'District heating',
         # 'District heat import',
-        'Solar thermal (rooftop)',
+        'Solar thermal',
         'Gas turbine CHP (small)',
         # 'Steam turbine',
         'Gas turbine CC',
@@ -6187,7 +5227,6 @@ def plot_obj_values_monetary_vs_co2(
         fig.write_image(file_svg)    
     if output_html:
         fig.write_html(file_html)
-
     
     
 def plot_biomethane_balance_hourly(df_scen,
@@ -6334,12 +5373,8 @@ def plot(
         pareto_results_generated,
         results_path,
         dict_yr_scen,
-        df_scen,     
-        tes_sites_plotting_inf = {}           
+        df_scen,                
         ):
-    
-    add_tes_sites_plotting_keys(tes_sites_plotting_inf)
-
     if pareto_results_loaded == True:
         plot_pareto_cost_vs_co2(
             pareto_results=pareto_results,
@@ -6374,14 +5409,6 @@ def plot(
                 output_svg = toggle_svg,
                 output_html = toggle_html,
                 )
-            
-            plot_heatlt_balance_hourly(
-                df_scen=df_scen,
-                dir_path=results_path,
-                output_svg = toggle_svg,
-                output_html = toggle_html,
-                )
-
             plot_electricity_balance_daily(
                 df_scen=df_scen,
                 dir_path=results_path,
@@ -6394,14 +5421,6 @@ def plot(
                 output_svg = toggle_svg,
                 output_html = toggle_html,
                 )
-            
-            plot_heatlt_balance_daily(
-                df_scen=df_scen,
-                dir_path=results_path,
-                output_svg = toggle_svg,
-                output_html = toggle_html,
-                )
-
             plot_electricity_balance_weekly(
                 df_scen=df_scen,
                 dir_path=results_path,
@@ -6420,26 +5439,12 @@ def plot(
                 output_svg = toggle_svg,
                 output_html = toggle_html,
                 )
-            plot_heatlt_balance_weekly(
-                df_scen=df_scen,
-                dir_path=results_path,
-                output_svg = toggle_svg,
-                output_html = toggle_html,
-                )
-
             plot_tes_sos_hourly(
                 df_scen=df_scen,
                 dir_path=results_path,
                 output_svg = toggle_svg,
                 output_html = toggle_html,
                 )
-            plot_tes_sites_soc_hourly(
-                df_scen=df_scen,
-                dir_path=results_path,
-                output_svg = toggle_svg,
-                output_html = toggle_html,
-                tes_sites_plotting_inf=tes_sites_plotting_inf
-            )
             plot_tes_cyclecount_hourly(
                 df_scen=df_scen,
                 dir_path=results_path,
@@ -6470,13 +5475,6 @@ def plot(
                 output_svg = toggle_svg,
                 output_html = toggle_html,
                 )
-            plot_ws_sos_hourly(
-                df_scen=df_scen,
-                dir_path=results_path,
-                output_svg = toggle_svg,
-                output_html = toggle_html,
-                )
-
 
             plot_hes_sos_hourly(
                 df_scen=df_scen,
@@ -6535,8 +5533,12 @@ def plot(
             output_svg = toggle_svg,
             output_html = toggle_html,
             )
-        
-
+        # plot_electricity_balance_hourly_share(
+        #     df_scen=df_scen,
+        #     dir_path=results_path,
+        #     output_svg = toggle_svg,
+        #     output_html = toggle_html,
+        #     )
         plot_heat_balance_hourly(
             df_scen=df_scen,
             dir_path=results_path,
@@ -6544,13 +5546,6 @@ def plot(
             output_html = toggle_html,
             )
         
-        plot_heatlt_balance_hourly(
-            df_scen=df_scen,
-            dir_path=results_path,
-            output_svg = toggle_svg,
-            output_html = toggle_html,
-            )
-
         plot_electricity_balance_daily(
             df_scen=df_scen,
             dir_path=results_path,
@@ -6563,14 +5558,6 @@ def plot(
             output_svg = toggle_svg,
             output_html = toggle_html,
             )
-        
-        plot_heatlt_balance_daily(
-            df_scen=df_scen,
-            dir_path=results_path,
-            output_svg = toggle_svg,
-            output_html = toggle_html,
-            )
-
         plot_electricity_balance_weekly(
             df_scen=df_scen,
             dir_path=results_path,
@@ -6589,25 +5576,11 @@ def plot(
             output_svg = toggle_svg,
             output_html = toggle_html,
             )
-        plot_heatlt_balance_weekly(
-            df_scen=df_scen,
-            dir_path=results_path,
-            output_svg = toggle_svg,
-            output_html = toggle_html,
-            )
-
         plot_tes_sos_hourly(
             df_scen=df_scen,
             dir_path=results_path,
             output_svg = toggle_svg,
             output_html = toggle_html,
-            )
-        plot_tes_sites_soc_hourly(
-                df_scen=df_scen,
-                dir_path=results_path,
-                output_svg = toggle_svg,
-                output_html = toggle_html,
-                tes_sites_plotting_inf=tes_sites_plotting_inf
             )
         plot_tes_cyclecount_hourly(
             df_scen=df_scen,
@@ -6641,13 +5614,6 @@ def plot(
             output_svg = toggle_svg,
             output_html = toggle_html,
             )
-        plot_ws_sos_hourly(
-            df_scen=df_scen,
-            dir_path=results_path,
-            output_svg = toggle_svg,
-            output_html = toggle_html,
-            )
-
         
         plot_hes_sos_hourly(
             df_scen=df_scen,
@@ -6669,7 +5635,6 @@ def plot(
             output_svg = toggle_svg,
             output_html = toggle_html,
                 )
-
         plot_annual_heat_and_electricity(
             dict_yr=dict_yr_scen,
             dir_path=results_path,
