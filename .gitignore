@@ -41,3 +41,15 @@ results*/
 Results*/
 .gitignore
 .gitignore
+
+# ignore content of data directory:
+# --------------------------------
+data/community_data/
+data/electricity_demand/
+data/electricity_mix_national/
+data/heat_demand/
+data/master_data/
+data/tech_wind_power/
+data/weather_data/
+data/read_data.py
+data/read_and_cluster_data.py
