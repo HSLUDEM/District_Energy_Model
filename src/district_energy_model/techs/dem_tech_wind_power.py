@@ -1301,6 +1301,8 @@ class WindPower(TechCore):
 
     def get_total_capex(self):
         cap = [x/y for x, y in zip(self._v_e, self._v_e_pot_annual_kWhpkW) if y != 0] 
+        if cap == []:
+            return 0.0
         capex = (max(cap) - self.get_existing())*self._capex
         print(f" wind Power cap: {max(cap)}")
         return capex
@@ -1310,6 +1312,8 @@ class WindPower(TechCore):
     
     def get_total_maintenance(self):
         cap = [x/y for x, y in zip(self._v_e, self._v_e_pot_annual_kWhpkW) if y != 0] 
+        if cap == []:
+            return 0.0
         return self._maintenance_cost*max(cap)
     
     def get_energy_revenue(self):
