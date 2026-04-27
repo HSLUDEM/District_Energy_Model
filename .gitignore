@@ -1,4 +1,5 @@
 # ignore file types:
+# -----------------
 *.log
 *.xlxs
 *.pdf
@@ -6,6 +7,9 @@
 #*.jpg
 
 # ignore specific files:
+# ---------------------
+config/config_files/*.yml
+config/config_files/*.yaml
 src/dem_OLD.py
 #src/paths.py
 data/
@@ -16,9 +20,14 @@ doc/documentation.md
 tests/tmp*
 data/
 data/*
-# ignore directories
+**/tmp*
+**/dev_us_*
+
+# ignore directories:
+# ------------------
 dem_output*/
 #dist/
+**/tmp*/
 tmp*/
 src/tmp*/
 src/00_superseded/
@@ -29,8 +38,21 @@ tests/.pytest_cache/
 tests/tmp*/
 bkp/
 00_superseded/
+**/00_*/
 __pycache__/
 results*/
 Results*/
 .gitignore
 .gitignore
+
+# ignore content of data directory:
+# --------------------------------
+data/community_data/
+data/electricity_demand/
+data/electricity_mix_national/
+data/heat_demand/
+data/master_data/
+data/tech_wind_power/
+data/weather_data/
+data/read_data.py
+data/read_and_cluster_data.py
