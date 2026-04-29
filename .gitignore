@@ -22,6 +22,7 @@ data/
 data/*
 **/tmp*
 **/dev_us_*
+**/dev_tz_*
 
 # ignore directories:
 # ------------------

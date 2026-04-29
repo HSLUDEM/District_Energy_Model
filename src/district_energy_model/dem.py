@@ -1706,7 +1706,7 @@ class DistrictEnergyModel:
                 opt_results=opt_results
                 )
                 
-            dict_total_costs["Kostenmodul"] = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"])
+            dict_total_costs["Kostenmodul"] = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"], debug=False)
                 
             # -------------------------------------------------------------
             # Update df_scen:
@@ -1737,7 +1737,7 @@ class DistrictEnergyModel:
             # Compute costs in case no optimisation is applied:
             dict_total_costs = {} # !!! a separate module for cost calculations must be implemented
             
-            dict_total_costs = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"])
+            dict_total_costs = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"], debug=False)
             model = 0
 
         #----------------------------------------------------------------------

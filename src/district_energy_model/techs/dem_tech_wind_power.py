@@ -1304,7 +1304,6 @@ class WindPower(TechCore):
         if cap == []:
             return 0.0
         capex = (max(cap) - self.get_existing())*self._capex
-        print(f" wind Power cap: {max(cap)}")
         return capex
             
     def get_energy_costs(self):
