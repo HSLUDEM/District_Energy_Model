@@ -17,6 +17,9 @@ import plotly.express as px
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 
+from district_energy_model import dem_helper
+
+
 #import plotly.io as io
 #io.renderers.default='svg' # set the default renderer to svg to display figures as static images
 
@@ -6039,7 +6042,10 @@ def plot(
         tes_sites_plotting_inf = {}           
         ):
     
+
     add_tes_sites_plotting_keys(tes_sites_plotting_inf)
+
+    df_scen = dem_helper.add_missing_keys(df_scen, tes_sites_plotting_inf)
 
     if pareto_results_loaded == True:
         plot_pareto_cost_vs_co2(

@@ -1893,8 +1893,87 @@ def hourly_array_to_daily(hourly_array):
     return np.array(daily_array)
 
     
-#%% FOR TESTING ONLY
+def add_missing_keys(df_scen, tes_sites_plotting_inf = {}):
+    missing_keys = [
+        'd_h_m',
+        'u_h_tes',
+        'u_h_tesdc',
+        'v_h_tes',
+        'v_h_tesdc',
+        'q_h_tes',
+        'q_h_tesdc',
+        'l_u_h_tes',
+        'l_u_h_tesdc',
+        'l_v_h_tes',
+        'l_v_h_tesdc',
+        'l_q_h_tes',
+        'l_q_h_tesdc',
+        'v_h_chpgt',
+        'v_h_chpgt_con',
+        'v_h_chpgt_waste',
+        'v_h_st',
+        'v_h_st_con',
+        'v_h_st_waste',
+        'v_h_st_gtcp',
+        'v_h_st_gtcp_con',
+        'v_h_st_gtcp_waste',
+        'v_h_st_wbsg',
+        'v_h_st_wbsg_con',
+        'v_h_st_wbsg_waste',
+        'v_h_wte',
+        'v_h_wte_con',
+        'v_h_wte_waste',
+        'v_h_hpcp',
+        'v_h_hpcplt',
+        'v_h_obcp',
+        'v_h_ehcp',
+        'v_h_wbcp',
+        'v_h_wh',
+        'v_h_dgt',
+        'v_h_gbcp',
+        'u_e_aguh',
+        'm_h_dh',
+        'v_e_pv',
+        'v_e_pv_cons',
+        'v_e_pv_exp',
+        'v_e_pvrooftop',
+        'v_e_pvrooftop_cons',
+        'v_e_pvrooftop_exp',
+        'u_e_bes',
+        'v_e_bes',
+        'q_e_bes',
+        'l_u_e_bes',
+        'l_v_e_bes',
+        'l_q_e_bes',
+        'v_e_chpgt',
+        'v_e_gtcp',
+        'v_e_st',
+        'v_e_st_gtcp',
+        'v_e_st_wbsg',
+        'v_e_wte',
+        'u_e_hpcp',
+        'u_e_ehcp',
+        'u_e_hpcplt',
+        'u_e_aguh',
+        'u_e_wgu',
+        'u_e_wguh',
+        'u_e_hydp',
+        ]
+    
+    for k in tes_sites_plotting_inf.keys():
+        for k2 in tes_sites_plotting_inf[k].keys():
+            if k2 != 'color':
+                for x in tes_sites_plotting_inf[k][k2]:
+                    if x not in missing_keys:
+                        missing_keys.append(x)
 
+    for k in missing_keys:
+        if k in df_scen.columns:
+            pass
+        else:
+            df_scen[k] = 0
+
+    return df_scen
 
 
 
