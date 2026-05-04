@@ -95,7 +95,7 @@ coptest[20] = 1.0
 scen_techs = {
     'meta_data':{
         'custom_district':{
-            'implemented': True,
+            'implemented': False,
             # 'EGID_List': EGID_List,
             'EGID_List': [],
             'custom_district_name':'Test_Scenario',
