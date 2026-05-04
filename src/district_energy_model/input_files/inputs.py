@@ -99,7 +99,10 @@ scen_techs = {
             # 'EGID_List': EGID_List,
             'EGID_List': [],
             'custom_district_name':'Test_Scenario',
-            
+            'manual_district': False,  #Are manual data added to the district?
+            'manual_district_df_com_path': '', #Location of the file with the dataframe for the manual district
+            'manual_district_df_solar_rooftop_profiles_path': '', #Location of the file, in which the rooftop solar information for the manual district is stored (1)
+            'manual_district_df_solar_rooftop_building_data_path': '', #Location of the file, in which the rooftop solar information for the manual district is stored (1)            
             }
         },
     'heat_pump':{ #hp
