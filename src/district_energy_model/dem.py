@@ -387,11 +387,24 @@ class DistrictEnergyModel:
                 )
         else:
             com_nrs = list(self.com_percent_2.index)
+            if (scen_techs['meta_data']['custom_district']['manual_district'] 
+                and scen_techs['meta_data']['custom_district']['manual_district_df_solar_rooftop_profiles_path'] != None 
+                and scen_techs['meta_data']['custom_district']['manual_district_df_solar_rooftop_profiles_path'] != ''
+                and scen_techs['meta_data']['custom_district']['manual_district_df_solar_rooftop_building_data_path'] != None 
+                and scen_techs['meta_data']['custom_district']['manual_district_df_solar_rooftop_building_data_path'] != ''):
+
+                com_nrs_to_use = com_nrs + ["MANUAL"]
+            else:
+                com_nrs_to_use = com_nrs
+
             pv_profile_and_capex_factors = (
                 dem_solar_preprocessing_switzerland.obtain_custom_district_roof_profile(
-                    com_nrs,scen_techs['meta_data']['custom_district']['EGID_List'],
+                    com_nrs_to_use,
+                    scen_techs['meta_data']['custom_district']['EGID_List'],
                     scen_techs['solar_pvrooftop']['eta_overall'],
-                    self.paths
+                    self.paths,
+                    manual_district_df_solar_rooftop_profiles_path = scen_techs['meta_data']['custom_district']['manual_district_df_solar_rooftop_profiles_path'],
+                    manual_district_df_solar_rooftop_building_data_path = scen_techs['meta_data']['custom_district']['manual_district_df_solar_rooftop_building_data_path']
                     )
                 )
 

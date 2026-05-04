@@ -32,6 +32,24 @@ def create_district(paths, scen_techs):
         arg_master = df_master['EGID'].isin(EGID_List)
         df_com_yr = df_master.loc[arg_master]
         
+
+        #Add functionality to read in manual district
+        #manual district file needs to have the same format as the Master file
+        if scen_techs['meta_data']['custom_district']['manual_district']:
+            manual_district_df_com_path = scen_techs['meta_data']['custom_district']['manual_district_df_com_path']
+            manual_district_df_solar_rooftop_profiles_path = scen_techs['meta_data']['custom_district']['manual_district_df_solar_rooftop_profiles_path']
+            manual_district_df_solar_rooftop_building_data_path = scen_techs['meta_data']['custom_district']['manual_district_df_solar_rooftop_building_data_path']
+            
+            df_com_yr_manual = pd.read_feather(manual_district_df_com_path)
+
+            df_com_yr = (
+                pd.concat([df_com_yr, df_com_yr_manual])
+                .drop_duplicates(subset="EGID", keep="last")
+                .reset_index(drop=True)
+            )
+
+        scen_techs['meta_data']['custom_district']['EGID_List'] = list(df_com_yr['EGID'].unique())
+
         Municipality = scen_techs['meta_data']['custom_district']['custom_district_name']
         
         GGDENR_max = df_meta['GGDENR'].max()
