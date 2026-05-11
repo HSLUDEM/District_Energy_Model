@@ -173,7 +173,7 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
         opex = 0
         energy_revenue = 0
         energy_costs = 0
-        if tech != "pile_of_berries":  # !!! this should be adapted to the actual technologies included in the model    |||  and tech != "solar_pvrooftop" and tech != "solarthermal_rooftop"
+        if tech != "pile_of_berries":  # !!! this should be adapted to the actual technologies included in the model    |||  and tech != "solarpv_rooftop" and tech != "solarthermal_rooftop"
             if tech != "grid_supply" and tech != "grid_export" and tech != "heat_demand_manual":
                 capex = tech_instances[tech].get_total_capex()
                 opex = tech_instances[tech].get_total_maintenance()
@@ -255,7 +255,7 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
 #     for tech in tech_instances:
 #         cost = 0
 #         energy_produced = 0
-#         if tech != "solar_pvrooftop" and tech != "solarthermal_rooftop" and tech != "pile_of_berries":  # !!! this should be adapted to the actual technologies included in the model
+#         if tech != "solarpv_rooftop" and tech != "solarthermal_rooftop" and tech != "pile_of_berries":  # !!! this should be adapted to the actual technologies included in the model
 #             if tech != "grid_supply":
 #                 for year in range(int(number_of_days/365)):
 #                     cost += (1/(1 + tech_instances[tech]._interest_rate) ** year)*( tech_instances[tech].get_total_capex() + tech_instances[tech].get_total_maintenance() + tech_instances[tech].get_energy_costs())

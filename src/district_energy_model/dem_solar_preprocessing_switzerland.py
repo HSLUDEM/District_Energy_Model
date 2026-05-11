@@ -23,6 +23,32 @@ EXISTING_EPPS_GROUP = 0 #Which of the groups is the group for existing solar ins
 EFFICIENCY_TO_USE = 0.18
 BASE_IRRADIANCE = 1000.0
 
+def obtain_com_pvalpine_profile(com_nr, paths):
+
+    path_to_solar_alpine_data = paths.pv_alpine_file
+
+    pv_alpine_all_data = pd.read_csv(path_to_solar_alpine_data)
+
+    results = {}
+
+    if str(com_nr) in pv_alpine_all_data.columns:
+
+        profile = pv_alpine_all_data[str(com_nr)] / 1000.0
+
+        capex_opex_increase_factor = 1.0
+
+        results[0] = (profile, capex_opex_increase_factor)
+
+    else:
+
+        k0 = list(pv_alpine_all_data.columns)[1]
+
+        profile = 0.0 * pv_alpine_all_data[k0]
+        capex_opex_increase_factor = 1.0
+        results[0] = (profile, capex_opex_increase_factor)
+
+    return results
+
 
 def obtain_com_roof_profile(com_nr, efficiency_overall, paths):
 

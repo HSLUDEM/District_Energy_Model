@@ -137,6 +137,17 @@ class SolarPVInstallation(TechCore):
         self._v_e_pot_remain = self._v_e_pot_remain[:n_hours]
         self._max_profile = self._max_profile[:n_hours]
 
+    def initialise_zero(self, n_days):
+        n_hours = n_days*24
+        
+        init_vals = np.array([0.0]*n_hours)
+        
+        self._v_e = init_vals.copy() 
+        self._v_e_cons = init_vals.copy() 
+        self._v_e_exp = init_vals.copy() 
+        self._v_e_pot = self._max_profile.copy()[:n_hours]
+        self._v_e_pot_remain = self._max_profile.copy()[:n_hours]
+
     def compute_v_e(self):
 
         self._v_e = self._max_profile * self._share_occupied
@@ -211,7 +222,7 @@ class SolarPVInstallation(TechCore):
                     'export': -self._export_subsidy*energy_scaling_factor,
                     }
                 }
-            }    
+            }
         
         # headers.append(header+"_occupied")
 

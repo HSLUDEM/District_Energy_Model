@@ -170,6 +170,9 @@ class SolarPVType(TechCore):
         for installation in self._installations:
             installation.reduce_timeframe(n_days)
     
+    def initialise_zero(self, n_days):
+        for installation in self._installations:
+            installation.initialise_zero(n_days)
 
     def compute_v_e(self):    
 

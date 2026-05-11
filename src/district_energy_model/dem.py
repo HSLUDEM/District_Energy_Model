@@ -449,6 +449,7 @@ class DistrictEnergyModel:
         self.tech_solarthermal_rooftop.agregate_variables(only_potential = True)
 
 
+
         self.tech_wind_power = dem_techs.WindPower(
             wind_power_data_dir = self.wind_power_data_dir,
             wind_power_profiles_dir = self.wind_power_profiles_dir,
@@ -713,6 +714,22 @@ class DistrictEnergyModel:
         #----------------------------------------------------------------------
         # Add additional techs for new scenario:
         
+        # PV Alpine
+        if scen_techs['solar_pvalpine']['deployment']:      
+            pvalpine_profile_readout = dem_solar_preprocessing_switzerland.obtain_com_pvalpine_profile(self.com_nr, self.paths)
+
+            pv_alpine_profiles = [pvalpine_profile_readout[0][0]]
+            pv_alpine_capex_numbers = [pvalpine_profile_readout[0][1]]
+
+            self.tech_solar_pvalpine = dem_techs.SolarPVType(
+                "pvalpine",
+                pv_alpine_profiles,
+                pv_alpine_capex_numbers,
+                [0.0], 
+                tech_dict = scen_techs['solar_pvalpine'])
+            self.tech_solar_pvalpine.initialise_zero(n_days)
+            self.tech_instances['solar_pvalpine'] = self.tech_solar_pvalpine
+
         # Heat demand manual flow
         if scen_techs['heat_demand_manual']['deployment']:                
             self.tech_heat_demand_manual = dem_techs.HeatDemandManual(scen_techs['heat_demand_manual'])
