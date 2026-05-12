@@ -245,7 +245,7 @@ scen_techs = {
     'solar_pvalpine':{ # pv
         'deployment':True,
         'kWp_max':'inf', 
-        'eta_overall': -1.0,
+        'eta_overall': -1.0, #Not used by code.
         'lifetime':25,
         'base_capex':6000, #capex per installed kWp power. This is not the same as the peak of the solar PV production.
         'base_maintenance_cost': 13.0,

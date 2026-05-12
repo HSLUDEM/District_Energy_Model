@@ -4606,7 +4606,9 @@ def plot_sankey_total(df_scen,
                          'v_h_gbcp',
                          'v_h_wguh', 'v_h_wte', 'v_e_bes',  
                          'v_e_chpgt', 'v_e_gtcp', 'v_e_hydro', 
-                         'v_e_pv', 'v_e_pvrooftop', 'v_e_st', 
+                         'v_e_pv', 
+                         'v_e_pvrooftop', 'v_e_pvalpine', 
+                         'v_e_st', 
                          'v_e_wp', 'v_e_wte', 'v_hyd_hydp', 'v_steam_gtcp',
                          'v_e_wguc','u_hyd_wguh',
                          'u_e_wgu','u_e_aguh','u_hyd_aguh',
@@ -4634,7 +4636,7 @@ def plot_sankey_total(df_scen,
                               'hydp', 'wgu', 'wguh', 'chpgt', 'gb', 
                               'gtcp', 'tes', 'tesdc', 'wte', 'ob', 
                               'st', 'wb', 'wguc', 'agu', 'hg', 'aguc', 
-                              'bm', 'dh', 'solarthermalrooftop', 'pvrooftop', 'hydro', 'pv', 'wp',
+                              'bm', 'dh', 'solarthermalrooftop', 'pvrooftop', 'pvalpine', 'hydro', 'pv', 'wp',
                               'obcp', 'gbcp', 'gtes', 
                               'ws','hes', 'wbsg', 
                               'wbcp', 'ehcp', 
@@ -4655,12 +4657,13 @@ def plot_sankey_total(df_scen,
     outputs_inverted = ['d_e_unmet', 'd_h_unmet']
 
     #export streams
-    export_streams = ['v_e_aguc_exp', 'v_e_bm_exp', 'v_e_hydro_exp', 'v_e_pv_exp', 'v_e_wguc_exp', 'v_e_wp_exp', 
-                      'v_h_chpgt_waste', 'v_h_st_wbsg_waste', 'v_h_st_gtcp_waste']
+    export_streams = ['v_e_aguc_exp', 'v_e_bm_exp', 'v_e_hydro_exp', 'v_e_pv_exp', 'v_e_pvrooftop_exp', 'v_e_pvalpine_exp', 'v_e_wguc_exp', 'v_e_wp_exp', 
+                      'v_h_chpgt_waste', 'v_h_st_wbsg_waste', 'v_h_st_gtcp_waste', 'f_e']
     # heat_wastes = []
 
     listOfAllNodes = link_nodes_to_consider + carriers + inputs + outputs + outputs_inverted + ["env_heat"] + exports + distinct_tes_sites
-    nodeNames = {'tes': 'TES', 'pv': 'PV', 'pvrooftop': 'PV (rooftop)', 'hyd': 'H₂', 'm_gas': 'Import Gas', 
+    nodeNames = {'tes': 'TES', 'pv': 'PV', 'pvrooftop': 'PV (rooftop)', 'pvalpine': 'PV (alpine)', 
+                 'hyd': 'H₂', 'm_gas': 'Import Gas', 
                  'm_h_dh': 'Fernwärme', 'tesdc': 'TES dezentral', 
                  'm_e_ch': 'Strom CH', 'm_e_cbimport': 'Stromimport internat.', 
                  'hydro': 'Wasserkraft', 'bes': 'Batteriespeicher', 'exp_e': 'Export', 
@@ -4685,7 +4688,8 @@ def plot_sankey_total(df_scen,
                  'm_e_ch_wind': "Windkraft CH", 'd_e_unmet': 'Nicht befriedigte Stromnachfrage',
                  'd_h_unmet': 'Nicht befriedigte Wärmenachfrage', "env_heat": "Umweltwärme", 'other': 'Andere'}
     
-    nodeNames = {'tes': 'TES', 'pv': 'PV', 'pvrooftop': 'PV (rooftop)', 'hyd': 'H₂', 'm_gas': 'Import Gas', 
+    nodeNames = {'tes': 'TES', 'pv': 'PV', 'pvrooftop': 'PV (rooftop)', 'pvalpine': 'PV (alpine)', 
+                 'hyd': 'H₂', 'm_gas': 'Import Gas', 
                  'm_h_dh': 'Import District Heat', 'tesdc': 'TES decentralized', 
                  'm_e_ch': 'Electricity Import CH', 'm_e_cbimport': 'Electricity Import internat.', 
                  'hydro': 'Hydropower (local)', 'bes': 'Battery storage', 'exp_e': 'Export electricity', 
