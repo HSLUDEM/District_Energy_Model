@@ -51,6 +51,12 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     # tech_solar_pv = tech_instances['solar_pv']
     tech_solar_pvrooftop = tech_instances['solar_pvrooftop']
 
+    with_pvalpine = False
+
+    if 'solar_pvalpine' in tech_instances:
+        tech_solar_pvalpine = tech_instances['solar_pvalpine']
+        v_e_pvalpine = tech_solar_pvalpine.get_v_e_from_installations()
+        with_pvalpine = True
     tech_wind_power = tech_instances['wind_power']
     tech_biomass = tech_instances['biomass']
     tech_hydro_power = tech_instances['hydro_power']
@@ -69,10 +75,17 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
         v_e_bes = tech_bes.get_v_e()
         u_e_bes = tech_bes.get_u_e()
 
-    if not with_bes:
+
+    
+
+    if not with_bes and not with_pvalpine:
         dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro)
-    else:
+    elif with_bes:
         dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_bes, u_e_bes)
+    elif with_pvalpine:
+        dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_pvalpine)
+    else:
+        dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_bes, u_e_bes, v_e_pvalpine)
 
     # Get dataseries length:
     ds_n = len(d_e)    
@@ -83,7 +96,13 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     # else:
     #     tech_hierarchy = ['pv', 'wp', 'bm', 'hydro']
     
-    tech_hierarchy_pv_section = ['pvrooftop_'+str(_) for _ in range(len(v_e_pvrooftop))]
+    tech_hierarchy_pvrooftop_section = ['pvrooftop_'+str(_) for _ in range(len(v_e_pvrooftop))]
+    tech_hierarchy_pv_section = tech_hierarchy_pvrooftop_section
+    if with_pvalpine:
+        tech_hierarchy_pvalpine_section = ['pvalpine_'+str(_) for _ in range(len(v_e_pvalpine))]
+        tech_hierarchy_pv_section = tech_hierarchy_pvrooftop_section + tech_hierarchy_pvalpine_section
+
+
     if with_bes:
         tech_hierarchy = tech_hierarchy_pv_section+['wp', 'bm', 'hydro', 'bes']
     else:
@@ -105,6 +124,11 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     dict_v_e = {
         'pvrooftop_'+str(i): pd.Series(v_e_pvrooftop[i]) for i in range(len(v_e_pvrooftop))
         }
+    
+    if with_pvalpine:
+         for i in range(len(v_e_pvalpine)):
+             dict_v_e['pvalpine_'+str(i)] = pd.Series(v_e_pvalpine[i])
+
     tmp_d_to_add = {
         'wp':pd.Series(v_e_wp),
         'bm':pd.Series(v_e_bm),
@@ -176,9 +200,17 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     # Solar PV:
     # ---------
 
-    tech_solar_pvrooftop.update_v_e_cons([dict_v_e_cons[x] for x in tech_hierarchy_pv_section])
-    tech_solar_pvrooftop.update_v_e_exp([dict_v_e_exp[x] for x in tech_hierarchy_pv_section])
+    tech_solar_pvrooftop.update_v_e_cons([dict_v_e_cons[x] for x in tech_hierarchy_pvrooftop_section])
+    tech_solar_pvrooftop.update_v_e_exp([dict_v_e_exp[x] for x in tech_hierarchy_pvrooftop_section])
+    
+    # Solar Alpine:
+    # ---------
+
+    if with_pvalpine:
+        tech_solar_pvalpine.update_v_e_cons([dict_v_e_cons[x] for x in tech_hierarchy_pvalpine_section])
+        tech_solar_pvalpine.update_v_e_exp([dict_v_e_exp[x] for x in tech_hierarchy_pvalpine_section])
         
+
     # Wind power:
     # -----------
     tech_wind_power.update_v_e_cons(dict_v_e_cons['wp'])
@@ -585,6 +617,7 @@ def electricity_balance_test(scen_techs,
     electricity_generation = (
                                 # df_scen['v_e_pv_cons']
                                 df_scen['v_e_pvrooftop_cons']
+                              + df_scen['v_e_pvalpine_cons']
                               + df_scen['v_e_wp_cons']
                               + df_scen['v_e_bm_cons']
                               + df_scen['v_e_hydro_cons']

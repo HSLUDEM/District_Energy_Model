@@ -13,6 +13,9 @@ All notable changes to this project will be documented in this file.
 - Added grid export as technology with timeseries for prices and emissions (emissions of export yield negative emissions!)
 - Added manual heat demand, to allow for a manual heat demand timeseries to be added to the demand
 - Added manual district functionality that loads data from user-provided files to model a user-defined district.
+- Added PV Alpine
+- Added PV-Alpine and electricity feedin to Sankey diagram
+
 
 ### Fixed
 - Configuration YAML files are checked for valid keywords. An error is thrown if a keyword is invalid (e.g., due to incorrect spelling). Previously, the simulation just continued.

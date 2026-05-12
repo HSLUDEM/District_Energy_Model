@@ -100,6 +100,9 @@ class CalliopeOptimiser:
         if 'solar_pvrooftop' in self.tech_list:
             self.tech_solar_pvrooftop = tech_instances['solar_pvrooftop']
 
+        if 'solar_pvalpine' in self.tech_list:
+            self.tech_solar_pvalpine = tech_instances['solar_pvalpine']
+
         if 'wind_power' in self.tech_list:
             self.tech_wind_power = tech_instances['wind_power']
         
@@ -369,6 +372,10 @@ class CalliopeOptimiser:
         else:
             solarthermal_rooftop_resources = [null_array.copy()]
 
+        if 'solar_pvalpine' in self.tech_list:
+            pv_alpine_resources = [np.array(x)[:n_hours] for x in self.tech_solar_pvalpine.get_resources()]
+        else:
+            pv_alpine_resources = [null_array.copy()]
 
         # if 'solar_thermal' in self.tech_list:
         #     solar_th_resource_old = null_array.copy() # TEMPORARY FIX: assumption: currently no solar thermal installed
@@ -393,6 +400,7 @@ class CalliopeOptimiser:
 
         
         pv_rooftop_resources = [x / self.available_area_scaling for x in pv_rooftop_resources]
+        pv_alpine_resources = [x / self.available_area_scaling for x in pv_alpine_resources]
 
         solarthermal_rooftop_resources = [x / self.available_area_scaling for x in solarthermal_rooftop_resources]
         # ---------------------------------------------------------------------
@@ -488,6 +496,8 @@ class CalliopeOptimiser:
         
         
         pv_rooftop_resources = [pd.Series(x, index=date_index) for x in pv_rooftop_resources]
+        pv_alpine_resources = [pd.Series(x, index=date_index) for x in pv_alpine_resources]
+
         solarthermal_rooftop_resources = [pd.Series(x, index=date_index) for x in solarthermal_rooftop_resources]
 
         # solar_th_resource_old = pd.Series(solar_th_resource_old, index=date_index)
@@ -532,6 +542,9 @@ class CalliopeOptimiser:
         df_pv_rooftop_resource = pd.concat(pv_rooftop_resources, axis = 1)
         df_pv_rooftop_resource.columns = ['v_e_pvrooftop_'+str(i) for i in range(len(pv_rooftop_resources))]
 
+        df_pv_alpine_resource = pd.concat(pv_alpine_resources, axis = 1)
+        df_pv_alpine_resource.columns = ['v_e_pvalpine_'+str(i) for i in range(len(pv_alpine_resources))]
+
         df_solarthermal_rooftop_resource = pd.concat(solarthermal_rooftop_resources, axis = 1)
         df_solarthermal_rooftop_resource.columns = ['v_h_solarthermalrooftop_'+str(i) for i in range(len(solarthermal_rooftop_resources))]
 
@@ -569,33 +582,34 @@ class CalliopeOptimiser:
 
         # Timeseries data for Calliope model: (Get these from df_scen!!!)
         timeseries_dataframes = {
-            'demand_heat':df_demand_heat / self.energy_scaling_factor,
+            'demand_heat': df_demand_heat / self.energy_scaling_factor,
             # 'demand_power':df_demand_power,
-            'demand_power_hh':df_demand_power_hh / self.energy_scaling_factor,
-            'demand_power_ev':df_demand_power_ev / self.energy_scaling_factor,
-            'demand_power_ev_cp':df_demand_power_ev_cp / self.energy_scaling_factor,
-            'demand_power_ev_pd':df_demand_power_ev_pd / self.energy_scaling_factor,
-            'demand_power_ev_pu':df_demand_power_ev_pu / self.energy_scaling_factor,
-            'demand_power_ev_delta':df_demand_power_ev_delta / self.energy_scaling_factor,            
+            'demand_power_hh': df_demand_power_hh / self.energy_scaling_factor,
+            'demand_power_ev': df_demand_power_ev / self.energy_scaling_factor,
+            'demand_power_ev_cp': df_demand_power_ev_cp / self.energy_scaling_factor,
+            'demand_power_ev_pd': df_demand_power_ev_pd / self.energy_scaling_factor,
+            'demand_power_ev_pu': df_demand_power_ev_pu / self.energy_scaling_factor,
+            'demand_power_ev_delta': df_demand_power_ev_delta / self.energy_scaling_factor,            
             # 'pv_resource_old':df_pv_resource_old,
             # 'pv_resource_new':df_pv_resource_new,
 
-            'pvrooftop_resource':df_pv_rooftop_resource / self.energy_scaling_factor,
+            'pvrooftop_resource': df_pv_rooftop_resource / self.energy_scaling_factor,
+            'pvalpine_resource': df_pv_alpine_resource / self.energy_scaling_factor,
 
-            'solarthermalrooftop_resource':df_solarthermal_rooftop_resource / self.energy_scaling_factor,
+            'solarthermalrooftop_resource': df_solarthermal_rooftop_resource / self.energy_scaling_factor,
 
             # 'solar_th_resource_old':df_solar_th_resource_old,
             # 'solar_th_resource_new':df_solar_th_resource_new,            
-            'wet_biomass_resource':df_supply_wet_biomass / self.energy_scaling_factor,
-            'wood_resource':df_supply_wood / self.energy_scaling_factor,
-            'wp_resource_annual':df_wp_resource_annual, #/ self.energy_scaling_factor,
-            'wp_resource_winter':df_wp_resource_winter, #/ self.energy_scaling_factor,
-            'hydro_resource':df_hydro_resource / self.energy_scaling_factor,
-            'heat_demand_manual':df_heat_demand_manual_resource / self.energy_scaling_factor,
-            'waste_heat':df_waste_heat_resource / self.energy_scaling_factor,
-            'grid_supply':df_grid_supply_timeseries,
-            'grid_export':df_grid_export_timeseries,
-            'waste_heat_low_temperature':df_waste_heat_low_temperature_resource / self.energy_scaling_factor,
+            'wet_biomass_resource': df_supply_wet_biomass / self.energy_scaling_factor,
+            'wood_resource': df_supply_wood / self.energy_scaling_factor,
+            'wp_resource_annual': df_wp_resource_annual, #/ self.energy_scaling_factor,
+            'wp_resource_winter': df_wp_resource_winter, #/ self.energy_scaling_factor,
+            'hydro_resource': df_hydro_resource / self.energy_scaling_factor,
+            'heat_demand_manual': df_heat_demand_manual_resource / self.energy_scaling_factor,
+            'waste_heat': df_waste_heat_resource / self.energy_scaling_factor,
+            'grid_supply': df_grid_supply_timeseries,
+            'grid_export': df_grid_export_timeseries,
+            'waste_heat_low_temperature': df_waste_heat_low_temperature_resource / self.energy_scaling_factor,
             'heat_pump_cp': df_heat_pump_cp_cops,
             'heat_pump_cops_existing': df_heat_pump_cops_existing,
             'heat_pump_cops_new': df_heat_pump_cops_new,
@@ -1007,6 +1021,47 @@ class CalliopeOptimiser:
 
             # raise Exception("Not implemented")
 
+        #ALPINE PV 
+
+        if 'solar_pvalpine' in self.tech_list:
+
+            pvalpine_cats = self.tech_solar_pvalpine.get_num_installations()
+
+            # print(opt_results['carrier_prod'].coords)
+            # print(opt_results['carrier_prod'].coords["loc_tech_carriers_prod"])
+            # print(opt_results['carrier_prod'].coords["loc_tech_carriers_prod"].to_index().names)
+            # print(opt_results['carrier_prod']['loc_tech_carriers_prod'])
+
+            # exit()
+
+            if self.tech_solar_pvalpine.get_only_use_installed():
+
+                v_e_pvalpine_s = [self.energy_scaling_factor*opt_results['carrier_prod'].loc['solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_occupied'+'::electricity'].values 
+                           for i in range(pvalpine_cats)]
+
+                v_e_pvalpine_s_cons = [v_e_pvalpine_s[i] - self.energy_scaling_factor*opt_results['carrier_export'].loc['solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_occupied'+'::electricity'].values 
+                           for i in range(pvalpine_cats)]
+
+                v_e_pvalpine_s_exp = [self.energy_scaling_factor*opt_results['carrier_export'].loc['solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_occupied'+'::electricity'].values 
+                           for i in range(pvalpine_cats)]
+                
+            else:
+
+                v_e_pvalpine_s = [self.energy_scaling_factor*opt_results['carrier_prod'].loc['solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_occupied'+'::electricity'].values 
+                           + self.energy_scaling_factor*opt_results['carrier_prod'].loc['solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_unoccupied'+'::electricity'].values
+                           for i in range(pvalpine_cats)]
+
+                v_e_pvalpine_s_cons = [v_e_pvalpine_s[i] - self.energy_scaling_factor*opt_results['carrier_export'].loc['solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_occupied'+'::electricity'].values 
+                                - self.energy_scaling_factor*opt_results['carrier_export'].loc['solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_unoccupied'+'::electricity'].values 
+                           for i in range(pvalpine_cats)]
+
+                v_e_pvalpine_s_exp = [self.energy_scaling_factor*opt_results['carrier_export'].loc['solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_occupied'+'::electricity'].values 
+                               + self.energy_scaling_factor*opt_results['carrier_export'].loc['solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_unoccupied'+'::electricity'].values
+                           for i in range(pvalpine_cats)]
+            
+            self.tech_solar_pvalpine.update_v_e(v_e_pvalpine_s)
+            self.tech_solar_pvalpine.update_v_e_cons(v_e_pvalpine_s_cons)
+            self.tech_solar_pvalpine.update_v_e_exp(v_e_pvalpine_s_exp)
 
 
 
@@ -1848,7 +1903,12 @@ class CalliopeOptimiser:
                 tech_groups_dict
                 )
 
-            
+        if 'solar_pvalpine' in self.tech_list:
+            tech_groups_dict = self.tech_solar_pvalpine.create_tech_groups_dict(
+                tech_groups_dict
+                )
+
+
         if 'wind_power' in self.tech_list:
             tech_groups_dict = self.tech_wind_power.create_tech_groups_dict(
                 tech_groups_dict
@@ -2384,7 +2444,23 @@ class CalliopeOptimiser:
                                                                               )
             
             self.tech_list_solarthermal.append(headers)
+        else:
+            self.tech_list_solarthermal.append(None)
 
+        if 'solar_pvalpine' in self.tech_list:
+            
+            print(self.tech_solar_pvalpine.get_num_installations())
+
+            techs_dict, headers = self.tech_solar_pvalpine.create_techs_dict(techs_dict,
+                                                                              color = colors['solar_pv'],
+                                                                              resources = [
+                                                                                  'df='+'pvalpine_resource'+':'+'v_e_pvalpine_'+str(i) 
+                                                                                  for i in range(self.tech_solar_pvalpine.get_num_installations())],
+                                                                              energy_scaling_factor = self.energy_scaling_factor
+                                                                              )
+            
+            self.tech_list_pv.append(headers)
+            self.tech_list_solarthermal.append(None)
 
         if 'wind_power' in self.tech_list:
             
@@ -2850,7 +2926,7 @@ class CalliopeOptimiser:
                 loc_dict[tech]['techs'][tech+"_occupied"] = None
                 loc_dict[tech]['techs'][tech+"_unoccupied"] = None
 
-                if self.scen_techs['solarthermal_rooftop']['deployment']:
+                if self.tech_list_solarthermal[i] != None:
                     tech_thermal = self.tech_list_solarthermal[i][j]
                     loc_dict[tech]['techs'][tech_thermal+"_occupied"] = None
                     loc_dict[tech]['techs'][tech_thermal+"_unoccupied"] = None

@@ -343,6 +343,10 @@ col_demand_unmet_dhn = f'rgba(191,195,201,{opac})' #
 
 col_pv = f'rgba(238,238,0,{opac})' # 'yellow2'
 col_pv_exp = f'rgba(238,238,0,{opac*opac_red_factor})' # 'yellow2'
+col_pvrooftop = f'rgba(238,238,0,{opac})' # 'yellow2'
+col_pvrooftop_exp = f'rgba(238,238,0,{opac*opac_red_factor})' # 'yellow2'
+col_pvalpine = f'rgba(228,228,0,{opac})' # 'yellow2'
+col_pvalpine_exp = f'rgba(228,228,0,{opac*opac_red_factor})' # 'yellow2'
 col_wp =  f'rgba(102, 51, 153,{opac})'
 col_wp_exp =  f'rgba(102, 51, 153,{opac*opac_red_factor})'
 col_bm = f'rgba(0,112,0,{opac})'
@@ -423,6 +427,10 @@ col_mpl_demand_unmet_dhn = (191/255, 195/255, 201/255, opac)
 
 col_mpl_pv = (238/255, 238/255, 0/255, opac)
 col_mpl_pv_exp = (238/255, 238/255, 0/255, opac * opac_red_factor)
+col_mpl_pvrooftop = (238/255, 238/255, 0/255, opac)
+col_mpl_pvrooftop_exp = (238/255, 238/255, 0/255, opac * opac_red_factor)
+col_mpl_pvalpine = (228/255, 228/255, 0/255, opac)
+col_mpl_pvalpine_exp = (228/255, 228/255, 0/255, opac * opac_red_factor)
 col_mpl_wp = (102/255, 51/255, 153/255, opac)
 col_mpl_wp_exp = (102/255, 51/255, 153/255, opac * opac_red_factor)
 col_mpl_bm = (0/255, 112/255, 0/255, opac)
@@ -495,6 +503,7 @@ svg_height = 500
 
 keys_add_negative_if_available = ['v_e_pv_exp', 
                                   'v_e_pvrooftop_exp',
+                                  'v_e_pvalpine_exp',
                                   'v_e_wp_exp', 
                                   'v_e_bm_exp', 
                                   'v_e_hydro_exp', 
@@ -515,6 +524,8 @@ electricity_balance_y=[
     'v_e_pv_exp_negative',
     'v_e_pvrooftop_cons',
     'v_e_pvrooftop_exp_negative',
+    'v_e_pvalpine_cons',
+    'v_e_pvalpine_exp_negative',
     'v_e_wp_cons',
     'v_e_wp_exp_negative',
     'v_e_bm_cons',
@@ -544,6 +555,8 @@ electricity_balance_legend_labels = [
     'PV export',
     'PV rooftop consumption',
     'PV rooftop export',
+    'PV alpine consumption',
+    'PV alpine export',
     'Wind consumption',
     'Wind export',
     'Biomass consumption',
@@ -570,8 +583,10 @@ electricity_balance_legend_labels = [
 electricity_balance_colors = [
     col_pv,
     col_pv_exp,
-    col_pv,
-    col_pv_exp,
+    col_pvrooftop,
+    col_pvrooftop_exp,
+    col_pvalpine,
+    col_pvalpine_exp,
     col_wp,
     col_wp_exp,
     col_bm,
@@ -599,8 +614,10 @@ electricity_balance_colors = [
 electricity_balance_colors_mpl = [
     col_mpl_pv,
     col_mpl_pv_exp,
-    col_mpl_pv,
-    col_mpl_pv_exp,
+    col_mpl_pvrooftop,
+    col_mpl_pvrooftop_exp,
+    col_mpl_pvalpine,
+    col_mpl_pvalpine_exp,
     col_mpl_wp,
     col_mpl_wp_exp,
     col_mpl_bm,
@@ -4589,7 +4606,9 @@ def plot_sankey_total(df_scen,
                          'v_h_gbcp',
                          'v_h_wguh', 'v_h_wte', 'v_e_bes',  
                          'v_e_chpgt', 'v_e_gtcp', 'v_e_hydro', 
-                         'v_e_pv', 'v_e_pvrooftop', 'v_e_st', 
+                         'v_e_pv', 
+                         'v_e_pvrooftop', 'v_e_pvalpine', 
+                         'v_e_st', 
                          'v_e_wp', 'v_e_wte', 'v_hyd_hydp', 'v_steam_gtcp',
                          'v_e_wguc','u_hyd_wguh',
                          'u_e_wgu','u_e_aguh','u_hyd_aguh',
@@ -4617,7 +4636,7 @@ def plot_sankey_total(df_scen,
                               'hydp', 'wgu', 'wguh', 'chpgt', 'gb', 
                               'gtcp', 'tes', 'tesdc', 'wte', 'ob', 
                               'st', 'wb', 'wguc', 'agu', 'hg', 'aguc', 
-                              'bm', 'dh', 'solarthermalrooftop', 'pvrooftop', 'hydro', 'pv', 'wp',
+                              'bm', 'dh', 'solarthermalrooftop', 'pvrooftop', 'pvalpine', 'hydro', 'pv', 'wp',
                               'obcp', 'gbcp', 'gtes', 
                               'ws','hes', 'wbsg', 
                               'wbcp', 'ehcp', 
@@ -4638,12 +4657,13 @@ def plot_sankey_total(df_scen,
     outputs_inverted = ['d_e_unmet', 'd_h_unmet']
 
     #export streams
-    export_streams = ['v_e_aguc_exp', 'v_e_bm_exp', 'v_e_hydro_exp', 'v_e_pv_exp', 'v_e_wguc_exp', 'v_e_wp_exp', 
-                      'v_h_chpgt_waste', 'v_h_st_wbsg_waste', 'v_h_st_gtcp_waste']
+    export_streams = ['v_e_aguc_exp', 'v_e_bm_exp', 'v_e_hydro_exp', 'v_e_pv_exp', 'v_e_pvrooftop_exp', 'v_e_pvalpine_exp', 'v_e_wguc_exp', 'v_e_wp_exp', 
+                      'v_h_chpgt_waste', 'v_h_st_wbsg_waste', 'v_h_st_gtcp_waste', 'f_e']
     # heat_wastes = []
 
     listOfAllNodes = link_nodes_to_consider + carriers + inputs + outputs + outputs_inverted + ["env_heat"] + exports + distinct_tes_sites
-    nodeNames = {'tes': 'TES', 'pv': 'PV', 'pvrooftop': 'PV (rooftop)', 'hyd': 'H₂', 'm_gas': 'Import Gas', 
+    nodeNames = {'tes': 'TES', 'pv': 'PV', 'pvrooftop': 'PV (rooftop)', 'pvalpine': 'PV (alpine)', 
+                 'hyd': 'H₂', 'm_gas': 'Import Gas', 
                  'm_h_dh': 'Fernwärme', 'tesdc': 'TES dezentral', 
                  'm_e_ch': 'Strom CH', 'm_e_cbimport': 'Stromimport internat.', 
                  'hydro': 'Wasserkraft', 'bes': 'Batteriespeicher', 'exp_e': 'Export', 
@@ -4668,7 +4688,8 @@ def plot_sankey_total(df_scen,
                  'm_e_ch_wind': "Windkraft CH", 'd_e_unmet': 'Nicht befriedigte Stromnachfrage',
                  'd_h_unmet': 'Nicht befriedigte Wärmenachfrage', "env_heat": "Umweltwärme", 'other': 'Andere'}
     
-    nodeNames = {'tes': 'TES', 'pv': 'PV', 'pvrooftop': 'PV (rooftop)', 'hyd': 'H₂', 'm_gas': 'Import Gas', 
+    nodeNames = {'tes': 'TES', 'pv': 'PV', 'pvrooftop': 'PV (rooftop)', 'pvalpine': 'PV (alpine)', 
+                 'hyd': 'H₂', 'm_gas': 'Import Gas', 
                  'm_h_dh': 'Import District Heat', 'tesdc': 'TES decentralized', 
                  'm_e_ch': 'Electricity Import CH', 'm_e_cbimport': 'Electricity Import internat.', 
                  'hydro': 'Hydropower (local)', 'bes': 'Battery storage', 'exp_e': 'Export electricity', 

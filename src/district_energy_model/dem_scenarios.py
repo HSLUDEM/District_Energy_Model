@@ -287,7 +287,7 @@ def scenario_pv_integration(energy_demand, scen_techs, tech_instances):
         tech_solar_pv.update_v_e(v_e_pv_updated)
 
 
-    # tech_solar_pv = tech_instances['solar_pvrooftop']
+    # tech_solar_pv = tech_instances['solarpv_rooftop']
     # pvpif = scen_techs["pv_integration"]["potential_integration_factor"]
     
     #--------------------------------------------------------------------------
