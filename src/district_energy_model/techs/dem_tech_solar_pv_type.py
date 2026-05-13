@@ -45,7 +45,6 @@ class SolarPVType(TechCore):
         self._techkey = techkey
 
         self.update_tech_properties(tech_dict)
-        #self._specific_yield = 1050
         
         self._profiles = profiles
         self._capex_scaling = capex_scaling
