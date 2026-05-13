@@ -69,7 +69,7 @@ class SolarPVInstallation(TechCore):
 
         # Initialize properties:
         self.update_tech_properties(tech_dict)
-        self._specific_yield = 1050
+        #self._specific_yield = 1050
         self._existing = ...
         
         # Carrier types:
@@ -273,6 +273,6 @@ class SolarPVInstallation(TechCore):
         self.len_test(self._v_e_pot_remain)
         return self._v_e_pot_remain
 
-    def get_kwp(self):
-        return self._v_e.sum()/self._specific_yield
+    # def get_kwp(self):
+    #     return self._v_e.sum()/self._specific_yield
     
