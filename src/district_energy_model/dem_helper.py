@@ -6,28 +6,16 @@ Created on Mon Mar 20 11:46:14 2023
 """
 
 import pandas as pd
-# import matplotlib.pylab as plt
 import numpy as np
 import sys
 import os
 import math
-# import dem_techs
-# from meteostat import Point, Hourly, Daily
-from datetime import datetime
-from district_energy_model import dem_constants as C
-
-# cdir = os.getcwd()
-# print(cdir)
-# wdir = r'C:\Users\UeliSchilt\OneDrive - Hochschule Luzern\00_GitLab\district_energy_model\src'
-# os.chdir(wdir)
-# print(os.getcwd())
-
-
 import yaml
+from datetime import datetime
 from pathlib import Path
-
 from typing import List, Dict, Any
 
+# from district_energy_model import dem_constants as C
 
 def update_scen_techs_from_config(scen_techs: Dict[str, Any],
                                   config_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -1945,6 +1933,17 @@ def hourly_array_to_daily(hourly_array):
     daily_array = x.reshape(-1, 24).sum(axis=1)
     
     return np.array(daily_array)
+
+def get_acronym(full_name):
+    
+    acronyms = {
+        'heat_pump':'hp',
+        'district_heating':'dh',
+        'electric_heater':'eh'
+        # TO BE EXTENDED AS NEEDED
+        }
+    
+    return acronyms[full_name]
 
     
 #%% FOR TESTING ONLY

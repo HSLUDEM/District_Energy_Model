@@ -24,7 +24,6 @@ import pandas as pd
 import meteostat
 from datetime import datetime
 
-from district_energy_model import dem_constants as C
 from district_energy_model import dem_helper
 
 """----------------------------------------------------------------------------
@@ -99,8 +98,12 @@ class EnergyDemand:
         self._d_h_unmet = []
         self._d_h_unmet_dhn = [] # [kWh] Unmet heat demand in district heating network
         self._d_h_flex = [] # [kWh] Flexible demand from building inertia (determined in optimisation)
-        self._d_h_flex_ll = [] # [kWh] Flexible demand from building inertia: lower limit (ll)
-        self._d_h_flex_ul = [] # [kWh] Flexible demand from building inertia: upper limit (ll)
+        self._d_h_flex_ll = [] # [kWh] Flexible demand from building inertia: lower limit (ll); considering all buildings
+        self._d_h_flex_ul = [] # [kWh] Flexible demand from building inertia: upper limit (ll); considering all buildings
+        self._d_h_s_flex_ll = [] # [kWh] d_h_flex_ll only for space heating
+        
+        self._flex_flag = [] # [-] bool; True where d_h_s_flex_ll > 0; False where d_h_s_flex_ll = 0
+        self._vs_drain_flag = [] # [-] bool; flag for filling or emptying the virtual storage drain. Options: 'idle', 'fill', 'empty'
         
         # Daily values:
         self._f_e_ev_pot_dy = [] # [kWh] Daily available flexible energy for EV charging (i.e. flexibility potential)
@@ -119,6 +122,7 @@ class EnergyDemand:
         self._d_h_hw_yr = ...
         self._d_h_flex_ll_yr = ...
         self._d_h_flex_ul_yr = ...
+        self._d_h_s_flex_ll_yr = ...
         
         self._d_e_sfh_yr = ... # formerly: d_e_yr_sfh
         self._d_e_mfh_yr = ... # formerly: d_e_yr_mfh
@@ -149,6 +153,7 @@ class EnergyDemand:
         df['d_h_flex'] = self.get_d_h_flex()
         df['d_h_flex_ll'] = self.get_d_h_flex_ll()
         df['d_h_flex_ul'] = self.get_d_h_flex_ul()
+        df['d_h_s_flex_ll'] = self.get_d_h_s_flex_ll()
         
         return df
     
@@ -188,9 +193,8 @@ class EnergyDemand:
         self._d_h_flex = self._d_h_flex[:n_hours]
         self._d_h_flex_ll = self._d_h_flex_ll[:n_hours]
         self._d_h_flex_ul = self._d_h_flex_ul[:n_hours]
-        
+        self._d_h_s_flex_ll = self._d_h_s_flex_ll[:n_hours]        
 
-    # def get_d_e_hh_yr(
     def compute_d_e_hh_yr(
             self,
             df_meta,
@@ -379,6 +383,10 @@ class EnergyDemand:
                 raise ValueError("u_e_hp must be computed first!")
             else:
                 u_e_hp = hp_inst.get_u_e()
+        else:
+            other_inst = tech_instances['other']
+            v_h_other = other_inst.get_v_h()
+            u_e_hp = np.zeros_like(v_h_other)
 
         # Electricity used for electric heater:
         if 'electric_heater' in tech_instances:
@@ -387,6 +395,8 @@ class EnergyDemand:
                 raise ValueError("u_e_eh must be computed first!")
             else:
                 u_e_eh = eh_inst.get_u_e()
+        else:
+            u_e_eh = np.zeros_like(u_e_hp)
                 
         d_e_h = np.array(u_e_hp) + np.array(u_e_eh)
         
@@ -698,12 +708,6 @@ class EnergyDemand:
         
     def update_d_h_flex(self, d_h_flex_udpated):
         self._d_h_flex = np.array(d_h_flex_udpated)
-    
-    def update_d_h_flex_ll(self, d_h_flex_ll_udpated):
-        self._d_h_flex_ll = np.array(d_h_flex_ll_udpated)
-        
-    def update_d_h_flex_ul(self, d_h_flex_ul_udpated):
-        self._d_h_flex_ul = np.array(d_h_flex_ul_udpated)
 
     def update_d_e_unmet(self, d_e_unmet_updated):
         self._d_e_unmet = np.array(d_e_unmet_updated)
@@ -1553,18 +1557,20 @@ class EnergyDemand:
         self._d_h_flex = self._d_h.copy()
         self._d_h_flex_ll = self._d_h.copy()
         self._d_h_flex_ul = self._d_h.copy()
+        self._d_h_s_flex_ll = np.zeros(len(self._d_h_flex_ll))
+        self._flex_flag = np.zeros_like(self._d_h_flex_ll, dtype=bool)
 
-        # return df_hour['d_h_hr']
         return self._d_h, self._d_h_s, self._d_h_hw
     
-    def compute_d_h_flex_ll(self, delta_loss_max):
+    def compute_d_h_flex_ll(self, delta_loss_tot):
         """
-        Compute the lower limit (ll) of the flexible heat demand profile.
+        Compute the lower limit (ll) of the flexible heat demand
+        profile.
 
         Parameters
         ----------
-        delta_loss_max : float
-            Max. additional loss due to overheating of building. Computed in
+        delta_loss_tot : float
+            Total additional loss due to overheating of building. Computed in
             dem_flexibility.py.
 
         Returns
@@ -1575,13 +1581,15 @@ class EnergyDemand:
         
         self.len_test(self._d_h)
         
-        self._d_h_flex_ll = self._d_h - delta_loss_max
+        self._d_h_flex_ll = self._d_h - delta_loss_tot
         self._d_h_flex_ll[self._d_h_flex_ll < 0] = 0
+        self._d_h_flex_ll = np.maximum(self._d_h_flex_ll, self._d_h_hw)
         self._d_h_flex_ll_yr = float(self._d_h_flex_ll.sum())
         
     def compute_d_h_flex_ul(self, delta_loss_max):
         """
-        Compute the upper limit (ul) of the flexible heat demand profile.
+        Compute the nupper limit (ul) of the flexible heat demand
+        profile.
 
         Parameters
         ----------
@@ -1598,8 +1606,99 @@ class EnergyDemand:
         self.len_test(self._d_h)
         
         self._d_h_flex_ul = self._d_h + delta_loss_max
-        self._d_h_flex_ul_yr = float(self._d_h_flex_ul.sum())        
+        self._d_h_flex_ul_yr = float(self._d_h_flex_ul.sum())       
+        
+    def compute_d_h_s_flex_ll(self, delta_loss_tot):
+        """
+        Compute the lower limit (ll) of the flexible heat demand
+        profile, only for space heating.
+
+        Parameters
+        ----------
+        delta_loss_tot : float
+            Total additional loss due to overheating of building. Computed in
+            dem_flexibility.py.
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        self.len_test(self._d_h_s)
+        
+        self._d_h_s_flex_ll = self._d_h_s - delta_loss_tot
+        self._d_h_s_flex_ll[self._d_h_s_flex_ll < 0] = 0
+        self._d_h_s_flex_ll_yr = float(self._d_h_s_flex_ll.sum())
+        
+    def generate_flex_flag(self):
+        """
+        True where d_h_s_flex_ll > 0.
+        False where d_h_s_flex_ll = 0.
+        Used for custom constraints on virtual storage level.
+        """
+        # self.len_test(self._d_h_s_flex_ll)
+        self.len_test(self._d_h_s)
+        
+        # self._flex_flag = self._d_h_s_flex_ll > 0
+        self._flex_flag = self._d_h_s > 0
+        
+    def generate_vs_drain_flag(self):
+        """
+        Each timestep contains a flag:
+        'fill'  : The drain must be filled.
+        'idle'  : No change.
+        'empty' : The drain must be emptied.
+        """
     
+        self.len_test(self._d_h_s)
+    
+        # Initialise 1D array with default value:
+        self._vs_drain_flag = np.full(len(self._d_h_s), 'idle', dtype=object)
+    
+        n = len(self._d_h_s)
+    
+        for i, val in enumerate(self._d_h_s):
+    
+            # Current timestep has no space-heating demand:
+            if val <= 0:
+                self._vs_drain_flag[i] = 'idle'
+                continue
+    
+            # First timestep:
+            if i == 0:
+    
+                # If next timestep becomes zero -> fill
+                if n > 1 and self._d_h_s[i + 1] <= 0:
+                    self._vs_drain_flag[i] = 'fill'
+                else:
+                    self._vs_drain_flag[i] = 'idle'
+    
+            # Last timestep:
+            elif i == n - 1:
+    
+                # If previous timestep was zero -> empty
+                if self._d_h_s[i - 1] <= 0:
+                    self._vs_drain_flag[i] = 'empty'
+                else:
+                    self._vs_drain_flag[i] = 'idle'
+    
+            # Middle timesteps:
+            else:
+    
+                prev_val = self._d_h_s[i - 1]
+                next_val = self._d_h_s[i + 1]
+    
+                if prev_val <= 0:
+                    self._vs_drain_flag[i] = 'empty'
+    
+                elif next_val <= 0:
+                    self._vs_drain_flag[i] = 'fill'
+    
+                else:
+                    self._vs_drain_flag[i] = 'idle'
+
+            
     def __compute_d_h_profile(self, n_days = 365):
         
         d_h_profile = np.array(self._d_h)/self._d_h_yr
@@ -1610,34 +1709,71 @@ class EnergyDemand:
     
     def compute_d_h_hr_mix(self, df_meta, tech_instances, n_days=365):
         
-        src_h_elec_direct_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_eh'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_eh'].values[0]
-        src_h_hp_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_hp'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_hp'].values[0]
-        src_h_distr_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_dh'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_dh'].values[0]
-        src_h_gas_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_gb'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_gb'].values[0]
-        src_h_oil_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_ob'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_ob'].values[0]
-        src_h_wood_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_wb'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_wb'].values[0]
-        src_h_solar_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_solar'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_solar'].values[0]
-        src_h_other_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_other'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_other'].values[0]
+        row = df_meta.loc[df_meta["GGDENR"] == self.com_nr].iloc[0]
+
+        heat_sources = {
+            "electric_heater": row["v_h_eh"] + row["v_hw_eh"],
+            "heat_pump": row["v_h_hp"] + row["v_hw_hp"],
+            "district_heating": row["v_h_dh"] + row["v_hw_dh"],
+            "gas_boiler": row["v_h_gb"] + row["v_hw_gb"],
+            "oil_boiler": row["v_h_ob"] + row["v_hw_ob"],
+            "wood_boiler": row["v_h_wb"] + row["v_hw_wb"],
+            "solarthermal_rooftop": row["v_h_solar"] + row["v_hw_solar"],
+            "other": row["v_h_other"] + row["v_hw_other"],
+        }
+    
+        heat_labels = []
+        heat_values = []
+        src_h_other_yr = heat_sources["other"]
+    
+        for heat_label, heat_value in heat_sources.items():
+            if heat_label == "other":
+                continue
+    
+            if heat_label in tech_instances:
+                heat_labels.append(heat_label)
+                heat_values.append(heat_value)
+            else:
+                src_h_other_yr += heat_value
+    
+        heat_labels.append("other")
+        heat_values.append(src_h_other_yr)
+    
+        self.__compute_d_h_hr_partial(
+            tech_instances,
+            heat_labels,
+            heat_values,
+            n_days,
+        )
         
-        heat_labels = ['electric_heater',
-                       'heat_pump',
-                       'district_heating',
-                       'gas_boiler',
-                       'oil_boiler',
-                       'wood_boiler',
-                       'solarthermal_rooftop',
-                       'other']
+        # src_h_elec_direct_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_eh'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_eh'].values[0]
+        # src_h_hp_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_hp'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_hp'].values[0]
+        # src_h_distr_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_dh'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_dh'].values[0]
+        # src_h_gas_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_gb'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_gb'].values[0]
+        # src_h_oil_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_ob'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_ob'].values[0]
+        # src_h_wood_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_wb'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_wb'].values[0]
+        # src_h_solar_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_solar'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_solar'].values[0]
+        # src_h_other_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_other'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_other'].values[0]
         
-        heat_values = [src_h_elec_direct_yr,
-                       src_h_hp_yr,
-                       src_h_distr_yr,
-                       src_h_gas_yr,
-                       src_h_oil_yr,
-                       src_h_wood_yr,
-                       src_h_solar_yr,
-                       src_h_other_yr]
+        # heat_labels = ['electric_heater',
+        #                'heat_pump',
+        #                'district_heating',
+        #                'gas_boiler',
+        #                'oil_boiler',
+        #                'wood_boiler',
+        #                'solarthermal_rooftop',
+        #                'other']
+        
+        # heat_values = [src_h_elec_direct_yr,
+        #                src_h_hp_yr,
+        #                src_h_distr_yr,
+        #                src_h_gas_yr,
+        #                src_h_oil_yr,
+        #                src_h_wood_yr,
+        #                src_h_solar_yr,
+        #                src_h_other_yr]
                 
-        self.__compute_d_h_hr_partial(tech_instances, heat_labels, heat_values, n_days)
+        # self.__compute_d_h_hr_partial(tech_instances, heat_labels, heat_values, n_days)
 
     
     def get_demand_values(self, df_meta):
@@ -1711,7 +1847,7 @@ class EnergyDemand:
             tech_inst = tech_instances[heating_type[0]]
 
             if heating_type[0] != 'solarthermal_rooftop':
-                print(heating_type)
+                # print(heating_type)
                 tech_inst.compute_v_h(heating_type[1], self._d_h_profile)
                 tech_inst.reduce_timeframe(n_days)
             else:
@@ -1829,6 +1965,18 @@ class EnergyDemand:
     def get_d_h_flex_ul(self):
         self.len_test(self._d_h_flex_ul)
         return self._d_h_flex_ul
+    
+    def get_d_h_s_flex_ll(self):
+        self.len_test(self._d_h_s_flex_ll)
+        return self._d_h_s_flex_ll
+    
+    def get_flex_flag(self):
+        self.len_test(self._flex_flag)
+        return self._flex_flag
+    
+    def get_vs_drain_flag(self):
+        self.len_test(self._vs_drain_flag)
+        return self._vs_drain_flag
 
     def get_d_e_yr(self):
         self.num_test(self._d_e_yr)

@@ -5,7 +5,6 @@ Created on Thu Mar 14 15:02:00 2024
 @author: UeliSchilt
 """
 
-import pandas as pd
 import numpy as np
 
 # Community:
@@ -25,8 +24,8 @@ toggle_load_pareto_results = False # overrides toggle_create_pareto... and loads
 
 # -----------------------------------------------------------------------------
 
-pvpf = 30 # [%] pv potential factor (pvpf)
-wppf = 0 # [%] wp potential factor (wppf) wind power
+pvpf = 50 # [%] pv potential factor (pvpf)
+wppf = 50 # [%] wp potential factor (wppf) wind power
 fhrp = 100 # [%] fossil heater replacement factor (fhrp)
 ehrp = 100 # [%] electric heater replacement factor (ehrp)
 
@@ -212,18 +211,18 @@ scen_techs = {
         # 'capex':10000 # NOT YET IMPLEMENTED
         'heat_sources':{ # only applies to optimisation scenario
             'import':True,
-            'chp_gt':True, # if True, tech chp_gt must be deployed
-            'steam_turbine':True, # if True, tech steam_turbine must be deployed
-            'waste_to_energy':True, # if True, tech waste_to_energy must be deployed,
-            'heat_pump_cp':True, # if True, tech heat_pump_cp must be deployed !!! TECH NOT YET IMPLEMENTED !!!
-            'heat_pump_cp_lt':True, # 
-            'oil_boiler_cp' :True,
-            'electric_heater_cp' :True,
-            'wood_boiler_cp' :True,
-            'gas_boiler_cp' :True,
-            'deep_geothermal': True, #deep geothermal well
-            'waste_heat': True,
-            'biomass': True
+            'chp_gt':False, # if True, tech chp_gt must be deployed
+            'steam_turbine':False, # if True, tech steam_turbine must be deployed
+            'waste_to_energy':False, # if True, tech waste_to_energy must be deployed,
+            'heat_pump_cp':False, # if True, tech heat_pump_cp must be deployed !!! TECH NOT YET IMPLEMENTED !!!
+            'heat_pump_cp_lt':False, # 
+            'oil_boiler_cp' :False,
+            'electric_heater_cp' :False,
+            'wood_boiler_cp' :False,
+            'gas_boiler_cp' :False,
+            'deep_geothermal': False, #deep geothermal well
+            'waste_heat': False,
+            'biomass': False
             },
         },
     
@@ -298,7 +297,7 @@ scen_techs = {
         },
 
     'grid_export':{ # grid
-        'deployment':True,
+        'deployment':False,
         'kW_max': None, #Defined in grid_supply
         'tariff_mode': 'const', # 'const' or 'file'
         'co2_intensity_mode': 'const',
@@ -374,7 +373,7 @@ scen_techs = {
         },
               
     'bes':{ # bes (battery energy storage)
-        'deployment':True,
+        'deployment':False,
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
@@ -390,7 +389,7 @@ scen_techs = {
         },
     
     'gtes':{ # gtes (gas tank energy storage) (large tank with gas)
-        'deployment':True,
+        'deployment':False,
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
@@ -406,7 +405,7 @@ scen_techs = {
         },
 
     'ws':{ # ws (Wood storage) (piles of wood somewhere in the forest)
-        'deployment':True,
+        'deployment':False,
         'force_asynchronous_prod_con': True,
         # 'deployment':False,
         'eta_chg_dchg': 1.0,
@@ -422,7 +421,7 @@ scen_techs = {
         },
 
     'hes':{ # hes (hydrogen energy storage) (large tank with hydrogen?)
-        'deployment':True,
+        'deployment':False,
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
@@ -447,7 +446,7 @@ scen_techs = {
 
     
     'hydrothermal_gasification':{ # hg
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'color': '#3A880A',
         'efficiency': 0.6,
@@ -460,7 +459,7 @@ scen_techs = {
         },
     
     'anaerobic_digestion_upgrade':{ # agu
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'color': '#FF00FF',
         'efficiency': 0.3,
@@ -473,7 +472,7 @@ scen_techs = {
         },
     
     'anaerobic_digestion_upgrade_hydrogen':{ # aguh
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'color': '#90037F',
         'fluid': False,
@@ -489,7 +488,7 @@ scen_techs = {
         },
     
     'anaerobic_digestion_chp':{ # aguc
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'color': '#90037F',
         'efficiency_electricity': 0.13,
@@ -546,7 +545,7 @@ scen_techs = {
         },
     
     'hydrogen_production':{ # hydp
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'color': '#1A8FD2',
         'efficiency': 0.8,
@@ -559,8 +558,6 @@ scen_techs = {
         },
     
     'chp_gt':{ # chp_gt
-        # 'deployment':True,
-        'deployment':False,
         'deployment':False,
         'deploy_existing':False, # 'If set to 'true', existing gas turbine will be deployable. [!!!NOT YET IMPLEMENTED]
         'kW_el_max':'inf',#tech_cap_default, # [kW_el] Maximum electrical power output of newly built CHP gas turbines
@@ -644,7 +641,7 @@ scen_techs = {
         },
 
     'electric_heater_cp':{ # ehcp
-        'deployment':True,
+        'deployment':False,
         'kW_th_max':'inf',
         'eta':0.98,
         'lifetime':30,
@@ -654,7 +651,7 @@ scen_techs = {
         },
 
     'wood_boiler_cp':{ # wbcp
-        'deployment':True,
+        'deployment':False,
         # 'deployment':False,
         'kW_th_max': 'inf',
         'hv_wood_MJpkg':hv_wood, # [MJ/kg] Heating value (lower) of wood
@@ -754,7 +751,7 @@ scen_techs = {
 
     'heat_pump_cp':{ # hpcp
         # 'deployment':True,
-        'deployment':True,
+        'deployment':False,
         'kW_th_max': 'inf',#tech_cap_default,
         'force_cap_max':False, # implement max. capacity (kW)
         'cap_min_use':0.0, # [-] Share of capacity to be forced [0.0-1.0]; Default: 0.0
@@ -767,7 +764,6 @@ scen_techs = {
         'cop_timeseries_file_path': coptest,
         'cop_constant_value': 3.0,
         'spf_to_target': 3.5,
-
         'cop_source_temperature': 'air_temperature', #choices: 'constant_temperature', 'air temperature'
         'cop_source_constant_temperature_value': 5,
         'cop_hot_temperature': 'constant_temperature',
@@ -852,9 +848,17 @@ scen_techs = {
                         # Only has effects when optimization is enabled. Forces a CAPEX for one-to-one replacement.
         'act_on_fossil_heater_retrofit': False,
         
-        'dr_flexibility_building_inertia': False, # demand response (dr) flexibility from building inertia; only active in combination with optimisation.
+        'dr_flexibility_building_inertia': False, # demand response (DR) flexibility from building inertia; only active in combination with optimisation.
         'dr_flexibility_building_inertia_dT': 2.0, # [degC] accepted deviation (upwards and downwards) from reference room temperate.
-        'dr_flexibility_building_inertia_no_of_clusters': 5, # [-] Number of clusters into which buildings are grouped according to their thermal characteristics.
+        'dr_flexibility_building_inertia_share': 1.0, # [-] Share of buildings to participate in demand response from building inertia flexibility. These buildings will accordingly have to be supplied by flexibility-enabled techs (e.g., hp, dh); For a fair comparison, an optimisation without flex. can be comptuted first, then these shares of flex techs used here.; Ensure that the max. capacities of the respecitve technologies are chosen large enough.
+        'dr_flexibility_building_inertia_heating_systems': { # Specifies which heating systems are used for demand response; only the thermal inertia of the respecitve buildings is considered
+            'heat_pump': True,
+            'district_heating': True, # All sources supplying the DHN will be used for DR.
+            },
+        'dr_flexibility_building_inertia_max_overheating_rate': { # Defines metric to be used for maximum overheating rate (i.e., charging rate of virtual storage); only one can be set to True
+            'max_heating_system_cap':False, # [kWh] Use the capacity of the heating system (e.g., heat pump) as the limiting value
+            'max_virtual_storage_loss_rate':True, # [kWh_charged / kWh_storage_cap] Use the max. loss rate of the virtual storage as limiting value (more conservative)
+            },
         },
 
     'nuclear_phaseout':{

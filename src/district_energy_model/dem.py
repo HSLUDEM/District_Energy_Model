@@ -18,8 +18,7 @@ from district_energy_model import dem_demand
 from district_energy_model import dem_hp_cop_calculation
 from district_energy_model import dem_helper
 from district_energy_model import dem_energy_balance as dem_eb
-# from district_energy_model import dem_output
-from district_energy_model import dem_output_plotly3 as dem_output
+from district_energy_model import dem_output
 from district_energy_model import dem_scenarios
 from district_energy_model import dem_supply
 from district_energy_model import dem_constants as C
@@ -157,7 +156,7 @@ class DistrictEnergyModel:
         # self.results_path = scen_techs['simulation']['results_dir']
         
         # Flexibility metrics (will be populated if activated):
-        self.df_flexibility_metrics = 0
+        # self.dict_flexibility_metrics = 0
         
         # Input data files:
         self.profiles_file = pd.read_feather(self.simulation_data_dir + paths.profiles_file)
@@ -689,7 +688,7 @@ class DistrictEnergyModel:
             (incl. levelised cost)
         """     
         n_days = scen_techs['simulation']['number_of_days']
-        ts_num = scen_techs['simulation']['number_of_days']*24 # [h]
+        ts_num = scen_techs['simulation']['number_of_days']*24 # [h] times steps (ts)
         
         dem_helper.reduce_timeframes(
             self.energy_demand,
@@ -983,8 +982,6 @@ class DistrictEnergyModel:
         #----------------------------------------------------------------------
         # Check overall energy balance:        
         
-        
-        
         if self.toggle_energy_balance_tests:
             dem_eb.electricity_balance_test(
                 scen_techs=scen_techs,
@@ -1244,6 +1241,8 @@ class DistrictEnergyModel:
 
             #Save amount of power generation that needs replacement for each of the existing technologies in tech instance.
             if scen_techs['demand_side']['heat_generator_renovation']:
+                
+                # (U.S.) CAN WE FIRST CHECK WHICH TECHS ARE SELECTED, AND ONLY ACT ON THOSE?
                 
                 techstoacton = {'ob': 'oil_boiler', 'gb': 'gas_boiler', 
                                 'eh': 'electric_heater', 'hp': 'heat_pump', 
@@ -1709,6 +1708,7 @@ class DistrictEnergyModel:
             dem_helper.update_df_results(
                 self.energy_demand,
                 self.supply,
+                self.building_inertia_flex,
                 self.tech_instances,
                 df_scen
                 )
@@ -1736,31 +1736,35 @@ class DistrictEnergyModel:
                     dem_flexibility.BuildingInertiaFlexibility(
                         df_com_yr=self.df_com_yr,
                         yearly_heat_demand_col=self.yearly_heat_demand_col,
-                        delta_T_flex=scen_techs['demand_side']['dr_flexibility_building_inertia_dT'],
-                        no_of_clusters=scen_techs['demand_side']['dr_flexibility_building_inertia_no_of_clusters'],
+                        tech_dict = scen_techs['demand_side'],
                         )
-                list_delta_loss_max =\
-                    self.building_inertia_flex.get_list_delta_loss_max()
+
+                delta_loss_tot = self.building_inertia_flex.get_delta_loss_tot() 
+                self.energy_demand.compute_d_h_flex_ll(delta_loss_tot)
+                self.energy_demand.compute_d_h_flex_ul(delta_loss_tot)
+                self.energy_demand.compute_d_h_s_flex_ll(delta_loss_tot)
+                self.energy_demand.generate_flex_flag()
+                self.energy_demand.generate_vs_drain_flag()
                 
-                # Compute flexible energy demand profile:
-                # TEMPORARY! THIS MUST BE DONE FOR EACH CLUSTER!!!
-                TMP_delta_loss_max = list_delta_loss_max[0]
-                self.energy_demand.compute_d_h_flex_ll(TMP_delta_loss_max)
-                self.energy_demand.compute_d_h_flex_ul(TMP_delta_loss_max)
+                # delete_label
+                # # =======================================================
+                # # TEMORARY
+                # flex_flag_ = self.energy_demand.get_flex_flag()
                 
-                # Create df with flexibility metrics per cluster (C, H, r, ...) to save later to file.
-                self.df_flexibility_metrics =\
-                    self.building_inertia_flex.generate_df_metrics()
+                # print("\n ==================================================")
+                # print("dem.py")
+                # print("save file")
+                # np.savetxt(
+                #     '../flex_flag.csv',
+                #     flex_flag_.astype(int),
+                #     delimiter=',',
+                #     fmt='%d'
+                # )
+                # # =======================================================
                 
+     
             else:
                 self.building_inertia_flex = None
-                self.energy_demand.update_d_h_flex_ll(
-                    self.energy_demand.get_d_h()
-                    )
-                self.energy_demand.update_d_h_flex_ul(
-                    self.energy_demand.get_d_h()
-                    )
-                self.df_flexibility_metrics = 0
                         
             from district_energy_model import dem_calliope
             optimiser = dem_calliope.CalliopeOptimiser(
@@ -1768,7 +1772,7 @@ class DistrictEnergyModel:
                 tech_instances=self.tech_instances,
                 energy_demand=self.energy_demand,
                 supply=self.supply,
-		building_inertia_flex=self.building_inertia_flex,
+		        building_inertia_flex=self.building_inertia_flex,
                 com_name=self.com_name_,
                 scen_techs=scen_techs,
                 # opt_metrics=scen_techs['optimisation'],
@@ -1782,14 +1786,20 @@ class DistrictEnergyModel:
                 opt_results=opt_results
                 )
                 
-            dict_total_costs["Kostenmodul"] = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"])
+            dict_total_costs["Kostenmodul"] = (
+                dem_costs.get_total_costs(
+                    self.tech_instances,
+                    self.supply,
+                    scen_techs["simulation"]["number_of_days"]
+                    )
+                )
                 
             # -------------------------------------------------------------
             # Update df_scen:
             dem_helper.update_df_results(
                 energy_demand=self.energy_demand,
                 supply=self.supply,
-		building_inertia_flex=self.building_inertia_flex,
+		        building_inertia_flex=self.building_inertia_flex,
                 tech_instances=self.tech_instances,
                 df_results=df_scen
                 )
@@ -1803,19 +1813,30 @@ class DistrictEnergyModel:
                     diff_sum_accepted = C.DIFF_SUM_ACC
                     )
                 dem_eb.heat_balance_test(
-			scen_techs=scen_techs,
-                        df_scen=df_scen,
-                        diff_accepted = C.DIFF_ACC,
-                        diff_sum_accepted = C.DIFF_SUM_ACC,
-                        tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
+                    scen_techs=scen_techs,
+                    df_scen=df_scen,
+                    diff_accepted = C.DIFF_ACC,
+                    diff_sum_accepted = C.DIFF_SUM_ACC,
+                    tes_sites_plotting_inf = (
+                        self
+                        .tech_tes_sites
+                        .get_plotting_information() 
+                        if scen_techs['tes_sites']['deployment'] else {}
                         )
+                    )
             
         else:
             
             # Compute costs in case no optimisation is applied:
             dict_total_costs = {} # !!! a separate module for cost calculations must be implemented
             
-            dict_total_costs = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"])
+            dict_total_costs = (
+                dem_costs.get_total_costs(
+                    self.tech_instances,
+                    self.supply,
+                    scen_techs["simulation"]["number_of_days"]
+                    )
+                )
             model = 0
 
         #----------------------------------------------------------------------
@@ -2234,12 +2255,12 @@ class DistrictEnergyModel:
                 dem_output.flexibility_metrics_to_file(
                     self.results_path,
                     self.building_inertia_flex,
-                    self.df_flexibility_metrics
+                    # self.dict_flexibility_metrics
                     )
-                dem_output.flexibility_clusters_to_file(
-                    dir_path=self.results_path,
-                    flexibility_instance=self.building_inertia_flex
-                    )
+                # dem_output.flexibility_clusters_to_file( # delete_label
+                #     dir_path=self.results_path,
+                #     flexibility_instance=self.building_inertia_flex
+                #     )
 
             else:
                 return
@@ -2264,12 +2285,12 @@ class DistrictEnergyModel:
             dem_output.flexibility_metrics_to_file(
                 self.results_path,
                 self.building_inertia_flex,
-                self.df_flexibility_metrics
+                # self.dict_flexibility_metrics
                 )
-            dem_output.flexibility_clusters_to_file(
-                dir_path=self.results_path,
-                flexibility_instance=self.building_inertia_flex
-                )
+            # dem_output.flexibility_clusters_to_file( # delete_label
+            #     dir_path=self.results_path,
+            #     flexibility_instance=self.building_inertia_flex
+            #     )
         else:
             raise(Exception('No Scenario has been generated!'))
             
@@ -2296,7 +2317,8 @@ class DistrictEnergyModel:
             results_path=self.results_path,
             dict_yr_scen=self.dict_yr_scen,
             df_scen=self.df_scen,   
-            tes_sites_plotting_inf=tes_sites_plotting_inf           
+            tes_sites_plotting_inf=tes_sites_plotting_inf,
+            building_inertia_flex=self.building_inertia_flex,
             )
             
     def run(self,

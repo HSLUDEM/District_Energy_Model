@@ -160,7 +160,7 @@ def obtain_custom_district_roof_profile(com_nrs, egid_list, efficiency_overall, 
                     areasum += line["per_group_wintersum_grouping_group_"+str(group_number)+"_areasum"]
                     energysum += line["per_group_wintersum_grouping_group_"+str(group_number)+"_energysum"]
 
-            print(com_nr, group_number, areasum, energysum, energysum/areasum)
+            # print(com_nr, group_number, areasum, energysum, energysum/areasum)
 
             area_sums[group_number].append(areasum)
             energy_sums[group_number].append(energysum)

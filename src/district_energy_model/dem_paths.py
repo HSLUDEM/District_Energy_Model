@@ -73,7 +73,7 @@ class DEMPaths:
         self.weather_data_dir = path_strt1 + '/data/heat_demand/weather_data/' # location of meteostat files
         self.weather_data_delta_method_dir = path_strt1 + '/data/weather_data/com_files/'
         self.dhw_profile_dir = path_strt1 + '/data/heat_demand/'
-        self.pv_data_dir = path_strt1 + '/data/pv_data/pv_input_file/' # location of pv data
+        self.pv_data_dir = path_strt1 + '/data/tech_solar_pv/pv_input_file/' # location of pv data
         self.energy_mix_CH_dir = path_strt1 + '/data/electricity_mix_national/' # location of energy mix files
         self.electricity_profile_dir = path_strt1 + '/data/electricity_demand/' # location of electr. load profile files
         self.biomass_data_dir = path_strt1 + '/data/biomass_data/'
@@ -90,8 +90,8 @@ class DEMPaths:
         self.electricity_demand_file_industry = path_strt1 + '/data/electricity_demand/electricity_demand_industry.csv'
         self.pv_data_meta_file = 'pv_data_meta.csv' # csv file containing meta data about pv profile files
         
-        self.pv_roof_dir = path_strt1 + '/data/pv_data/roof_data_per_com'
-        self.pv_epps_unassigned_path = path_strt1 + '/data/pv_data/solar_epps_not_assigned_to_roofs_powers.feather'
+        self.pv_roof_dir = path_strt1 + '/data/tech_solar_pv/roof_data_per_com'
+        self.pv_epps_unassigned_path = path_strt1 + '/data/tech_solar_pv/solar_epps_not_assigned_to_roofs_powers.feather'
         
         self.electricity_profile_file = 'load_profiles.csv' # csv-file containing load profile from smart meter data
         self.electricity_profile_industry_file = 'cantonal_industryprofiles.feather' # csv-file containing load profile from smart meter data

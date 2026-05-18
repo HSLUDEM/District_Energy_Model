@@ -245,7 +245,7 @@ class SolarPVType(TechCore):
         self._values_of_installations_changed_flag = True
                   
     
-    def create_tech_groups_dict(self, 
+    def create_tech_groups_dict(self,
                                 tech_groups_dict
                                 ):
         
@@ -280,15 +280,16 @@ class SolarPVType(TechCore):
         headers = []
 
         for i in range(len(self._installations)):
-            techs_dict, headers = self._installations[i].create_techs_dict(techs_dict = techs_dict,
-                                                                           headers = headers,
-                                                                            parent = 'solar_'+self._techkey,
-                                                                            header = 'solar_'+self._techkey+"_installation_"+str(i),
-                                                                            name = 'solar_'+self._techkey+"_installation_"+str(i),
-                                                                            color = color,
-                                                                            resource = resources[i],
-                                                                            energy_scaling_factor = energy_scaling_factor
-                                                                                )
+            techs_dict, headers = self._installations[i].create_techs_dict(
+                techs_dict = techs_dict,
+                headers = headers,
+                parent = 'solar_'+self._techkey,
+                header = 'solar_'+self._techkey+"_installation_"+str(i),
+                name = 'solar_'+self._techkey+"_installation_"+str(i),
+                color = color,
+                resource = resources[i],
+                energy_scaling_factor = energy_scaling_factor
+                )
                     
         return techs_dict, headers
     

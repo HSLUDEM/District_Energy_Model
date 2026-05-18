@@ -741,9 +741,9 @@ def electricity_balance_test(scen_techs,
     
     # diff_10: Battery Energy Storage(BES) losses are only checked as sums
 
-    print(diff_1.max(), df_scen['f_e'].max())
+    # print(diff_1.max(), df_scen['f_e'].max())
 
-    print(max_diff_1)
+    # print(max_diff_1)
 
     if max_diff_1 > diff_accepted:
         print("Electricity balance (1) is not fulfilled!")
@@ -909,13 +909,14 @@ def heat_balance_test(scen_techs,
         'd_h_m',
         'u_h_tes',
         'u_h_tesdc',
-        'u_h_vs_0',
+        'u_h_vs_hp',
+        'u_h_vs_dh',
         'v_h_tes',
         'v_h_tesdc',
-        'v_h_vs_0',
+        'v_h_vs_hp',
+        'v_h_vs_dh',
         'q_h_tes',
         'q_h_tesdc',
-        'q_h_vs_0',
         'l_u_h_tes',
         'l_u_h_tesdc',
         'l_v_h_tes',
@@ -976,7 +977,8 @@ def heat_balance_test(scen_techs,
                         + df_scen['u_h_tesdc']
                         + df_scen['v_h_solarthermalrooftop_exp']
                         + df_scen['d_h_m']
-                        + df_scen['u_h_vs_0'] # Virtual storage for flexiblity modelling
+                        + df_scen['u_h_vs_hp'] # Virtual storage for flexiblity modelling
+                        # + df_scen['u_h_vs_dh'] # Virtual storage for flexiblity modelling # INCLUDED IN DISTRICT HEATING
                         # + df_scen['u_h_tes'] # INCLUDED IN DISTRICT HEATING
                         )
     
@@ -1005,7 +1007,8 @@ def heat_balance_test(scen_techs,
                        + df_scen['v_h_solarthermalrooftop']
                        + df_scen['v_h_other']
                        + df_scen['v_h_tesdc']
-                       + df_scen['v_h_vs_0']  # Virtual storage for flexiblity modelling
+                       + df_scen['v_h_vs_hp'] # Virtual storage for flexiblity modelling
+                       # + df_scen['v_h_vs_dh'] # Virtual storage for flexiblity modelling # INCLUDED IN DISTRICT HEATING
                        # + df_scen['v_h_tes'] # INCLUDED IN DISTRICT HEATING
                        # + df_scen['v_h_bm'] # INCLUDED IN DISTRICT HEATING
                        # + df_scen['v_h_chpgt'] # INCLUDED IN DISTRICT HEATING
@@ -1086,6 +1089,8 @@ def heat_balance_test(scen_techs,
         + df_scen['v_h_bm']
         + df_scen['v_h_tes']
         - df_scen['u_h_tes']
+        + df_scen['v_h_vs_dh']
+        - df_scen['u_h_vs_dh']
         + df_scen['d_h_unmet_dhn']
         )
 
@@ -1102,7 +1107,18 @@ def heat_balance_test(scen_techs,
                         district_heat_techs += df_scen[x]
 
 
-
+    # ------------------------------------------------
+    # Virtual storage for demand response flexibility from building inertia:
+    if 'q_h_vs_tot' in df_scen.columns:
+        
+        # Storage losses are only checked as a sum:
+        vs_losses_sum = ( # virtual storage has no charging/discharging losses
+            + df_scen['l_q_h_vs_tot']
+            ).sum()
+        
+        vs_input_sum = df_scen['u_h_vs_tot'].sum()
+        
+        vs_output_sum = df_scen['v_h_vs_tot'].sum()
 
     # -------------------------------------------------------------------------
     # Check timeseries
@@ -1146,6 +1162,9 @@ def heat_balance_test(scen_techs,
     
     diff_sum_4 = abs(district_heat_sum - district_heat_techs_sum)
     
+    if 'q_h_vs_tot' in df_scen.columns:
+        diff_sum_5 = abs(vs_input_sum - vs_output_sum - vs_losses_sum) # assuming cycling constraint
+    
     if diff_sum_1 > diff_sum_accepted:
         print("Overall heat balance (1) is not fulfilled!")
         print(f"Sum difference (kWh): {diff_sum_1}")
@@ -1167,6 +1186,14 @@ def heat_balance_test(scen_techs,
         print("Overall heat balance (4) is not fulfilled!")
         print(f"Sum difference (kWh): {diff_sum_4}")
         raise Exception("Heat balance (sum) is not fulfilled! (4)")
+        
+    if 'q_h_vs_tot' in df_scen.columns:
+        if diff_sum_5 > diff_sum_accepted*100: # larger tolerance for virtual storage
+            print("Overall heat balance (5) is not fulfilled!")
+            print(f"Sum difference (kWh): {diff_sum_5}")
+            raise Exception("Heat balance (sum) is not fulfilled! (5)")
+        
+
           
     
     
