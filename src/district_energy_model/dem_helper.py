@@ -727,31 +727,6 @@ def create_results_directory(arg_path, arg_results_dir_name):
             return str(full_path)
 
     raise RuntimeError("Could not create unique directory")
-    
-
-# def create_results_directory(arg_path, arg_results_dir_name):
-    
-#     """
-#     Creates a new directory and returns the path to the directory.
-#     """
-    
-#     arg_path = arg_path + '\\'
-    
-#     tmp_i = 0
-#     tmp_results_dir = arg_results_dir_name
-    
-#     while tmp_i < 10000:
-#         if os.path.isdir(arg_path + tmp_results_dir) == True:
-#             # directory already exists
-#             tmp_results_dir = arg_results_dir_name + ' (' +str(tmp_i+1) + ')'
-#             tmp_i += 1
-            
-#         else:
-#             os.mkdir(arg_path + tmp_results_dir) # Es wir ein neuer Ordner erzeugt.
-#             break
-        
-#     return arg_path + tmp_results_dir
-
 
 def save_values_to_txt(arg_results_dir, arg_filename, arg_dict_data):
     
