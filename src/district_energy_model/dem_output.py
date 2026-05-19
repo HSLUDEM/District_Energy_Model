@@ -2907,14 +2907,14 @@ def plot_heat_balance_hourly(df_scen,
             y=df_plot['d_h_s'],
             mode='lines',
             line=dict(color=col_demand_heat_space, width=1),
-            name='d_h_s (temporary)'
+            name='Space heating demand'
         ))
         fig.add_trace(go.Scatter( # TEMORARY
             x=df_plot.index,
             y=df_plot['d_h_hw'],
             mode='lines',
             line=dict(color=col_demand_heat_dhw, width=1),
-            name='d_h_dhw (temporary)'
+            name='DHW demand'
         ))
         # fig.add_trace(go.Scatter( # flex_label comment out
         #     x=df_plot.index,
