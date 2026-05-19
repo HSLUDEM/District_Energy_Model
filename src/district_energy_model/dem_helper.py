@@ -921,7 +921,8 @@ def check_tech_for_scenario(techs, scenario, scen_techs):
                 f"'{scenario}' scenario could not be computed "
                 f"because scen_techs['{tech}']['deployment'] = False. "
                 "Change to 'True' in order to "
-                "compute this scenario.\n"
+                "compute this scenario. If working with .yaml input files, "
+                "this can be changed in technologies.yaml\n"
                 )
             
             raise ValueError(printout)
