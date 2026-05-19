@@ -707,30 +707,50 @@ def positive_values_test_df(
     if len(negative_columns) > 0:
         print(f"Positive value test for {description} not successful!")
         raise Exception(f"{description} contains negative values in the following columns: {negative_columns}")
-    
+        
 
 def create_results_directory(arg_path, arg_results_dir_name):
-    
-    """
-    Creates a new directory and returns the path to the directory.
-    """
-    
-    arg_path = arg_path + '\\'
-    
-    tmp_i = 0
-    tmp_results_dir = arg_results_dir_name
-    
-    while tmp_i < 10000:
-        if os.path.isdir(arg_path + tmp_results_dir) == True:
-            # directory already exists
-            tmp_results_dir = arg_results_dir_name + ' (' +str(tmp_i+1) + ')'
-            tmp_i += 1
-            
+
+    base_path = Path(arg_path)
+
+    for i in range(100000):
+
+        if i == 0:
+            dirname = arg_results_dir_name
         else:
-            os.mkdir(arg_path + tmp_results_dir) # Es wir ein neuer Ordner erzeugt.
-            break
+            dirname = f"{arg_results_dir_name} ({i})"
+
+        full_path = base_path / dirname
+
+        if not full_path.exists():
+            full_path.mkdir()
+            return str(full_path)
+
+    raise RuntimeError("Could not create unique directory")
+    
+
+# def create_results_directory(arg_path, arg_results_dir_name):
+    
+#     """
+#     Creates a new directory and returns the path to the directory.
+#     """
+    
+#     arg_path = arg_path + '\\'
+    
+#     tmp_i = 0
+#     tmp_results_dir = arg_results_dir_name
+    
+#     while tmp_i < 10000:
+#         if os.path.isdir(arg_path + tmp_results_dir) == True:
+#             # directory already exists
+#             tmp_results_dir = arg_results_dir_name + ' (' +str(tmp_i+1) + ')'
+#             tmp_i += 1
+            
+#         else:
+#             os.mkdir(arg_path + tmp_results_dir) # Es wir ein neuer Ordner erzeugt.
+#             break
         
-    return arg_path + tmp_results_dir
+#     return arg_path + tmp_results_dir
 
 
 def save_values_to_txt(arg_results_dir, arg_filename, arg_dict_data):
