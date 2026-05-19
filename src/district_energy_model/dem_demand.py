@@ -18,10 +18,10 @@ To do:
 """
 
 import sys
-import os
+# import os
 import numpy as np
 import pandas as pd
-import meteostat
+# import meteostat
 from datetime import datetime
 
 from district_energy_model import dem_helper
@@ -821,135 +821,135 @@ class EnergyDemand:
         return df_ms
         
      
-    def weather_data_factory(self,
-                             com_name,
-                             com_lat,
-                             com_lon,
-                             com_alt,
-                             weather_data_dir,
-                             tf_start,
-                             tf_end):
+    # def weather_data_factory(self,
+    #                          com_name,
+    #                          com_lat,
+    #                          com_lon,
+    #                          com_alt,
+    #                          weather_data_dir,
+    #                          tf_start,
+    #                          tf_end):
         
-        """
-        Takes meteostat hourly weather data df of several years and creates a df of
-        one year with averaged hourly values across several years.
+    #     """
+    #     Takes meteostat hourly weather data df of several years and creates a df of
+    #     one year with averaged hourly values across several years.
         
-        Parameters
-        ----------
-        com_name : string
-            Name of community. Example: 'Allschwil'
-        com_lat : float
-            Latitude of selected community.
-        com_lon : float
-            Longitude of selected community.
-        com_alt : float
-            Altitude of selected community.
-        weather_data_dir: string
-            Location of meteostat files. Example: './heat_demand/weather_data/'
-        tf_start : string
-            Start date of measurement data time-series (e.g.'2020-01-01 00:00')
-        tf_end:
-            End date of measurement data time-series (e.g. '2021-12-21 23:00')
+    #     Parameters
+    #     ----------
+    #     com_name : string
+    #         Name of community. Example: 'Allschwil'
+    #     com_lat : float
+    #         Latitude of selected community.
+    #     com_lon : float
+    #         Longitude of selected community.
+    #     com_alt : float
+    #         Altitude of selected community.
+    #     weather_data_dir: string
+    #         Location of meteostat files. Example: './heat_demand/weather_data/'
+    #     tf_start : string
+    #         Start date of measurement data time-series (e.g.'2020-01-01 00:00')
+    #     tf_end:
+    #         End date of measurement data time-series (e.g. '2021-12-21 23:00')
         
-        Returns
-        -------
-        dataframe
-            averaged hourly values of weather data
-        """
+    #     Returns
+    #     -------
+    #     dataframe
+    #         averaged hourly values of weather data
+    #     """
         
-        # meteostat file location + name:
-        meteostat_file = weather_data_dir + f"meteostat/meteostat_{com_name}.csv"
-        # check if file exists:
-        file_exist = os.path.isfile(meteostat_file)
+    #     # meteostat file location + name:
+    #     meteostat_file = weather_data_dir + f"meteostat/meteostat_{com_name}.csv"
+    #     # check if file exists:
+    #     file_exist = os.path.isfile(meteostat_file)
         
-        if file_exist == True:
-            # df_data = pd.read_csv(meteostat_file,
-            #                       parse_dates=['time'],
-            #                       index_col='time')
+    #     if file_exist == True:
+    #         # df_data = pd.read_csv(meteostat_file,
+    #         #                       parse_dates=['time'],
+    #         #                       index_col='time')
             
-            # Reading the CSV without parsing dates and setting index initially
-            df_data = pd.read_csv(meteostat_file)
+    #         # Reading the CSV without parsing dates and setting index initially
+    #         df_data = pd.read_csv(meteostat_file)
             
-            # Check if the DataFrame contains data:
-            if df_data.shape[0] == 0:
+    #         # Check if the DataFrame contains data:
+    #         if df_data.shape[0] == 0:
                 
-                import warnings
+    #             import warnings
     
-                # Issue a warning
-                warnings.warn(f"The meteostat file for {com_name} does not contain any data! "
-                              "A new meteostat file will be generated.", UserWarning)
+    #             # Issue a warning
+    #             warnings.warn(f"The meteostat file for {com_name} does not contain any data! "
+    #                           "A new meteostat file will be generated.", UserWarning)
                 
-                # raise Warning(f"The meteostat file for {com_name} does not contain any data!")
-                # com_alt = com_alt - 100 # reduce altitude to account for meteostat bug
-                file_exist = False # reproduce the file
-                # raise ValueError(f"The meteostat file for {com_name} does not contain any data!")
+    #             # raise Warning(f"The meteostat file for {com_name} does not contain any data!")
+    #             # com_alt = com_alt - 100 # reduce altitude to account for meteostat bug
+    #             file_exist = False # reproduce the file
+    #             # raise ValueError(f"The meteostat file for {com_name} does not contain any data!")
                 
-            else:
-                # else:
-                #     print("The DataFrame has rows.")
+    #         else:
+    #             # else:
+    #             #     print("The DataFrame has rows.")
                 
-                # Manually parse the 'time' column as datetime
-                df_data['time'] = pd.to_datetime(df_data['time'])
+    #             # Manually parse the 'time' column as datetime
+    #             df_data['time'] = pd.to_datetime(df_data['time'])
                 
-                # Set 'time' column as the index
-                df_data.set_index('time', inplace=True)
+    #             # Set 'time' column as the index
+    #             df_data.set_index('time', inplace=True)
             
-        if file_exist == False:
-            # weather data will be retrieved from the meteostat API:
-            df_data = self.meteostat_weather_data(
-                com_lat,
-                com_lon,
-                com_alt,
-                tf_start,
-                tf_end
-                )
+    #     if file_exist == False:
+    #         # weather data will be retrieved from the meteostat API:
+    #         df_data = self.meteostat_weather_data(
+    #             com_lat,
+    #             com_lon,
+    #             com_alt,
+    #             tf_start,
+    #             tf_end
+    #             )
             
-            # Check meteostat data:
-            # len_ms = len(df_data)
-            # if len_ms < 365:
-            if df_data.shape[0] == 0:
-                df_data = self.__meteostat_bug_hack(
-                    com_name,
-                    com_lat,
-                    com_lon,
-                    com_alt,
-                    tf_start,
-                    tf_end
-                    )
-                # raise Exception("Meteostat data incomplete.")
+    #         # Check meteostat data:
+    #         # len_ms = len(df_data)
+    #         # if len_ms < 365:
+    #         if df_data.shape[0] == 0:
+    #             df_data = self.__meteostat_bug_hack(
+    #                 com_name,
+    #                 com_lat,
+    #                 com_lon,
+    #                 com_alt,
+    #                 tf_start,
+    #                 tf_end
+    #                 )
+    #             # raise Exception("Meteostat data incomplete.")
     
-            # the data will be saved to a csv file, so that it can be used
-            # later, if data for the same location is required (to avoid the
-            # number of API calls):
-            df_data.to_csv(meteostat_file)
+    #         # the data will be saved to a csv file, so that it can be used
+    #         # later, if data for the same location is required (to avoid the
+    #         # number of API calls):
+    #         df_data.to_csv(meteostat_file)
     
     
-        # remove 29.02. in leap year:
-        df_data = df_data[~((df_data.index.month == 2) & (df_data.index.day == 29))]
+    #     # remove 29.02. in leap year:
+    #     df_data = df_data[~((df_data.index.month == 2) & (df_data.index.day == 29))]
            
-        # group hourly data and calculate mean for every hour of the year:
-        df_grouped = df_data.groupby([df_data.index.month,
-                                      df_data.index.day,
-                                      df_data.index.hour])
-        df_mean = df_grouped.mean()
+    #     # group hourly data and calculate mean for every hour of the year:
+    #     df_grouped = df_data.groupby([df_data.index.month,
+    #                                   df_data.index.day,
+    #                                   df_data.index.hour])
+    #     df_mean = df_grouped.mean()
         
-        # create datetime column to be used as index:
-        start_date = pd.Timestamp('1900-01-01 00:00') # 1900 is no leap year
-        date_range = pd.date_range(start=start_date, periods=8760, freq='H')
-        df_mean['datetime'] = date_range
+    #     # create datetime column to be used as index:
+    #     start_date = pd.Timestamp('1900-01-01 00:00') # 1900 is no leap year
+    #     date_range = pd.date_range(start=start_date, periods=8760, freq='H')
+    #     df_mean['datetime'] = date_range
         
-        # format the datetime column to "YYYY-MM-DD hh:mm"
-        df_mean['datetime'] = df_mean['datetime'].dt.strftime('%Y-%m-%d %H:%M')
+    #     # format the datetime column to "YYYY-MM-DD hh:mm"
+    #     df_mean['datetime'] = df_mean['datetime'].dt.strftime('%Y-%m-%d %H:%M')
         
-        # replace index with datetime index:
-        df_mean = df_mean.set_index('datetime')
+    #     # replace index with datetime index:
+    #     df_mean = df_mean.set_index('datetime')
         
-        # convert index to DatetimeIndex:
-        df_mean.index = pd.to_datetime(df_mean.index)
+    #     # convert index to DatetimeIndex:
+    #     df_mean.index = pd.to_datetime(df_mean.index)
     
-        df_weather = df_mean
+    #     df_weather = df_mean
     
-        return df_weather
+    #     return df_weather
     
     def __meteostat_bug_hack(
             self,
