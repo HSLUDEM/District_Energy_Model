@@ -45,23 +45,102 @@ class DistrictHeating(TechCore):
 
         self.update_district_heating_categories(df_com_yr, energy_demand, 'heat_energy_demand_estimate_kWh_combined')
         
-    def update_district_heating_categories(self, df_com_yr, energy_demand, column_name_for_heat_demand_space_heating): #Update the district heating categories based on closeness data
+    def update_district_heating_categories(
+            self,
+            df_com_yr,
+            energy_demand,
+            column_name_for_heat_demand_space_heating
+            ): #Update the district heating categories based on closeness data
         
-        energy_to_power_conversion_factor = energy_demand.get_d_h().max() / energy_demand.get_d_h_yr()
+        energy_to_power_conversion_factor = energy_demand.get_d_h().max() / energy_demand.get_d_h_yr() # [kWh_max/kWh_tot] = [-]
+        
 
+        
+        # Heat demand of buildings already connected to DH:
+        mask_dh = (df_com_yr['Heating_System'] == 'v_h_dh')
         dh_already_existing_share_energy = (
             df_com_yr.loc[
-                df_com_yr['Heating_System'] == 'v_h_dh', 
+                mask_dh, 
                 column_name_for_heat_demand_space_heating
                 ].sum()
             +df_com_yr.loc[
-                df_com_yr['Heating_System'] == 'v_h_dh', 
+                mask_dh, 
                 'dhw_estimation_kWh_combined'
                 ].sum())
-        dh_new_categories_energy = [(df_com_yr.loc[(df_com_yr['Heating_System'] != 'v_h_dh') & (df_com_yr['dh_distance_cat'] == i), 
-                                                   column_name_for_heat_demand_space_heating].sum()
-            +df_com_yr.loc[(df_com_yr['Heating_System'] != 'v_h_dh') & (df_com_yr['dh_distance_cat'] == i), 'dhw_estimation_kWh_combined'].sum())
-                                        for i in range(self.num_dh_categories+1)]
+        
+        
+        # Heat demand of buildings not yet connected to DH, divided into DH-categories:
+        dh_new_categories_energy = []
+        dh_new_categories_energy_sum = 0.0
+        for i in range(self.num_dh_categories + 1):
+        
+            # Filter rows:
+            # - not already using district heating
+            # - belonging to the current distance category
+            mask = (
+                (df_com_yr['Heating_System'] != 'v_h_dh') &
+                (df_com_yr['dh_distance_cat'] == i)
+            )
+        
+            # Sum space heating demand
+            space_heating_sum = df_com_yr.loc[
+                mask,
+                column_name_for_heat_demand_space_heating
+            ].sum()
+        
+            # Sum domestic hot water demand
+            dhw_sum = df_com_yr.loc[
+                mask,
+                'dhw_estimation_kWh_combined'
+            ].sum()
+        
+            # Store combined energy demand
+            total_energy = space_heating_sum + dhw_sum
+        
+            dh_new_categories_energy.append(total_energy)
+            dh_new_categories_energy_sum += total_energy
+            
+
+        # # FOR TROUBLESHOOTING:         
+        # print("\n ============================================================")
+
+            
+        # # Heat demand of all buildings:
+        # total_share_energy = ( # For testing
+        #     df_com_yr[column_name_for_heat_demand_space_heating].sum()
+        #     + df_com_yr['dhw_estimation_kWh_combined'].sum()
+        #     )
+        
+        # existing_and_new_sum = (
+        #     dh_already_existing_share_energy
+        #     + dh_new_categories_energy_sum
+        #     )
+        
+        # print("dem_tech_district_heating.py")
+        # print("-------------------------------\n")
+        # print(f"d_h_yr: {energy_demand.get_d_h_yr()}")
+        # print(f"total_share_energy: {total_share_energy} (should be same as d_h_yr)")
+        # print(f"dh_already_existing_share_energy: {dh_already_existing_share_energy}")
+        # for i in range(self.num_dh_categories + 1):
+        #     print(f"dh_new_categories_energy_{i}: {dh_new_categories_energy[i]}")
+        # print(f"dh_new_categories_energy_sum: {dh_new_categories_energy_sum}")
+        # print("\n")
+        # print(f"existing_and_new_sum: {existing_and_new_sum}")
+        # print("\n ============================================================")
+        # print("\n ============================================================")
+
+        
+        # dh_new_categories_energy = [
+        #     (
+        #         df_com_yr.loc[
+        #             (df_com_yr['Heating_System'] != 'v_h_dh') & (df_com_yr['dh_distance_cat'] == i),
+        #             column_name_for_heat_demand_space_heating].sum() + df_com_yr.loc[
+        #                 (df_com_yr['Heating_System'] != 'v_h_dh') & (df_com_yr['dh_distance_cat'] == i), 
+        #                 'dhw_estimation_kWh_combined'
+        #                 ].sum()
+        #     )
+        #                                 for i in range(self.num_dh_categories+1)
+        #                                 ]
         
         dh_already_existing_share_length = df_com_yr.loc[
             df_com_yr['Heating_System'] == 'v_h_dh', 
@@ -75,9 +154,12 @@ class DistrictHeating(TechCore):
                         ].sum()
                         for i in range(self.num_dh_categories+1)]
         
+        # Share (as kW of max demand) per DH category:
         kW_per_category = ([dh_already_existing_share_energy*energy_to_power_conversion_factor]
-                           +[dh_new_categories_energy[i+1]*energy_to_power_conversion_factor 
-                             for i in range(self.num_dh_categories)])
+                           # +[dh_new_categories_energy[i+1]*energy_to_power_conversion_factor 
+                           #   for i in range(self.num_dh_categories)]) # Add here + 1?
+                           +[dh_new_categories_energy[i]*energy_to_power_conversion_factor 
+                             for i in range(self.num_dh_categories+1)]) 
         
         if dh_already_existing_share_length > 0:
             length_per_kW_existing = [
@@ -86,10 +168,28 @@ class DistrictHeating(TechCore):
         else:
             length_per_kW_existing = [0.0]
         
-        length_per_kW_new = [
-            dh_new_categories_length[i+1]/(dh_new_categories_energy[i+1]*energy_to_power_conversion_factor)
-            for i in range(self.num_dh_categories)
-            ]
+        # length_per_kW_new = [
+        #     # dh_new_categories_length[i+1]/(dh_new_categories_energy[i+1]*energy_to_power_conversion_factor)
+        #     # for i in range(self.num_dh_categories)
+        #     dh_new_categories_length[i]/(dh_new_categories_energy[i]*energy_to_power_conversion_factor)
+        #     for i in range(self.num_dh_categories+1)
+        #     ]
+        
+        length_per_kW_new = []
+        for i in range(self.num_dh_categories + 1):
+        
+            denominator = (
+                dh_new_categories_energy[i]
+                * energy_to_power_conversion_factor
+            )
+        
+            if denominator > 0:
+                value = dh_new_categories_length[i] / denominator
+            else:
+                value = 0.0
+        
+            length_per_kW_new.append(value)
+        
         length_per_kW = length_per_kW_existing + length_per_kW_new
         
         # length_per_kW = ([dh_already_existing_share_length/(dh_already_existing_share_energy*energy_to_power_conversion_factor)]
