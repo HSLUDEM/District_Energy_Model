@@ -42,6 +42,7 @@ bkp/
 __pycache__/
 results*/
 Results*/
+data_orees/
 .gitignore
 .gitignore
 
