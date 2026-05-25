@@ -43,7 +43,7 @@ bkp/
 __pycache__/
 results*/
 Results*/
-data_orees/
+OREES_study_root_dir/
 .gitignore
 .gitignore
 
