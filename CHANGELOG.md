@@ -16,7 +16,8 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - Configuration YAML files are checked for valid keywords. An error is thrown if a keyword is invalid (e.g., due to incorrect spelling). Previously, the simulation just continued.
 – Adjust upper and lower flexibility bounds if EV integration is <100% in optimization scenario (previously leading to an error).
-- Minor bugfixes 
+- Minor bugfixes
+- Bug in dem_tech_district_heating.py: 100% district heating share was not possible. This has been corrected. 
 
 ### Changed
 - Compatibility with Calliope version 0.6.10 (previously 0.6.8)
