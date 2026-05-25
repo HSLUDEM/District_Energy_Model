@@ -2902,14 +2902,14 @@ def plot_heat_balance_hourly(df_scen,
         #     line=dict(color=col_demand_heat_space_flex_lower_bound, width=1, dash='dot'),
         #     name='d_h_s_flex_ll (temporary)'
         # ))
-        fig.add_trace(go.Scatter( # TEMORARY
+        fig.add_trace(go.Scatter(
             x=df_plot.index,
             y=df_plot['d_h_s'],
             mode='lines',
             line=dict(color=col_demand_heat_space, width=1),
             name='Space heating demand'
         ))
-        fig.add_trace(go.Scatter( # TEMORARY
+        fig.add_trace(go.Scatter(
             x=df_plot.index,
             y=df_plot['d_h_hw'],
             mode='lines',

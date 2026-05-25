@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     my_model = launch(
         root_dir=root_dir, 
-        input_dir = input_dir, 
+        input_dir = input_dir,
         config_dir=config_dir, 
         output_dir=output_dir
         )

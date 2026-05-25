@@ -433,7 +433,7 @@ class Supply(TechCore):
         
         s_hydro_hr = s_hydroL_hr + s_hydroS_hr + s_hydroP_hr
         
-        self._s_hydro = np.array(s_hydro_hr*1e6)
+        self._s_hydro = np.array(s_hydro_hr*1e6) # Conversion from GWh to kWh
         
         # return s_hydro_hr*1e6
         

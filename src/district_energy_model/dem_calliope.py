@@ -1602,13 +1602,19 @@ class CalliopeOptimiser:
             d_h_unmet += (
                 opt_results['unmet_demand'].loc['X1::heat_hp'].values*self.energy_scaling_factor
                 + opt_results['unmet_demand'].loc['New_Techs::heat_hp'].values*self.energy_scaling_factor
-                + opt_results['unmet_demand'].loc['loc_wp_annual::heat_hp'].values*self.energy_scaling_factor
-                + opt_results['unmet_demand'].loc['loc_wp_winter::heat_hp'].values*self.energy_scaling_factor
+                # + opt_results['unmet_demand'].loc['loc_wp_annual::heat_hp'].values*self.energy_scaling_factor
+                # + opt_results['unmet_demand'].loc['loc_wp_winter::heat_hp'].values*self.energy_scaling_factor
                 + opt_results['unmet_demand'].loc['solar_pvrooftop_installation_0::heat_hp'].values*self.energy_scaling_factor
                 + opt_results['unmet_demand'].loc['solar_pvrooftop_installation_1::heat_hp'].values*self.energy_scaling_factor
                 + opt_results['unmet_demand'].loc['solar_pvrooftop_installation_2::heat_hp'].values*self.energy_scaling_factor
                 + opt_results['unmet_demand'].loc['solar_pvrooftop_installation_3::heat_hp'].values*self.energy_scaling_factor
                 )
+        
+            if 'wind_power' in self.tech_list:
+                d_h_unmet += (
+                    + opt_results['unmet_demand'].loc['loc_wp_annual::heat_hp'].values*self.energy_scaling_factor
+                    + opt_results['unmet_demand'].loc['loc_wp_winter::heat_hp'].values*self.energy_scaling_factor
+                    )
         
         d_h_unmet_dhn = np.array([0.0]*len(d_h_unmet))
         
@@ -3458,6 +3464,7 @@ class CalliopeOptimiser:
                 #     'district_heating_hub',
                 #     ], # ensure techs are spelled correctly (no error is thrown if tech doesn't exist)!
                 'locs':['New_Techs', 'X1',],
+                # 'locs':['X1'],
                 # 'locs':[],
                 'demand_share_per_timestep_decision':{
                     'heat':None, # if set to 'None', the optimiser chooses a constant value; if a value is given (e.g. 0.2), this value will be used as constant share

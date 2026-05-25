@@ -763,62 +763,62 @@ class EnergyDemand:
     HEAT DEMAND:
     """
     
-    def meteostat_weather_data(self, lat, lon, alt, tf_start, tf_end):
+    # def meteostat_weather_data(self, lat, lon, alt, tf_start, tf_end):
         
-        """
-        Accesses hourly meteostat weather data via API and saves it to dataframe.
-        Git: https://github.com/meteostat/meteostat-python
+    #     """
+    #     Accesses hourly meteostat weather data via API and saves it to dataframe.
+    #     Git: https://github.com/meteostat/meteostat-python
         
-        Parameters
-        ----------
-        lat: float
-            latitude of location as decimal number (e.g. 47.556)
-        lon: float
-            longitude of location as decimal number
-        tf_start: string
-            start of timeframe. Format: '%Y-%m-%d %H:%M' (e.g. 2023-04-26 04:00)
-        tf_end: string
-            end of timeframe. Format: '%Y-%m-%d %H:%M' (e.g. 2023-07-26 23:00)
+    #     Parameters
+    #     ----------
+    #     lat: float
+    #         latitude of location as decimal number (e.g. 47.556)
+    #     lon: float
+    #         longitude of location as decimal number
+    #     tf_start: string
+    #         start of timeframe. Format: '%Y-%m-%d %H:%M' (e.g. 2023-04-26 04:00)
+    #     tf_end: string
+    #         end of timeframe. Format: '%Y-%m-%d %H:%M' (e.g. 2023-07-26 23:00)
             
     
-        Returns
-        -------
-        dataframe
-            hourly weatherdata such as temeprature, humidity, ... (see Git link).
-        """
+    #     Returns
+    #     -------
+    #     dataframe
+    #         hourly weatherdata such as temeprature, humidity, ... (see Git link).
+    #     """
         
-        # Start date:
-        date_obj_s = datetime.strptime(tf_start, '%Y-%m-%d %H:%M')
-        year_s = date_obj_s.year
-        month_s = date_obj_s.month
-        day_s = date_obj_s.day
-        hour_s = date_obj_s.hour
+    #     # Start date:
+    #     date_obj_s = datetime.strptime(tf_start, '%Y-%m-%d %H:%M')
+    #     year_s = date_obj_s.year
+    #     month_s = date_obj_s.month
+    #     day_s = date_obj_s.day
+    #     hour_s = date_obj_s.hour
         
-        # End date:
-        date_obj_e = datetime.strptime(tf_end, '%Y-%m-%d %H:%M')
-        year_e = date_obj_e.year
-        month_e = date_obj_e.month
-        day_e = date_obj_e.day
-        hour_e = date_obj_e.hour
+    #     # End date:
+    #     date_obj_e = datetime.strptime(tf_end, '%Y-%m-%d %H:%M')
+    #     year_e = date_obj_e.year
+    #     month_e = date_obj_e.month
+    #     day_e = date_obj_e.day
+    #     hour_e = date_obj_e.hour
         
-        #start = datetime(2020, 1, 1, 0)
-        #end = datetime(2020, 12, 31, 23)
-        start = datetime(year_s, month_s, day_s, hour_s)
-        end = datetime(year_e, month_e, day_e, hour_e)
+    #     #start = datetime(2020, 1, 1, 0)
+    #     #end = datetime(2020, 12, 31, 23)
+    #     start = datetime(year_s, month_s, day_s, hour_s)
+    #     end = datetime(year_e, month_e, day_e, hour_e)
         
     
-        # Beispiel:
-        #lat = 47.03204
-        #lon = 9.43204
-        #alt = 509
+    #     # Beispiel:
+    #     #lat = 47.03204
+    #     #lon = 9.43204
+    #     #alt = 509
     
-        point = meteostat.Point(lat, lon, alt)
+    #     point = meteostat.Point(lat, lon, alt)
     
-        #(Dataframe definieren und mit .fetch() Abfrage machen)
-        df_ms = meteostat.Hourly(point, start, end)
-        df_ms = df_ms.fetch()
+    #     #(Dataframe definieren und mit .fetch() Abfrage machen)
+    #     df_ms = meteostat.Hourly(point, start, end)
+    #     df_ms = df_ms.fetch()
         
-        return df_ms
+    #     return df_ms
         
      
     # def weather_data_factory(self,
@@ -951,78 +951,78 @@ class EnergyDemand:
     
     #     return df_weather
     
-    def __meteostat_bug_hack(
-            self,
-            com_name,
-            com_lat,
-            com_lon,
-            com_alt,
-            tf_start,
-            tf_end
-            ):
+    # def __meteostat_bug_hack(
+    #         self,
+    #         com_name,
+    #         com_lat,
+    #         com_lon,
+    #         com_alt,
+    #         tf_start,
+    #         tf_end
+    #         ):
         
-        """
-        For some locations, meteostat doesn't produce weather data. If the altitude
-        is adjusted, however, it produces data.
-        Example: Alto Malcantone
-                Coord_lat  Coord_long  altitude_median
-          1559  46.042663    8.885755            802.0
-        """
+    #     """
+    #     For some locations, meteostat doesn't produce weather data. If the altitude
+    #     is adjusted, however, it produces data.
+    #     Example: Alto Malcantone
+    #             Coord_lat  Coord_long  altitude_median
+    #       1559  46.042663    8.885755            802.0
+    #     """
         
-        import warnings
+    #     import warnings
 
-        # Issue a warning
-        warnings.warn(f"The meteostat file for {com_name} does not contain any data! "
-                      "com_alt is being adjusted to account for meteostat bug.", UserWarning)
+    #     # Issue a warning
+    #     warnings.warn(f"The meteostat file for {com_name} does not contain any data! "
+    #                   "com_alt is being adjusted to account for meteostat bug.", UserWarning)
         
-        count_max = 100
-        counter = 1
-        alt_incr = 10
-        com_alt_new = com_alt
+    #     count_max = 100
+    #     counter = 1
+    #     alt_incr = 10
+    #     com_alt_new = com_alt
         
-        while counter < count_max:
+    #     while counter < count_max:
             
-            # Increase:
-            com_alt_new = com_alt + counter*alt_incr            
-            df_data = self.meteostat_weather_data(
-                com_lat,
-                com_lon,
-                com_alt_new,
-                tf_start,
-                tf_end
-                )
-            if df_data.shape[0] > 0:
-                print(f"Original altitude: {com_alt}")
-                print(f"Adjusted altitude: {com_alt_new}")
-                break
+    #         # Increase:
+    #         com_alt_new = com_alt + counter*alt_incr            
+    #         df_data = self.meteostat_weather_data(
+    #             com_lat,
+    #             com_lon,
+    #             com_alt_new,
+    #             tf_start,
+    #             tf_end
+    #             )
+    #         if df_data.shape[0] > 0:
+    #             print(f"Original altitude: {com_alt}")
+    #             print(f"Adjusted altitude: {com_alt_new}")
+    #             break
             
-            # Decrease:
-            com_alt_new = com_alt - counter*alt_incr
-            if com_alt_new < 0:
-                pass
-            else:
-                df_data = self.meteostat_weather_data(
-                    com_lat,
-                    com_lon,
-                    com_alt_new,
-                    tf_start,
-                    tf_end
-                    )
-                if df_data.shape[0] > 0:
-                    print(f"Original altitude: {com_alt}")
-                    print(f"Adjusted altitude: {com_alt_new}")
-                    break
+    #         # Decrease:
+    #         com_alt_new = com_alt - counter*alt_incr
+    #         if com_alt_new < 0:
+    #             pass
+    #         else:
+    #             df_data = self.meteostat_weather_data(
+    #                 com_lat,
+    #                 com_lon,
+    #                 com_alt_new,
+    #                 tf_start,
+    #                 tf_end
+    #                 )
+    #             if df_data.shape[0] > 0:
+    #                 print(f"Original altitude: {com_alt}")
+    #                 print(f"Adjusted altitude: {com_alt_new}")
+    #                 break
 
-            counter += 1
+    #         counter += 1
         
-        # Check meteostat data:
-        # len_ms = len(df_data)
-        # if len_ms < 365:
-        if df_data.shape[0] == 0:
-            raise Exception("Meteostat data incomplete. "
-                            "A new file could not be generated.")
-        else:
-            return df_data
+    #     # Check meteostat data:
+    #     # len_ms = len(df_data)
+    #     # if len_ms < 365:
+    #     if df_data.shape[0] == 0:
+    #         raise Exception("Meteostat data incomplete. "
+    #                         "A new file could not be generated.")
+    #     else:
+    #         return df_data
     
     # def get_d_h_yr(
     def compute_d_h_yr(

@@ -339,7 +339,6 @@ class BuildingInertiaFlexibility:
 
         """
         ic = 0.5 # initial storage charge (50% of total capacity corresponds to neutral demand response state)
-        # ic = 0.0
 
         for i, (key, acr) in enumerate(self.flex_systems.items()):
             # key: full tech name (e.g., 'heat_pump')
