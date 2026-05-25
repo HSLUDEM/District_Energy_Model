@@ -16,6 +16,7 @@ data/
 src/temp*
 src/tmp*
 src/postprocess_df_scen.py
+src/run_dem_local_OREES.py # This is used to run the coupled study with OREES
 doc/documentation.md
 tests/tmp*
 data/
