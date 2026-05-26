@@ -194,6 +194,7 @@ class GridSupply(TechCore):
         # el_gen_imp['Other'] = el_mix_file.iloc[:, 7]
         # el_gen_imp['Import'] = el_mix_file.iloc[:, -1]
         
+        # =====================================================================
         el_gen_imp = pd.DataFrame(index=el_mix_file.index)
         
         el_gen_imp['Hydro'] = (
@@ -212,6 +213,7 @@ class GridSupply(TechCore):
         el_gen_imp['Biomass'] = el_mix_file['Biomass']
         el_gen_imp['Other'] = el_mix_file['Other']
         el_gen_imp['Import'] = el_mix_file['Import']
+        # =====================================================================
         
         
         el_gen_imp_percentages = el_gen_imp.div(el_gen_imp.sum(axis = 1), axis = 0)

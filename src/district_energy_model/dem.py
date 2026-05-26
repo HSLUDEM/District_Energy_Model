@@ -629,16 +629,17 @@ class DistrictEnergyModel:
         Grid Import:
         """
         self.tech_grid_supply.compute_base_grid_import()
-
-        sum_a = dem_helper.get_m_e_ch_sum(self.tech_grid_supply)
-        sum_b = (
-            sum(self.tech_grid_supply.get_m_e_ch())
-            + sum(self.tech_grid_supply.get_m_e_cbimport())
-            )        
-        dem_eb.energy_balance_test(
-            sum(self.tech_grid_supply.get_m_e_ch()), sum_a, 'electricity mix')        
-        dem_eb.energy_balance_test(
-            sum(self.tech_grid_supply.get_m_e()), sum_b, 'electricity import')
+        
+        if self.toggle_energy_balance_tests:
+            sum_a = dem_helper.get_m_e_ch_sum(self.tech_grid_supply)
+            sum_b = (
+                sum(self.tech_grid_supply.get_m_e_ch())
+                + sum(self.tech_grid_supply.get_m_e_cbimport())
+                )        
+            dem_eb.energy_balance_test(
+                sum(self.tech_grid_supply.get_m_e_ch()), sum_a, 'electricity mix')        
+            dem_eb.energy_balance_test(
+                sum(self.tech_grid_supply.get_m_e()), sum_b, 'electricity import')
 
 
         #----------------------------------------------------------------------
