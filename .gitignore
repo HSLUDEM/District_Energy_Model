@@ -17,6 +17,7 @@ src/temp*
 src/tmp*
 src/postprocess_df_scen.py
 src/run_dem_local_OREES.py
+src/run_dem_local_newData.py
 doc/documentation.md
 tests/tmp*
 data/
@@ -44,6 +45,7 @@ __pycache__/
 results*/
 Results*/
 OREES_study_root_dir/
+revised_data_root_dir/
 .gitignore
 .gitignore
 
