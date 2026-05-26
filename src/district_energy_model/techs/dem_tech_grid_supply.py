@@ -208,7 +208,6 @@ class GridSupply(TechCore):
         )
         
         el_gen_imp['Nuclear'] = el_mix_file['Nuclear']
-        el_gen_imp['Solar'] = el_mix_file['Solar']
         el_gen_imp['Wind'] = el_mix_file['Wind']
         el_gen_imp['Biomass'] = el_mix_file['Biomass']
         el_gen_imp['Other'] = el_mix_file['Other']
