@@ -124,6 +124,14 @@ class DistrictEnergyModel:
         
             print(f"\n{self.com_name_}")
         
+        
+        print("\n============================================================")
+        print("dem.py")
+        print(self.df_meta.info())
+        print(self.df_com_yr.info())
+        sys.exit(0)
+        print("\n============================================================")
+        
         # Stop execution if munic is on the list to be omitted:
         if self.com_nr in C.munics_omit:
             print("Model aborted.")
