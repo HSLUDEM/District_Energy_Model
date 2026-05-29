@@ -6,28 +6,16 @@ Created on Mon Mar 20 11:46:14 2023
 """
 
 import pandas as pd
-# import matplotlib.pylab as plt
 import numpy as np
 import sys
 import os
 import math
-# import dem_techs
-# from meteostat import Point, Hourly, Daily
-from datetime import datetime
-from district_energy_model import dem_constants as C
-
-# cdir = os.getcwd()
-# print(cdir)
-# wdir = r'C:\Users\UeliSchilt\OneDrive - Hochschule Luzern\00_GitLab\district_energy_model\src'
-# os.chdir(wdir)
-# print(os.getcwd())
-
-
 import yaml
+from datetime import datetime
 from pathlib import Path
-
 from typing import List, Dict, Any
 
+# from district_energy_model import dem_constants as C
 
 def update_scen_techs_from_config(scen_techs: Dict[str, Any],
                                   config_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -118,6 +106,18 @@ def update_scen_techs_from_yaml(input_files_dir, scen_techs):
             else:
                 dst[k] = v
 
+    # helper to validate that all keys in src already exist in dst
+    def _validate_keys_exist(dst, src, *, context):
+        if not isinstance(src, dict):
+            return
+        for k, v in src.items():
+            if k not in dst:
+                raise KeyError(f"{context}: unknown key '{k}'. Allowed keys: {sorted(dst.keys())}")
+            if isinstance(v, dict):
+                if not isinstance(dst.get(k), dict):
+                    raise KeyError(f"{context}: key '{k}' is not a dict in scen_techs, cannot have subkeys.")
+                _validate_keys_exist(dst[k], v, context=f"{context}.{k}")
+
     input_dir = Path(input_files_dir)
     if not input_dir.exists():
         raise FileNotFoundError(f"Directory not found: {input_dir}")
@@ -138,8 +138,25 @@ def update_scen_techs_from_yaml(input_files_dir, scen_techs):
                     raise ValueError(
                         f"In {techs_path.name}, top-level key '{top_key}' must map to a dictionary."
                     )
-                if top_key not in scen_techs or not isinstance(scen_techs.get(top_key), dict):
-                    scen_techs[top_key] = {}
+
+               # technologies.yml may only reference existing technologies in scen_techs
+                if top_key not in scen_techs:
+                    raise KeyError(
+                        f"{techs_path.name}: unknown technology '{top_key}'. "
+                        f"Allowed technologies: {sorted(scen_techs.keys())}"
+                    )
+                if not isinstance(scen_techs.get(top_key), dict):
+                    raise TypeError(
+                        f"{techs_path.name}: scen_techs['{top_key}'] must be a dict, got {type(scen_techs.get(top_key))}."
+                    )
+
+                # no new subkeys allowed
+                _validate_keys_exist(
+                    scen_techs[top_key],
+                    subcontent,
+                    context=f"{techs_path.name}:{top_key}",
+                )
+                
                 deep_merge(scen_techs[top_key], subcontent)
             break  # Only one of .yaml/.yml is needed
 
@@ -156,8 +173,23 @@ def update_scen_techs_from_yaml(input_files_dir, scen_techs):
         if not isinstance(content, dict):
             raise ValueError(f"YAML file {file.name} must contain a dictionary at top level.")
 
-        if top_key not in scen_techs or not isinstance(scen_techs.get(top_key), dict):
-            scen_techs[top_key] = {}
+        # per-technology file must correspond to existing top_key in scen_techs
+        if top_key not in scen_techs:
+            raise KeyError(
+                f"{file.name}: unknown top-level key '{top_key}'. "
+                f"Allowed top-level keys: {sorted(scen_techs.keys())}"
+            )
+        if not isinstance(scen_techs.get(top_key), dict):
+            raise TypeError(
+                f"{file.name}: scen_techs['{top_key}'] must be a dict, got {type(scen_techs.get(top_key))}."
+            )
+
+        # no new subkeys allowed
+        _validate_keys_exist(
+            scen_techs[top_key],
+            content,
+            context=f"{file.name}:{top_key}",
+        )
 
         deep_merge(scen_techs[top_key], content)
 
@@ -213,7 +245,13 @@ def update_scen_techs_from_yaml(input_files_dir, scen_techs):
 #     return scen_techs
 
 
-def update_df_results(energy_demand, supply, tech_instances, df_results):
+def update_df_results(
+        energy_demand,
+        supply,
+        building_inertia_flex,
+        tech_instances,
+        df_results
+        ):
     
     # Setting all values to 0
     df_results.loc[:, :] = 0
@@ -223,6 +261,10 @@ def update_df_results(energy_demand, supply, tech_instances, df_results):
     
     # Update supply data:
     df_results = supply.update_df_results(df_results)
+    
+    # Update flexibility (building inertia) data:
+    if building_inertia_flex is not None:
+        df_results = building_inertia_flex.update_df_results(df_results)
     
     # Update tech data:
     for tech_name, tech_instance in tech_instances.items():
@@ -665,31 +707,26 @@ def positive_values_test_df(
     if len(negative_columns) > 0:
         print(f"Positive value test for {description} not successful!")
         raise Exception(f"{description} contains negative values in the following columns: {negative_columns}")
-    
+        
 
 def create_results_directory(arg_path, arg_results_dir_name):
-    
-    """
-    Creates a new directory and returns the path to the directory.
-    """
-    
-    arg_path = arg_path + '/'
-    
-    tmp_i = 0
-    tmp_results_dir = arg_results_dir_name
-    
-    while tmp_i < 10000:
-        if os.path.isdir(arg_path + tmp_results_dir) == True:
-            # directory already exists
-            tmp_results_dir = arg_results_dir_name + ' (' +str(tmp_i+1) + ')'
-            tmp_i += 1
-            
-        else:
-            os.mkdir(arg_path + tmp_results_dir) # Es wir ein neuer Ordner erzeugt.
-            break
-        
-    return arg_path + tmp_results_dir
 
+    base_path = Path(arg_path)
+
+    for i in range(100000):
+
+        if i == 0:
+            dirname = arg_results_dir_name
+        else:
+            dirname = f"{arg_results_dir_name} ({i})"
+
+        full_path = base_path / dirname
+
+        if not full_path.exists():
+            full_path.mkdir()
+            return str(full_path)
+
+    raise RuntimeError("Could not create unique directory")
 
 def save_values_to_txt(arg_results_dir, arg_filename, arg_dict_data):
     
@@ -884,7 +921,8 @@ def check_tech_for_scenario(techs, scenario, scen_techs):
                 f"'{scenario}' scenario could not be computed "
                 f"because scen_techs['{tech}']['deployment'] = False. "
                 "Change to 'True' in order to "
-                "compute this scenario.\n"
+                "compute this scenario. If working with .yaml input files, "
+                "this can be changed in technologies.yaml\n"
                 )
             
             raise ValueError(printout)
@@ -1891,6 +1929,17 @@ def hourly_array_to_daily(hourly_array):
     daily_array = x.reshape(-1, 24).sum(axis=1)
     
     return np.array(daily_array)
+
+def get_acronym(full_name):
+    
+    acronyms = {
+        'heat_pump':'hp',
+        'district_heating':'dh',
+        'electric_heater':'eh'
+        # TO BE EXTENDED AS NEEDED
+        }
+    
+    return acronyms[full_name]
 
     
 def add_missing_keys(df_scen, tes_sites_plotting_inf = {}):

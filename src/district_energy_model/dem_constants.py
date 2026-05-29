@@ -72,4 +72,4 @@ DIFF_ACC = 0.1
 DIFF_SUM_ACC = 1.0 # 5.0 # 1.0 # 0.15
 
 # Accepted negative values:
-NEG_ACC = -0.1
+NEG_ACC =  -0.1 # -100000000000 #

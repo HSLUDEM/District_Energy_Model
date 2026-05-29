@@ -776,9 +776,9 @@ def electricity_balance_test(scen_techs,
     
     # diff_10: Battery Energy Storage(BES) losses are only checked as sums
 
-    print(diff_1.max(), df_scen['f_e'].max())
+    # print(diff_1.max(), df_scen['f_e'].max())
 
-    print(max_diff_1)
+    # print(max_diff_1)
 
     if max_diff_1 > diff_accepted:
         print("Electricity balance (1) is not fulfilled!")
@@ -909,7 +909,8 @@ def electricity_balance_test(scen_techs,
         raise Exception("Electricity balance (sum) is not fulfilled!")
         
 
-def heat_balance_test(df_scen,
+def heat_balance_test(scen_techs,
+                      df_scen,
                       optimisation=False,
                       diff_accepted = 1e-5,
                       diff_sum_accepted = 0.1,
@@ -922,6 +923,8 @@ def heat_balance_test(df_scen,
     
     Parameters
     ----------
+    scen_techs : dictionary
+        Dictionary containing info about technologies.
     df_scen : pandas dataframe
         Dataframe with resulting hourly values.
     diff_accepted : float
@@ -935,7 +938,59 @@ def heat_balance_test(df_scen,
     -------
     n/a
     """
+
     # Fill dataframe with 0s if columns are missing:
+    missing_keys = [
+        'd_h_m',
+        'u_h_tes',
+        'u_h_tesdc',
+        'u_h_vs_hp',
+        'u_h_vs_dh',
+        'v_h_tes',
+        'v_h_tesdc',
+        'v_h_vs_hp',
+        'v_h_vs_dh',
+        'q_h_tes',
+        'q_h_tesdc',
+        'l_u_h_tes',
+        'l_u_h_tesdc',
+        'l_v_h_tes',
+        'l_v_h_tesdc',
+        'l_q_h_tes',
+        'l_q_h_tesdc',
+        'v_h_chpgt',
+        'v_h_chpgt_con',
+        'v_h_chpgt_waste',
+        'v_h_st',
+        'v_h_st_con',
+        'v_h_st_waste',
+        'v_h_st_gtcp',
+        'v_h_st_gtcp_con',
+        'v_h_st_gtcp_waste',
+        'v_h_st_wbsg',
+        'v_h_st_wbsg_con',
+        'v_h_st_wbsg_waste',
+        'v_h_wte',
+        'v_h_wte_con',
+        'v_h_wte_waste',
+        'v_h_hpcp',
+        'v_h_hpcplt',
+        'v_h_obcp',
+        'v_h_ehcp',
+        'v_h_wbcp',
+        'v_h_wh',
+        'v_h_dgt',
+        'v_h_gbcp',
+        'u_e_aguh',
+        'm_h_dh',
+        ]
+    
+    for k in tes_sites_plotting_inf.keys():
+        for k2 in tes_sites_plotting_inf[k].keys():
+            if k2 != 'color':
+                for x in tes_sites_plotting_inf[k][k2]:
+                    if x not in missing_keys:
+                        missing_keys.append(x)
 
     df_scen = dem_helper.add_missing_keys(df_scen, tes_sites_plotting_inf)
 
@@ -993,10 +1048,22 @@ def heat_balance_test(df_scen,
     #     else:
     #         df_scen[k] = 0
     
-    heat_consumption = (df_scen['d_h']
+    # flex_label
+    if (
+        scen_techs['optimisation']['enabled']
+        and scen_techs['scenarios']['demand_side']
+        and scen_techs['demand_side']['dr_flexibility_building_inertia']
+        ):        
+        heat_demand = df_scen['d_h_flex_ll']
+    else:
+        heat_demand = df_scen['d_h']
+    
+    heat_consumption = (heat_demand # df_scen['d_h']
                         + df_scen['u_h_tesdc']
                         + df_scen['v_h_solarthermalrooftop_exp']
                         + df_scen['d_h_m']
+                        + df_scen['u_h_vs_hp'] # Virtual storage for flexiblity modelling
+                        # + df_scen['u_h_vs_dh'] # Virtual storage for flexiblity modelling # INCLUDED IN DISTRICT HEATING
                         # + df_scen['u_h_tes'] # INCLUDED IN DISTRICT HEATING
                         )
     
@@ -1010,7 +1077,7 @@ def heat_balance_test(df_scen,
     #                    + df_scen['v_h_other']
     #                    + df_scen['v_h_tes']
     #                    + df_scen['v_h_bm']
-    #                     + df_scen['v_h_chpgt']
+    #                    + df_scen['v_h_chpgt']
     #                    + df_scen['v_h_st']
     #                    + df_scen['v_h_wte']
     #                    + df_scen['d_h_unmet']
@@ -1024,10 +1091,12 @@ def heat_balance_test(df_scen,
                        + df_scen['v_h_dh']
                        + df_scen['v_h_solarthermalrooftop']
                        + df_scen['v_h_other']
-                        + df_scen['v_h_tesdc']
+                       + df_scen['v_h_tesdc']
+                       + df_scen['v_h_vs_hp'] # Virtual storage for flexiblity modelling
+                       # + df_scen['v_h_vs_dh'] # Virtual storage for flexiblity modelling # INCLUDED IN DISTRICT HEATING
                        # + df_scen['v_h_tes'] # INCLUDED IN DISTRICT HEATING
-                    #    + df_scen['v_h_bm'] # INCLUDED IN DISTRICT HEATING
-                        # + df_scen['v_h_chpgt'] # INCLUDED IN DISTRICT HEATING
+                       # + df_scen['v_h_bm'] # INCLUDED IN DISTRICT HEATING
+                       # + df_scen['v_h_chpgt'] # INCLUDED IN DISTRICT HEATING
                        # + df_scen['v_h_st'] # INCLUDED IN DISTRICT HEATING
                        # + df_scen['v_h_wte'] # INCLUDED IN DISTRICT HEATING
                        # + df_scen['v_h_hpcp'] # INCLUDED IN DISTRICT HEATING
@@ -1105,6 +1174,8 @@ def heat_balance_test(df_scen,
         + df_scen['v_h_bm']
         + df_scen['v_h_tes']
         - df_scen['u_h_tes']
+        + df_scen['v_h_vs_dh']
+        - df_scen['u_h_vs_dh']
         + df_scen['d_h_unmet_dhn']
         )
 
@@ -1121,7 +1192,18 @@ def heat_balance_test(df_scen,
                         district_heat_techs += df_scen[x]
 
 
-
+    # ------------------------------------------------
+    # Virtual storage for demand response flexibility from building inertia:
+    if 'q_h_vs_tot' in df_scen.columns:
+        
+        # Storage losses are only checked as a sum:
+        vs_losses_sum = ( # virtual storage has no charging/discharging losses
+            + df_scen['l_q_h_vs_tot']
+            ).sum()
+        
+        vs_input_sum = df_scen['u_h_vs_tot'].sum()
+        
+        vs_output_sum = df_scen['v_h_vs_tot'].sum()
 
     # -------------------------------------------------------------------------
     # Check timeseries
@@ -1165,6 +1247,9 @@ def heat_balance_test(df_scen,
     
     diff_sum_4 = abs(district_heat_sum - district_heat_techs_sum)
     
+    if 'q_h_vs_tot' in df_scen.columns:
+        diff_sum_5 = abs(vs_input_sum - vs_output_sum - vs_losses_sum) # assuming cycling constraint
+    
     if diff_sum_1 > diff_sum_accepted:
         print("Overall heat balance (1) is not fulfilled!")
         print(f"Sum difference (kWh): {diff_sum_1}")
@@ -1186,6 +1271,14 @@ def heat_balance_test(df_scen,
         print("Overall heat balance (4) is not fulfilled!")
         print(f"Sum difference (kWh): {diff_sum_4}")
         raise Exception("Heat balance (sum) is not fulfilled! (4)")
+        
+    if 'q_h_vs_tot' in df_scen.columns:
+        if diff_sum_5 > diff_sum_accepted*100: # larger tolerance for virtual storage
+            print("Overall heat balance (5) is not fulfilled!")
+            print(f"Sum difference (kWh): {diff_sum_5}")
+            raise Exception("Heat balance (sum) is not fulfilled! (5)")
+        
+
           
     
     

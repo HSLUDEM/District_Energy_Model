@@ -14,6 +14,9 @@ See: https://calliope.readthedocs.io/en/stable/user/advanced_constraints.html#us
 
 from pyomo.environ import ConcreteModel, Var, Binary
 import pyomo.core as po
+import numpy as np
+
+from district_energy_model import dem_constants as C
 
 
 def tes_sites_lt_no_conversion_without_charging_constraint(model, ts_len, sites_list):
@@ -398,7 +401,26 @@ def tes_sites_charge_constraints(model, ts_len, sites_list):
 
 
 def ev_flexibility_constraints(model, ts_len, n_days, energy_demand, energy_scaling_factor):
+    """
     
+
+    Parameters
+    ----------
+    model : Callipe model
+        Calliope model instance.
+    ts_len : int
+        Total number of timesteps.
+    n_days : int
+        Total number of days.
+    energy_demand : class instance
+        Instance of EnergyDemand class.
+
+    Returns
+    -------
+    Calliope model
+        Calliope model instance.
+
+    """    
     # Constraint: Daily EV electricity demand
     # -----------------------------------------
     
@@ -416,8 +438,8 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand, energy_scal
             while hr < 24:
                 i = day*24 + hr # absolute timestep
                 tmp_sum += (
-                    backend_model.carrier_con['X1::demand_electricity_ev_pd::electricity', ts[i + 1]] # Pyomo Sets are 1-indexed
-                    + backend_model.carrier_con['X1::demand_electricity_ev_delta::electricity', ts[i + 1]]
+                    backend_model.carrier_con['X1::demand_electricity_ev_pd::electricity', ts.at(i + 1)] # Pyomo Sets are 1-indexed
+                    + backend_model.carrier_con['X1::demand_electricity_ev_delta::electricity', ts.at(i + 1)]
                     )
                 hr+=1
             
@@ -446,12 +468,12 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand, energy_scal
             
             # Variable to limit energy shift from base profile (cp) in positive direction:
             pos_delta_i_max = (
-                backend_model.carrier_prod['X1::flexibility_ev::flexible_electricity', ts[i + 1]] # Pyomo Sets are 1-indexed
+                backend_model.carrier_prod['X1::flexibility_ev::flexible_electricity', ts.at(i + 1)] # Pyomo Sets are 1-indexed
                 )
             
             d_e_ev_i = (
-                backend_model.carrier_con['X1::demand_electricity_ev_pd::electricity', ts[i + 1]] # Pyomo Sets are 1-indexed
-                + backend_model.carrier_con['X1::demand_electricity_ev_delta::electricity', ts[i + 1]]
+                backend_model.carrier_con['X1::demand_electricity_ev_pd::electricity', ts.at(i + 1)] # Pyomo Sets are 1-indexed
+                + backend_model.carrier_con['X1::demand_electricity_ev_delta::electricity', ts.at(i + 1)]
                 )
             
             d_e_ev_cp_i = -energy_demand.get_d_e_ev_cp()[i] / energy_scaling_factor
@@ -475,7 +497,7 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand, energy_scal
             
             # Variable to limit energy shift from base profile (cp) in positive direction:
             pos_delta_i_max = (
-                backend_model.carrier_prod['X1::flexibility_ev::flexible_electricity', ts[i + 1]] # Pyomo Sets are 1-indexed
+                backend_model.carrier_prod['X1::flexibility_ev::flexible_electricity', ts.at(i + 1)] # Pyomo Sets are 1-indexed
                 )
             
             return pos_delta_i_max >= 0.0
@@ -502,7 +524,7 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand, energy_scal
                 
                 # Variable to limit energy shift from base profile (cp) in positive direction:
                 pos_delta_i_max = (
-                    backend_model.carrier_prod['X1::flexibility_ev::flexible_electricity', ts[i + 1]] # Pyomo Sets are 1-indexed
+                    backend_model.carrier_prod['X1::flexibility_ev::flexible_electricity', ts.at(i + 1)] # Pyomo Sets are 1-indexed
                     )
                 
                 pos_delta_i_max_sum += pos_delta_i_max
@@ -519,5 +541,484 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand, energy_scal
             constraint_sets,
             f_e_ev_dy_constraint_rule
             )
+    
+    return model
+
+def building_inertia_flex_constraints(
+        model,
+        ts_len,
+        energy_demand,
+        building_inertia_flex,
+        energy_scaling_factor,
+        fixed_share_techs
+        ):
+    """
+    Custom constraint: ensures that the cummulative annual heat demand in a
+    flexibility scenario is equal or larger than the cummulative annual base demand.
+    Avoids permanently lowering setpoint temperature as an optimal solution.
+
+    Parameters
+    ----------
+    model : Callipe model
+        Calliope model instance.
+    ts_len : int
+        Total number of timesteps.
+    energy_demand : class instance
+        Instance of EnergyDemand class.
+    building_inertia_flex: class instance
+        Instance of BuildingInertiaFlexibility class.
+
+    Returns
+    -------
+    Calliope model
+        Calliope model instance.
+
+    """        
+    
+    flex_systems = building_inertia_flex.get_flex_systems()    
+    E_vs_tot_max = building_inertia_flex.get_E_vs_tot_max()
+    E_vs_tot = building_inertia_flex.get_E_vs_tot()
+    r_tot = building_inertia_flex.get_r_tot()
+    mcr_vs = building_inertia_flex.get_mcr_vs()
+    
+    # d_h = energy_demand.get_d_h()
+    d_h_s = energy_demand.get_d_h_s()
+    d_h_flex_ll = energy_demand.get_d_h_flex_ll()
+    d_h_flex_ul = energy_demand.get_d_h_flex_ul()
+    # d_h_s_flex_ll = energy_demand.get_d_h_s_flex_ll()
+    flex_flag = energy_demand.get_flex_flag()
+    vs_drain_flag = energy_demand.get_vs_drain_flag()
+    
+    # =========================================================================
+    # Create factory functions for constraint rules:
+    # ---------------------------------------------
+    
+    def make_flex_capacity_constraint_rule():
+        
+        def flex_capacity_constraint_rule(backend_model):
+            """
+            The sum of capacities of all virtual storages must equal the total
+            flexible capacity (E_vs_tot).
+            """
+            
+            cap_sum = 0.0
+            for key_, acr_ in flex_systems.items():
+                # key: full tech name (e.g., 'heat_pump', 'district_heating')
+                # acr: acronym (e.g., 'hp', 'dh')
+                cap_tech = backend_model.storage_cap[f'X1::virtual_storage_flex_{acr_}']*energy_scaling_factor
+                cap_sum += cap_tech
+                
+            # E_vs_tot = building_inertia_flex.get_E_vs_tot()
+            
+            return cap_sum == E_vs_tot
+        
+        return flex_capacity_constraint_rule
+    
+    def make_d_h_flex_upper_limit_constraint_rule(ts_i):
+        
+        def d_h_flex_upper_limit_constraint_rule(backend_model):
+            
+            ts = backend_model.timesteps # retrieve timesteps
+            
+            q_h_vs_tot_i = 0.0
+            for key_, acr_ in flex_systems.items():
+                # key: full tech name (e.g., 'heat_pump', 'district_heating')
+                # acr: acronym (e.g., 'hp', 'dh')
+                q_h_vs_tech_i = (
+                    backend_model.
+                    storage[
+                        f'X1::virtual_storage_flex_{acr_}',
+                        ts.at(ts_i + 1) # Pyomo is 1-indexed
+                        ]*energy_scaling_factor
+                    )
+                q_h_vs_tot_i += q_h_vs_tech_i
+                
+            d_h_flex_i = d_h_flex_ll[ts_i] + q_h_vs_tot_i*r_tot
+            
+            return d_h_flex_i <= d_h_flex_ul[ts_i]
+        
+        return d_h_flex_upper_limit_constraint_rule
+    
+    def make_q_h_vs_constraint_rule(acr):
+        
+        def q_h_vs_constraint_rule(backend_model):
+            """
+            Rule: On average, each virtual storage must be half full (which
+            is the neutral state without over- or underheating).
+            This ensures that at least the same amount of heat was
+            delivered as without flexibility.
+            """
+            ts = backend_model.timesteps # retrieve timesteps
+
+            q_h_vs_tech_sum = 0 # [kWh] sum of flexible demand
+            number_of_ts = 0.0 # [kWH] number of timesteps included in the constraint
+            # Iterate over timesteps:
+            for ts_i_, flag_ in enumerate(flex_flag):
+                if flag_:
+                    # Building inertia flexibility can be applied
+                    q_h_vs_tech_i = (
+                        backend_model
+                        .storage[f'X1::virtual_storage_flex_{acr}', ts.at(ts_i_ + 1)] # Pyomo Sets are 1-indexed
+                        *energy_scaling_factor 
+                        )
+                    q_h_vs_tech_sum += q_h_vs_tech_i
+                    number_of_ts += 1
+                elif flag_ == False:
+                    # Only small d_h_s; flexibility restricted; separate constraint (q_h_vs_low_demand_constraint)
+                    pass
+
+            E_vs_tech = backend_model.storage_cap[f'X1::virtual_storage_flex_{acr}']*energy_scaling_factor
+                   
+            return q_h_vs_tech_sum >= 0.5*E_vs_tech*number_of_ts
+        
+        return q_h_vs_constraint_rule
+    
+    def make_q_h_vs_low_demand_constraint_rule(ts_i):
+        
+        def q_h_vs_low_demand_constraint_rule(backend_model):
+            """
+            Where the space heating demand (d_h_s) is 0, the storage level must
+            be 0. when there. This decouples the space heating demand
+            from DHW, because building inertia cannot be used for DHW heating.
+            """
+            ts = backend_model.timesteps # retrieve timesteps
+    
+            q_h_vs_tot_i = 0 # [kWh] sum of flexible demand
+
+            for key_, acr_ in flex_systems.items():
+            # Total virtual storage capacity:
+                q_h_vs_tot_i += (
+                    backend_model.
+                    storage[
+                        f'X1::virtual_storage_flex_{acr_}',
+                        ts.at(ts_i + 1) # Pyomo is 1-indexed
+                        ]*energy_scaling_factor
+                    )
+            
+            # lhs = q_h_vs_tot_i*r_tot
+            # rhs = d_h_s[ts_i]
+            
+            return q_h_vs_tot_i == 0.0
+            # return q_h_vs_tot_i == 0.5*E_vs_tot
+            # return lhs <= rhs
+        
+        return q_h_vs_low_demand_constraint_rule
+    
+    # def make_virtual_storage_discharge_constraint_rule(acr):
+        
+    #     def virtual_storage_discharge_constraint_rule(backend_model):
+            
+    #         ts = backend_model.timesteps # retrieve timesteps
+            
+    #         v_h_vs_sum = sum(
+    #             backend_model.carrier_prod[f"X1::virtual_storage_flex_{acr}::heat_vs_{acr}", t]
+    #             for t in ts
+    #             )*energy_scaling_factor
+            
+    #         return v_h_vs_sum == 0.0
+        
+    #     return virtual_storage_discharge_constraint_rule
+    
+    def make_q_h_vs_drain_constraint_rule(ts_i):
+        
+        def q_h_vs_drain_constraint_rule(backend_model):
+            
+            ts = backend_model.timesteps # retrieve timesteps
+            
+            q_h_vs_drain_tot_i = 0.0
+            
+            for key_, acr_ in flex_systems.items():
+            # Total virtual storage capacity:
+                q_h_vs_drain_tot_i += (
+                    backend_model.
+                    storage[
+                        f'X1::virtual_storage_drain_{acr_}',
+                        ts.at(ts_i + 1) # Pyomo is 1-indexed
+                        ]*energy_scaling_factor
+                    )
+            
+            if vs_drain_flag[ts_i] == 'idle' and d_h_s[ts_i] > 0:
+                return q_h_vs_drain_tot_i == 0.0
+            else:
+                return q_h_vs_drain_tot_i <= E_vs_tot
+        
+        return q_h_vs_drain_constraint_rule                                
+    
+    def make_virtual_storage_discharge_constraint_rule(ts_i, acr):
+        
+        def virtual_storage_discharge_constraint_rule(backend_model):
+            
+            ts = backend_model.timesteps # retrieve timesteps
+    
+            v_h_vs_tech_i = backend_model.carrier_prod[
+                f"X1::virtual_storage_flex_{acr}::heat_vs_{acr}",
+                ts.at(ts_i + 1)
+                ]*energy_scaling_factor
+            
+            u_h_vs_drain_tech_i = -backend_model.carrier_con[
+                f"X1::virtual_storage_drain_{acr}::heat_vs_{acr}",
+                ts.at(ts_i + 1)
+                ]*energy_scaling_factor
+            
+            if vs_drain_flag[ts_i] in ['idle', 'empty']:
+                return v_h_vs_tech_i == 0.0
+            elif vs_drain_flag[ts_i] == 'fill':
+                # return v_h_vs_tech_i <= E_vs_tot
+                return v_h_vs_tech_i == u_h_vs_drain_tech_i
+            else:
+                raise ValueError(
+                    "Value in vs_drain_flag must be 'idle', 'fill', or 'empty'"
+                    )
+        
+        return virtual_storage_discharge_constraint_rule
+    
+    def make_virtual_storage_charge_constraint_rule(ts_i, acr):
+        
+        def virtual_storage_charge_constraint_rule(backend_model):
+            
+            ts = backend_model.timesteps # retrieve timesteps
+    
+            u_h_vs_tech_i = -backend_model.carrier_con[
+                f"X1::virtual_storage_flex_{acr}::heat_vs_{acr}",
+                ts.at(ts_i + 1)
+                ]*energy_scaling_factor
+            
+            # q_h_vs_drain_i = (
+            #     backend_model
+            #     .storage[f'X1::virtual_storage_drain_{acr}', ts.at(ts_i + 1)] # Pyomo Sets are 1-indexed
+            #     *energy_scaling_factor 
+            #     )
+            
+            v_h_vs_drain_tech_i = backend_model.carrier_prod[
+                f"X1::virtual_storage_drain_{acr}::heat_vs_{acr}",
+                ts.at(ts_i + 1)
+                ]*energy_scaling_factor
+            
+            E_vs_tech_i = backend_model.storage_cap[
+                f'X1::virtual_storage_flex_{acr}'
+                ]*energy_scaling_factor
+            
+            # max. charge rate (mcr)
+            if mcr_vs == 'hs':
+                mcr = 1.0
+            elif mcr_vs == 'lr':
+                mcr = r_tot
+            else:
+                raise ValueError("mcr_vs must be 'hs' or 'lr'.")
+            
+            # if vs_drain_flag[ts_i] in ['idle', 'fill']:
+            #     return u_h_vs_tech_i <= E_vs_tech_i*mcr
+            if vs_drain_flag[ts_i] == 'idle':
+                return u_h_vs_tech_i <= E_vs_tech_i*mcr
+            elif vs_drain_flag[ts_i] == 'fill':
+                return u_h_vs_tech_i == 0.0 # when the drain fills up, the vs can only be discharged
+            elif vs_drain_flag[ts_i] == 'empty':
+                # recharging from drain:
+                return u_h_vs_tech_i <= v_h_vs_drain_tech_i + E_vs_tech_i*mcr
+                # return u_h_vs_tech_i <= q_h_vs_drain_i*1.0 + E_vs_tech_i*mcr
+            else:
+                raise ValueError(
+                    "Value in vs_drain_flag must be 'idle', 'fill', or 'empty'"
+                    )
+        
+        return virtual_storage_charge_constraint_rule
+    
+    def make_virtual_storage_drain_charge_constraint_rule(ts_i, acr):
+        
+        def virtual_storage_drain_charge_constraint_rule(backend_model):
+            
+            ts = backend_model.timesteps # retrieve timesteps
+    
+            u_h_vs_drain_tech_i = -backend_model.carrier_con[
+                f"X1::virtual_storage_drain_{acr}::heat_vs_{acr}",
+                ts.at(ts_i + 1)
+                ]*energy_scaling_factor
+            
+            if vs_drain_flag[ts_i] in ['idle', 'empty']:
+                return u_h_vs_drain_tech_i == 0.0
+            elif vs_drain_flag[ts_i] == 'fill':
+                return u_h_vs_drain_tech_i <= E_vs_tot
+            else:
+                raise ValueError(
+                    "Value in vs_drain_flag must be 'idle', 'fill', or 'empty'"
+                    )
+        
+        return virtual_storage_drain_charge_constraint_rule
+    
+    def make_virtual_storage_drain_discharge_constraint_rule(ts_i, acr):
+        
+        def virtual_storage_drain_discharge_constraint_rule(backend_model):
+            
+            ts = backend_model.timesteps # retrieve timesteps
+    
+            v_h_vs_drain_tech_i = backend_model.carrier_prod[
+                f"X1::virtual_storage_drain_{acr}::heat_vs_{acr}",
+                ts.at(ts_i + 1)
+                ]*energy_scaling_factor
+            
+            if vs_drain_flag[ts_i] in ['idle', 'fill']:
+                return v_h_vs_drain_tech_i == 0.0
+            elif vs_drain_flag[ts_i] == 'empty':
+                return v_h_vs_drain_tech_i <= E_vs_tot
+            else:
+                raise ValueError(
+                    "Value in vs_drain_flag must be 'idle', 'fill', or 'empty'"
+                    )
+        
+        return virtual_storage_drain_discharge_constraint_rule
+    
+    def make_demand_share_constraint_rule(key, acr):
+        
+        def demand_share_constraint_rule(backend_model):
+            """
+            Allocate the demand share to the flexibility-enabled techs
+            proportionally to their virtual storage capacity.
+            """
+            
+            ts = backend_model.timesteps # retrieve timesteps
+
+            # d_h_flex_ll_sum = energy_demand.get_d_h_flex_ll().sum()
+            # E_vs_tot_max = building_inertia_flex.get_E_vs_tot_max()
+            d_h_flex_ll_sum = d_h_flex_ll.sum()
+            
+            # Get the demand this tech is covering:
+            if key=='heat_pump':
+                v_h_sum = sum(
+                    backend_model.carrier_prod['X1::heat_pump_hub::heat', t]
+                    for t in ts
+                    )*energy_scaling_factor
+            elif key=='district_heating':
+                v_h_sum = sum(
+                    (                    
+                        backend_model.carrier_prod['X1::district_heating_hub_0::heat', t]
+                        + backend_model.carrier_prod['X1::district_heating_hub_1::heat', t]
+                        + backend_model.carrier_prod['X1::district_heating_hub_2::heat', t]
+                        + backend_model.carrier_prod['X1::district_heating_hub_3::heat', t]
+                        )
+                    for t in ts
+                    )*energy_scaling_factor
+            else:
+                msg = (
+                    f"Tech {key} has not yet been implemented for demand response"
+                    " flexibility."
+                    )
+                raise NotImplementedError(msg)
+            
+            E_vs_tech = backend_model.storage_cap[f'X1::virtual_storage_flex_{acr}']*energy_scaling_factor
+                
+            # lhs = E_vs_tech / E_vs_tot_max
+            # rhs = v_h_sum / d_h_flex_ll_sum
+            
+            lhs = E_vs_tech * d_h_flex_ll_sum
+            rhs = v_h_sum * E_vs_tot_max
+            
+            return lhs <= rhs
+        
+        return demand_share_constraint_rule
+    
+    
+    # =========================================================================
+    # Add constraints to model:
+    # ------------------------
+    constraint_sets = []
+    
+    # Single constraints:
+    # ------------------    
+    constraint_name = 'flex_capacity_constraint'        
+    model.backend.add_constraint(
+        constraint_name,
+        constraint_sets,
+        make_flex_capacity_constraint_rule()
+        )
+    
+    # Constraints per tech:
+    # --------------------
+    for key, acr in flex_systems.items():
+        # key: full tech name (e.g., 'heat_pump', 'district_heating')
+        # acr: acronym (e.g., 'hp', 'dh')
+
+        constraint_name = f'q_h_vs_{acr}_constraint'        
+        model.backend.add_constraint(
+            constraint_name,
+            constraint_sets,
+            make_q_h_vs_constraint_rule(acr)
+            )
+      
+        # constraint_name = f'virtual_storage_discharge_{acr}_constraint'        
+        # model.backend.add_constraint(
+        #     constraint_name,
+        #     constraint_sets,
+        #     make_virtual_storage_discharge_constraint_rule(acr)
+        #     )            
+    
+        constraint_name = f'demand_share_{acr}_constraint'        
+        model.backend.add_constraint(
+            constraint_name,
+            constraint_sets,
+            make_demand_share_constraint_rule(key, acr)
+            )
+        
+        # Constraints per tech and timestep:
+        # ---------------------------------
+        for ts_i, flag in enumerate(flex_flag):
+            
+            constraint_name = f"virtual_storage_charge_{acr}_ts_{ts_i}_constraint"
+            model.backend.add_constraint(
+                constraint_name,
+                constraint_sets,
+                make_virtual_storage_charge_constraint_rule(ts_i, acr)
+                )
+            
+            constraint_name = f"virtual_storage_discharge_{acr}_ts_{ts_i}_constraint"        
+            model.backend.add_constraint(
+                constraint_name,
+                constraint_sets,
+                make_virtual_storage_discharge_constraint_rule(ts_i, acr)
+                )
+            
+            constraint_name = f"virtual_storage_drain_charge_{acr}_ts_{ts_i}_constraint"
+            model.backend.add_constraint(
+                constraint_name,
+                constraint_sets,
+                make_virtual_storage_drain_charge_constraint_rule(ts_i, acr)
+                )
+            
+            constraint_name = f"virtual_storage_drain_discharge_{acr}_ts_{ts_i}_constraint"
+            model.backend.add_constraint(
+                constraint_name,
+                constraint_sets,
+                make_virtual_storage_drain_discharge_constraint_rule(ts_i, acr)
+                )
+
+    # Constraints per timestep:
+    # ------------------------
+    for ts_i, flag in enumerate(flex_flag):
+        
+        constraint_name = f"d_h_flex_upper_limit_ts_{ts_i}_constraint"
+        model.backend.add_constraint(
+                    constraint_name,
+                    constraint_sets,
+                    make_d_h_flex_upper_limit_constraint_rule(ts_i)
+                    )
+        
+        constraint_name = f"q_h_vs_drain_ts_{ts_i}_constraint"
+        model.backend.add_constraint(
+            constraint_name,
+            constraint_sets,
+            make_q_h_vs_drain_constraint_rule(ts_i)
+            )
+        
+        if flag:
+            # Building inertia flexibility can be applied; no constraint required
+            pass
+        elif flag == False:
+            # d_h_s = 0; virtual storage must be empty; constraint required
+            
+            constraint_name = f'q_h_vs_low_demand_ts_{ts_i}_constraint'
+            model.backend.add_constraint(
+                constraint_name,
+                constraint_sets,
+                make_q_h_vs_low_demand_constraint_rule(ts_i)
+                )
     
     return model

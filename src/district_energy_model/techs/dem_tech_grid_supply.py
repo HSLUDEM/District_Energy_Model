@@ -186,13 +186,32 @@ class GridSupply(TechCore):
         el_mix_path = self.paths.energy_mix_CH_dir + self.paths.electricity_mix_file
         el_mix_file = pd.read_feather(el_mix_path)
         
-        el_gen_imp = pd.DataFrame(index = range(8760))
-        el_gen_imp['Hydro'] = el_mix_file.iloc[:, :3].sum(axis = 1)
-        el_gen_imp['Nuclear'] = el_mix_file.iloc[:, 3]
-        el_gen_imp['Wind'] = el_mix_file.iloc[:, 5]
-        el_gen_imp['Biomass'] = el_mix_file.iloc[:, 6]
-        el_gen_imp['Other'] = el_mix_file.iloc[:, 7]
-        el_gen_imp['Import'] = el_mix_file.iloc[:, -1]
+        # el_gen_imp = pd.DataFrame(index = range(8760))
+        # el_gen_imp['Hydro'] = el_mix_file.iloc[:, :3].sum(axis = 1)
+        # el_gen_imp['Nuclear'] = el_mix_file.iloc[:, 3]
+        # el_gen_imp['Wind'] = el_mix_file.iloc[:, 5]
+        # el_gen_imp['Biomass'] = el_mix_file.iloc[:, 6]
+        # el_gen_imp['Other'] = el_mix_file.iloc[:, 7]
+        # el_gen_imp['Import'] = el_mix_file.iloc[:, -1]
+        
+        el_gen_imp = pd.DataFrame(index=el_mix_file.index)
+        
+        el_gen_imp['Hydro'] = (
+            el_mix_file[
+                [
+                    'Hydro Pumpspeicher',
+                    'Hydro Laufwasser',
+                    'Hydro Speicher'
+                ]
+            ]
+            .sum(axis=1)
+        )
+        
+        el_gen_imp['Nuclear'] = el_mix_file['Nuclear']
+        el_gen_imp['Wind'] = el_mix_file['Wind']
+        el_gen_imp['Biomass'] = el_mix_file['Biomass']
+        el_gen_imp['Other'] = el_mix_file['Other']
+        el_gen_imp['Import'] = el_mix_file['Import']
         
         
         el_gen_imp_percentages = el_gen_imp.div(el_gen_imp.sum(axis = 1), axis = 0)

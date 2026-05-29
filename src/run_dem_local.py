@@ -11,7 +11,7 @@ For running DEM locally using the source code.
 import argparse
 from district_energy_model.model import launch
 
-root_dir = '.'
+root_dir = '..'
 
 if __name__ == "__main__":
 
@@ -27,10 +27,12 @@ if __name__ == "__main__":
     config_dir = args.config_files_dir
     output_dir = args.output_files_dir
 
-    my_model = launch(root_dir=root_dir, 
-                      input_dir = input_dir, 
-                      config_dir=config_dir, 
-                      output_dir=output_dir)
+    my_model = launch(
+        root_dir=root_dir, 
+        input_dir = input_dir,
+        config_dir=config_dir, 
+        output_dir=output_dir
+        )
     
     # res_hourly = my_model.hourly_results()
     # res_annual = my_model.annual_results()

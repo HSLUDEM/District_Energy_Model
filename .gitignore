@@ -16,13 +16,14 @@ data/
 src/temp*
 src/tmp*
 src/postprocess_df_scen.py
+src/run_dem_local_OREES.py
+src/run_dem_local_newData.py
 doc/documentation.md
 tests/tmp*
 data/
 data/*
 **/tmp*
 **/dev_us_*
-**/dev_tz_*
 
 # ignore directories:
 # ------------------
@@ -43,10 +44,12 @@ bkp/
 __pycache__/
 results*/
 Results*/
+OREES_study_root_dir/
+revised_data_root_dir/
 .gitignore
 .gitignore
 
-# ignore content of data directory:
+# ignore content in data directory:
 # --------------------------------
 data/community_data/
 data/electricity_demand/
@@ -57,3 +60,5 @@ data/tech_wind_power/
 data/weather_data/
 data/read_data.py
 data/read_and_cluster_data.py
+data/tech_solar_pv/
+data/*.feather
