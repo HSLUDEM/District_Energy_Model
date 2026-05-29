@@ -158,8 +158,8 @@ class DistrictHeating(TechCore):
         kW_per_category = ([dh_already_existing_share_energy*energy_to_power_conversion_factor]
                            # +[dh_new_categories_energy[i+1]*energy_to_power_conversion_factor 
                            #   for i in range(self.num_dh_categories)]) # Add here + 1?
-                           +[dh_new_categories_energy[i]*energy_to_power_conversion_factor 
-                             for i in range(self.num_dh_categories+1)]) 
+                           +[dh_new_categories_energy[i+1]*energy_to_power_conversion_factor 
+                             for i in range(self.num_dh_categories)]) 
         
         if dh_already_existing_share_length > 0:
             length_per_kW_existing = [
@@ -176,15 +176,15 @@ class DistrictHeating(TechCore):
         #     ]
         
         length_per_kW_new = []
-        for i in range(self.num_dh_categories + 1):
+        for i in range(self.num_dh_categories):
         
             denominator = (
-                dh_new_categories_energy[i]
+                dh_new_categories_energy[i+1]
                 * energy_to_power_conversion_factor
             )
         
             if denominator > 0:
-                value = dh_new_categories_length[i] / denominator
+                value = dh_new_categories_length[i+1] / denominator
             else:
                 value = 0.0
         
