@@ -98,7 +98,10 @@ scen_techs = {
             # 'EGID_List': EGID_List,
             'EGID_List': [],
             'custom_district_name':'Test_Scenario',
-            
+            'manual_district': False,  #Are manual data added to the district?
+            'manual_district_df_com_path': '', #Location of the file with the dataframe for the manual district
+            'manual_district_df_solar_rooftop_profiles_path': '', #Location of the file, in which the rooftop solar information for the manual district is stored (1)
+            'manual_district_df_solar_rooftop_building_data_path': '', #Location of the file, in which the rooftop solar information for the manual district is stored (1)            
             }
         },
     'heat_pump':{ #hp
@@ -237,6 +240,19 @@ scen_techs = {
         'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
         'only_use_installed':False,
         },
+
+    'solar_pvalpine':{ # pv
+        'deployment':True,
+        'kWp_max':'inf', 
+        'eta_overall': -1.0, #Not used by code.
+        'lifetime':25,
+        'base_capex':6000, #capex per installed kWp power. This is not the same as the peak of the solar PV production.
+        'base_maintenance_cost': 13.0,
+        'interest_rate':interest_rate,
+        'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
+        'only_use_installed':False,
+        },
+
         
     'solarthermal_rooftop':{ # solar
         'deployment':True, 

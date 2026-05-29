@@ -45,7 +45,6 @@ class SolarPVType(TechCore):
         self._techkey = techkey
 
         self.update_tech_properties(tech_dict)
-        self._specific_yield = 1050
         
         self._profiles = profiles
         self._capex_scaling = capex_scaling
@@ -170,6 +169,9 @@ class SolarPVType(TechCore):
         for installation in self._installations:
             installation.reduce_timeframe(n_days)
     
+    def initialise_zero(self, n_days):
+        for installation in self._installations:
+            installation.initialise_zero(n_days)
 
     def compute_v_e(self):    
 
@@ -399,7 +401,6 @@ class SolarPVType(TechCore):
         for i, installation in enumerate(self._installations):
             maintenance += installation._maintenance_cost*installation._v_e.max()
         return maintenance
-    
     
     def get_energy_costs(self):
         return 0.0

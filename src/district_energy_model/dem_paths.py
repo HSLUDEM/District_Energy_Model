@@ -74,6 +74,7 @@ class DEMPaths:
         self.weather_data_delta_method_dir = path_strt1 + '/data/weather_data/com_files/'
         self.dhw_profile_dir = path_strt1 + '/data/heat_demand/'
         self.pv_data_dir = path_strt1 + '/data/tech_solar_pv/pv_input_file/' # location of pv data
+        self.pv_alpine_file = path_strt1 + '/data/pv_data/Alpine-PV_V2R1P2G1_20251127.csv'
         self.energy_mix_CH_dir = path_strt1 + '/data/electricity_mix_national/' # location of energy mix files
         self.electricity_profile_dir = path_strt1 + '/data/electricity_demand/' # location of electr. load profile files
         self.biomass_data_dir = path_strt1 + '/data/biomass_data/'

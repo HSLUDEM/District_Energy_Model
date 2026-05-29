@@ -407,11 +407,24 @@ class DistrictEnergyModel:
                 )
         else:
             com_nrs = list(self.com_percent_2.index)
+            if (scen_techs['meta_data']['custom_district']['manual_district'] 
+                and scen_techs['meta_data']['custom_district']['manual_district_df_solar_rooftop_profiles_path'] != None 
+                and scen_techs['meta_data']['custom_district']['manual_district_df_solar_rooftop_profiles_path'] != ''
+                and scen_techs['meta_data']['custom_district']['manual_district_df_solar_rooftop_building_data_path'] != None 
+                and scen_techs['meta_data']['custom_district']['manual_district_df_solar_rooftop_building_data_path'] != ''):
+
+                com_nrs_to_use = com_nrs + ["MANUAL"]
+            else:
+                com_nrs_to_use = com_nrs
+
             pv_profile_and_capex_factors = (
                 dem_solar_preprocessing_switzerland.obtain_custom_district_roof_profile(
-                    com_nrs,scen_techs['meta_data']['custom_district']['EGID_List'],
+                    com_nrs_to_use,
+                    scen_techs['meta_data']['custom_district']['EGID_List'],
                     scen_techs['solar_pvrooftop']['eta_overall'],
-                    self.paths
+                    self.paths,
+                    manual_district_df_solar_rooftop_profiles_path = scen_techs['meta_data']['custom_district']['manual_district_df_solar_rooftop_profiles_path'],
+                    manual_district_df_solar_rooftop_building_data_path = scen_techs['meta_data']['custom_district']['manual_district_df_solar_rooftop_building_data_path']
                     )
                 )
 
@@ -454,6 +467,7 @@ class DistrictEnergyModel:
         self.tech_solarthermal_rooftop.compute_v_h_pot_remain()
 
         self.tech_solarthermal_rooftop.agregate_variables(only_potential = True)
+
 
 
         self.tech_wind_power = dem_techs.WindPower(
@@ -722,6 +736,22 @@ class DistrictEnergyModel:
         #----------------------------------------------------------------------
         # Add additional techs for new scenario:
         
+        # PV Alpine
+        if scen_techs['solar_pvalpine']['deployment']:      
+            pvalpine_profile_readout = dem_solar_preprocessing_switzerland.obtain_com_pvalpine_profile(self.com_nr, self.paths)
+
+            pv_alpine_profiles = [pvalpine_profile_readout[0][0]]
+            pv_alpine_capex_numbers = [pvalpine_profile_readout[0][1]]
+
+            self.tech_solar_pvalpine = dem_techs.SolarPVType(
+                "pvalpine",
+                pv_alpine_profiles,
+                pv_alpine_capex_numbers,
+                [0.0], 
+                tech_dict = scen_techs['solar_pvalpine'])
+            self.tech_solar_pvalpine.initialise_zero(n_days)
+            self.tech_instances['solar_pvalpine'] = self.tech_solar_pvalpine
+
         # Heat demand manual flow
         if scen_techs['heat_demand_manual']['deployment']:                
             self.tech_heat_demand_manual = dem_techs.HeatDemandManual(scen_techs['heat_demand_manual'])
@@ -1786,13 +1816,7 @@ class DistrictEnergyModel:
                 opt_results=opt_results
                 )
                 
-            dict_total_costs["Kostenmodul"] = (
-                dem_costs.get_total_costs(
-                    self.tech_instances,
-                    self.supply,
-                    scen_techs["simulation"]["number_of_days"]
-                    )
-                )
+            dict_total_costs["Kostenmodul"] = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"], debug=False)
                 
             # -------------------------------------------------------------
             # Update df_scen:
@@ -1830,13 +1854,7 @@ class DistrictEnergyModel:
             # Compute costs in case no optimisation is applied:
             dict_total_costs = {} # !!! a separate module for cost calculations must be implemented
             
-            dict_total_costs = (
-                dem_costs.get_total_costs(
-                    self.tech_instances,
-                    self.supply,
-                    scen_techs["simulation"]["number_of_days"]
-                    )
-                )
+            dict_total_costs = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"], debug=False)
             model = 0
 
         #----------------------------------------------------------------------

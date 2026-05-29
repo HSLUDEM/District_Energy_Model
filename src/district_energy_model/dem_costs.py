@@ -173,7 +173,7 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
         opex = 0
         energy_revenue = 0
         energy_costs = 0
-        if tech != "pile_of_berries":  # !!! this should be adapted to the actual technologies included in the model    |||  and tech != "solar_pvrooftop" and tech != "solarthermal_rooftop"
+        if tech != "pile_of_berries":  # !!! this should be adapted to the actual technologies included in the model    |||  and tech != "solarpv_rooftop" and tech != "solarthermal_rooftop"
             if tech != "grid_supply" and tech != "grid_export" and tech != "heat_demand_manual":
                 capex = tech_instances[tech].get_total_capex()
                 opex = tech_instances[tech].get_total_maintenance()
@@ -189,10 +189,12 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
                     )
                 )
             elif hasattr(tech_instances[tech], '_lifetime') and not hasattr(tech_instances[tech], '_interest_rate'):
-                warnings.warn(f"{tech} has no '_interest_rate' attribute. Annuity factor was calculated with default interest rate of 0.025.")   
+                if debug:
+                    warnings.warn(f"{tech} has no '_interest_rate' attribute. Annuity factor was calculated with default interest rate of 0.025.")   
                 annualized_capex = capex * annuity_factor(tech_instances[tech]._lifetime, interest_rate=0.025)
             else: 
-                warnings.warn(f"{tech} has no '_lifetime' attribute. Annualized capex was set to capex without annualization.")
+                if debug:
+                    warnings.warn(f"{tech} has no '_lifetime' attribute. Annualized capex was set to capex without annualization.")
                 annualized_capex = capex
 
             tac = (
@@ -253,7 +255,7 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
 #     for tech in tech_instances:
 #         cost = 0
 #         energy_produced = 0
-#         if tech != "solar_pvrooftop" and tech != "solarthermal_rooftop" and tech != "pile_of_berries":  # !!! this should be adapted to the actual technologies included in the model
+#         if tech != "solarpv_rooftop" and tech != "solarthermal_rooftop" and tech != "pile_of_berries":  # !!! this should be adapted to the actual technologies included in the model
 #             if tech != "grid_supply":
 #                 for year in range(int(number_of_days/365)):
 #                     cost += (1/(1 + tech_instances[tech]._interest_rate) ** year)*( tech_instances[tech].get_total_capex() + tech_instances[tech].get_total_maintenance() + tech_instances[tech].get_energy_costs())
@@ -276,7 +278,7 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
 #     return None
 
 
-def get_total_costs(tech_instances, supply, number_of_days):
+def get_total_costs(tech_instances, supply, number_of_days, debug=False):
     """
     Return combined monetary and CO2 cost indicators for the current system.
 
@@ -304,8 +306,8 @@ def get_total_costs(tech_instances, supply, number_of_days):
         The "monetary" entry is produced by `calculate_total_anual_costs(...)`
         and the "co2" entry by `calculate_CO2_emissions(...)`.
     """
-    monetary_costs, monetary_breakdown = calculate_total_annual_costs(tech_instances, number_of_days, supply)
-    co2_emissions, co2_emissions_breakdown = calculate_CO2_emissions(supply, tech_instances)
+    monetary_costs, monetary_breakdown = calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=debug)
+    co2_emissions, co2_emissions_breakdown = calculate_CO2_emissions(supply, tech_instances, debug=debug)
     cost_overwiew = {
         "monetary": monetary_costs,
         "co2": co2_emissions,
@@ -314,7 +316,7 @@ def get_total_costs(tech_instances, supply, number_of_days):
     # return {"TAC": calculate_total_annual_costs(tech_instances), "LCOE": calculate_levelized_cost_of_energy(tech_instances, number_of_days)}
 
 
-def calculate_CO2_emissions(supply, tech_instances):
+def calculate_CO2_emissions(supply, tech_instances, debug=False):
     """
     Calculate total direct CO2 emissions and normalized emission indicators.
 

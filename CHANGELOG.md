@@ -11,6 +11,10 @@ All notable changes to this project will be documented in this file.
 - Added heatlt heat balance plot
 - Add consideration of construction period in calculation of space heating heat demand profile.
 - Added grid export as technology with timeseries for prices and emissions (emissions of export yield negative emissions!)
+- Added manual heat demand, to allow for a manual heat demand timeseries to be added to the demand
+- Added manual district functionality that loads data from user-provided files to model a user-defined district.
+- Added PV Alpine
+- Added PV-Alpine and electricity feedin to Sankey diagram
 
 
 ### Fixed

@@ -51,6 +51,12 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     # tech_solar_pv = tech_instances['solar_pv']
     tech_solar_pvrooftop = tech_instances['solar_pvrooftop']
 
+    with_pvalpine = False
+
+    if 'solar_pvalpine' in tech_instances:
+        tech_solar_pvalpine = tech_instances['solar_pvalpine']
+        v_e_pvalpine = tech_solar_pvalpine.get_v_e_from_installations()
+        with_pvalpine = True
     tech_wind_power = tech_instances['wind_power']
     tech_biomass = tech_instances['biomass']
     tech_hydro_power = tech_instances['hydro_power']
@@ -69,10 +75,17 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
         v_e_bes = tech_bes.get_v_e()
         u_e_bes = tech_bes.get_u_e()
 
-    if not with_bes:
+
+    
+
+    if not with_bes and not with_pvalpine:
         dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro)
-    else:
+    elif with_bes:
         dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_bes, u_e_bes)
+    elif with_pvalpine:
+        dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_pvalpine)
+    else:
+        dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_bes, u_e_bes, v_e_pvalpine)
 
     # Get dataseries length:
     ds_n = len(d_e)    
@@ -83,7 +96,13 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     # else:
     #     tech_hierarchy = ['pv', 'wp', 'bm', 'hydro']
     
-    tech_hierarchy_pv_section = ['pvrooftop_'+str(_) for _ in range(len(v_e_pvrooftop))]
+    tech_hierarchy_pvrooftop_section = ['pvrooftop_'+str(_) for _ in range(len(v_e_pvrooftop))]
+    tech_hierarchy_pv_section = tech_hierarchy_pvrooftop_section
+    if with_pvalpine:
+        tech_hierarchy_pvalpine_section = ['pvalpine_'+str(_) for _ in range(len(v_e_pvalpine))]
+        tech_hierarchy_pv_section = tech_hierarchy_pvrooftop_section + tech_hierarchy_pvalpine_section
+
+
     if with_bes:
         tech_hierarchy = tech_hierarchy_pv_section+['wp', 'bm', 'hydro', 'bes']
     else:
@@ -105,6 +124,11 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     dict_v_e = {
         'pvrooftop_'+str(i): pd.Series(v_e_pvrooftop[i]) for i in range(len(v_e_pvrooftop))
         }
+    
+    if with_pvalpine:
+         for i in range(len(v_e_pvalpine)):
+             dict_v_e['pvalpine_'+str(i)] = pd.Series(v_e_pvalpine[i])
+
     tmp_d_to_add = {
         'wp':pd.Series(v_e_wp),
         'bm':pd.Series(v_e_bm),
@@ -176,9 +200,17 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     # Solar PV:
     # ---------
 
-    tech_solar_pvrooftop.update_v_e_cons([dict_v_e_cons[x] for x in tech_hierarchy_pv_section])
-    tech_solar_pvrooftop.update_v_e_exp([dict_v_e_exp[x] for x in tech_hierarchy_pv_section])
+    tech_solar_pvrooftop.update_v_e_cons([dict_v_e_cons[x] for x in tech_hierarchy_pvrooftop_section])
+    tech_solar_pvrooftop.update_v_e_exp([dict_v_e_exp[x] for x in tech_hierarchy_pvrooftop_section])
+    
+    # Solar Alpine:
+    # ---------
+
+    if with_pvalpine:
+        tech_solar_pvalpine.update_v_e_cons([dict_v_e_cons[x] for x in tech_hierarchy_pvalpine_section])
+        tech_solar_pvalpine.update_v_e_exp([dict_v_e_exp[x] for x in tech_hierarchy_pvalpine_section])
         
+
     # Wind power:
     # -----------
     tech_wind_power.update_v_e_cons(dict_v_e_cons['wp'])
@@ -544,45 +576,48 @@ def electricity_balance_test(scen_techs,
     #--------------------------------------------------------------------------
     # Check timeseries:
     
-    missing_keys = [
-        'v_e_pv',
-        'v_e_pv_cons',
-        'v_e_pv_exp',
-        'v_e_pvrooftop',
-        'v_e_pvrooftop_cons',
-        'v_e_pvrooftop_exp',
-        'u_e_bes',
-        'v_e_bes',
-        'q_e_bes',
-        'l_u_e_bes',
-        'l_v_e_bes',
-        'l_q_e_bes',
-        'v_e_chpgt',
-        'v_e_gtcp',
-        'v_e_st',
-        'v_e_st_gtcp',
-        'v_e_st_wbsg',
-        'v_e_wte',
-        'u_e_hpcp',
-        'u_e_ehcp',
-        'u_e_hpcplt',
-        'u_e_aguh',
-        'u_e_wgu',
-        'u_e_wguh',
-        'u_e_hydp',
-        ]
+    # missing_keys = [
+    #     'v_e_pv',
+    #     'v_e_pv_cons',
+    #     'v_e_pv_exp',
+    #     'v_e_pvrooftop',
+    #     'v_e_pvrooftop_cons',
+    #     'v_e_pvrooftop_exp',
+    #     'u_e_bes',
+    #     'v_e_bes',
+    #     'q_e_bes',
+    #     'l_u_e_bes',
+    #     'l_v_e_bes',
+    #     'l_q_e_bes',
+    #     'v_e_chpgt',
+    #     'v_e_gtcp',
+    #     'v_e_st',
+    #     'v_e_st_gtcp',
+    #     'v_e_st_wbsg',
+    #     'v_e_wte',
+    #     'u_e_hpcp',
+    #     'u_e_ehcp',
+    #     'u_e_hpcplt',
+    #     'u_e_aguh',
+    #     'u_e_wgu',
+    #     'u_e_wguh',
+    #     'u_e_hydp',
+    #     ]
     
-    for k in missing_keys:
-        if k in df_scen.columns:
-            pass
-        else:
-            df_scen[k] = 0
+    # for k in missing_keys:
+    #     if k in df_scen.columns:
+    #         pass
+    #     else:
+    #         df_scen[k] = 0
+
+    df_scen = dem_helper.add_missing_keys(df_scen)
         
     electricity_consumption = df_scen['d_e'] + df_scen['u_e_bes'] + df_scen['f_e']
     
     electricity_generation = (
                                 # df_scen['v_e_pv_cons']
                                 df_scen['v_e_pvrooftop_cons']
+                              + df_scen['v_e_pvalpine_cons']
                               + df_scen['v_e_wp_cons']
                               + df_scen['v_e_bm_cons']
                               + df_scen['v_e_hydro_cons']
@@ -957,11 +992,61 @@ def heat_balance_test(scen_techs,
                     if x not in missing_keys:
                         missing_keys.append(x)
 
-    for k in missing_keys:
-        if k in df_scen.columns:
-            pass
-        else:
-            df_scen[k] = 0
+    df_scen = dem_helper.add_missing_keys(df_scen, tes_sites_plotting_inf)
+
+    # missing_keys = [
+    #     'd_h_m',
+    #     'u_h_tes',
+    #     'u_h_tesdc',
+    #     'v_h_tes',
+    #     'v_h_tesdc',
+    #     'q_h_tes',
+    #     'q_h_tesdc',
+    #     'l_u_h_tes',
+    #     'l_u_h_tesdc',
+    #     'l_v_h_tes',
+    #     'l_v_h_tesdc',
+    #     'l_q_h_tes',
+    #     'l_q_h_tesdc',
+    #     'v_h_chpgt',
+    #     'v_h_chpgt_con',
+    #     'v_h_chpgt_waste',
+    #     'v_h_st',
+    #     'v_h_st_con',
+    #     'v_h_st_waste',
+    #     'v_h_st_gtcp',
+    #     'v_h_st_gtcp_con',
+    #     'v_h_st_gtcp_waste',
+    #     'v_h_st_wbsg',
+    #     'v_h_st_wbsg_con',
+    #     'v_h_st_wbsg_waste',
+    #     'v_h_wte',
+    #     'v_h_wte_con',
+    #     'v_h_wte_waste',
+    #     'v_h_hpcp',
+    #     'v_h_hpcplt',
+    #     'v_h_obcp',
+    #     'v_h_ehcp',
+    #     'v_h_wbcp',
+    #     'v_h_wh',
+    #     'v_h_dgt',
+    #     'v_h_gbcp',
+    #     'u_e_aguh',
+    #     'm_h_dh',
+    #     ]
+    
+    # for k in tes_sites_plotting_inf.keys():
+    #     for k2 in tes_sites_plotting_inf[k].keys():
+    #         if k2 != 'color':
+    #             for x in tes_sites_plotting_inf[k][k2]:
+    #                 if x not in missing_keys:
+    #                     missing_keys.append(x)
+
+    # for k in missing_keys:
+    #     if k in df_scen.columns:
+    #         pass
+    #     else:
+    #         df_scen[k] = 0
     
     # flex_label
     if (

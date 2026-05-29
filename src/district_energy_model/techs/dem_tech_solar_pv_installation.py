@@ -69,7 +69,6 @@ class SolarPVInstallation(TechCore):
 
         # Initialize properties:
         self.update_tech_properties(tech_dict)
-        self._specific_yield = 1050
         self._existing = ...
         
         # Carrier types:
@@ -136,6 +135,17 @@ class SolarPVInstallation(TechCore):
         self._v_e_pot = self._v_e_pot[:n_hours]
         self._v_e_pot_remain = self._v_e_pot_remain[:n_hours]
         self._max_profile = self._max_profile[:n_hours]
+
+    def initialise_zero(self, n_days):
+        n_hours = n_days*24
+        
+        init_vals = np.array([0.0]*n_hours)
+        
+        self._v_e = init_vals.copy() 
+        self._v_e_cons = init_vals.copy() 
+        self._v_e_exp = init_vals.copy() 
+        self._v_e_pot = self._max_profile.copy()[:n_hours]
+        self._v_e_pot_remain = self._max_profile.copy()[:n_hours]
 
     def compute_v_e(self):
 
@@ -211,7 +221,7 @@ class SolarPVInstallation(TechCore):
                     'export': -self._export_subsidy*energy_scaling_factor,
                     }
                 }
-            }    
+            }
         
         # headers.append(header+"_occupied")
 
@@ -262,6 +272,4 @@ class SolarPVInstallation(TechCore):
         self.len_test(self._v_e_pot_remain)
         return self._v_e_pot_remain
 
-    def get_kwp(self):
-        return self._v_e.sum()/self._specific_yield
     

@@ -23,6 +23,32 @@ EXISTING_EPPS_GROUP = 0 #Which of the groups is the group for existing solar ins
 EFFICIENCY_TO_USE = 0.18
 BASE_IRRADIANCE = 1000.0
 
+def obtain_com_pvalpine_profile(com_nr, paths):
+
+    path_to_solar_alpine_data = paths.pv_alpine_file
+
+    pv_alpine_all_data = pd.read_csv(path_to_solar_alpine_data)
+
+    results = {}
+
+    if str(com_nr) in pv_alpine_all_data.columns:
+
+        profile = pv_alpine_all_data[str(com_nr)] / 1000.0
+
+        capex_opex_increase_factor = 1.0
+
+        results[0] = (profile, capex_opex_increase_factor)
+
+    else:
+
+        k0 = list(pv_alpine_all_data.columns)[1]
+
+        profile = 0.0 * pv_alpine_all_data[k0]
+        capex_opex_increase_factor = 1.0
+        results[0] = (profile, capex_opex_increase_factor)
+
+    return results
+
 
 def obtain_com_roof_profile(com_nr, efficiency_overall, paths):
 
@@ -87,14 +113,17 @@ def obtain_com_roof_profile(com_nr, efficiency_overall, paths):
 
     return results
 
-def obtain_custom_district_roof_profile(com_nrs, egid_list, efficiency_overall, paths):
-    ...
-
+def obtain_custom_district_roof_profile(com_nrs, 
+                                        egid_list, 
+                                        efficiency_overall, 
+                                        paths, 
+                                        manual_district_df_solar_rooftop_profiles_path = None,
+                                        manual_district_df_solar_rooftop_building_data_path = None
+                                        ):
     #calculate the roof profile for a 
     # custom district based on custom district 
     # (which can contain parts of different municipalities)
-
-    distresults = {}
+    # This also includes the functionality for manual districts, which are read as a separate municiaplity.
 
     group_profiles = [[] for _ in range(NUM_GROUPS)]
     area_sums = [[] for _ in range(NUM_GROUPS)]
@@ -107,9 +136,17 @@ def obtain_custom_district_roof_profile(com_nrs, egid_list, efficiency_overall, 
 
         path_epps_unassigned = paths.pv_epps_unassigned_path
 
-        path_pv_profile_file = path_roof_dat + "/" + str(com_nr) + "_pv_profiles_dach.feather"
+        if com_nr == "MANUAL":
 
-        path_building_pv_dach = path_roof_dat + "/" + str(com_nr) + "_building_pv_dach.feather"
+            path_pv_profile_file = manual_district_df_solar_rooftop_profiles_path
+
+            path_building_pv_dach = manual_district_df_solar_rooftop_building_data_path
+
+        else:
+
+            path_pv_profile_file = path_roof_dat + "/" + str(com_nr) + "_pv_profiles_dach.feather"
+
+            path_building_pv_dach = path_roof_dat + "/" + str(com_nr) + "_building_pv_dach.feather"
 
         epps_unassigned = pd.read_feather(path_epps_unassigned)
 
@@ -160,7 +197,6 @@ def obtain_custom_district_roof_profile(com_nrs, egid_list, efficiency_overall, 
                     areasum += line["per_group_wintersum_grouping_group_"+str(group_number)+"_areasum"]
                     energysum += line["per_group_wintersum_grouping_group_"+str(group_number)+"_energysum"]
 
-            # print(com_nr, group_number, areasum, energysum, energysum/areasum)
 
             area_sums[group_number].append(areasum)
             energy_sums[group_number].append(energysum)
@@ -191,7 +227,7 @@ def obtain_custom_district_roof_profile(com_nrs, egid_list, efficiency_overall, 
 
         peakpower_profile = efficiency * np.max(sumprofile)
 
-        capex_opex_increase_factor = peakpower / peakpower_profile
+        capex_opex_increase_factor = peakpower / peakpower_profile if peakpower_profile > 0 else 100.0
 
         pv_profile = sumprofile * efficiency
 
