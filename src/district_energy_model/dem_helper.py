@@ -1944,6 +1944,10 @@ def get_acronym(full_name):
     
 def add_missing_keys(df_scen, tes_sites_plotting_inf = {}):
     missing_keys = [
+        'u_h_vs_hp',
+        'u_h_vs_dh',
+        'v_h_vs_hp',
+        'v_h_vs_dh',
         'd_h_m',
         'u_h_tes',
         'u_h_tesdc',

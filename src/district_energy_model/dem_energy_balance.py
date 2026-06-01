@@ -940,57 +940,6 @@ def heat_balance_test(scen_techs,
     """
 
     # Fill dataframe with 0s if columns are missing:
-    missing_keys = [
-        'd_h_m',
-        'u_h_tes',
-        'u_h_tesdc',
-        'u_h_vs_hp',
-        'u_h_vs_dh',
-        'v_h_tes',
-        'v_h_tesdc',
-        'v_h_vs_hp',
-        'v_h_vs_dh',
-        'q_h_tes',
-        'q_h_tesdc',
-        'l_u_h_tes',
-        'l_u_h_tesdc',
-        'l_v_h_tes',
-        'l_v_h_tesdc',
-        'l_q_h_tes',
-        'l_q_h_tesdc',
-        'v_h_chpgt',
-        'v_h_chpgt_con',
-        'v_h_chpgt_waste',
-        'v_h_st',
-        'v_h_st_con',
-        'v_h_st_waste',
-        'v_h_st_gtcp',
-        'v_h_st_gtcp_con',
-        'v_h_st_gtcp_waste',
-        'v_h_st_wbsg',
-        'v_h_st_wbsg_con',
-        'v_h_st_wbsg_waste',
-        'v_h_wte',
-        'v_h_wte_con',
-        'v_h_wte_waste',
-        'v_h_hpcp',
-        'v_h_hpcplt',
-        'v_h_obcp',
-        'v_h_ehcp',
-        'v_h_wbcp',
-        'v_h_wh',
-        'v_h_dgt',
-        'v_h_gbcp',
-        'u_e_aguh',
-        'm_h_dh',
-        ]
-    
-    for k in tes_sites_plotting_inf.keys():
-        for k2 in tes_sites_plotting_inf[k].keys():
-            if k2 != 'color':
-                for x in tes_sites_plotting_inf[k][k2]:
-                    if x not in missing_keys:
-                        missing_keys.append(x)
 
     df_scen = dem_helper.add_missing_keys(df_scen, tes_sites_plotting_inf)
 
