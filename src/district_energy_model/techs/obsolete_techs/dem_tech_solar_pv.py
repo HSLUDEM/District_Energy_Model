@@ -221,7 +221,7 @@ class SolarPV(TechCore):
         """
         
         # Annual output of installed PV:
-        v_e_pv_yr  = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'TotalEnergy'].values # [kWh]
+        v_e_pv_yr  = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'PV_TotalEnergy'].values # [kWh]
         pv_filename = 'PV_Profile_' + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'PV_Filename'].values[0]
         self.pv_profile_hr = profiles_file[pv_filename]
         

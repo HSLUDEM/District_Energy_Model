@@ -727,6 +727,11 @@ def create_results_directory(arg_path, arg_results_dir_name):
             return str(full_path)
 
     raise RuntimeError("Could not create unique directory")
+    
+def create_directory_if_not(dir_path):
+    full_path = Path(dir_path)
+    full_path.mkdir(parents=True, exist_ok=True)
+    return full_path
 
 def save_values_to_txt(arg_results_dir, arg_filename, arg_dict_data):
     
@@ -1172,8 +1177,8 @@ def epp_installed_cap_by_munic(df_epp, df_meta, plant_type, file_dir='', to_csv=
     df_epp_all_munics = df_meta['Municipality'].copy()
     
     # Reduce existing epp dataframe to only keep relevant columns:
-    # df_reduced = df_epp[['Municipality', 'Canton', 'TotalPower']]
-    df_reduced = df_epp[['Municipality', 'TotalPower']]
+    # df_reduced = df_epp[['Municipality', 'Canton', 'PV_TotalPower']]
+    df_reduced = df_epp[['Municipality', 'PV_TotalPower']]
     
     # Aggregate by municipality:
     # df_epp_munic = df_reduced.groupby(['Municipality', 'Canton']).sum()
@@ -1184,10 +1189,10 @@ def epp_installed_cap_by_munic(df_epp, df_meta, plant_type, file_dir='', to_csv=
     df_epp_inst = pd.merge(df_epp_all_munics, df_epp_munic, on='Municipality', how='left')
     
     # Fill missing values with 0
-    df_epp_inst['p_kW'] = df_epp_inst['TotalPower'].fillna(0)
+    df_epp_inst['p_kW'] = df_epp_inst['PV_TotalPower'].fillna(0)
     
-    # Drop 'TotalPower' column
-    df_epp_inst.drop('TotalPower', axis=1, inplace=True)
+    # Drop 'PV_TotalPower' column
+    df_epp_inst.drop('PV_TotalPower', axis=1, inplace=True)
     
     
     if to_csv:
@@ -1292,26 +1297,59 @@ def save_calliope_dicts_to_yaml(
 def get_com_files(com_nr,
                  master_data_dir,
                  com_data_dir,
-                 master_file, 
-                 meta_file):
+                 # master_file, 
+                 # meta_file,
+                 master_file_general,
+                 meta_file_general,
+                 master_file_year,
+                 meta_file_year,
+                 ):
     
-    meta_file_path = master_data_dir + meta_file
-    df_meta = pd.read_feather(meta_file_path)
+    # meta_file_path = master_data_dir + meta_file
+    # df_meta = pd.read_feather(meta_file_path)
+    meta_file_general_path = master_data_dir + meta_file_general
+    df_meta_general = pd.read_feather(meta_file_general_path)
+    
+    meta_file_year_path = master_data_dir + meta_file_year
+    df_meta_year = pd.read_feather(meta_file_year_path)
+    
+    # Merge general with year-specific meta data:
+    df_meta = df_meta_general.merge(
+        df_meta_year,
+        on="GGDENR",
+        how="left"
+    )
     
     com_name = df_meta.loc[df_meta['GGDENR']==com_nr,'Municipality'].iloc[0]
     com_kt = df_meta.loc[df_meta['GGDENR']==com_nr,'Canton'].iloc[0]
     
     com_yr_file_name = df_meta.loc[df_meta['Municipality'] == com_name, 'Filename'].item() + '.csv'
-    com_yr_file_path = com_data_dir + com_yr_file_name 
+    com_yr_file_path = com_data_dir + com_yr_file_name
+    
+    create_directory_if_not(com_data_dir)
+    
     file_exist = os.path.isfile(com_yr_file_path)
     
     if file_exist == False:
-        # read master file and create new csv file with community data:
-        master_file_path = master_data_dir + master_file
-        df_master_yr = pd.read_feather(master_file_path)
-        com_mask = df_master_yr['GGDENR'] == com_nr    
-        df_com_yr = df_master_yr[com_mask]
+        # read general and year-specific master file:
+        master_file_general_path = master_data_dir + master_file_general
+        df_master_general = pd.read_feather(master_file_general_path)
+        
+        master_file_year_path = master_data_dir + master_file_year
+        df_master_year = pd.read_feather(master_file_year_path)
+        
+        # Merge to one master file:
+        df_master = df_master_general.merge(
+            df_master_year,
+            on="EGID",
+            how="left"
+        )
+        
+        # create new csv file with community data:
+        com_mask = df_master['GGDENR'] == com_nr
+        df_com_yr = df_master[com_mask]
         df_com_yr.to_csv(com_yr_file_path)
+        
     elif file_exist == True:
         # read community file:
         df_com_yr = pd.read_csv(com_yr_file_path)
@@ -1338,6 +1376,23 @@ def get_com_files(com_nr,
     # print(com_name)
         
     return com_name, com_kt, df_meta, df_com_yr
+
+def get_simulation_profiles_file(
+        df_simulation_profiles_general,
+        df_simulation_profiles_year,
+        ):
+    
+    if not df_simulation_profiles_general.index.equals(
+        df_simulation_profiles_year.index
+    ):
+        raise ValueError("DataFrames do not have matching indices.")
+    
+    df_simulation_profiles_combined = pd.concat(
+        [df_simulation_profiles_general, df_simulation_profiles_year],
+        axis=1
+    )
+    
+    return df_simulation_profiles_combined
 
 def create_dict_yr(df_base):
     columns = df_base.columns

@@ -33,7 +33,6 @@ from warnings import simplefilter
 simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 pd.options.mode.chained_assignment = None
 
-
 # pd.options.mode.chained_assignment = None
 
 class DistrictEnergyModel:
@@ -109,6 +108,7 @@ class DistrictEnergyModel:
                 )
             print(f"\nCustom district: {custom_district_name} (part of {self.com_name_})")
         
+        # year_sync_label
         else:
             (
                 self.com_name_, self.com_kt, self.df_meta, self.df_com_yr
@@ -116,9 +116,15 @@ class DistrictEnergyModel:
                     com_nr = self.com_nr,
                     master_data_dir = paths.simulation_data_dir,
                     com_data_dir = paths.com_data_dir,
-                    master_file = paths.master_file,
-                    meta_file = paths.meta_file
+                    # master_file = paths.master_file,
+                    # meta_file = paths.meta_file
+                    master_file_general = paths.master_file_general,
+                    meta_file_general = paths.meta_file_general,
+                    master_file_year = paths.master_file_year,
+                    meta_file_year = paths.meta_file_year,
                 )
+
+                
             self.com_percent = []
             self.com_percent_2 = []
         
@@ -166,9 +172,16 @@ class DistrictEnergyModel:
         # Flexibility metrics (will be populated if activated):
         # self.dict_flexibility_metrics = 0
         
+        # year_sync_label
         # Input data files:
-        self.profiles_file = pd.read_feather(self.simulation_data_dir + paths.profiles_file)
-
+        # self.profiles_file = pd.read_feather(self.simulation_data_dir + paths.profiles_file)
+        df_simulation_profiles_general = pd.read_feather(self.simulation_data_dir + paths.profiles_file_general)
+        df_simulation_profiles_year = pd.read_feather(self.simulation_data_dir + paths.profiles_file_year)
+        
+        self.profiles_file = dem_helper.get_simulation_profiles_file(
+                df_simulation_profiles_general,
+                df_simulation_profiles_year,
+                )
             
         # self.electricity_import_file = paths.electricity_import_file # csv-file containing timeseries of hourly cross-border electricity import fraction.
         # self.electricity_mix_file = paths.electricity_mix_file # csv-file containing timeseries of hourly electricity mix fractions.
@@ -212,8 +225,8 @@ class DistrictEnergyModel:
         
         #----------------------------------------------------------------------
         # Heat demand info:
-        self.yearly_heat_demand_col='heat_energy_demand_estimate_kWh_combined' # df column used for annual heat demand
-        self.yearly_hot_water_demand_col='dhw_estimation_kWh_combined' # df column used for annual hot_water demand
+        self.yearly_heat_demand_col='space_heating_demand_estimation_kWh' # df column used for annual heat demand
+        self.yearly_hot_water_demand_col='DHW_demand_estimation_kWh' # df column used for annual hot_water demand
         
         """--------------------------------------------------------------------
         Read and prepare data:
@@ -532,7 +545,7 @@ class DistrictEnergyModel:
             self.df_meta,
             self.com_nr
             )
-        
+
         # Hourly electricity demand ("household" (hh) demand, i.e. w/o heating):
         self.energy_demand.compute_d_e_hh_hr(
             profiles_file = self.profiles_file,
@@ -1167,7 +1180,7 @@ class DistrictEnergyModel:
                 year=scen_techs['demand_side']['year'],
                 rcp_scenario=scen_techs['demand_side']['rcp_scenario'],
                 ts_type=scen_techs['demand_side']['ts_type'],
-                yearly_heat_demand_col='heat_energy_demand_estimate_kWh_combined',
+                yearly_heat_demand_col='space_heating_demand_estimation_kWh',
                 new_header = 'd_h_s_yr_future',
                 writeToMeta = True,
                 distinguishByConstructionYear = True

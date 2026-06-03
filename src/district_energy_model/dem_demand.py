@@ -229,10 +229,10 @@ class EnergyDemand:
         # if df_data['Municipality'].str.contains(c).any(): # This function can't handle string with whitespaces
         if (df_meta['GGDENR'] == c).sum() == 1:
             # d_e_yr = df_meta.loc[df_meta['GGDENR']==c, ]
-            d_e_yr_sfh = df_meta.loc[df_meta['GGDENR']==c, 'kWh_household_sfh'].values[0]
-            d_e_yr_mfh = df_meta.loc[df_meta['GGDENR']==c, 'kWh_household_mfh'].values[0]
-            d_e_yr_ind = df_meta.loc[df_meta['GGDENR']==c, 'Electricity_Industry'].values[0]
-            d_e_yr_ser = df_meta.loc[df_meta['GGDENR']==c, 'Electricity_Service'].values[0]
+            d_e_yr_sfh = df_meta.loc[df_meta['GGDENR']==c, 'Electricity_demand_household_SFH_kWh'].values[0]
+            d_e_yr_mfh = df_meta.loc[df_meta['GGDENR']==c, 'Electricity_demand_household_MFH_kWh'].values[0]
+            d_e_yr_ind = df_meta.loc[df_meta['GGDENR']==c, 'Electricity_demand_industry_kWh'].values[0]
+            d_e_yr_ser = df_meta.loc[df_meta['GGDENR']==c, 'Electricity_demand_services_kWh'].values[0]
         else:
             sys.exit(f"Error in get_d_e_yr(): {c} is not found in meta file.")
         
@@ -340,10 +340,10 @@ class EnergyDemand:
         #           temp_df_industry[com_kt] * d_e_yr_ind)
         
         d_e_hh_hr = (
-            self.profiles['Electricity_Profile_SFH'] * self._d_e_sfh_yr + 
-            self.profiles['Electricity_Profile_MFH'] * self._d_e_mfh_yr +
-            self.profiles['Electricity_Profile_Industry_' + com_kt] * self._d_e_ser_yr + 
-            self.profiles['Electricity_Profile_Industry_' + com_kt] * self._d_e_ind_yr
+            self.profiles['Electricity_profile_household_SFH'] * self._d_e_sfh_yr + 
+            self.profiles['Electricity_profile_household_MFH'] * self._d_e_mfh_yr +
+            self.profiles['Electricity_profile_industry_and_services_' + com_kt] * self._d_e_ser_yr + 
+            self.profiles['Electricity_profile_industry_and_services_' + com_kt] * self._d_e_ind_yr
             )
         
         self._d_e_hh = np.array(d_e_hh_hr)
@@ -1029,7 +1029,7 @@ class EnergyDemand:
             self,
             df_meta,
             df_com,
-            spaceheating_column = 'heat_energy_demand_estimate_kWh_combined'
+            spaceheating_column = 'space_heating_demand_estimation_kWh'
             ):
         
         """Returns the annual heat demand (d_e_yr) of the selected community.
@@ -1049,8 +1049,8 @@ class EnergyDemand:
         """
             
         # Annual total heat demand of community:
-        d_h_s_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'Total_Heating'].values[0] # [kWh]
-        d_h_hw_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'Total_Hot_Water'].values[0] # [kWh]
+        d_h_s_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'space_heating_demand_estimation_kWh'].values[0] # [kWh]
+        d_h_hw_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'DHW_demand_estimation_kWh'].values[0] # [kWh]
         d_h_yr = d_h_s_yr + d_h_hw_yr
         
         self._d_h_s_yr = d_h_s_yr
@@ -1082,7 +1082,7 @@ class EnergyDemand:
             year,
             rcp_scenario,
             ts_type,
-            yearly_heat_demand_col='heat_energy_demand_estimate_kWh_combined',
+            yearly_heat_demand_col='space_heating_demand_estimation_kWh',
             new_header = 'd_h_s_yr_future',
             writeToMeta = True,
             distinguishByConstructionYear = True
@@ -1154,7 +1154,7 @@ class EnergyDemand:
             df_meta.loc[df_meta['GGDENR']==GGDENR, 'v_h_wb'] = df_com_yr.loc[df_com_yr['Heating_System'] == 'v_h_wb', 'd_h_s_yr_future'].sum()
             df_meta.loc[df_meta['GGDENR']==GGDENR, 'v_h_solar'] = df_com_yr.loc[df_com_yr['Heating_System'] == 'v_h_solar', 'd_h_s_yr_future'].sum()
             df_meta.loc[df_meta['GGDENR']==GGDENR, 'v_h_other'] = df_com_yr.loc[df_com_yr['Heating_System'] == 'v_h_other', 'd_h_s_yr_future'].sum()
-            df_meta.loc[df_meta['GGDENR']==GGDENR, 'Total_Heating'] = df_com_yr.loc[:, 'd_h_s_yr_future'].sum()
+            df_meta.loc[df_meta['GGDENR']==GGDENR, 'space_heating_demand_estimation_kWh'] = df_com_yr.loc[:, 'd_h_s_yr_future'].sum()
         
             
         return new_header, df_meta
@@ -1261,17 +1261,17 @@ class EnergyDemand:
                           *(df_com_yr.loc[df_com_yr['Heating_System'] == k, 'total_renovation_flag'])
                           ).sum() for k in reassignment_dict_sh.keys()])
                     )
-            df_meta.loc[df_meta['GGDENR']==GGDENR, 'Total_Heating'] = df_com_yr.loc[:, new_header].sum()
+            df_meta.loc[df_meta['GGDENR']==GGDENR, 'space_heating_demand_estimation_kWh'] = df_com_yr.loc[:, new_header].sum()
 
             for systemtype in reassignment_dict_dhw.keys():        
                 df_meta.loc[
                     df_meta['GGDENR']==GGDENR, systemtype
                     ] = (
-                        df_com_yr.loc[df_com_yr['Hot_Water_System'] == systemtype, 'dhw_estimation_kWh_combined']
+                        df_com_yr.loc[df_com_yr['Hot_Water_System'] == systemtype, 'DHW_demand_estimation_kWh']
                         *(1.0-df_com_yr.loc[df_com_yr['Hot_Water_System'] == systemtype, 'total_renovation_flag'])
                         ).sum() + reassignment_dict_dhw[systemtype]*(
                     sum(
-                        [(df_com_yr.loc[df_com_yr['Hot_Water_System'] == k, 'dhw_estimation_kWh_combined']
+                        [(df_com_yr.loc[df_com_yr['Hot_Water_System'] == k, 'DHW_demand_estimation_kWh']
                           *(df_com_yr.loc[df_com_yr['Hot_Water_System'] == k, 'total_renovation_flag'])).sum() 
                           for k in reassignment_dict_dhw.keys()]
                         )
@@ -1331,7 +1331,7 @@ class EnergyDemand:
                 heat_generators_total_power_up_for_renovation[k] = (
                     (df_com_yr.loc[df_com_yr['Heating_System'] == k, new_header]
                      *(df_com_yr.loc[df_com_yr['Heating_System'] == k, 'heat_generator_replacement_flag'])).sum() 
-                     + (df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'dhw_estimation_kWh_combined']
+                     + (df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'DHW_demand_estimation_kWh']
                         *(df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'heat_generator_replacement_flag'])).sum())
                 heat_generators_total_power[k] = (df_meta.loc[df_meta['GGDENR']==GGDENR, k]
                                                   + df_meta.loc[df_meta['GGDENR']==GGDENR, k.replace("_h_", "_hw_")])
@@ -1404,6 +1404,10 @@ class EnergyDemand:
         return scaling_factor_t12, scaling_factor_t15
     
     # def get_d_h_hr(
+    
+    def _compute_HDD(
+            self,
+            ):
 
 
     #Helper function to calculate space heating demand for specific base_temp
@@ -1440,8 +1444,7 @@ class EnergyDemand:
         df_hour.loc[ (df_hour['hdh']!=True), 'd_h_hr'] = 0
     
         df_hour = df_hour.drop(['tmp_diffT'], axis=1)
-    
-        
+
         return df_hour
 
     def compute_d_h_hr(
@@ -1453,7 +1456,8 @@ class EnergyDemand:
             com_alt,
             tf_start,
             tf_end,
-            base_year = 2025):
+            base_year = 2025
+            ):
                 # d_h_yr,
                 # d_hw_yr):
         
@@ -1489,7 +1493,7 @@ class EnergyDemand:
         temp_base_new = 12.0 # Basis Temperatur [°C]
         temp_base_old = 15.0 # Basis Temperatur [°C]
         # hwb =  d_h_yr # Heizwärmebedarf [kWh/y]
-        weather_data_dir = self.paths.weather_data_dir
+        # weather_data_dir = self.paths.weather_data_dir
     
         weather_data_dir_delta = self.paths.weather_data_delta_method_dir
 

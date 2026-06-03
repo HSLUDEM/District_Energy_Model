@@ -35,10 +35,21 @@ def launch(root_dir=None,
            config_dict='', 
            input_dir = "district_energy_model.input_files.inputs",
            config_dir = "",
-           output_dir = ""):
+           output_dir = "",
+           data_year = 2016,
+           simulation_year = 2026,
+           ):
     """
     root_dir: directory where the user provides `data/` and `config/` folders
     If None: use current working directory.
+    
+    data_year: int
+        Year from which historical data is used to model demand and resources
+        (i.e., heat demand, electricity demand, solar PV, wind power, ...)
+    simulation_year: int
+        Year for which the simulation is carried out, considering the respective
+        buildings and municipalities. Data from data_year is mapped to
+        simulation_year.
     """
     
     #Load input file from specified location, if requested to do so.
@@ -61,7 +72,13 @@ def launch(root_dir=None,
     print("------------------------------")
     print('\nGenerate model ...')
     
-    paths = dem_paths.DEMPaths(root_dir, output_dir=output_dir, config_dir=config_dir)
+    paths = dem_paths.DEMPaths(
+        root_dir,
+        output_dir=output_dir,
+        config_dir=config_dir,
+        data_year = data_year,
+        simulation_year = simulation_year,
+        )
     
     # Read input files and update scen_techs:
     paths.input_files_dir

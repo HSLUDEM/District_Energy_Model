@@ -34,7 +34,10 @@ class DEMPaths:
     def __init__(self, 
                  root_dir, 
                  config_dir = '', 
-                 output_dir = ''):
+                 output_dir = '',
+                 data_year = 2016,
+                 simulation_year = 2026,
+                 ):
 
         path_strt1 = root_dir
         self.root_dir = root_dir
@@ -42,20 +45,30 @@ class DEMPaths:
         # simulation_data_dir = '../../data/master_data/simulation_data/'
         self.simulation_data_dir = path_strt1 + '/data/master_data/simulation_data/'
         
-        self.master_file = 'df_master_sim.feather'
-        self.meta_file = 'meta_file_2.feather'
+        # year_sync_label
+        # self.master_file = 'df_master_sim.feather'
+        # self.meta_file = 'meta_file_2.feather'
+        self.master_file_general = 'master_data_general.feather'
+        self.meta_file_general = 'meta_data_general.feather'
+        
+        self.master_file_year = f"master_data_{data_year}.feather"
+        self.meta_file_year = f"meta_data_{data_year}.feather"
         
         
-        self.profiles_file = 'simulation_profiles_file.feather'
+        # self.profiles_file = 'simulation_profiles_file.feather'
+        self.profiles_file_general = "simulation_profiles_general.feather"
+        self.profiles_file_year = f"simulation_profiles_{data_year}.feather"
         # -----------------------------------------------------------------------------
         # run_dem.py:
         # -----------
-            
+        
+        # year_sync_label
         # Directory paths:
         # master_data_dir = '../../data/master_data/'
         # com_data_dir = '../../data/community_data/'
         self.master_data_dir = path_strt1 + '/data/master_data/'
-        self.com_data_dir = path_strt1 + '/data/community_data/'
+        # self.com_data_dir = path_strt1 + '/data/community_data/'
+        self.com_data_dir = path_strt1 + f"/data/community_data/{data_year}_mapped_to_{simulation_year}/"
         
         # -----------------------------------------------------------------------------
         # dem.py:
@@ -70,7 +83,7 @@ class DEMPaths:
             self.input_files_dir = config_dir
         
         # Input data directories:
-        self.weather_data_dir = path_strt1 + '/data/heat_demand/weather_data/' # location of meteostat files
+        # self.weather_data_dir = path_strt1 + '/data/heat_demand/weather_data/' # location of meteostat files
         self.weather_data_delta_method_dir = path_strt1 + '/data/weather_data/com_files/'
         self.dhw_profile_dir = path_strt1 + '/data/heat_demand/'
         self.pv_data_dir = path_strt1 + '/data/tech_solar_pv/pv_input_file/' # location of pv data
