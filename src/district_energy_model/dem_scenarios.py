@@ -15,6 +15,7 @@ import pandas as pd
 
 from district_energy_model import dem_helper
 from district_energy_model import dem_energy_balance as dem_eb
+from district_energy_model import dem_constants as C
 
 # pd.options.mode.chained_assignment = None
 
@@ -404,8 +405,13 @@ def scenario_nuclear_phaseout(
     npp_powers = scen_techs["nuclear_phaseout"]["nuclear_power_plant_powers"]
 
     planned_shutdown = scen_techs["nuclear_phaseout"]["nuclear_power_plant_shutdown_years"]
+    
+    if scen_techs['scenarios']['demand_side'] and scen_techs['demand_side']['simulation_year']['type'] == 'future':
+        year = scen_techs['demand_side']['simulation_year']['future_year']
+    else:
+        year = C.CURRENT_YEAR
 
-    year = scen_techs["demand_side"]["year"]
+    # year = scen_techs["demand_side"]["year"]
 
     tech_grid_supply = tech_instances['grid_supply']
 
@@ -820,8 +826,8 @@ def scenario_thermal_energy_storage_via_pv_hp(energy_demand, scen_techs, tech_in
                 
                 # Electricity demand not replacable by TES:
                 tmp_d_e_non_repl = (
-                    # df_scen.loc[i, 'd_e_hh'] +
-                    energy_demand.get_d_e_hh()[i]
+                    # df_scen.loc[i, 'd_e_baseline'] +
+                    energy_demand.get_d_e_baseline()[i]
                     + tech_electric_heater.get_u_e()[i]
                     + energy_demand.get_d_e_ev()[i]
                     )
@@ -833,7 +839,7 @@ def scenario_thermal_energy_storage_via_pv_hp(energy_demand, scen_techs, tech_in
                 # ======================================================
                 # TEMPORARY TEST
                 # tmp_test_val_1 = (
-                #     df_scen.loc[i, 'd_e_hh'] +
+                #     df_scen.loc[i, 'd_e_baseline'] +
                 #     tech_electric_heater.u_e.loc[i] +
                 #     tech_heat_pump.u_e.loc[i]
                 #     )

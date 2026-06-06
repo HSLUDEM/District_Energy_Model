@@ -24,6 +24,7 @@ import sys
 from district_energy_model import dem
 from district_energy_model import dem_helper
 from district_energy_model import dem_paths
+from district_energy_model import dem_constants as C
 
 # Generic input file:
 # -----------------------
@@ -36,8 +37,10 @@ def launch(root_dir=None,
            input_dir = "district_energy_model.input_files.inputs",
            config_dir = "",
            output_dir = "",
-           data_year = 2016,
-           simulation_year = 2026,
+           # data_year = 2016,
+           # simulation_year = 2026,
+           hist_data_year=C.HIST_DATA_YEAR_DEFAULT,
+           current_year=C.CURRENT_YEAR,
            ):
     """
     root_dir: directory where the user provides `data/` and `config/` folders
@@ -76,8 +79,10 @@ def launch(root_dir=None,
         root_dir,
         output_dir=output_dir,
         config_dir=config_dir,
-        data_year = data_year,
-        simulation_year = simulation_year,
+        # data_year = data_year,
+        # simulation_year = simulation_year,
+        hist_data_year = hist_data_year,
+        current_year = current_year,
         )
     
     # Read input files and update scen_techs:
@@ -101,6 +106,8 @@ def launch(root_dir=None,
         paths = paths,
         arg_com_nr = scen_techs['simulation']['district_number'],
         scen_techs=scen_techs,
+        hist_data_year = hist_data_year,
+        current_year = current_year,
         toggle_energy_balance_tests = inp.toggle_energy_balance_tests
         )
     

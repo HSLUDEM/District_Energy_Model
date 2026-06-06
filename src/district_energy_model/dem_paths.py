@@ -35,9 +35,12 @@ class DEMPaths:
                  root_dir, 
                  config_dir = '', 
                  output_dir = '',
-                 data_year = 2016,
-                 simulation_year = 2026,
+                 hist_data_year = 2016,
+                 current_year = 2026,
                  ):
+
+        h_y = hist_data_year
+        c_y = current_year
 
         path_strt1 = root_dir
         self.root_dir = root_dir
@@ -51,13 +54,13 @@ class DEMPaths:
         self.master_file_general = 'master_data_general.feather'
         self.meta_file_general = 'meta_data_general.feather'
         
-        self.master_file_year = f"master_data_{data_year}.feather"
-        self.meta_file_year = f"meta_data_{data_year}.feather"
+        self.master_file_year = f"master_data_{h_y}.feather"
+        self.meta_file_year = f"meta_data_{h_y}.feather"
         
         
         # self.profiles_file = 'simulation_profiles_file.feather'
         self.profiles_file_general = "simulation_profiles_general.feather"
-        self.profiles_file_year = f"simulation_profiles_{data_year}.feather"
+        self.profiles_file_year = f"simulation_profiles_{h_y}.feather"
         # -----------------------------------------------------------------------------
         # run_dem.py:
         # -----------
@@ -68,7 +71,7 @@ class DEMPaths:
         # com_data_dir = '../../data/community_data/'
         self.master_data_dir = path_strt1 + '/data/master_data/'
         # self.com_data_dir = path_strt1 + '/data/community_data/'
-        self.com_data_dir = path_strt1 + f"/data/community_data/{data_year}_mapped_to_{simulation_year}/"
+        self.com_data_dir = path_strt1 + f"/data/community_data/{h_y}_mapped_to_{c_y}/"
         
         # -----------------------------------------------------------------------------
         # dem.py:

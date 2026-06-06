@@ -363,9 +363,9 @@ class CalliopeOptimiser:
         '''
         # https://calliope.readthedocs.io/en/stable/user/building.html#reading-in-timeseries-from-pandas-dataframes
         # demand_heat = -(self.energy_demand.get_d_h())
-        # demand_power = -(self.energy_demand.get_d_e_hh())
+        # demand_power = -(self.energy_demand.get_d_e_baseline())
         # demand_power = -(
-        #     self.energy_demand.get_d_e_hh()
+        #     self.energy_demand.get_d_e_baseline()
         #     + self.energy_demand.get_d_e_ev()
         #     )
         
@@ -375,7 +375,7 @@ class CalliopeOptimiser:
         else:
             demand_heat = -(self.energy_demand.get_d_h())
         
-        demand_power_hh = -(self.energy_demand.get_d_e_hh())
+        demand_power_baseline = -(self.energy_demand.get_d_e_baseline())
         
         demand_power_ev = -(self.energy_demand.get_d_e_ev())
         demand_power_ev_cp = -(self.energy_demand.get_d_e_ev_cp())
@@ -516,7 +516,7 @@ class CalliopeOptimiser:
         # Set the datetime index to the Series:
         demand_heat = pd.Series(demand_heat, index=date_index)
         # demand_power = pd.Series(demand_power, index=date_index)
-        demand_power_hh = pd.Series(demand_power_hh, index=date_index)
+        demand_power_baseline = pd.Series(demand_power_baseline, index=date_index)
         demand_power_ev = pd.Series(demand_power_ev, index=date_index)
         demand_power_ev_cp = pd.Series(demand_power_ev_cp, index=date_index)
         demand_power_ev_pd = pd.Series(demand_power_ev_pd, index=date_index)
@@ -560,8 +560,8 @@ class CalliopeOptimiser:
 
         # Convert pandas series to dataframe:
         df_demand_heat = demand_heat.to_frame('d_h')
-        # df_demand_power = demand_power.to_frame('d_e_hh')
-        df_demand_power_hh = demand_power_hh.to_frame('d_e_hh')
+        # df_demand_power = demand_power.to_frame('d_e_baseline')
+        df_demand_power_baseline = demand_power_baseline.to_frame('d_e_baseline')
         df_demand_power_ev = demand_power_ev.to_frame('d_e_ev')
         df_demand_power_ev_cp = demand_power_ev_cp.to_frame('d_e_ev_cp')
         df_demand_power_ev_pd = demand_power_ev_pd.to_frame('d_e_ev_pd')
@@ -617,12 +617,13 @@ class CalliopeOptimiser:
         timeseries_dataframes = {
             'demand_heat': df_demand_heat / self.energy_scaling_factor,
             # 'demand_power':df_demand_power,
-            'demand_power_hh': df_demand_power_hh / self.energy_scaling_factor,
-            'demand_power_ev': df_demand_power_ev / self.energy_scaling_factor,
-            'demand_power_ev_cp': df_demand_power_ev_cp / self.energy_scaling_factor,
-            'demand_power_ev_pd': df_demand_power_ev_pd / self.energy_scaling_factor,
-            'demand_power_ev_pu': df_demand_power_ev_pu / self.energy_scaling_factor,
-            'demand_power_ev_delta': df_demand_power_ev_delta / self.energy_scaling_factor,            
+            'demand_power_baseline':df_demand_power_baseline / self.energy_scaling_factor,
+            'demand_power_ev':df_demand_power_ev / self.energy_scaling_factor,
+            'demand_power_ev_cp':df_demand_power_ev_cp / self.energy_scaling_factor,
+            'demand_power_ev_pd':df_demand_power_ev_pd / self.energy_scaling_factor,
+            'demand_power_ev_pu':df_demand_power_ev_pu / self.energy_scaling_factor,
+            'demand_power_ev_delta':df_demand_power_ev_delta / self.energy_scaling_factor,            
+
             # 'pv_resource_old':df_pv_resource_old,
             # 'pv_resource_new':df_pv_resource_new,
 
@@ -1596,7 +1597,7 @@ class CalliopeOptimiser:
             d_e_ev = -opt_results['carrier_con'].loc['X1::demand_electricity_ev::electricity'].values*self.energy_scaling_factor
         
         d_e = (
-            -opt_results['carrier_con'].loc['X1::demand_electricity_hh::electricity'].values*self.energy_scaling_factor
+            -opt_results['carrier_con'].loc['X1::demand_electricity_baseline::electricity'].values*self.energy_scaling_factor
             # -opt_results['carrier_con'].loc['X1::demand_electricity_ev::electricity'].values
             + d_e_ev
             + u_e_hp
@@ -1609,8 +1610,8 @@ class CalliopeOptimiser:
             + u_e_wguh
             + u_e_hydp
             )         
-        d_e_hh = (
-            -opt_results['carrier_con'].loc['X1::demand_electricity_hh::electricity'].values*self.energy_scaling_factor
+        d_e_baseline = (
+            -opt_results['carrier_con'].loc['X1::demand_electricity_baseline::electricity'].values*self.energy_scaling_factor
             )        
         d_e_h = u_e_hp + u_e_eh + u_e_hpcp + u_e_hpcplt + u_e_ehcp
 
@@ -1634,7 +1635,7 @@ class CalliopeOptimiser:
             d_h_flex = d_h
         
         self.energy_demand.update_d_e(d_e)
-        self.energy_demand.update_d_e_hh(d_e_hh)
+        self.energy_demand.update_d_e_baseline(d_e_baseline)
         self.energy_demand.update_d_e_h(d_e_h)
         self.energy_demand.update_d_e_ev(d_e_ev)
         self.energy_demand.update_d_h(d_h)
@@ -2232,7 +2233,7 @@ class CalliopeOptimiser:
         
         # Add demands: # !!! ADD THESE TO DEMAND CLASS?
         # ===========
-        techs_dict['demand_electricity_hh'] = {
+        techs_dict['demand_electricity_baseline'] = {
             'essentials':{
                 'name':'Electrical Demand Household',
                 'color':colors['demand_electricity'],
@@ -3002,7 +3003,7 @@ class CalliopeOptimiser:
         loc_dict = {
             'X1':{
                 'techs':{
-                    'demand_electricity_hh':{},
+                    'demand_electricity_baseline':{},
                     # 'demand_electricity_ev':{},
                     'demand_heat':{}
                     },
@@ -3117,9 +3118,9 @@ class CalliopeOptimiser:
 
         # Update loc_dict with timeseries
         # loc_dict['X1']['techs']['demand_electricity']['constraints.resource'] =\
-        #     'df=demand_power:d_e_hh'
-        loc_dict['X1']['techs']['demand_electricity_hh']['constraints.resource'] =\
-            'df=demand_power_hh:d_e_hh'
+        #     'df=demand_power:d_e_baseline'
+        loc_dict['X1']['techs']['demand_electricity_baseline']['constraints.resource'] =\
+            'df=demand_power_baseline:d_e_baseline'
         
         # Electric vehicles:
         if (

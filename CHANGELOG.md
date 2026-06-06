@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 ## [0.2.0-dev0] - YYYY-MM-DD
 
 ### Added
+- Separation of electricity demand components: residential, industry, services, losses, and hydropower pumping
+- Syncronised historic weather and demand data to same year
 - Demand side response: flexibility from building inertia via virtual storage for heat pump and district heating
 - Deep Geothermal Technology
 - Cost calculation module for manual scenarios
