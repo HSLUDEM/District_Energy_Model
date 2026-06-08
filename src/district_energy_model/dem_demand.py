@@ -144,7 +144,6 @@ class EnergyDemand:
         # Other:
         self._d_h_profile = [] # [-] Hourly normed (normed to 1) heat demand profile
         
-        # year_sync_label
         # Read temperature profiles:
         weather_data_dir = self.paths.weather_data_delta_method_dir
         self.df_temperature_all_years = pd.read_feather(
@@ -1539,7 +1538,6 @@ class EnergyDemand:
         
         return scaling_factor_t12, scaling_factor_t15
 
-    # year_sync_label
     def _compute_HDD(
             self,
             temperature_data_year,

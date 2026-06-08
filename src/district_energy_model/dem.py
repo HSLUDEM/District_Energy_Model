@@ -124,7 +124,6 @@ class DistrictEnergyModel:
                 )
             print(f"\nCustom district: {custom_district_name} (part of {self.com_name_})")
         
-        # year_sync_label
         else:
             (
                 self.com_name_, self.com_kt, self.df_meta, self.df_com_yr
