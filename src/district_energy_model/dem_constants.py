@@ -7,8 +7,11 @@ Created on Tue Feb 20 12:20:38 2024
 
 #Relevant years:
 
-DATA_YEAR = 2025 # Year in which data was acquired, used e.g. for renovation rates
-METEO_YEAR = 2023 # Year used for meteorological data as "present"
+# DATA_YEAR = 2025 # Year in which data was acquired, used e.g. for renovation rates
+RENOVATION_YEAR = 2025 # Year in which data was acquired for renovation rates
+CURRENT_YEAR = 2026
+HIST_DATA_YEAR_DEFAULT = 2016
+# METEO_YEAR = 2023 # Year used for meteorological data as "present"
 
 # -----------------------------------------------------------------------------
 # Universal fixed constants:
@@ -20,6 +23,12 @@ CONV_kWh_to_MJ = 1/CONV_MJ_to_kWh
 # Material properties:
 
 DENSITY_oil_kgpl = 0.9 # Density of oil [kg/l]
+
+# -----------------------------------------------------------------------------
+# Heat demand calculation with heating degree days/hours:
+T_base_new = 12.0 # Base temperature for new buildings [°C]
+T_base_old = 15.0 # Base temperature for old buildings [°C]
+
 
 # -----------------------------------------------------------------------------
 # Grid import
@@ -35,13 +44,13 @@ DENSITY_oil_kgpl = 0.9 # Density of oil [kg/l]
 
 # =============================================================================
 # 2022: NOT USED ANYMORE!!!
-SHARE_HYDRO = (24.4 + 28.4)*0.01 # 0.01 as conversion to percentage
-SHARE_NUCLEAR = 36.4*0.01
-SHARE_CONVENTIONAL_CHP = 1.4*0.01
-SHARE_RENEWABLE_CHP = 1.7*0.01
-SHARE_RENEWABLE_OTHER = 7.7*0.01
+# SHARE_HYDRO = (24.4 + 28.4)*0.01 # 0.01 as conversion to percentage
+# SHARE_NUCLEAR = 36.4*0.01
+# SHARE_CONVENTIONAL_CHP = 1.4*0.01
+# SHARE_RENEWABLE_CHP = 1.7*0.01
+# SHARE_RENEWABLE_OTHER = 7.7*0.01
 
-SHARE_RENEWABLE_IMPORT = 0.2 # [-] share of renewable electricity of cross-border imported electricity
+# SHARE_RENEWABLE_IMPORT = 0.2 # [-] share of renewable electricity of cross-border imported electricity
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -51,8 +60,8 @@ SHARE_RENEWABLE_IMPORT = 0.2 # [-] share of renewable electricity of cross-borde
 
 # -----------------------------------------------------------------------------
 # Timeframe for generating weather files from meteostat (dem_demand.meteostat_weather_data(...)):
-tf_meteostat_start = '2020-01-01 00:00'
-tf_meteostat_end = '2022-12-31 23:00'
+# tf_meteostat_start = '2020-01-01 00:00'
+# tf_meteostat_end = '2022-12-31 23:00'
 # tf_meteostat_start = '2023-01-01 00:00'
 # tf_meteostat_end = '2023-12-31 23:00'
 

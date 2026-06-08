@@ -152,18 +152,18 @@ class SolarPV(TechCore):
         self._v_e_pot = self._v_e_pot[:n_hours]
         self._v_e_pot_remain = self._v_e_pot_remain[:n_hours]
     
-    def data_preprocessing(self):
+    # def data_preprocessing(self):
         
-        #----------------------------------------------------------------------
-        # Read pv meta file:
-        pv_meta_file_path = self.pv_data_dir + self.pv_data_meta_file
-        self.df_pv_meta = pd.read_csv(pv_meta_file_path)
+    #     #----------------------------------------------------------------------
+    #     # Read pv meta file:
+    #     pv_meta_file_path = self.pv_data_dir + self.pv_data_meta_file
+    #     self.df_pv_meta = pd.read_csv(pv_meta_file_path)
         
-        self.pv_data_file = self.__select_pv_file(
-            self.df_pv_meta,
-            self.com_lat,
-            self.com_lon
-            )
+    #     self.pv_data_file = self.__select_pv_file(
+    #         self.df_pv_meta,
+    #         self.com_lat,
+    #         self.com_lon
+    #         )
     
     def __select_pv_file(self, df_pv_meta, com_lat, com_lon):
         
@@ -224,7 +224,7 @@ class SolarPV(TechCore):
         """
         
         # Annual output of installed PV:
-        v_e_pv_yr  = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'TotalEnergy'].values # [kWh]
+        v_e_pv_yr  = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'PV_TotalEnergy'].values # [kWh]
         pv_filename = 'PV_Profile_' + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'PV_Filename'].values[0]
         self.pv_profile_hr = profiles_file[pv_filename]
         

@@ -183,7 +183,7 @@ class GridSupply(TechCore):
             # ):
         self.len_test(self._m_e)
         
-        el_mix_path = self.paths.energy_mix_CH_dir + self.paths.electricity_mix_file
+        el_mix_path = self.paths.electricity_dir + self.paths.electricity_mix_file
         el_mix_file = pd.read_feather(el_mix_path)
         
         # el_gen_imp = pd.DataFrame(index = range(8760))
@@ -194,6 +194,7 @@ class GridSupply(TechCore):
         # el_gen_imp['Other'] = el_mix_file.iloc[:, 7]
         # el_gen_imp['Import'] = el_mix_file.iloc[:, -1]
         
+        # =====================================================================
         el_gen_imp = pd.DataFrame(index=el_mix_file.index)
         
         el_gen_imp['Hydro'] = (
@@ -212,6 +213,7 @@ class GridSupply(TechCore):
         el_gen_imp['Biomass'] = el_mix_file['Biomass']
         el_gen_imp['Other'] = el_mix_file['Other']
         el_gen_imp['Import'] = el_mix_file['Import']
+        # =====================================================================
         
         
         el_gen_imp_percentages = el_gen_imp.div(el_gen_imp.sum(axis = 1), axis = 0)

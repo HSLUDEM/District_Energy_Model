@@ -55,7 +55,7 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
 
     if 'solar_pvalpine' in tech_instances:
         tech_solar_pvalpine = tech_instances['solar_pvalpine']
-        v_e_pvalpine = tech_solar_pvalpine.get_v_e_from_installations()
+        v_e_pvalpine = tech_solar_pvalpine.get_v_e_from_installations()[0]
         with_pvalpine = True
     tech_wind_power = tech_instances['wind_power']
     tech_biomass = tech_instances['biomass']
@@ -233,7 +233,7 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     
     # return dict_v_e_cons, dict_v_e_exp, m_e
 
-
+# delete_label
 # def update_electricity_gen_techs(
 #         tech_solar_pv,
 #         tech_wind_power,
@@ -631,7 +631,7 @@ def electricity_balance_test(scen_techs,
                               )
     
     electricity_demand_split = (df_scen['d_e_h'] # heating demand
-                                + df_scen['d_e_hh']  # household demand
+                                + df_scen['d_e_baseline']  # baseline demand
                                 + df_scen['d_e_ev'] # EV demand
                                 + df_scen['u_e_aguh']
                                 + df_scen['u_e_wgu'] 
@@ -640,6 +640,16 @@ def electricity_balance_test(scen_techs,
                                 + df_scen['u_e_bes']
                                 + df_scen['f_e']
                                 )
+    
+    electricity_baseline_demand = df_scen['d_e_baseline']
+    
+    electricity_baseline_demand_split = (
+        df_scen['d_e_res']
+        + df_scen['d_e_ind']
+        + df_scen['d_e_ser']
+        + df_scen['d_e_pump']
+        + df_scen['d_e_loss']
+        )
     
     electricity_for_heating = df_scen['d_e_h']
     
@@ -746,91 +756,117 @@ def electricity_balance_test(scen_techs,
                     + df_scen['u_e_bes'].iloc[0]*scen_techs['bes']['eta_chg_dchg']) # state-of-charge (sos) difference
     
     # ------------------------------------------------------------------------
+    dict_diff_max = {}
 
-    diff_1 = abs(electricity_consumption - electricity_generation)
-    max_diff_1 = diff_1.max()
+    dict_diff_max[1] = abs(electricity_consumption - electricity_generation).max()
+    # max_diff_1 = diff_1.max()
     
-    diff_2 = abs(electricity_consumption - electricity_demand_split)
-    max_diff_2 = diff_2.max()
+    dict_diff_max[2] = abs(
+        electricity_consumption - electricity_demand_split
+        ).max()
+    # max_diff_2 = diff_2.max()
     
-    diff_3 = abs(electricity_for_heating - electricity_for_heating_split)
-    max_diff_3 = diff_3.max()
+    dict_diff_max[3] = abs(
+        electricity_for_heating - electricity_for_heating_split
+        ).max()
+    # max_diff_3 = diff_3.max()
+
+    dict_diff_max[4] = abs(pv_generation - pv_generation_split).max()
+    # max_diff_4 = diff_4.max()
     
-    diff_4 = abs(pv_generation - pv_generation_split)
-    max_diff_4 = diff_4.max()
+    dict_diff_max[5] = abs(total_import - total_import_split).max()
+    # max_diff_5 = diff_5.max()
     
-    diff_5 = abs(total_import - total_import_split)
-    max_diff_5 = diff_5.max()
+    dict_diff_max[6] = abs(swiss_import - swiss_import_split).max()
+    # max_diff_6 = diff_6.max()
     
-    diff_6 = abs(swiss_import - swiss_import_split)
-    max_diff_6 = diff_6.max()
+    dict_diff_max[7] = abs(pv_potential_split - pv_potential).max()
+    # max_diff_7 = diff_7.max()
     
-    diff_7 = abs(pv_potential_split - pv_potential)
-    max_diff_7 = diff_7.max()
+    dict_diff_max[8] = abs(wp_generation - wp_generation_split).max()
+    # max_diff_8 = diff_8.max()
     
-    diff_8 = abs(wp_generation - wp_generation_split)
-    max_diff_8 = diff_8.max()
-    
-    diff_9 = abs(wp_potential - wp_potential_split)
-    max_diff_9 = diff_9.max()
-    
+    dict_diff_max[9] = abs(wp_potential - wp_potential_split).max()
+    # max_diff_9 = diff_9.max()
+        
     # diff_10: Battery Energy Storage(BES) losses are only checked as sums
-
-    # print(diff_1.max(), df_scen['f_e'].max())
-
-    # print(max_diff_1)
-
-    if max_diff_1 > diff_accepted:
-        print("Electricity balance (1) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_1}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(1)")
+    
+    dict_diff_max[11] = abs(
+        electricity_baseline_demand - electricity_baseline_demand_split
+        ).max()
+    # max_diff_11 = diff_11.max()
+    
+    for nr, diff_max in dict_diff_max.items():
+        if diff_max > diff_accepted:
+            print(f"Electricity balance ({nr}) is not fulfilled!")
+            print(f"Max. difference (kWh): {diff_max}")
+            raise Exception(
+                f"Electricity balance (timeseries) is not fulfilled!({nr})"
+                )
+    # delete_label
+    # if max_diff_1 > diff_accepted:
+    #     print("Electricity balance (1) is not fulfilled!")
+    #     print(f"Max. difference (kWh): {max_diff_1}")
+    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(1)")
         
-    if max_diff_2 > diff_accepted:
-        print("Electricity balance (2) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_2}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(2)")
+    # if max_diff_2 > diff_accepted:
+    #     print("Electricity balance (2) is not fulfilled!")
+    #     print(f"Max. difference (kWh): {max_diff_2}")
+    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(2)")
         
-    if max_diff_3 > diff_accepted:
-        print("Electricity balance (3) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_3}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(3)")
+    # if max_diff_3 > diff_accepted:
+    #     print("Electricity balance (3) is not fulfilled!")
+    #     print(f"Max. difference (kWh): {max_diff_3}")
+    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(3)")
         
-    if max_diff_4 > diff_accepted:
-        print("Electricity balance (4) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_4}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(4)")
+    # if max_diff_4 > diff_accepted:
+    #     print("Electricity balance (4) is not fulfilled!")
+    #     print(f"Max. difference (kWh): {max_diff_4}")
+    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(4)")
         
-    if max_diff_5 > diff_accepted:
-        print("Electricity balance (5) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_5}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(5)")
+    # if max_diff_5 > diff_accepted:
+    #     print("Electricity balance (5) is not fulfilled!")
+    #     print(f"Max. difference (kWh): {max_diff_5}")
+    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(5)")
         
-    if max_diff_6 > diff_accepted:
-        print("Electricity balance (6) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_6}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(6)")
+    # if max_diff_6 > diff_accepted:
+    #     print("Electricity balance (6) is not fulfilled!")
+    #     print(f"Max. difference (kWh): {max_diff_6}")
+    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(6)")
         
-    if max_diff_7 > diff_accepted:
-        print("Electricity balance (7) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_7}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(7)")
+    # if max_diff_7 > diff_accepted:
+    #     print("Electricity balance (7) is not fulfilled!")
+    #     print(f"Max. difference (kWh): {max_diff_7}")
+    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(7)")
         
-    if max_diff_8 > diff_accepted:
-        print("Electricity balance (8) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_8}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(8)")
+    # if max_diff_8 > diff_accepted:
+    #     print("Electricity balance (8) is not fulfilled!")
+    #     print(f"Max. difference (kWh): {max_diff_8}")
+    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(8)")
         
-    if max_diff_9 > diff_accepted:
-        print("Electricity balance (9) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_9}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(9)")
+    # if max_diff_9 > diff_accepted:
+    #     print("Electricity balance (9) is not fulfilled!")
+    #     print(f"Max. difference (kWh): {max_diff_9}")
+    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(9)")
+    
+    # if max_diff_11 > diff_accepted:
+    #     nr = 11
+    #     print(f"Electricity balance ({nr}) is not fulfilled!")
+    #     print(f"Max. difference (kWh): {max_diff_11}")
+    #     raise Exception(
+    #         f"Electricity balance (timeseries) is not fulfilled!({nr})"
+    #         )
     
     #--------------------------------------------------------------------------
     # Check sums:
-    
+    dict_diff_sum = {}
+
     electricity_consumption_sum = electricity_consumption.sum()
     electricity_generation_sum = electricity_generation.sum()
-    electricity_demand_split_sum = electricity_demand_split.sum()    
+    electricity_demand_split_sum = electricity_demand_split.sum()
+    electricity_baseline_demand_split_sum =\
+        electricity_baseline_demand_split.sum()
+    electricity_baseline_demand_sum = electricity_baseline_demand.sum()    
     electricity_for_heating_sum = electricity_for_heating.sum()    
     electricity_for_heating_split_sum = electricity_for_heating_split.sum()  
     pv_generation_sum = pv_generation.sum()
@@ -846,67 +882,98 @@ def electricity_balance_test(scen_techs,
     wp_potential_sum = wp_potential.sum()
     wp_potential_split_sum = wp_potential_split.sum()
     
-    diff_sum_1 = abs(electricity_consumption_sum - electricity_generation_sum)
-    diff_sum_2 = abs(electricity_consumption_sum - electricity_demand_split_sum)
-    diff_sum_3 = abs(electricity_for_heating_sum - electricity_for_heating_split_sum)
-    diff_sum_4 = abs(pv_generation_sum - pv_generation_split_sum)
-    diff_sum_5 = abs(total_import_sum - total_import_split_sum)
-    diff_sum_6 = abs(swiss_import_sum - swiss_import_split_sum)
-    diff_sum_7 = abs(pv_potential_split_sum - pv_potential_sum)
-    diff_sum_8 = abs(wp_generation_sum - wp_generation_split_sum)
-    diff_sum_9 = abs(wp_potential_sum - wp_potential_split_sum)
+    dict_diff_sum[1] =\
+        abs(electricity_consumption_sum - electricity_generation_sum)
+    dict_diff_sum[2] =\
+        abs(electricity_consumption_sum - electricity_demand_split_sum)
+    dict_diff_sum[3] =\
+        abs(electricity_for_heating_sum - electricity_for_heating_split_sum)
+    dict_diff_sum[4] = abs(pv_generation_sum - pv_generation_split_sum)
+    dict_diff_sum[5] = abs(total_import_sum - total_import_split_sum)
+    dict_diff_sum[6] = abs(swiss_import_sum - swiss_import_split_sum)
+    dict_diff_sum[7] = abs(pv_potential_split_sum - pv_potential_sum)
+    dict_diff_sum[8] = abs(wp_generation_sum - wp_generation_split_sum)
+    dict_diff_sum[9] = abs(wp_potential_sum - wp_potential_split_sum)
     # diff_sum_10 = abs(bes_input_sum - bes_output_sum - bes_losses_sum - bes_sos_diff)
-    diff_sum_10 = abs(bes_input_sum - bes_output_sum - bes_losses_sum - bes_sos_diff) # assuming cycling constraint
-
-    if diff_sum_1 > diff_sum_accepted:
-        print("Electricity balance (1) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_1}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
+    dict_diff_sum[10] = abs(
+        bes_input_sum - bes_output_sum - bes_losses_sum - bes_sos_diff
+        ) # assuming cycling constraint
+    dict_diff_sum[11] = abs(
+        electricity_baseline_demand_sum - electricity_baseline_demand_split_sum
+        )
+    # delete_label
+    # diff_sum_1 = abs(electricity_consumption_sum - electricity_generation_sum)
+    # diff_sum_2 = abs(electricity_consumption_sum - electricity_demand_split_sum)
+    # diff_sum_3 = abs(electricity_for_heating_sum - electricity_for_heating_split_sum)
+    # diff_sum_4 = abs(pv_generation_sum - pv_generation_split_sum)
+    # diff_sum_5 = abs(total_import_sum - total_import_split_sum)
+    # diff_sum_6 = abs(swiss_import_sum - swiss_import_split_sum)
+    # diff_sum_7 = abs(pv_potential_split_sum - pv_potential_sum)
+    # diff_sum_8 = abs(wp_generation_sum - wp_generation_split_sum)
+    # diff_sum_9 = abs(wp_potential_sum - wp_potential_split_sum)
+    # # diff_sum_10 = abs(bes_input_sum - bes_output_sum - bes_losses_sum - bes_sos_diff)
+    # diff_sum_10 = abs(
+    #     bes_input_sum - bes_output_sum - bes_losses_sum - bes_sos_diff
+    #     ) # assuming cycling constraint
+    # diff_sum_11 = abs(
+    #     electricity_baseline_demand_sum - electricity_baseline_demand_split_sum
+    #     )
+    
+    for nr, diff_sum in dict_diff_sum.items():
+        if diff_sum > diff_sum_accepted:
+            print(f"Electricity balance ({nr}) is not fulfilled!")
+            print(f"Sum difference (kWh): {diff_sum}")
+            raise Exception(f"Electricity balance (sum) is not fulfilled! ({nr})")
+    # delete_label
+    # if diff_sum_1 > diff_sum_accepted:
+    #     print("Electricity balance (1) is not fulfilled!")
+    #     print(f"Sum difference (kWh): {diff_sum_1}")
+    #     raise Exception("Electricity balance (sum) is not fulfilled!")
         
-    if diff_sum_2 > diff_sum_accepted:
-        print("Electricity balance (2) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_2}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
+    # if diff_sum_2 > diff_sum_accepted:
+    #     print("Electricity balance (2) is not fulfilled!")
+    #     print(f"Sum difference (kWh): {diff_sum_2}")
+    #     raise Exception("Electricity balance (sum) is not fulfilled!")
         
-    if diff_sum_3 > diff_sum_accepted:
-        print("Electricity balance (3) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_3}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
+    # if diff_sum_3 > diff_sum_accepted:
+    #     print("Electricity balance (3) is not fulfilled!")
+    #     print(f"Sum difference (kWh): {diff_sum_3}")
+    #     raise Exception("Electricity balance (sum) is not fulfilled!")
         
-    if diff_sum_4 > diff_sum_accepted:
-        print("Electricity balance (4) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_4}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
+    # if diff_sum_4 > diff_sum_accepted:
+    #     print("Electricity balance (4) is not fulfilled!")
+    #     print(f"Sum difference (kWh): {diff_sum_4}")
+    #     raise Exception("Electricity balance (sum) is not fulfilled!")
         
-    if diff_sum_5 > diff_sum_accepted:
-        print("Electricity balance (5) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_5}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
+    # if diff_sum_5 > diff_sum_accepted:
+    #     print("Electricity balance (5) is not fulfilled!")
+    #     print(f"Sum difference (kWh): {diff_sum_5}")
+    #     raise Exception("Electricity balance (sum) is not fulfilled!")
         
-    if diff_sum_6 > diff_sum_accepted:
-        print("Electricity balance (6) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_6}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
+    # if diff_sum_6 > diff_sum_accepted:
+    #     print("Electricity balance (6) is not fulfilled!")
+    #     print(f"Sum difference (kWh): {diff_sum_6}")
+    #     raise Exception("Electricity balance (sum) is not fulfilled!")
         
-    if diff_sum_7 > diff_sum_accepted:
-        print("Electricity balance (7) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_7}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
+    # if diff_sum_7 > diff_sum_accepted:
+    #     print("Electricity balance (7) is not fulfilled!")
+    #     print(f"Sum difference (kWh): {diff_sum_7}")
+    #     raise Exception("Electricity balance (sum) is not fulfilled!")
         
-    if diff_sum_8 > diff_sum_accepted:
-        print("Electricity balance (8) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_8}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
+    # if diff_sum_8 > diff_sum_accepted:
+    #     print("Electricity balance (8) is not fulfilled!")
+    #     print(f"Sum difference (kWh): {diff_sum_8}")
+    #     raise Exception("Electricity balance (sum) is not fulfilled!")
         
-    if diff_sum_9 > diff_sum_accepted:
-        print("Electricity balance (9) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_9}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
+    # if diff_sum_9 > diff_sum_accepted:
+    #     print("Electricity balance (9) is not fulfilled!")
+    #     print(f"Sum difference (kWh): {diff_sum_9}")
+    #     raise Exception("Electricity balance (sum) is not fulfilled!")
         
-    if diff_sum_10 > diff_sum_accepted:
-        print("Electricity balance (10) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_10}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
+    # if diff_sum_10 > diff_sum_accepted:
+    #     print("Electricity balance (10) is not fulfilled!")
+    #     print(f"Sum difference (kWh): {diff_sum_10}")
+    #     raise Exception("Electricity balance (sum) is not fulfilled!")
         
 
 def heat_balance_test(scen_techs,

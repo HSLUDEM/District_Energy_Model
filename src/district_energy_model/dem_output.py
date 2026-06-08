@@ -18,6 +18,8 @@ import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 from plotly.offline import plot as plotly_plot
 
+import dem_helper
+
 
 # ---------------------------------------------------------------------------
 # Plotly 3.x compatibility layer
@@ -1325,18 +1327,18 @@ def plot_electricity_balance_hourly(df_scen,
     
     fig.add_trace(go.Scatter(
         x=df_plot.index,
-        y=df_plot['d_e_hh'] + df_plot['d_e_ev'],
+        y=df_plot['d_e_baseline'] + df_plot['d_e_ev'],
         mode='lines',
         line=dict(color=col_demand_electricity, width=1, dash='dash'),
-        name='Electricity household + EV demand'
+        name='Electricity baseline + EV demand'
     ))
     
     fig.add_trace(go.Scatter(
         x=df_plot.index,
-        y=df_plot['d_e_hh'],
+        y=df_plot['d_e_baseline'],
         mode='lines',
         line=dict(color=col_demand_electricity, width=1, dash='dot'),
-        name='Electricity household demand'
+        name='Electricity baseline demand'
     ))
     
     fig.add_trace(go.Scatter(
@@ -1651,7 +1653,7 @@ def plot_electricity_balance_hourly(df_scen,
     
 #     # fig.add_trace(go.Scatter(
 #     #     x=df_plot.index,
-#     #     y=df_plot['d_e_hh'] + df_plot['d_e_ev'],
+#     #     y=df_plot['d_e_baseline'] + df_plot['d_e_ev'],
 #     #     mode='lines',
 #     #     line=dict(color=col_demand_electricity, width=1, dash='dash'),
 #     #     name='Electricity household + EV demand'
@@ -1659,7 +1661,7 @@ def plot_electricity_balance_hourly(df_scen,
     
 #     # fig.add_trace(go.Scatter(
 #     #     x=df_plot.index,
-#     #     y=df_plot['d_e_hh'],
+#     #     y=df_plot['d_e_baseline'],
 #     #     mode='lines',
 #     #     line=dict(color=col_demand_electricity, width=1, dash='dot'),
 #     #     name='Electricity household demand'
@@ -1835,18 +1837,18 @@ def plot_electricity_balance_daily(
     
     fig.add_trace(go.Scatter(
         x=df_daily_sum.index,
-        y=df_daily_sum['d_e_hh'] + df_daily_sum['d_e_ev'],
+        y=df_daily_sum['d_e_baseline'] + df_daily_sum['d_e_ev'],
         mode='lines',
         line=dict(color=col_demand_electricity, width=1, dash='dash'),
-        name='Electricity household + EV demand'
+        name='Electricity baseline + EV demand'
     ))
     
     fig.add_trace(go.Scatter(
         x=df_daily_sum.index,
-        y=df_daily_sum['d_e_hh'],
+        y=df_daily_sum['d_e_baseline'],
         mode='lines',
         line=dict(color=col_demand_electricity, width=1, dash='dot'),
-        name='Electricity household demand'
+        name='Electricity baseline demand'
     ))
     
     fig.update_layout(
@@ -2036,18 +2038,18 @@ def plot_electricity_balance_weekly(df_scen,
     
     fig.add_trace(go.Scatter(
         x=df_weekly_sum.index,
-        y=df_weekly_sum['d_e_hh'] + df_weekly_sum['d_e_ev'],
+        y=df_weekly_sum['d_e_baseline'] + df_weekly_sum['d_e_ev'],
         mode='lines',
         line=dict(color=col_demand_electricity, width=1, dash='dash'),
-        name='Electricity household + EV demand'
+        name='Electricity baseline + EV demand'
     ))
     
     fig.add_trace(go.Scatter(
         x=df_weekly_sum.index,
-        y=df_weekly_sum['d_e_hh'],
+        y=df_weekly_sum['d_e_baseline'],
         mode='lines',
         line=dict(color=col_demand_electricity, width=1, dash='dot'),
-        name='Electricity household demand'
+        name='Electricity baseline demand'
     ))
 
     fig.update_layout(
@@ -5348,7 +5350,7 @@ def plot_sankey_total(df_scen,
               'm_gas', 'm_h_dh']+['m_e_ch_biomass','m_e_ch_hydro','m_e_ch_nuclear','m_e_ch_other','m_e_ch_wind'] + ['m_wd', 's_wd']
 
     #output streams
-    outputs = ['d_e_ev', 'd_e_hh', 'd_h_hw', 'd_h_s']
+    outputs = ['d_e_ev', 'd_e_baseline', 'd_h_hw', 'd_h_s']
     outputs_inverted = ['d_e_unmet', 'd_h_unmet']
 
     #export streams
@@ -5362,7 +5364,7 @@ def plot_sankey_total(df_scen,
                  'm_h_dh': 'Fernwärme', 'tesdc': 'TES dezentral', 
                  'm_e_ch': 'Strom CH', 'm_e_cbimport': 'Stromimport internat.', 
                  'hydro': 'Wasserkraft', 'bes': 'Batteriespeicher', 'exp_e': 'Export', 
-                 'd_e_ev': 'Elektromobilität', 'd_e_hh': 'Stromverbrauch Haushalte', 
+                 'd_e_ev': 'Elektromobilität', 'd_e_baseline': 'Stromverbrauch Baseline', 
                  'd_h_s': 'Wärme Heizung', 'd_h_hw': 'Wärme Brauchwasser', 'h': 'Wärme', 
                  'oil': 'Öl', 'solarthermalrooftop': 'Solarthermie (aufdach)', 'ob': 'Ölkessel', 'wb': 'Holzkessel',
                  'gas': 'Gas', 'gb': 'Gaskessel', 'wte': 'KVA', 'wd': 'Holz',
@@ -5389,7 +5391,7 @@ def plot_sankey_total(df_scen,
                  'm_e_ch': 'Electricity Import CH', 'm_e_cbimport': 'Electricity Import internat.', 
                  'hydro': 'Hydropower (local)', 'bes': 'Battery storage', 'exp_e': 'Export electricity', 
                  'exp_h': 'Export heat', 
-                 'd_e_ev': 'Electric mobility', 'd_e_hh': 'Households', 
+                 'd_e_ev': 'Electric mobility', 'd_e_baseline': 'Baseline', 
                  'd_h_s': 'Heat for space heating', 'd_h_hw': 'Heat for DHW', 'h': 'Heat', 
                  'oil': 'Oil', 'solarthermalrooftop': 'Solar thermal (on roof)', 'ob': 'Oil boiler', 'wb': 'Wood boiler',
                  'gas': 'Gas', 'gb': 'Gas boiler', 'wte': 'Waste-to-Energy', 'wd': 'Wood',
@@ -5418,7 +5420,7 @@ def plot_sankey_total(df_scen,
     for sitename in distinct_tes_sites:
         nodeNames[sitename]  = sitename
 
-    specialColornames = {'d_e_hh': carriercolors[carriers.index('e')], 'd_e_ev': carriercolors[carriers.index('e')],
+    specialColornames = {'d_e_baseline': carriercolors[carriers.index('e')], 'd_e_ev': carriercolors[carriers.index('e')],
                          'd_h_s': carriercolors[carriers.index('h')], 'd_h_hw': carriercolors[carriers.index('h')], 
                          'm_gas': carriercolors[carriers.index('gas')], 'm_wd': carriercolors[carriers.index('wd')], 
                          'pv': '#f7b201', 'm_h_dh': carriercolors[carriers.index('h')], 'solarthermalrooftop': '#f7b201',

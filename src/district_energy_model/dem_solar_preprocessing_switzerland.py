@@ -27,7 +27,8 @@ def obtain_com_pvalpine_profile(com_nr, paths):
 
     path_to_solar_alpine_data = paths.pv_alpine_file
 
-    pv_alpine_all_data = pd.read_csv(path_to_solar_alpine_data)
+    # pv_alpine_all_data = pd.read_csv(path_to_solar_alpine_data)
+    pv_alpine_all_data = pd.read_feather(path_to_solar_alpine_data)
 
     results = {}
 

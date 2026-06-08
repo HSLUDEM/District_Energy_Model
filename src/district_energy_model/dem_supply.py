@@ -347,7 +347,7 @@ class Supply(TechCore):
     def compute_s_h_wet_biomass(self):
         
         s_wet_bm_yr = self.df_meta.loc[self.df_meta['GGDENR'] == self.com_nr, 's_wet_bm']
-        self._s_wet_bm = s_wet_bm_yr.values[0]*self.profiles_file['Wet_Biomass_Profile']
+        self._s_wet_bm = s_wet_bm_yr.values[0]*self.profiles_file['Wet_biomass_profile']
         self._s_wet_bm_rem = self._s_wet_bm
         
         return np.array(self._s_wet_bm)
@@ -355,7 +355,7 @@ class Supply(TechCore):
     def compute_s_h_wood(self):
         
         s_wd_bm_yr = self.df_meta.loc[self.df_meta['GGDENR'] == self.com_nr, 's_wd_bm']
-        self._s_wd = s_wd_bm_yr.values[0]*self.profiles_file['Woody_Biomass_Profile']
+        self._s_wd = s_wd_bm_yr.values[0]*self.profiles_file['Woody_biomass_profile']
         self._s_wd_rem = self._s_wd
         
         return np.array(self._s_wd)
