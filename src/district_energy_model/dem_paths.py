@@ -45,77 +45,49 @@ class DEMPaths:
         path_strt1 = root_dir
         self.root_dir = root_dir
     
-        # simulation_data_dir = '../../data/master_data/'
         self.simulation_data_dir = path_strt1 + '/data/master_data/'
         
-        # year_sync_label
-        # self.master_file = 'df_master_sim.feather'
-        # self.meta_file = 'meta_file_2.feather'
         self.master_file_general = 'master_data_general.feather'
         self.meta_file_general = 'meta_data_general.feather'
         
         self.master_file_year = f"master_data_{h_y}.feather"
         self.meta_file_year = f"meta_data_{h_y}.feather"
         
-        
-        # self.profiles_file = 'simulation_profiles_file.feather'
         self.profiles_file_general = "simulation_profiles_general.feather"
         self.profiles_file_year = f"simulation_profiles_{h_y}.feather"
+        
         # -----------------------------------------------------------------------------
         # run_dem.py:
-        # -----------
-        
-        # year_sync_label
-        # Directory paths:
-        # master_data_dir = '../../data/master_data/'
-        # com_data_dir = '../../data/community_data/'
+        # -----------        
         self.master_data_dir = path_strt1 + '/data/master_data/'
-        # self.com_data_dir = path_strt1 + '/data/community_data/'
         self.com_data_dir = path_strt1 + f"/data/community_data/{h_y}_mapped_to_{c_y}/"
         
         # -----------------------------------------------------------------------------
         # dem.py:
-        # -------
-        
-        # input_files_dir = '../../config/input_files'
-        # self.input_files_dir = path_strt1 + '/config/input_files'
-
+        # -------        
         if config_dir == '':
             self.input_files_dir = path_strt1 + '/config/config_files'
         else:
             self.input_files_dir = config_dir
         
         # Input data directories:
-        # self.weather_data_dir = path_strt1 + '/data/heat/weather_data/' # location of meteostat files
+        # ----------------------
         self.weather_data_delta_method_dir = path_strt1 + '/data/weather_data/community_files/'
         self.heat_dir = path_strt1 + '/data/heat/'
-        # self.pv_data_dir = path_strt1 + '/data/tech_solar_pv/pv_input_file/' # location of pv data
-        self.pv_alpine_file = path_strt1 + '/data/tech_solar_pv/Alpine-PV_V2R1P2G1_20251127.csv'
-        # self.energy_mix_CH_dir = path_strt1 + '/data/electricity/' # location of energy mix files
-        self.electricity_dir = path_strt1 + '/data/electricity/' # location of electr. load profile files
-        # self.biomass_data_dir = path_strt1 + '/data/biomass_data/'
+        self.electricity_dir = path_strt1 + '/data/electricity/'
+        self.pv_roof_dir = path_strt1 + '/data/tech_solar_pv/roof_data_per_com'
         self.wind_power_data_dir = path_strt1 + '/data/tech_wind_power/' # location of wind power data (e.g. installed capacities per municipality)
         self.wind_power_profiles_dir = path_strt1 + '/data/tech_wind_power/profiles/' # location of wind power hourly profile files
         self.ev_profiles_dir = path_strt1 + '/data/electricity/ev_profiles/' # location of electric vehicle (ev) charging profiles
         
         # Input data files:
-        # self.electricity_import_file = 'import_percentage_profile.feather' # csv-file containing timeseries of hourly cross-border electricity import fraction.
-        self.electricity_mix_file = 'electricity_mix.feather' # feather-file containing timeseries of hourly electricity mix fractions.
-        # self.electricity_mix_totals_file = 'CH_production_totals.feather' # csv-file containing timeseries of hourly electricity mix fractions.
-        # self.strom_profiles_2050_file = 'Strom_Profiles_2050.feather'
-        # self.electricity_file_household = path_strt1 + '/data/electricity/electricity_demand_household.csv' # csv-file containing a list of all communities and their respective annual electricity demand (kWh).
-        # self.electricity_demand_file_industry = path_strt1 + '/data/electricity/electricity_demand_industry.csv'
-        # self.pv_data_meta_file = 'pv_data_meta.csv' # csv file containing meta data about pv profile files
-        
-        self.pv_roof_dir = path_strt1 + '/data/tech_solar_pv/roof_data_per_com'
+        # ----------------
+        self.electricity_mix_file = 'electricity_mix.feather' # timeseries of hourly electricity mix fractions.
+        self.pv_alpine_file = path_strt1 + '/data/tech_solar_pv/Alpine-PV_V2R1P2G1_20251127.csv'
         self.pv_epps_unassigned_path = path_strt1 + '/data/tech_solar_pv/solar_epps_not_assigned_to_roofs_powers.feather'
-        
-        # self.electricity_profile_file = 'load_profiles.csv' # csv-file containing load profile from smart meter data
-        # self.electricity_profile_industry_file = 'cantonal_industryprofiles.feather' # csv-file containing load profile from smart meter data
         self.wind_power_cap_file = 'p_installed_kW_wind_power.feather' # installed wind power capacity [kW] per municipality
         self.wind_power_national_profile_file = 'v_e_wp_national_installed_kWh.csv' # Hourly profile of national wind power generation [kWh]
         self.dhw_profile_file = 'DHW_Profile.feather'
-        # self.hydro_profile_file = path_strt1 + '/data/electricity_production_plant/HydroProfiles/Hydro_Profiles.feather'
         self.ev_profile_cp_file = 'profile_CP_y4.feather' # hourly charging load [kW]
         self.ev_profile_fe_file = 'profile_FE_y4.feather' # daily flexible energy [kWh]
         self.ev_profile_pd_file = 'profile_PD_y4.feather' # hourly upper power bound [kW]

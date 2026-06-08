@@ -146,14 +146,6 @@ class DistrictEnergyModel:
         
             print(f"\nMunicipality: {self.com_name_}")
         
-        
-        # print("\n============================================================")
-        # print("dem.py")
-        # print(self.df_meta.info())
-        # print(self.df_com_yr.info())
-        # sys.exit(0)
-        # print("\n============================================================")
-        
         # Stop execution if munic is on the list to be omitted:
         if self.com_nr in C.munics_omit:
             print("Model aborted.")
@@ -163,11 +155,6 @@ class DistrictEnergyModel:
         
         # Input data directories:
         self.simulation_data_dir = paths.simulation_data_dir
-        
-        # self.pv_data_dir = paths.pv_data_dir # location of pv data
-        # self.energy_mix_CH_dir = paths.energy_mix_CH_dir # location of energy mix files
-        # self.electricity_profile_dir = paths.electricity_profile_dir # location of electr. load profile files
-        # self.biomass_data_dir = paths.biomass_data_dir
         self.wind_power_data_dir = paths.wind_power_data_dir # location of wind power data (e.g. installed capacities per municipality)
         self.wind_power_profiles_dir = paths.wind_power_profiles_dir  # location of wind power hourly profile files
         self.ev_profiles_dir = paths.ev_profiles_dir # location of electric vehicle (ev) charging profiles
@@ -181,16 +168,7 @@ class DistrictEnergyModel:
                 )
         else:
             self.results_path = 0
-            
-        # self.results_path = paths.results_path
-        # self.results_path = scen_techs['simulation']['results_dir']
-        
-        # Flexibility metrics (will be populated if activated):
-        # self.dict_flexibility_metrics = 0
-        
-        # year_sync_label
-        # Input data files:
-        # self.df_profiles = pd.read_feather(self.simulation_data_dir + paths.profiles_file)
+
         df_simulation_profiles_general = pd.read_feather(self.simulation_data_dir + paths.profiles_file_general)
         df_simulation_profiles_year = pd.read_feather(self.simulation_data_dir + paths.profiles_file_year)
         
@@ -199,30 +177,15 @@ class DistrictEnergyModel:
                 df_simulation_profiles_year,
                 )
             
-        # self.electricity_import_file = paths.electricity_import_file # csv-file containing timeseries of hourly cross-border electricity import fraction.
-        # self.electricity_mix_file = paths.electricity_mix_file # csv-file containing timeseries of hourly electricity mix fractions.
-        # self.electricity_mix_totals_file = paths.electricity_mix_totals_file # csv-file containing timeseries of hourly electricity mix fractions.
-        # self.strom_profiles_2050_file = paths.strom_profiles_2050_file # CSV containing hourly production and consumption data
-        # self.electricity_demand_file_household = paths.electricity_demand_file_household # csv-file containing a list of all communities and their respective annual electricity demand (kWh).
-        # self.electricity_demand_file_industry = paths.electricity_demand_file_industry
-        # self.pv_data_meta_file = paths.pv_data_meta_file # csv file containing meta data about pv profile files
-        # self.electricity_profile_file = paths.electricity_profile_file # csv-file containing load profile from smart meter data
-        # self.electricity_profile_industry_file = paths.electricity_profile_industry_file
         self.wind_power_cap_file = paths.wind_power_cap_file # installed wind power capacity [kW] per municipality
-        # self.wind_power_profile_file_annual = f"{self.com_name_}.csv" # csv-file containing generation profiles of wind power
-        # self.wind_power_profile_file_winter = f"{self.com_name_}_winter.csv" # csv-file containing generation profiles of wind power, with profiles favored for winter-production
         self.wind_power_profile_file_annual = f"{self.com_name_}.feather" # feather-file containing generation profiles of wind power
         self.wind_power_profile_file_winter = f"{self.com_name_}_winter.feather" # feather-file containing generation profiles of wind power, with profiles favored for winter-production
         self.wind_power_national_profile_file = paths.wind_power_national_profile_file # Hourly profile of national wind power generation [kWh]
-        # self.hydro_profile_file = paths.hydro_profile_file
         self.ev_profile_cp_file = paths.ev_profile_cp_file # hourly charging load [kW]
         self.ev_profile_fe_file = paths.ev_profile_fe_file # daily flexible energy [kWh]
         self.ev_profile_pd_file = paths.ev_profile_pd_file # hourly upper power bound [kW]
         self.ev_profile_pu_file = paths.ev_profile_pu_file # hourly lower power bound [kW]
         self.ev_munic_name_nr = paths.ev_munic_name_nr_file # municipalities and BFS numnbers for ev data
-        
-        # Base technolgies data:
-        # self.base_tech_data = base_tech_data
         
         # List to collect input data and write to a file at the end:
         self.list_input_data = []
