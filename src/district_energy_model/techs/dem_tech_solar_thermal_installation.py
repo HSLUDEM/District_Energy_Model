@@ -287,9 +287,6 @@ class SolarThermalInstallation(TechCore):
         return self._max_profile
 
     def get_v_h(self):
-
-        print(len(self._v_h))
-
         self.len_test(self._v_h)
         return self._v_h
     

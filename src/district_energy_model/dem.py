@@ -33,7 +33,6 @@ from warnings import simplefilter
 simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 pd.options.mode.chained_assignment = None
 
-
 # pd.options.mode.chained_assignment = None
 
 class DistrictEnergyModel:
@@ -48,6 +47,8 @@ class DistrictEnergyModel:
                  arg_com_nr,
                  # base_tech_data,
                  scen_techs,
+                 hist_data_year = C.HIST_DATA_YEAR_DEFAULT,
+                 current_year = C.CURRENT_YEAR,
                  toggle_energy_balance_tests = True
                  ):
         
@@ -85,6 +86,20 @@ class DistrictEnergyModel:
         # Selected community/ custom scenario:
         self.com_nr = arg_com_nr
         
+        # Years:
+        self.hist_data_year = hist_data_year
+        self.current_year = current_year
+        self.simulation_year = current_year        
+        
+        if (
+                scen_techs['scenarios']['demand_side']
+                and scen_techs['demand_side']['simulation_year']['type'] == 'future'
+                ):
+            self.simulation_year =\
+                scen_techs['demand_side']['simulation_year']['future_year']
+                
+        print(f"\nSimulated year: {self.simulation_year}")
+
         # Switch energy balance tests ON/OFF:
         self.toggle_energy_balance_tests = toggle_energy_balance_tests
 
@@ -116,13 +131,19 @@ class DistrictEnergyModel:
                     com_nr = self.com_nr,
                     master_data_dir = paths.simulation_data_dir,
                     com_data_dir = paths.com_data_dir,
-                    master_file = paths.master_file,
-                    meta_file = paths.meta_file
+                    # master_file = paths.master_file,
+                    # meta_file = paths.meta_file
+                    master_file_general = paths.master_file_general,
+                    meta_file_general = paths.meta_file_general,
+                    master_file_year = paths.master_file_year,
+                    meta_file_year = paths.meta_file_year,
                 )
+
+                
             self.com_percent = []
             self.com_percent_2 = []
         
-            print(f"\n{self.com_name_}")
+            print(f"\nMunicipality: {self.com_name_}")
         
         # Stop execution if munic is on the list to be omitted:
         if self.com_nr in C.munics_omit:
@@ -133,11 +154,6 @@ class DistrictEnergyModel:
         
         # Input data directories:
         self.simulation_data_dir = paths.simulation_data_dir
-        
-        # self.pv_data_dir = paths.pv_data_dir # location of pv data
-        # self.energy_mix_CH_dir = paths.energy_mix_CH_dir # location of energy mix files
-        # self.electricity_profile_dir = paths.electricity_profile_dir # location of electr. load profile files
-        # self.biomass_data_dir = paths.biomass_data_dir
         self.wind_power_data_dir = paths.wind_power_data_dir # location of wind power data (e.g. installed capacities per municipality)
         self.wind_power_profiles_dir = paths.wind_power_profiles_dir  # location of wind power hourly profile files
         self.ev_profiles_dir = paths.ev_profiles_dir # location of electric vehicle (ev) charging profiles
@@ -151,41 +167,24 @@ class DistrictEnergyModel:
                 )
         else:
             self.results_path = 0
-            
-        # self.results_path = paths.results_path
-        # self.results_path = scen_techs['simulation']['results_dir']
-        
-        # Flexibility metrics (will be populated if activated):
-        # self.dict_flexibility_metrics = 0
-        
-        # Input data files:
-        self.profiles_file = pd.read_feather(self.simulation_data_dir + paths.profiles_file)
 
+        df_simulation_profiles_general = pd.read_feather(self.simulation_data_dir + paths.profiles_file_general)
+        df_simulation_profiles_year = pd.read_feather(self.simulation_data_dir + paths.profiles_file_year)
+        
+        self.df_profiles = dem_helper.get_df_simulation_profiles(
+                df_simulation_profiles_general,
+                df_simulation_profiles_year,
+                )
             
-        # self.electricity_import_file = paths.electricity_import_file # csv-file containing timeseries of hourly cross-border electricity import fraction.
-        # self.electricity_mix_file = paths.electricity_mix_file # csv-file containing timeseries of hourly electricity mix fractions.
-        # self.electricity_mix_totals_file = paths.electricity_mix_totals_file # csv-file containing timeseries of hourly electricity mix fractions.
-        # self.strom_profiles_2050_file = paths.strom_profiles_2050_file # CSV containing hourly production and consumption data
-        # self.electricity_demand_file_household = paths.electricity_demand_file_household # csv-file containing a list of all communities and their respective annual electricity demand (kWh).
-        # self.electricity_demand_file_industry = paths.electricity_demand_file_industry
-        # self.pv_data_meta_file = paths.pv_data_meta_file # csv file containing meta data about pv profile files
-        # self.electricity_profile_file = paths.electricity_profile_file # csv-file containing load profile from smart meter data
-        # self.electricity_profile_industry_file = paths.electricity_profile_industry_file
         self.wind_power_cap_file = paths.wind_power_cap_file # installed wind power capacity [kW] per municipality
-        # self.wind_power_profile_file_annual = f"{self.com_name_}.csv" # csv-file containing generation profiles of wind power
-        # self.wind_power_profile_file_winter = f"{self.com_name_}_winter.csv" # csv-file containing generation profiles of wind power, with profiles favored for winter-production
         self.wind_power_profile_file_annual = f"{self.com_name_}.feather" # feather-file containing generation profiles of wind power
         self.wind_power_profile_file_winter = f"{self.com_name_}_winter.feather" # feather-file containing generation profiles of wind power, with profiles favored for winter-production
         self.wind_power_national_profile_file = paths.wind_power_national_profile_file # Hourly profile of national wind power generation [kWh]
-        # self.hydro_profile_file = paths.hydro_profile_file
         self.ev_profile_cp_file = paths.ev_profile_cp_file # hourly charging load [kW]
         self.ev_profile_fe_file = paths.ev_profile_fe_file # daily flexible energy [kWh]
         self.ev_profile_pd_file = paths.ev_profile_pd_file # hourly upper power bound [kW]
         self.ev_profile_pu_file = paths.ev_profile_pu_file # hourly lower power bound [kW]
         self.ev_munic_name_nr = paths.ev_munic_name_nr_file # municipalities and BFS numnbers for ev data
-        
-        # Base technolgies data:
-        # self.base_tech_data = base_tech_data
         
         # List to collect input data and write to a file at the end:
         self.list_input_data = []
@@ -204,8 +203,8 @@ class DistrictEnergyModel:
         
         #----------------------------------------------------------------------
         # Heat demand info:
-        self.yearly_heat_demand_col='heat_energy_demand_estimate_kWh_combined' # df column used for annual heat demand
-        self.yearly_hot_water_demand_col='dhw_estimation_kWh_combined' # df column used for annual hot_water demand
+        self.yearly_heat_demand_col='space_heating_demand_estimation_kWh' # df column used for annual heat demand
+        self.yearly_hot_water_demand_col='DHW_demand_estimation_kWh' # df column used for annual hot_water demand
         
         """--------------------------------------------------------------------
         Read and prepare data:
@@ -293,7 +292,7 @@ class DistrictEnergyModel:
         self.supply = dem_supply.Supply(
             com_nr=self.com_nr,
             meta_file=self.df_meta,
-            profiles_file=self.profiles_file,
+            profiles_file=self.df_profiles,
             supply_tech_dict=scen_techs['supply']
             )
         
@@ -312,14 +311,22 @@ class DistrictEnergyModel:
             com_name=self.com_name_,
             # com_nr_original=self.com_nr_original,
             com_nr_original=self.com_nr_majority, # changed: 23.12.2025
-            com_lat=self.com_lat,
-            com_lon=self.com_lon,
-            com_alt=self.com_alt,
-            tf_start=C.tf_meteostat_start,
-            tf_end=C.tf_meteostat_end
+            # com_lat=self.com_lat,
+            # com_lon=self.com_lon,
+            # com_alt=self.com_alt,
+            # tf_start=C.tf_meteostat_start,
+            # tf_end=C.tf_meteostat_end,
+            weather_year=self.hist_data_year, 
             )
 
-        hps_existings_cops, hps_new_cops, hps_one_to_one_replacement_cops, tot_heat_existing, tot_heat_new, tot_heat_one_to_one = dem_hp_cop_calculation.calculateCOPs(
+        (
+            hps_existings_cops,
+            hps_new_cops,
+            hps_one_to_one_replacement_cops,
+            tot_heat_existing,
+            tot_heat_new,
+            tot_heat_one_to_one
+            ) = dem_hp_cop_calculation.calculateCOPs(
             paths=self.paths,
             df_com_yr=self.df_com_yr, 
             quality_factor_ashp_new = scen_techs['heat_pump']['quality_factor_ashp_new'], 
@@ -328,7 +335,8 @@ class DistrictEnergyModel:
             quality_factor_gshp_old = scen_techs['heat_pump']['quality_factor_gshp_old'],
             com_nr = self.com_nr_majority,
             dem_demand = self.energy_demand,
-            weather_year = C.METEO_YEAR,
+            # weather_year = C.METEO_YEAR,
+            weather_year = self.hist_data_year,
             consider_renovation_effects=False,
             total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios =\
                scen_techs['demand_side']['total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios'],
@@ -520,14 +528,14 @@ class DistrictEnergyModel:
         Electricity Demand and Current Consumption Data:
         """
         # Annual electricity demand ("household" (hh) demand, i.e. w/o heating):
-        self.energy_demand.compute_d_e_hh_yr(
+        self.energy_demand.compute_d_e_baseline_yr(
             self.df_meta,
             self.com_nr
             )
-        
+
         # Hourly electricity demand ("household" (hh) demand, i.e. w/o heating):
-        self.energy_demand.compute_d_e_hh_hr(
-            profiles_file = self.profiles_file,
+        self.energy_demand.compute_d_e_baseline_hr(
+            df_profiles = self.df_profiles,
             com_kt = self.com_kt
             )
         
@@ -557,7 +565,7 @@ class DistrictEnergyModel:
         # # Compute annual and hourly output of installed PV:
         # self.tech_solar_pv.compute_v_e(
         #     self.df_meta,
-        #     self.profiles_file
+        #     self.df_profiles
         #     )
         
         # # Compute total (incl. installed) and remaining rooftop PV potential:
@@ -629,16 +637,17 @@ class DistrictEnergyModel:
         Grid Import:
         """
         self.tech_grid_supply.compute_base_grid_import()
-
-        sum_a = dem_helper.get_m_e_ch_sum(self.tech_grid_supply)
-        sum_b = (
-            sum(self.tech_grid_supply.get_m_e_ch())
-            + sum(self.tech_grid_supply.get_m_e_cbimport())
-            )        
-        dem_eb.energy_balance_test(
-            sum(self.tech_grid_supply.get_m_e_ch()), sum_a, 'electricity mix')        
-        dem_eb.energy_balance_test(
-            sum(self.tech_grid_supply.get_m_e()), sum_b, 'electricity import')
+        
+        if self.toggle_energy_balance_tests:
+            sum_a = dem_helper.get_m_e_ch_sum(self.tech_grid_supply)
+            sum_b = (
+                sum(self.tech_grid_supply.get_m_e_ch())
+                + sum(self.tech_grid_supply.get_m_e_cbimport())
+                )        
+            dem_eb.energy_balance_test(
+                sum(self.tech_grid_supply.get_m_e_ch()), sum_a, 'electricity mix')        
+            dem_eb.energy_balance_test(
+                sum(self.tech_grid_supply.get_m_e()), sum_b, 'electricity import')
 
 
         #----------------------------------------------------------------------
@@ -950,12 +959,21 @@ class DistrictEnergyModel:
                     
         # Heat pump (central plant):
         if scen_techs['heat_pump_cp']['deployment']:
+            weather_year_ = (
+                self.simulation_year
+                if (
+                    scen_techs['scenarios']['demand_side']
+                    and scen_techs['demand_side']['simulation_year']['type'] == 'future'
+                )
+                else self.hist_data_year
+            )
             self.tech_heat_pump_cp =\
                 dem_techs.HeatPumpCP(scen_techs['heat_pump_cp'])
             self.tech_heat_pump_cp.set_temperature_based_cop(dem_hp_cop_calculation.calculateHPCP_COP(
                 self.paths,
                 self.tech_heat_pump_cp,
-                scen_techs['demand_side']['year'] if scen_techs['scenarios']['demand_side'] else C.METEO_YEAR,
+                # scen_techs['demand_side']['year'] if scen_techs['scenarios']['demand_side'] else C.METEO_YEAR,
+                weather_year_,
                 self.com_nr_majority
             ))
             self.tech_heat_pump_cp.compute_cop_timeseries(self.energy_demand._d_h_profile)
@@ -1031,7 +1049,7 @@ class DistrictEnergyModel:
 
         #----------------------------------------------------------------------
             
-        # !!! Check if there is unmet demand / supply.
+        # Check if there is unmet demand / supply.
         
         # Electricity generation:
             # grid supply
@@ -1060,7 +1078,7 @@ class DistrictEnergyModel:
         # """--------------------------------------------------------------------
         # Add EV demand:
         # """
-        # !!!UNDER CONSTRUCTION!!!
+        # UNDER CONSTRUCTIO
         # EVENTUALLY PACK EVERYTHING INTO A FUNCTION (E.G. in dem_demand.py)
         
         # How is this additional demand covered in case no scenario is applied?
@@ -1139,6 +1157,14 @@ class DistrictEnergyModel:
         """
         if scen_techs['scenarios']['demand_side'] == True:
             # TO DO: WRAP IN SCENARIO FUNCTION
+            weather_year_ = (
+                self.simulation_year
+                if (
+                    scen_techs['scenarios']['demand_side']
+                    and scen_techs['demand_side']['simulation_year']['type'] == 'future'
+                )
+                else self.hist_data_year
+            )
             
             # -----------------------------------------------------------------
             # Recalculate heat demand:
@@ -1155,10 +1181,12 @@ class DistrictEnergyModel:
                 com_nrs = com_nrs,
                 df_com_yr=self.df_com_yr,
                 df_meta = self.df_meta,
-                year=scen_techs['demand_side']['year'],
+                # year=scen_techs['demand_side']['year'],
+                weather_year=weather_year_,
+                hist_data_year=self.hist_data_year,
                 rcp_scenario=scen_techs['demand_side']['rcp_scenario'],
                 ts_type=scen_techs['demand_side']['ts_type'],
-                yearly_heat_demand_col='heat_energy_demand_estimate_kWh_combined',
+                yearly_heat_demand_col='space_heating_demand_estimation_kWh',
                 new_header = 'd_h_s_yr_future',
                 writeToMeta = True,
                 distinguishByConstructionYear = True
@@ -1169,7 +1197,9 @@ class DistrictEnergyModel:
                 com_nrs = com_nrs,
                 df_com_yr=self.df_com_yr,
                 df_meta = self.df_meta,
-                year=scen_techs['demand_side']['year'],
+                # year=scen_techs['demand_side']['year'],
+                weather_year=weather_year_,
+                hist_data_year=self.hist_data_year,
                 rcp_scenario=scen_techs['demand_side']['rcp_scenario'],
                 ts_type=scen_techs['demand_side']['ts_type'],
                 yearly_heat_demand_col='heat_energy_demand_renov_estimate_kWh',
@@ -1184,7 +1214,8 @@ class DistrictEnergyModel:
                 com_nrs = com_nrs,
                 df_com_yr=self.df_com_yr,
                 df_meta = self.df_meta,
-                year=scen_techs['demand_side']['year'],
+                # year=scen_techs['demand_side']['year'],
+                year=self.simulation_year,
                 total_renovation_activated= scen_techs['demand_side']['total_renovation'],
                 use_constant_total_renovation_rate = scen_techs['demand_side']['use_constant_total_renovation_rate'],
                 constant_total_renovation_rate = scen_techs['demand_side']['constant_total_renovation_rate'],
@@ -1196,10 +1227,9 @@ class DistrictEnergyModel:
                 heat_generator_renovation = scen_techs['demand_side']['heat_generator_renovation'],
                 optimisation_enabled = scen_techs['optimisation']['enabled'],
                 scen_techs = scen_techs,
-                data_year = C.DATA_YEAR,
+                data_year = C.RENOVATION_YEAR,
                 new_header = post_renovation_sh_heat_demand_name
                 )
-
 
 
             hps_existings_cops, hps_new_cops, hps_one_to_one_replacement_cops, tot_heat_existing, tot_heat_new, tot_heat_one_to_one = dem_hp_cop_calculation.calculateCOPs(
@@ -1211,7 +1241,8 @@ class DistrictEnergyModel:
                 quality_factor_gshp_old = scen_techs['heat_pump']['quality_factor_gshp_old'],
                 com_nr = self.com_nr_majority,
                 dem_demand = self.energy_demand,
-                weather_year = scen_techs['demand_side']['year'],
+                # weather_year = scen_techs['demand_side']['year'],
+                weather_year = weather_year_,
                 consider_renovation_effects=True,
                 total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios =\
                    scen_techs['demand_side']['total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios'],
@@ -1250,11 +1281,12 @@ class DistrictEnergyModel:
                 com_name=self.com_name_,
                 # com_nr_original=self.com_nr_original,
                 com_nr_original=self.com_nr_majority, # changed: 23.12.2025
-                com_lat=self.com_lat,
-                com_lon=self.com_lon,
-                com_alt=self.com_alt,
-                tf_start=C.tf_meteostat_start,
-                tf_end=C.tf_meteostat_end
+                # com_lat=self.com_lat,
+                # com_lon=self.com_lon,
+                # com_alt=self.com_alt,
+                # tf_start=C.tf_meteostat_start,
+                # tf_end=C.tf_meteostat_end,
+                weather_year=weather_year_,
                 )
             
             # dem_hp_cop_calculation.calculateCOP_no_renov()
@@ -1852,7 +1884,7 @@ class DistrictEnergyModel:
         else:
             
             # Compute costs in case no optimisation is applied:
-            dict_total_costs = {} # !!! a separate module for cost calculations must be implemented
+            dict_total_costs = {}
             
             dict_total_costs = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"], debug=False)
             model = 0

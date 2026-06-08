@@ -1,10 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [latest] - YYYY-MM-DD
+## [0.2.0-dev0] - YYYY-MM-DD
 
 ### Added
-- Demand side response: flexibility from building inertia via virtual storage
+- Separation of electricity demand components: residential, industry, services, losses, and hydropower pumping
+- Syncronised historic weather and demand data to same year
+- Demand side response: flexibility from building inertia via virtual storage for heat pump and district heating
 - Deep Geothermal Technology
 - Cost calculation module for manual scenarios
 - Added possibility to call run_dem_local.py with location of input_file, config_files and output_files
@@ -25,6 +27,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - Compatibility with Calliope version 0.6.10 (previously 0.6.8)
+- Input files structure
+- Required input data
+
+## [0.1.0] – 2026-03-23
+Stable release.
 
 ## [0.1.0-rc2] – 2025-12-23
 First stable release.

@@ -833,6 +833,7 @@ scen_techs = {
     'simulation':{
         'number_of_days':365, # Simulation timeframe, starting on 1 Jan
         'district_number':com_nr,
+        # 'data_year':2016, # Options: 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023
         'generate_plots':toggle_plot,
         'save_results':toggle_save_results,
         # 'results_dir':''
@@ -841,7 +842,11 @@ scen_techs = {
         },
     
     'demand_side':{ # only applies if ['scenarios]['demand_side'] == True
-        'year': 2023, # Options: 2023, 2030, 2040, 2050
+        'simulation_year':{
+            'type':'current', # Options: 'current', 'future'
+            'future_year': 2050, # Only relevant if type == future; Options: '2030', '2040', '2050'
+            },
+        # 'year': 2023, # Options: 2023, 2030, 2040, 2050
         'rcp_scenario':'RCP26',
         'ts_type':'tas_median',
         'ev_integration':True,

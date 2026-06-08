@@ -43,7 +43,7 @@ class DistrictHeating(TechCore):
         self._v_co2 = []
         self._v_h_by_categories = []
 
-        self.update_district_heating_categories(df_com_yr, energy_demand, 'heat_energy_demand_estimate_kWh_combined')
+        self.update_district_heating_categories(df_com_yr, energy_demand, 'space_heating_demand_estimation_kWh')
         
     def update_district_heating_categories(
             self,
@@ -65,7 +65,7 @@ class DistrictHeating(TechCore):
                 ].sum()
             +df_com_yr.loc[
                 mask_dh, 
-                'dhw_estimation_kWh_combined'
+                'DHW_demand_estimation_kWh'
                 ].sum())
         
         
@@ -91,7 +91,7 @@ class DistrictHeating(TechCore):
             # Sum domestic hot water demand
             dhw_sum = df_com_yr.loc[
                 mask,
-                'dhw_estimation_kWh_combined'
+                'DHW_demand_estimation_kWh'
             ].sum()
         
             # Store combined energy demand
@@ -108,7 +108,7 @@ class DistrictHeating(TechCore):
         # # Heat demand of all buildings:
         # total_share_energy = ( # For testing
         #     df_com_yr[column_name_for_heat_demand_space_heating].sum()
-        #     + df_com_yr['dhw_estimation_kWh_combined'].sum()
+        #     + df_com_yr['DHW_demand_estimation_kWh'].sum()
         #     )
         
         # existing_and_new_sum = (
@@ -136,7 +136,7 @@ class DistrictHeating(TechCore):
         #             (df_com_yr['Heating_System'] != 'v_h_dh') & (df_com_yr['dh_distance_cat'] == i),
         #             column_name_for_heat_demand_space_heating].sum() + df_com_yr.loc[
         #                 (df_com_yr['Heating_System'] != 'v_h_dh') & (df_com_yr['dh_distance_cat'] == i), 
-        #                 'dhw_estimation_kWh_combined'
+        #                 'DHW_demand_estimation_kWh'
         #                 ].sum()
         #     )
         #                                 for i in range(self.num_dh_categories+1)
