@@ -83,7 +83,7 @@ class DEMPaths:
         # Input data files:
         # ----------------
         self.electricity_mix_file = 'electricity_mix.feather' # timeseries of hourly electricity mix fractions.
-        self.pv_alpine_file = path_strt1 + '/data/tech_solar_pv/Alpine-PV_V2R1P2G1_20251127.csv'
+        self.pv_alpine_file = path_strt1 + '/data/tech_solar_pv/alpine_pv_profiles.feather'
         self.pv_epps_unassigned_path = path_strt1 + '/data/tech_solar_pv/solar_epps_not_assigned_to_roofs_powers.feather'
         self.wind_power_cap_file = 'p_installed_kW_wind_power.feather' # installed wind power capacity [kW] per municipality
         self.wind_power_national_profile_file = 'v_e_wp_national_installed_kWh.csv' # Hourly profile of national wind power generation [kWh]
