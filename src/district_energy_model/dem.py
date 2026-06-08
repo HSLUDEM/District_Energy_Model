@@ -129,7 +129,7 @@ class DistrictEnergyModel:
             print("Model aborted.")
             print(f"Munic {self.com_name_} not included in model as it is on the list "
                   "of municipalities to omit (see dem_constants.py).")
-            sys.exit()
+            raise ValueError("Municipality Number marked as to omit.")
         
         # Input data directories:
         self.simulation_data_dir = paths.simulation_data_dir
