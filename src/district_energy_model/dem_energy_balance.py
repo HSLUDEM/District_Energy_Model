@@ -55,7 +55,7 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
 
     if 'solar_pvalpine' in tech_instances:
         tech_solar_pvalpine = tech_instances['solar_pvalpine']
-        v_e_pvalpine = tech_solar_pvalpine.get_v_e_from_installations()
+        v_e_pvalpine = tech_solar_pvalpine.get_v_e_from_installations()[0]
         with_pvalpine = True
     tech_wind_power = tech_instances['wind_power']
     tech_biomass = tech_instances['biomass']
@@ -83,6 +83,10 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     elif with_bes:
         dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_bes, u_e_bes)
     elif with_pvalpine:
+        print(v_e_pvalpine)
+        print(len(v_e_pvalpine))
+        # print(type(v_e_pvrooftop[0]))
+        # print(len(v_e_pvrooftop))
         dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_pvalpine)
     else:
         dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_bes, u_e_bes, v_e_pvalpine)

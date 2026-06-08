@@ -18,6 +18,8 @@ import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 from plotly.offline import plot as plotly_plot
 
+import dem_helper
+
 
 # ---------------------------------------------------------------------------
 # Plotly 3.x compatibility layer

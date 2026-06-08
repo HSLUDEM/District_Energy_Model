@@ -1700,7 +1700,7 @@ class EnergyDemand:
 
         df_hour_all =  self.df_temperature_all_years.copy()
 
-        dhw_profile_dir = self.paths.dhw_profile_dir
+        dhw_profile_dir = self.paths.heat_dir
         dhw_profile_file = self.paths.dhw_profile_file
         
         dhw_profile = pd.read_feather(dhw_profile_dir + dhw_profile_file)
