@@ -167,6 +167,10 @@ def update_scen_techs_from_yaml(input_files_dir, scen_techs):
             continue
 
         top_key = file.stem
+
+        if top_key.startswith("EXAMPLE_"):
+            continue
+
         with open(file, "r", encoding="utf-8") as f:
             content = yaml.safe_load(f) or {}
 

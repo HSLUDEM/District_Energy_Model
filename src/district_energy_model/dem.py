@@ -746,7 +746,7 @@ class DistrictEnergyModel:
         # Add additional techs for new scenario:
         
         # PV Alpine
-        if scen_techs['solar_pvalpine']['deployment']:      
+        if scen_techs['solar_pvalpine']['deployment'] and scen_techs['optimisation']['enabled']:      
             pvalpine_profile_readout = dem_solar_preprocessing_switzerland.obtain_com_pvalpine_profile(self.com_nr, self.paths)
 
             pv_alpine_profiles = [pvalpine_profile_readout[0][0]]
