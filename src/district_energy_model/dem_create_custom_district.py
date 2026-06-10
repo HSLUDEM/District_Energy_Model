@@ -12,9 +12,34 @@ from district_energy_model import dem_helper
 
 def create_district(paths, scen_techs):
     
-    df_meta = pd.read_feather(paths.simulation_data_dir + paths.meta_file)
-    # print(df_meta.columns)
-    df_master = pd.read_feather(paths.simulation_data_dir + paths.master_file)
+
+    meta_file_general_path = paths.simulation_data_dir + paths.meta_file_general
+    df_meta_general = pd.read_feather(meta_file_general_path)
+    
+    meta_file_year_path = paths.simulation_data_dir + paths.meta_file_year
+    df_meta_year = pd.read_feather(meta_file_year_path)
+    
+    # Merge general with year-specific meta data:
+    df_meta = df_meta_general.merge(
+        df_meta_year,
+        on="GGDENR",
+        how="left"
+    )
+
+    master_file_general_path = paths.simulation_data_dir + paths.master_file_general
+    df_master_general = pd.read_feather(master_file_general_path)
+    
+    master_file_year_path = paths.simulation_data_dir + paths.master_file_year
+    df_master_year = pd.read_feather(master_file_year_path)
+    
+    # Merge to one master file:
+    df_master = df_master_general.merge(
+        df_master_year,
+        on="EGID",
+        how="left"
+    )
+
+
     EGID_List = scen_techs['meta_data']['custom_district']['EGID_List']
     
     if scen_techs['meta_data']['custom_district']['custom_district_name'] in df_meta['Municipality']:
