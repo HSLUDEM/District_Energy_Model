@@ -125,7 +125,7 @@ def create_district(paths, scen_techs):
         s_wd_bm = df_com_yr['s_wd_bm'].sum()
         s_wet_bm = df_com_yr['s_wet_bm'].sum()
         Electricity_demand_industry_kWh = df_com_yr['Electricity_Industry'].sum()
-        Electricity_demand_services_kWh = df_com_yr['Electricity_Services'].sum()
+        Electricity_demand_services_kWh = df_com_yr['Electricity_Service'].sum()
         
         # Solar PV data:
         com_nr_majority = df_com_yr.groupby('GGDENR').size().sort_values(ascending = False).index[0]
