@@ -69,12 +69,13 @@ ELECTRICITY DEMAND:
 
 class EnergyDemand:
     
-    def __init__(self, paths, com_nr):
+    def __init__(self, paths, com_nr, com_nr_majority):
         
         self.paths = paths
                 
         # Properties:
         self.com_nr = com_nr
+        self.com_nr_majority = com_nr_majority
         
         # Carrier types:
         ...
@@ -147,7 +148,7 @@ class EnergyDemand:
         # Read temperature profiles:
         weather_data_dir = self.paths.weather_data_delta_method_dir
         self.df_temperature_all_years = pd.read_feather(
-            weather_data_dir + str(self.com_nr) + ".feather"
+            weather_data_dir + str(self.com_nr_majority) + ".feather"
             )
         
         

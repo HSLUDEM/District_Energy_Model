@@ -283,7 +283,7 @@ class DistrictEnergyModel:
         Create demand instance:
         """
         
-        self.energy_demand = dem_demand.EnergyDemand(paths=self.paths, com_nr=self.com_nr_majority)
+        self.energy_demand = dem_demand.EnergyDemand(paths=self.paths, com_nr=self.com_nr, com_nr_majority=self.com_nr_majority)
         
         """--------------------------------------------------------------------
         Create resource supply instance:
