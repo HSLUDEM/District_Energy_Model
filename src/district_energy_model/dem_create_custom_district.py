@@ -181,22 +181,28 @@ def create_district(paths, scen_techs):
         m_per_kWh_class_3 = (df_com_yr['dh_distance_cat'] == 3).sum()*avg_dist_class_3/cap_class_3
         
         new_district = np.array([
-            Municipality, GGDENR_new, Canton, 
-            Coord_lat_median, Coord_long_median,  altitude_median, 
+            GGDENR_new, Municipality, Canton, 
+            Coord_lat_median, Coord_long_median,  
+            altitude_median, 
             Filename,
-            LocalHydroPotential, LocalHydroPotential_Laufkraftwerk,  LocalHydroPotential_Speicherkraftwerk, LocalHydroPotential_Pumpspeicherkraftwerk, 
-            v_h_eh, v_h_hp, v_h_dh, v_h_gb, v_h_ob, v_h_wb, v_h_solar, v_h_other, space_heating_demand_estimation_kWh,
-            v_hw_eh, v_hw_hp, v_hw_dh, v_hw_gb, v_hw_ob, v_hw_wb, v_hw_solar, v_hw_other, DHW_demand_estimation_kWh, 
+            LocalHydroPotential, 
+            LocalHydroPotential_Laufkraftwerk,  
+            LocalHydroPotential_Speicherkraftwerk, 
+            LocalHydroPotential_Pumpspeicherkraftwerk, 
+            v_h_eh, v_h_hp, v_h_dh, v_h_gb, v_h_ob, v_h_wb, v_h_solar, v_h_other, 
+            space_heating_demand_estimation_kWh,
+            v_hw_eh, v_hw_hp, v_hw_dh, v_hw_gb, v_hw_ob, v_hw_wb, v_hw_solar, v_hw_other, 
+            DHW_demand_estimation_kWh, 
             PV_Pot, PV_TotalEnergy, 
-            Electricity_demand_household_SFH_kWh, Electricity_demand_household_MFH_kWh, 
-            Electricity_demand_industry_kWh, Electricity_demand_services_kWh,
             s_wd_bm, s_wet_bm, 
-            pv_filename,
             cap_class_1, cap_class_2, cap_class_3,
             cap_class_1_renov, cap_class_2_renov, cap_class_3_renov,
             avg_dist_class_1, avg_dist_class_2, avg_dist_class_3,
             m_per_kWh_class_1_renov, m_per_kWh_class_2_renov, m_per_kWh_class_3_renov,
-            m_per_kWh_class_1, m_per_kWh_class_2, m_per_kWh_class_3
+            m_per_kWh_class_1, m_per_kWh_class_2, m_per_kWh_class_3,
+            Electricity_demand_household_SFH_kWh, Electricity_demand_household_MFH_kWh, 
+            Electricity_demand_industry_kWh, Electricity_demand_services_kWh,
+            0.0, 0.0
             ])
         
         df_meta.loc[len(df_meta)] = new_district
