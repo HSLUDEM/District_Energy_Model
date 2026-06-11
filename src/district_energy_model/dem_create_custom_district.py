@@ -129,9 +129,7 @@ def create_district(paths, scen_techs):
         
         # Solar PV data:
         com_nr_majority = df_com_yr.groupby('GGDENR').size().sort_values(ascending = False).index[0]
-            
-        pv_filename = df_meta.loc[df_meta['GGDENR'] == com_nr_majority, 'PV_Filename'].values[0]
-        
+                    
         # ================
         # SUPERSEDED:
         # ----------
