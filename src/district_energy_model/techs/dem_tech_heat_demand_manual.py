@@ -142,15 +142,11 @@ class HeatDemandManual(TechCore):
                           energy_scaling_factor):
             
         techs_dict[header] = {
-            'essentials':{
-                'name': name,
-                'color':color,
-                'parent':'demand',
-                'carrier': 'heat',
-                },
-            'constraints':{
-                "resource": resource,
-                },
+            'name': name,
+            'color':color,
+            'base_tech':'demand',
+            'carrier_in': 'heat',
+            "sink_use_max": resource,
             }
         
         return techs_dict

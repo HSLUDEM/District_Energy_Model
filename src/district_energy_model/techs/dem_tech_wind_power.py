@@ -874,22 +874,22 @@ class WindPower(TechCore):
     def create_tech_groups_dict(self, tech_groups_dict):
         
         tech_groups_dict['wind_power_parent'] = {
-                'essentials':{
-                    'parent':'supply_plus',
-                    'carrier':'wp_electricity'
+                'base_tech':'supply',
+                'carrier_out':'wp_electricity',
+                'carrier_export': 'wp_electricity',
+                'include_storage': True,
+                'source_unit':'per_cap',  # [kWh/kW]
+                'lifetime': self._lifetime,
+                'cost_interest_rate':{
+                    'data':self._interest_rate,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'export_carrier': 'wp_electricity',
-                    'resource_unit':'energy_per_cap',  # [kWh/kW]
-                    'force_resource': True,
-                    'lifetime': self._lifetime,
+                'cost_flow_in':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'interest_rate':self._interest_rate,
-                        'om_con':0.0
-                        },
-                    }
                 }
         
         return tech_groups_dict
@@ -912,21 +912,24 @@ class WindPower(TechCore):
             capex = 0
         
         techs_dict[header] = {
-            'essentials':{
-                'name':name,
-                'color':color,
-                'parent':'wind_power_parent'
+            'name':name,
+            'color':color,
+            'template':'wind_power_parent',
+            'cost_flow_cap':{
+                'data':capex * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                # 'energy_cap_max': energy_cap
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap':capex * energy_scaling_factor,
-                    'om_annual': self._maintenance_cost * energy_scaling_factor,
-                    'export':export_cost-self._export_subsidy * energy_scaling_factor
-                    }
-                }
+            'cost_export':{
+                'data':export_cost-self._export_subsidy * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
         
         return techs_dict
@@ -946,29 +949,38 @@ class WindPower(TechCore):
             ):
         
         techs_dict['wind_power_unit'] = {
-            'essentials':{
-                'name':'Wind Power Unit',
-                'color':color,
-                'parent':'conversion',
-                'carrier_in':'wp_electricity',
-                'carrier_out':'electricity'
+            'name':'Wind Power Unit',
+            'color':color,
+            'base_tech':'conversion',
+            'carrier_in':'wp_electricity',
+            'carrier_out':'electricity',
+            'purchased_units_max': 1,
+            'purchased_units_max_systemwide': 2,
+            'flow_cap_max_systemwide': self._kWp_max_systemwide / energy_scaling_factor if self._kWp_max_systemwide != 'inf' else 'inf',
+            # 'flow_cap_per_unit': tmp_cap_max, # was added in loc_dict()
+            'flow_out_eff': 1.0,
+            'lifetime': 100.0,
+            'cap_method':'integer',
+            'cost_interest_rate':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'units_max': 1,
-                'units_max_systemwide': 2,
-                'energy_cap_max_systemwide': self._kWp_max_systemwide / energy_scaling_factor if self._kWp_max_systemwide != 'inf' else 'inf',
-                # 'energy_cap_per_unit': tmp_cap_max, # was added in loc_dict()
-                'energy_eff': 1.0,
-                'lifetime': 100.0
+            'cost_flow_in':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'interest_rate':0.0,
-                    'om_con':0.0,
-                    'energy_cap':0.0,
-                    'purchase':0.0
-                    },
-                }
+            'cost_flow_cap':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_purchase':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
         
         return techs_dict

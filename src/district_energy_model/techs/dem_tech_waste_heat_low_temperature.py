@@ -148,20 +148,19 @@ class WasteHeatLowTemperature(TechCore):
     def create_tech_groups_dict(self, tech_groups_dict):
         
         tech_groups_dict['waste_heat_low_temperature'] = {
-            'essentials':{
-                'parent':'supply',
-                'carrier': 'heatlt'
+            'base_tech':'supply',
+            'carrier_out': 'heatlt',
+            'lifetime': self._lifetime,
+            'cost_interest_rate':{
+                'data':self._interest_rate,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'lifetime': self._lifetime,
+            'cost_flow_in':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'interest_rate':self._interest_rate,
-                    'om_con':0.0
-                    },
-                
-                }
             }
         
         return tech_groups_dict
@@ -179,25 +178,26 @@ class WasteHeatLowTemperature(TechCore):
         capex = self._capex
         
         techs_dict[header] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent': 'waste_heat_low_temperature'
+            'name': name,
+            'color': color,
+            'template': 'waste_heat_low_temperature',
+            'source_use_max': resource,
+            'cost_flow_cap':{
+                'data': capex * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'resource': resource,
-                # 'energy_cap_max': energy_cap
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': capex * energy_scaling_factor,
-                    'om_annual': self._maintenance_cost * energy_scaling_factor,
-                    'om_prod': self._tariff_CHFpkWh * energy_scaling_factor
-                    },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity * energy_scaling_factor,
-                    }
-                }
+            'cost_flow_out':{
+                'data':[self._tariff_CHFpkWh * energy_scaling_factor,
+                        self._co2_intensity * energy_scaling_factor],
+                'index':['monetary', 'emissions_co2'],
+                'dims':'costs',
+                },
             }    
         
         return techs_dict

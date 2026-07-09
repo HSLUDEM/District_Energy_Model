@@ -129,29 +129,40 @@ class HydroPower(TechCore):
             capex = 0
         
         techs_dict[header] = {
-            'essentials':{
-                'name':name,
-                'color':color,
-                'parent':'supply',
-                'carrier': 'electricity'
+            'name':name,
+            'color':color,
+            'base_tech':'supply',
+            'carrier_out': 'electricity',
+            'carrier_export': 'electricity',
+            'source_use_equals': resource,
+            'source_unit':'absolute',  # [kWh]
+            'flow_cap_max': energy_cap / energy_scaling_factor, # kWp # relevant?
+            'lifetime': 100,
+            'cost_interest_rate':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'export_carrier': 'electricity',
-                'resource': resource,
-                'resource_unit':'energy',  # [kWh]
-                'energy_cap_max': energy_cap / energy_scaling_factor, # kWp # relevant?
-                'force_resource': True,
-                'lifetime': 100
+            'cost_flow_in':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'interest_rate':0.0,
-                    'om_con':0.0,
-                    'energy_cap':capex * energy_scaling_factor,
-                    'om_annual': self._maintenance_cost * energy_scaling_factor,
-                    'export': -self._export_subsidy * energy_scaling_factor,
-                    },
-                }
+            'cost_flow_cap':{
+                'data':capex * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_export':{
+                'data': -self._export_subsidy * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
         return techs_dict
     

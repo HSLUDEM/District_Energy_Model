@@ -166,21 +166,21 @@ class WoodBoilerSG(TechCore):
     def create_tech_groups_dict(self, tech_groups_dict):
         
         tech_groups_dict['wood_boiler_sg'] = {
-            'essentials':{
-                'parent':'conversion',
-                'carrier_in':'wood',
-                'carrier_out':'steam',
+            'base_tech':'conversion',
+            'carrier_in':'wood',
+            'carrier_out':'steam',
+            'flow_out_eff':self._eta,
+            'lifetime':self._lifetime,
+            'cost_flow_in':{
+                'data':0.0, # costs are reflected in wood_supply
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'energy_eff':self._eta,
-                'lifetime':self._lifetime,
+            'cost_interest_rate':{
+                'data':self._interest_rate,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'om_con':0.0, # costs are reflected in wood_supply
-                    'interest_rate':self._interest_rate,
-                    },
-                }
             }
         
         return tech_groups_dict
@@ -195,27 +195,27 @@ class WoodBoilerSG(TechCore):
             ):
                 
         techs_dict[header] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent': 'wood_boiler_sg'
+            'name': name,
+            'color': color,
+            'template': 'wood_boiler_sg',
+            'flow_cap_max': self._v_steam_max / energy_scaling_factor if self._v_steam_max != 'inf' else 'inf',
+            'flow_out_min_relative': self._cap_min_use,
+            'cost_flow_cap':{
+                'data': self._capex * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'energy_cap_max': self._v_steam_max / energy_scaling_factor if self._v_steam_max != 'inf' else 'inf',
-                'energy_cap_min_use': self._cap_min_use,
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': self._capex * energy_scaling_factor,
-                    'om_annual': self._maintenance_cost * energy_scaling_factor
-
-                    }
-                }
             }
         
         if self._force_cap_max:
-            techs_dict[header]['constraints']['energy_cap_equals']\
-                = self._v_steam_max / energy_scaling_factor if self._v_steam_max != 'inf' else 'inf'
+            flow_cap = self._v_steam_max / energy_scaling_factor if self._v_steam_max != 'inf' else 'inf'
+            techs_dict[header]['flow_cap_min'] = flow_cap
+            techs_dict[header]['flow_cap_max'] = flow_cap
                 
         # Input capacity (kg wood):
         if self._wood_input_cap_type == 'free':
@@ -228,7 +228,7 @@ class WoodBoilerSG(TechCore):
             resource_cap_kW = resource_cap_kWh/8760
             output_cap_kW = resource_cap_kW*self._eta
             
-            techs_dict[header]['constraints']['energy_cap_max']\
+            techs_dict[header]['flow_cap_max']\
                 = output_cap_kW / energy_scaling_factor
                 
         elif self._wood_input_cap_type == 'fixed':    
@@ -238,8 +238,9 @@ class WoodBoilerSG(TechCore):
             resource_cap_kW = resource_cap_kWh/8760
             output_cap_kW = resource_cap_kW*self._eta
             
-            techs_dict[header]['constraints']['energy_cap_equals']\
-                = output_cap_kW / energy_scaling_factor
+            flow_cap = output_cap_kW / energy_scaling_factor
+            techs_dict[header]['flow_cap_min'] = flow_cap
+            techs_dict[header]['flow_cap_max'] = flow_cap
          
         return techs_dict
         

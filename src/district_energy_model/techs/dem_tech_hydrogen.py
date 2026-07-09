@@ -148,26 +148,34 @@ class HydrogenProduction(TechCore):
     def generate_tech_dict(self, techs_dict, energy_scaling_factor):
         
         hyd_dict = {
-            'essentials':{
-                'name':'Hydrogen Production',
-                'color':self.__tech_dict['color'],
-                'parent':'conversion',
-                'carrier_in': 'electricity',
-                'carrier_out': 'hydrogen',
+            'name':'Hydrogen Production',
+            'color':self.__tech_dict['color'],
+            'base_tech':'conversion',
+            'carrier_in': 'electricity',
+            'carrier_out': 'hydrogen',
+            'flow_cap_max':self.__tech_dict['capacity_kWh']/energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
+            'flow_out_eff':self.__tech_dict['efficiency'],
+            'lifetime':self.__tech_dict['lifetime'],
+            'cost_flow_cap':{
+                'data': self.__tech_dict['capital_cost'] * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'energy_cap_max':self.__tech_dict['capacity_kWh']/energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
-                'energy_eff':self.__tech_dict['efficiency'],
-                'lifetime':self.__tech_dict['lifetime']
+            'cost_flow_in':{
+                'data':self.__tech_dict['om_cost'] * energy_scaling_factor, # [CHF/kWh]
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
-                    'om_con':self.__tech_dict['om_cost'] * energy_scaling_factor, # [CHF/kWh]
-                    'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost * energy_scaling_factor
-                    },
-                }
+            'cost_interest_rate':{
+                'data':self.__tech_dict['interest_rate'],
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
         
         techs_dict['hydrogen_production'] = hyd_dict

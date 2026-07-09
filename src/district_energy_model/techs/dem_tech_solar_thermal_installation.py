@@ -239,43 +239,51 @@ class SolarThermalInstallation(TechCore):
         # print("VALUES = ", p_max_occ, p_max_unocc)
 
         techs_dict[header+"_occupied"] = {
-            'essentials':{
-                'name': name+"_occupied",
-                'color': color,
-                'parent': parent
+            'name': name+"_occupied",
+            'color': color,
+            'template': parent,
+            'source_use_equals': resource,
+            'flow_cap_max': p_max_occ / energy_scaling_factor,
+            'cost_flow_cap':{
+                'data': 0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'resource': resource,
-                'energy_cap_max': p_max_occ / energy_scaling_factor
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': 0,
-                    'om_annual': self._maintenance_cost * energy_scaling_factor,
-                    'export': -self._export_subsidy * energy_scaling_factor,
-                    }
-                }
+            'cost_export':{
+                'data': -self._export_subsidy * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }    
         
         # headers.append(header+"_occupied")
 
         techs_dict[header+"_unoccupied"] = {
-            'essentials':{
-                'name': name+"_unoccupied",
-                'color': color,
-                'parent': parent
+            'name': name+"_unoccupied",
+            'color': color,
+            'template': parent,
+            'source_use_equals': resource,
+            'flow_cap_max': p_max_unocc / energy_scaling_factor,
+            'cost_flow_cap':{
+                'data': self._capex * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'resource': resource,
-                'energy_cap_max': p_max_unocc / energy_scaling_factor
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': self._capex * energy_scaling_factor,
-                    'om_annual': self._maintenance_cost * energy_scaling_factor,
-                    'export': -self._export_subsidy * energy_scaling_factor,
-                    }
-                }
+            'cost_export':{
+                'data': -self._export_subsidy * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }    
 
         # headers.append(header+"_unoccupied")

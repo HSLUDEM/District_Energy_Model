@@ -451,28 +451,28 @@ class GridSupply(TechCore):
                           energy_scaling_factor):
             
         techs_dict['grid_supply'] = {
-            'essentials':{
-                'name':'Grid Supply',
-                'color':color,
-                'parent':'supply',
-                'carrier':'electricity',
+            'name':'Grid Supply',
+            'color':color,
+            'base_tech':'supply',
+            'carrier_out':'electricity',
+            'source_use_max':'inf',
+            'flow_cap_max':self._kW_max / energy_scaling_factor if self._kW_max != 'inf' else 'inf',
+            'lifetime':self._lifetime,
+            'cost_flow_in':{
+                'data': resource_tariff_timeseries, # [CHF/kWh]
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'resource':'inf',
-                'energy_cap_max':self._kW_max / energy_scaling_factor if self._kW_max != 'inf' else 'inf',
-                'lifetime':self._lifetime
+            'cost_flow_out':{
+                'data': resource_co2_intensity_timeseries,
+                'index':'emissions_co2',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    # 'energy_cap':1000,
-                    'om_con': resource_tariff_timeseries, # [CHF/kWh]
-                    # 'om_prod':self.scen_techs['grid_supply']['tariff_CHFpkWh'], # [CHF/kWh]
-                    'interest_rate':self._interest_rate
-                    },
-                'emissions_co2':{
-                    'om_prod': resource_co2_intensity_timeseries
-                    }
-                }
+            'cost_interest_rate':{
+                'data':self._interest_rate,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
         
         return techs_dict

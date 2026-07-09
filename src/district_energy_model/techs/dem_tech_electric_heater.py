@@ -118,21 +118,21 @@ class ElectricHeater(TechCore):
     def create_tech_groups_dict(self, tech_groups_dict):
         
         tech_groups_dict['electric_heater'] = {
-            'essentials':{
-                'parent':'conversion',
-                'carrier_in':'electricity',
-                'carrier_out':'heat'
+            'base_tech':'conversion',
+            'carrier_in':'electricity',
+            'carrier_out':'heat',
+            'flow_out_eff':1,
+            'lifetime':self._lifetime,
+            'cost_flow_in':{
+                'data':0.0, # reflected in the cost of electricity
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'energy_eff':1,
-                'lifetime':self._lifetime
+            'cost_interest_rate':{
+                'data':self._interest_rate,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'om_con':0.0, # reflected in the cost of electricity
-                    'interest_rate':self._interest_rate,
-                    },
-                }
             }
         
         return tech_groups_dict
@@ -153,20 +153,20 @@ class ElectricHeater(TechCore):
             capex = 0
         
         techs_dict[header] = {
-            'essentials':{
-                'name': name,
-                'parent': 'electric_heater',
-                'color': color
+            'name': name,
+            'template': 'electric_heater',
+            'color': color,
+            'flow_cap_max': energy_cap / energy_scaling_factor,
+            'cost_flow_cap':{
+                'data': capex * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'energy_cap_max': energy_cap / energy_scaling_factor
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': capex * energy_scaling_factor,
-                    'om_annual': self._maintenance_cost * energy_scaling_factor
-                    }
-                }
             }
         return techs_dict
         

@@ -173,28 +173,16 @@ class GridExport(TechCore):
                           energy_scaling_factor):
             
         techs_dict['grid_export'] = {
-            'essentials':{
-                'name':'Grid Export',
-                'color':color,
-                'parent':'demand',
-                'carrier':'electricity',
+            'name':'Grid Export',
+            'color':color,
+            'base_tech':'demand',
+            'carrier_in':'electricity',
+            "sink_use_max": 'inf',
+            'cost_flow_in':{
+                'data': [resource_tariff_timeseries, resource_co2_intensity_timeseries],
+                'index':['monetary', 'emissions_co2'],
+                'dims':'costs',
                 },
-            'constraints':{
-                "resource": 'inf',
-                # 'energy_cap_max':self._kW_max / energy_scaling_factor if self._kW_max != 'inf' else 'inf',
-                # "export_carrier": "electricity",
-                # 'lifetime':self._lifetime
-                },
-            'costs':{
-                'monetary':{
-                    "om_con": resource_tariff_timeseries
-                    # 'om_con': resource_tariff_timeseries, # [CHF/kWh]
-                    },
-                'emissions_co2':{
-                    # 'om_con': resource_co2_intensity_timeseries
-                    "om_con": resource_co2_intensity_timeseries
-                    }
-                }
             }
         
         return techs_dict

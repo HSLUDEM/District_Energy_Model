@@ -182,33 +182,20 @@ class HeatPumpCPLT(TechCore):
     def create_tech_groups_dict(self, tech_groups_dict):
         
         tech_groups_dict['heat_pump_cp_lt'] = {
-            'essentials':{
-                'parent':'conversion_plus',
-                'carrier_in':self._input_carrier_1,
-                'carrier_in_2':self._input_carrier_2,
-                'carrier_out':self._output_carrier,
-                'primary_carrier_out':self._output_carrier,
-                'primary_carrier_in':self._input_carrier_1
+            'base_tech':'conversion',
+            'carrier_in':[self._input_carrier_1, self._input_carrier_2],
+            'carrier_out':self._output_carrier,
+            'lifetime': self._lifetime,
+            'cost_flow_in':{
+                'data': 0.0, # this is reflected in the cost of the electricity
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                # 'energy_eff':5.0,
-                # 'carrier_ratios':{
-                #     'carrier_out':{
-                #         self._output_carrier:1.0
-                #         },
-                #     'carrier_in':{
-                #         self._input_carrier_2:5.0,
-                #         self._input_carrier_1:1.0
-                #         },
-                #     },
-                'lifetime': self._lifetime
+            'cost_interest_rate':{
+                'data':self._interest_rate,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'om_con': 0.0, # this is reflected in the cost of the electricity
-                    'interest_rate':self._interest_rate
-                    },
-                } 
             }
         
         return tech_groups_dict
@@ -223,38 +210,27 @@ class HeatPumpCPLT(TechCore):
             ):
         
         techs_dict[header] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent': 'heat_pump_cp_lt',
+            'name': name,
+            'color': color,
+            'template': 'heat_pump_cp_lt',
+            'flow_cap_max': self._v_h_max / energy_scaling_factor if self._v_h_max != 'inf' else self._v_h_max,
+            'flow_out_min_relative': self._cap_min_use,
+            'flow_out_eff':self._hpcplt_cop,
+            'cost_flow_cap':{
+                'data': self._capex * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'energy_cap_max': self._v_h_max / energy_scaling_factor if self._v_h_max != 'inf' else self._v_h_max,
-                'energy_cap_min_use': self._cap_min_use,
-
-                'energy_eff':self._hpcplt_cop,
-                'carrier_ratios':{
-                    'carrier_out':{
-                        'heat_hpcplt':(self._hpcplt_cop-1.0),
-                        },
-                    'carrier_in':{
-                        'electricity':1.0 / (self._hpcplt_cop-1),
-                        'heatlt':1.0,
-                        },
-                    },
-
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': self._capex * energy_scaling_factor,
-                    'om_annual': self._maintenance_cost * energy_scaling_factor
-                    }
-                }
             }
         
         if self._force_cap_max:
-            techs_dict[header]['constraints']['energy_cap_equals']\
-                = self._v_h_max
+            techs_dict[header]['flow_cap_min'] = self._v_h_max
+            techs_dict[header]['flow_cap_max'] = self._v_h_max
         
     
         return techs_dict #, additional_techs_label_list

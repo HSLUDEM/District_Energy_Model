@@ -126,19 +126,19 @@ class DeepGeothermal(TechCore):
     def create_tech_groups_dict(self, tech_groups_dict):
         
         tech_groups_dict['deep_geothermal'] = {
-            'essentials':{
-                'parent':'supply',
-                'carrier': 'heat_dgt'
+            'base_tech':'supply',
+            'carrier_out': 'heat_dgt',
+            'lifetime': self._lifetime,
+            'cost_interest_rate':{
+                'data':self._interest_rate,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'lifetime': self._lifetime,
+            'cost_flow_in':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'interest_rate':self._interest_rate,
-                    'om_con':0.0
-                    }
-                }
             }
         
         return tech_groups_dict
@@ -155,23 +155,25 @@ class DeepGeothermal(TechCore):
         capex = self._capex
         
         techs_dict[header] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent': 'deep_geothermal'
+            'name': name,
+            'color': color,
+            'template': 'deep_geothermal',
+            'flow_cap_max': self._capex / energy_scaling_factor if self._capex != 'inf' else 'inf',
+            'cost_flow_cap':{
+                'data': capex * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'energy_cap_max': self._capex / energy_scaling_factor if self._capex != 'inf' else 'inf',
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': capex * energy_scaling_factor,
-                    'om_annual': self._maintenance_cost * energy_scaling_factor,
-                    },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity * energy_scaling_factor, 
-                    }
-                }
+            'cost_flow_out':{
+                'data':self._co2_intensity * energy_scaling_factor,
+                'index':'emissions_co2',
+                'dims':'costs',
+                },
             }    
         
         return techs_dict

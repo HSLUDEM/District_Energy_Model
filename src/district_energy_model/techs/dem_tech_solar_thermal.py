@@ -153,25 +153,27 @@ class SolarThermal(TechCore):
     def create_tech_groups_dict(self, tech_groups_dict):
         
         tech_groups_dict['solar_thermal'] = {
-            'essentials':{
-                'parent':'supply_plus',
-                'carrier': 'heat'
+            'base_tech':'supply',
+            'carrier_out': 'heat',
+            'include_storage': True,
+            'source_unit': 'per_area',
+            'flow_out_parasitic_eff': 1.0, # efficiency is already accounted for in the resource dataseries
+            'lifetime': self._lifetime,
+            'cost_interest_rate':{
+                'data':self._interest_rate,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'resource_unit': 'energy_per_area', # 'energy',
-                'parasitic_eff': 1.0, # efficiency is already accounted for in the resource dataseries
-                'force_resource': True,
-                'lifetime': self._lifetime,
+            'cost_flow_in':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'interest_rate':self._interest_rate,
-                    'om_con':0.0
-                    },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity
-                    }
-                }
+            'cost_flow_out':{
+                'data':self._co2_intensity,
+                'index':'emissions_co2',
+                'dims':'costs',
+                },
             }
         
         return tech_groups_dict
@@ -192,21 +194,21 @@ class SolarThermal(TechCore):
             capex = 0
         
         techs_dict[header] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent': 'solar_thermal'
+            'name': name,
+            'color': color,
+            'template': 'solar_thermal',
+            'source_use_equals': resource,
+            'flow_cap_max': energy_cap,
+            'cost_flow_cap':{
+                'data': capex,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'resource': resource,
-                'energy_cap_max': energy_cap
+            'cost_om_annual':{
+                'data': self._maintenance_cost,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': capex,
-                    'om_annual': self._maintenance_cost
-                    }
-                }
             }        
         
         return techs_dict

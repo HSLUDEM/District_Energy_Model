@@ -169,44 +169,44 @@ class HeatPump(HeatPumpCore):
 
 
         techs_dict[header] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent': self._label,
+            'name': name,
+            'color': color,
+            'template': self._label,
+            'flow_out_eff':"df="+cop_df_label+":"+cop_df_label,
+            'flow_cap_max': energy_cap / energy_scaling_factor if energy_cap != 'inf' else 'inf',
+            'cost_flow_cap':{
+                'data': capex * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'energy_eff':"df="+cop_df_label+":"+cop_df_label,
-                'energy_cap_max': energy_cap / energy_scaling_factor if energy_cap != 'inf' else 'inf'
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': capex * energy_scaling_factor,
-                    'om_annual': self._maintenance_cost * energy_scaling_factor
-                    }
-                }
             }
         
         additional_techs_label_list = []
         
         if create_tesdc_hp_hub:
             techs_dict[self._hublabel] = {
-                'essentials':{
-                    'name':'Heat Pump Hub',
-                    'parent':'conversion',
-                    'carrier_in':self._output_carrier,
-                    'carrier_out':'heat',
+                'name':'Heat Pump Hub',
+                'base_tech':'conversion',
+                'carrier_in':self._output_carrier,
+                'carrier_out':'heat',
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             additional_techs_label_list.append(self._hublabel)            
     

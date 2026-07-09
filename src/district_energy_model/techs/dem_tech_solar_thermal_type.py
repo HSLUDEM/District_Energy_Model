@@ -299,23 +299,21 @@ class SolarThermalType(TechCore):
                                 ):
         
         tech_groups_dict['solar_'+self._techkey] = {
-            'essentials':{
-                'parent':'supply',
-                'carrier': self.output_carrier,
+            'base_tech':'supply',
+            'carrier_out': self.output_carrier,
+            'carrier_export': self.output_carrier,
+            'source_unit': 'per_area',
+            'lifetime': self._lifetime,
+            'cost_interest_rate':{
+                'data':self._interest_rate,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'export_carrier': self.output_carrier,
-                'resource_unit': 'energy_per_area', # 'energy',
-                # 'parasitic_eff': 1.0, # efficiency is already accounted for in the resource dataseries
-                'force_resource': True,
-                'lifetime': self._lifetime,
+            'cost_flow_in':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'interest_rate':self._interest_rate,
-                    'om_con':0.0,
-                    },
-                }
             }
         
         return tech_groups_dict

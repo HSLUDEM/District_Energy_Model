@@ -252,22 +252,16 @@ class SolarPVType(TechCore):
                                 ):
         
         tech_groups_dict['solar_'+self._techkey] = {
-            'essentials':{
-                'parent':'supply',
-                'carrier': 'electricity'
+            'base_tech':'supply',
+            'carrier_out': 'electricity',
+            'carrier_export': 'electricity',
+            'source_unit': 'per_area',
+            'lifetime': self._lifetime,
+            'cost_interest_rate':{
+                'data':self._interest_rate,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'export_carrier': 'electricity',
-                'resource_unit': 'energy_per_area', # 'energy',
-                # 'parasitic_eff': 1.0, # efficiency is already accounted for in the resource dataseries
-                'force_resource': True,
-                'lifetime': self._lifetime,
-                },
-            'costs':{
-                'monetary':{
-                    'interest_rate':self._interest_rate,
-                    },
-                }
             }
         
         return tech_groups_dict

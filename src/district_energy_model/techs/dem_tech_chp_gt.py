@@ -161,22 +161,20 @@ class CHPGasTurbine(TechCore):
     def create_tech_groups_dict(self, tech_groups_dict):
         print("\n Create CHP GT tech group\n")
         tech_groups_dict['chp_gt'] = {
-            'essentials':{
-                'parent':'conversion_plus',
-                'carrier_in':self._input_carrier,
-                'carrier_out':self._output_carrier_1,
-                'carrier_out_2':self._output_carrier_2, # VIA DISTRICT HEATING
-                'primary_carrier_out':self._output_carrier_1,
+            'base_tech':'conversion',
+            'carrier_in':self._input_carrier,
+            'carrier_out':[self._output_carrier_1, self._output_carrier_2], # heat via district heating
+            'lifetime':self._lifetime,
+            'cost_flow_in':{
+                'data': 0.0, # costs are reflected in gas supply tech
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'lifetime':self._lifetime,
+            'cost_interest_rate':{
+                'data':self._interest_rate,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'om_con': 0.0, # costs are reflected in gas supply tech
-                    'interest_rate':self._interest_rate,
-                    },
-                } 
             }
 
         return tech_groups_dict
@@ -195,37 +193,41 @@ class CHPGasTurbine(TechCore):
             ):
         
         techs_dict[header] = {
-            'essentials':{
-                'name':name,
-                'color':color,
-                'parent':'chp_gt',
+            'name':name,
+            'color':color,
+            'template':'chp_gt',
+            'flow_cap_max':self._kW_el_max / energy_scaling_factor if self._kW_el_max != 'inf' else 'inf',
+            'flow_out_eff':{
+                'data':[self._eta_el, self._eta_el * self._htp_ratio],
+                'index':[self._output_carrier_1, self._output_carrier_2],
+                'dims':'carriers',
                 },
-            'constraints':{
-                'energy_cap_max':self._kW_el_max / energy_scaling_factor if self._kW_el_max != 'inf' else 'inf',
-                'energy_eff':self._eta_el,
-                'carrier_ratios':{
-                    'carrier_out_2':{
-                        self._output_carrier_2:self._htp_ratio
-                        }
-                    }
+            'cost_flow_cap':{
+                'data': self._capex * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': self._capex * energy_scaling_factor,
-                    'om_annual': self._maintenance_cost * energy_scaling_factor
-                    }
-                }
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
     
         if self._allow_heat_export:
-            techs_dict[header]['constraints']['export_carrier'] = 'heat_chpgt'
-            techs_dict[header]['costs']['monetary']['export'] = -self._heat_export_subsidy * energy_scaling_factor
+            techs_dict[header]['carrier_export'] = 'heat_chpgt'
+            techs_dict[header]['cost_export'] = {
+                'data': -self._heat_export_subsidy * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                }
 
 
 
         if self._force_cap_max:
-            techs_dict[header]['constraints']['energy_cap_equals']\
-                = self._kW_el_max
+            flow_cap = self._kW_el_max
+            techs_dict[header]['flow_cap_min'] = flow_cap
+            techs_dict[header]['flow_cap_max'] = flow_cap
     
 
 

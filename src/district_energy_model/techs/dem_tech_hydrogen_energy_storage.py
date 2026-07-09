@@ -241,34 +241,37 @@ class HydrogenEnergyStorage(TechCore):
             capex_plus_maintenace += self._maintenance_cost/annuity_factor
 
         techs_dict['hes'] = {
-            'essentials':{
-                'name':'Hydrogen Tank Energy Storage',
-                'color':color,
-                'parent':'storage',
-                'carrier_in':'hydrogen',
-                'carrier_out':'hydrogen'
-                },
-            'constraints':{
-                'storage_initial':self._ic if not self._optimized_initial_charge else None,
-                'storage_cap_max':self._cap / energy_scaling_factor if self._cap != 'inf' else 'inf',
-                'storage_loss':self._gamma,
-                'energy_eff':self._eta_chg_dchg,
-                'energy_cap_per_storage_cap_max': self._chg_dchg_per_cap_max,
-                'lifetime':self._lifetime,
-                # 'force_asynchronous_prod_con':True,
-                },
-            'costs':{
-                'monetary':{
+            'name':'Hydrogen Tank Energy Storage',
+            'color':color,
+            'base_tech':'storage',
+            'carrier_in':'hydrogen',
+            'carrier_out':'hydrogen',
+            'storage_initial':self._ic if not self._optimized_initial_charge else None,
+            'storage_cap_max':self._cap / energy_scaling_factor if self._cap != 'inf' else 'inf',
+            'storage_loss':self._gamma,
+            'flow_out_eff':self._eta_chg_dchg,
+            'flow_cap_per_storage_cap_max': self._chg_dchg_per_cap_max,
+            'lifetime':self._lifetime,
+            'cost_flow_out':{
+                'data':0.0000, # artificial cost per discharged kWh; used to avoid cycling within timestep
                     # 'om_annual':0.0, # !!!TEMPORARY - KOSTEN MÜSSEN DYNAMISCH HINZUGEFÜGT WERDEN!!!
-                    'om_prod':0.0000, # # [CHF/kWh_dchg] artificial cost per discharged kWh; used to avoid cycling within timestep
-                    'storage_cap': capex_plus_maintenace * energy_scaling_factor,
-                    'interest_rate':self._interest_rate,
-                    #'om_annual': self._maintenance_cost * energy_scaling_factor
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                }
+            'cost_storage_cap':{
+                    #'om_annual': self._maintenance_cost * energy_scaling_factor
+                'data': capex_plus_maintenace * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_interest_rate':{
+                'data':self._interest_rate,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
         if self._force_asynchronous_prod_con:
-            techs_dict['hes']['constraints']['force_asynchronous_prod_con']= True
+            techs_dict['hes']['force_async_flow']= True
 
         return techs_dict
     
