@@ -617,6 +617,10 @@ def building_inertia_flex_constraints(
     def make_d_h_flex_upper_limit_constraint_rule(ts_i):
         
         def d_h_flex_upper_limit_constraint_rule(backend_model):
+            """
+            The flexible demand must be smaller or equal to the upper
+            flexibility boundary at any given timestep.
+            """
             
             ts = backend_model.timesteps # retrieve timesteps
             
@@ -644,7 +648,7 @@ def building_inertia_flex_constraints(
         def q_h_vs_constraint_rule(backend_model):
             """
             Rule: On average, each virtual storage must be half full (which
-            is the neutral state without over- or underheating).
+            is the neutral (i.e., nominal) state without over- or underheating).
             This ensures that at least the same amount of heat was
             delivered as without flexibility.
             """
@@ -722,6 +726,10 @@ def building_inertia_flex_constraints(
     def make_q_h_vs_drain_constraint_rule(ts_i):
         
         def q_h_vs_drain_constraint_rule(backend_model):
+            """
+            If there is space heating demand, the virtual storage drain
+            must be empty.
+            """
             
             ts = backend_model.timesteps # retrieve timesteps
             
@@ -747,6 +755,10 @@ def building_inertia_flex_constraints(
     def make_virtual_storage_discharge_constraint_rule(ts_i, acr):
         
         def virtual_storage_discharge_constraint_rule(backend_model):
+            """
+            Discharging of the virtual storage is only possible for moving
+            heat to the virtual storage drain.
+            """
             
             ts = backend_model.timesteps # retrieve timesteps
     
@@ -775,6 +787,11 @@ def building_inertia_flex_constraints(
     def make_virtual_storage_charge_constraint_rule(ts_i, acr):
         
         def virtual_storage_charge_constraint_rule(backend_model):
+            """
+            Set the max. charge rate of the virtual storage for each time step.
+            The max. charge rate is either based on heating system (hs)
+            capacity or loss rate (lr).
+            """
             
             ts = backend_model.timesteps # retrieve timesteps
     
@@ -799,9 +816,9 @@ def building_inertia_flex_constraints(
                 ]*energy_scaling_factor
             
             # max. charge rate (mcr)
-            if mcr_vs == 'hs':
+            if mcr_vs == 'hs': # based on heating system (hs) capacity
                 mcr = 1.0
-            elif mcr_vs == 'lr':
+            elif mcr_vs == 'lr': # based on loss rate (lr)
                 mcr = r_tot
             else:
                 raise ValueError("mcr_vs must be 'hs' or 'lr'.")
@@ -826,6 +843,11 @@ def building_inertia_flex_constraints(
     def make_virtual_storage_drain_charge_constraint_rule(ts_i, acr):
         
         def virtual_storage_drain_charge_constraint_rule(backend_model):
+            """
+            For each timestep, define if charging of the drain is allowed. It
+            is only allowed when heat needs to be shifted from the virtual
+            storage to the drain, which is when space heating demand goes to 0.
+            """
             
             ts = backend_model.timesteps # retrieve timesteps
     
@@ -848,6 +870,12 @@ def building_inertia_flex_constraints(
     def make_virtual_storage_drain_discharge_constraint_rule(ts_i, acr):
         
         def virtual_storage_drain_discharge_constraint_rule(backend_model):
+            """
+            For each timestep, define if discharging of the drain is allowed.
+            It is only allowed when heat needs to be shifted from the drain to
+            the virtual storage to the drain, which is when space heating 
+            comes back from being 0.
+            """
             
             ts = backend_model.timesteps # retrieve timesteps
     

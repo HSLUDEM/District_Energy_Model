@@ -308,11 +308,11 @@ def get_total_costs(tech_instances, supply, number_of_days, debug=False):
     """
     monetary_costs, monetary_breakdown = calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=debug)
     co2_emissions, co2_emissions_breakdown = calculate_CO2_emissions(supply, tech_instances, debug=debug)
-    cost_overwiew = {
+    cost_overview = {
         "monetary": monetary_costs,
         "co2": co2_emissions,
     }
-    return {"cost_overwiew": cost_overwiew, "monetary_breakdown": monetary_breakdown, "co2_breakdown": co2_emissions_breakdown}
+    return {"cost_overview": cost_overview, "monetary_breakdown": monetary_breakdown, "co2_breakdown": co2_emissions_breakdown}
     # return {"TAC": calculate_total_annual_costs(tech_instances), "LCOE": calculate_levelized_cost_of_energy(tech_instances, number_of_days)}
 
 
