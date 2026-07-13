@@ -1256,8 +1256,9 @@ class EnergyDemand:
                 new_header = 'd_h_s_yr_future_renov_adjusted'
                 ):
 
-
-        print("\nAdjustment of demand to renovation, marking of old heat generators as up for renewal")
+        
+        if total_renovation_activated or heat_generator_renovation:
+            print("\nAdjustment of demand to renovation, marking of old heat generators as up for renewal")
 
         df_com_yr['total_renovation_flag'] = False #Likelyhood of a specific building having been totally renovated
         #This can be a float between 0 and 1! 0=False, 1=True

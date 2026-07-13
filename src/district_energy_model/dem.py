@@ -22,7 +22,7 @@ from district_energy_model import dem_output
 from district_energy_model import dem_scenarios
 from district_energy_model import dem_supply
 from district_energy_model import dem_constants as C
-from district_energy_model import dem_emissions
+# from district_energy_model import dem_emissions
 from district_energy_model import dem_create_custom_district
 from district_energy_model import dem_flexibility
 from district_energy_model import dem_solar_preprocessing_switzerland
@@ -1028,8 +1028,7 @@ class DistrictEnergyModel:
                 raise(Exception('Hydrogen is required for this tech list!'))        
         
         #----------------------------------------------------------------------
-        # Check overall energy balance:        
-        
+        # Check overall energy balance:
         if self.toggle_energy_balance_tests:
             dem_eb.electricity_balance_test(
                 scen_techs=scen_techs,
@@ -1336,14 +1335,15 @@ class DistrictEnergyModel:
             # Total electricity demand (hourly and annual):
             self.energy_demand.compute_d_e()
 
-            # d_e_new = self.energy_demand.get_d_e()       
-            
+            # d_e_new = self.energy_demand.get_d_e()
+
             # Update local electricity mix:
             dem_eb.get_local_electricity_mix(self.energy_demand, self.tech_instances)
             
+            # Update import split:
             m_e_updated = self.tech_grid_supply.get_m_e()
-            self.tech_grid_supply.update_m_e(m_e_updated)
-            
+            self.tech_grid_supply.update_m_e(m_e_updated)            
+                        
             # m_e_diff = self.tech_grid_supply.compute_m_e_diff(d_e_new, d_e_prev)            
             # m_e_new = m_e_prev + m_e_diff            
             # self.tech_grid_supply.update_m_e(m_e_new)
@@ -1363,9 +1363,8 @@ class DistrictEnergyModel:
                 self.tech_instances,
                 df_scen
                 )
-            
             #------------------------------------------------------------------
-            # Check overall energy balance:            
+            # Check overall energy balance:
             if self.toggle_energy_balance_tests:
                 dem_eb.electricity_balance_test(
                     scen_techs=scen_techs,
@@ -1458,7 +1457,7 @@ class DistrictEnergyModel:
                 )
             
             #------------------------------------------------------------------
-            # Check overall energy balance:            
+            # Check overall energy balance:
             if self.toggle_energy_balance_tests:
                 dem_eb.electricity_balance_test(
                     scen_techs=scen_techs,
@@ -1859,7 +1858,7 @@ class DistrictEnergyModel:
                 tech_instances=self.tech_instances,
                 df_results=df_scen
                 )
-                
+  
             if self.toggle_energy_balance_tests:
                 dem_eb.electricity_balance_test(
                     scen_techs=scen_techs,
@@ -2432,7 +2431,6 @@ class DistrictEnergyModel:
             df_scen_d = pd.DataFrame(index = range(365))
             
             for column in self.df_scen.columns:
-                # print(column)
                 df_scen_d[column] = 0.0
                 result_temp = np.zeros(365)
                 
