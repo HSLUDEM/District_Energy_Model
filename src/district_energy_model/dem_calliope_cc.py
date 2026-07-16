@@ -30,33 +30,55 @@ def tes_sites_lt_no_conversion_without_charging_constraint(model, ts_len, sites_
                 
             constraint_name = site_entry['name']+'_'+'ltlt_loading_constraint'
             constraint_sets = ['timesteps']
+
+            constraint = {
+                constraint_name: {
+                    'description': "Constraint to ensure that the ltlt TES device is not misused to convert ht heat to lt heat and then use a heat pump directly (i.e. no abuse of heat pumplt) as electric boiler.",
+                    'foreach': ['timesteps'],
+                    'equations' : [
+                        {
+                            'expression': (
+                                f"-flow_in[nodes='X1', techs='tes_site_{site_entry['name']}_ltlt', carriers='heat_tes_site_{site_entry['name']}_ltlt']"
+                                f" == "
+                                f"flow_out[nodes='X1', techs='conv_{site_entry['name']}_heatlt_to_heat_tes_site_{site_entry['name']}_ltlt', carriers='heat_tes_site_{site_entry['name']}_ltlt']"
+                                f" + "
+                                f"flow_out[nodes='X1', techs='conv_{site_entry['name']}_htht_to_{site_entry['name']}_ltlt', carriers='heat_tes_site_{site_entry['name']}_ltlt']"
+                                f" + "
+                                f"flow_out[nodes='X1', techs='conv_{site_entry['name']}_htlt_to_{site_entry['name']}_ltlt', carriers='heat_tes_site_{site_entry['name']}_ltlt']"
+                            )
+                        }
+                    ]
+                }
+            }
+
+            model.backend.add_constraint(constraint_name, constraint)
             
 
             
-            def ltlt_loading_constraint_rule(backend_model, timestep):
+            # def ltlt_loading_constraint_rule(backend_model, timestep):
 
-                charging_current = backend_model.carrier_con['X1::tes_site_'
-                                                                +site_entry['name']+'_ltlt::heat_tes_site_'
-                                                                +site_entry['name']+'_ltlt', timestep]
-                av_current_for_charging = (backend_model.carrier_prod['X1::conv_'
-                                                                        +site_entry['name']+'_heatlt_to_heat_tes_site_'
-                                                                        +site_entry['name']+'_ltlt::heat_tes_site_'
-                                                                        +site_entry['name']+'_ltlt', timestep])
-                av_current_for_charging += backend_model.carrier_prod['X1::conv_'
-                                                                        +site_entry['name']+'_htht_to_'
-                                                                        +site_entry['name']+'_ltlt::heat_tes_site_'
-                                                                        +site_entry['name']+'_ltlt', timestep]
-                av_current_for_charging += backend_model.carrier_prod['X1::conv_'
-                                                                        +site_entry['name']+'_htlt_to_'
-                                                                        +site_entry['name']+'_ltlt::heat_tes_site_'
-                                                                        +site_entry['name']+'_ltlt', timestep]
-                return -charging_current == av_current_for_charging
+            #     charging_current = backend_model.carrier_con['X1::tes_site_'
+            #                                                     +site_entry['name']+'_ltlt::heat_tes_site_'
+            #                                                     +site_entry['name']+'_ltlt', timestep]
+            #     av_current_for_charging = (backend_model.carrier_prod['X1::conv_'
+            #                                                             +site_entry['name']+'_heatlt_to_heat_tes_site_'
+            #                                                             +site_entry['name']+'_ltlt::heat_tes_site_'
+            #                                                             +site_entry['name']+'_ltlt', timestep])
+            #     av_current_for_charging += backend_model.carrier_prod['X1::conv_'
+            #                                                             +site_entry['name']+'_htht_to_'
+            #                                                             +site_entry['name']+'_ltlt::heat_tes_site_'
+            #                                                             +site_entry['name']+'_ltlt', timestep]
+            #     av_current_for_charging += backend_model.carrier_prod['X1::conv_'
+            #                                                             +site_entry['name']+'_htlt_to_'
+            #                                                             +site_entry['name']+'_ltlt::heat_tes_site_'
+            #                                                             +site_entry['name']+'_ltlt', timestep]
+            #     return -charging_current == av_current_for_charging
                     
-            model.backend.add_constraint(
-                constraint_name,
-                constraint_sets,
-                ltlt_loading_constraint_rule
-                )
+            # model.backend.add_constraint(
+            #     constraint_name,
+            #     constraint_sets,
+            #     ltlt_loading_constraint_rule
+            #     )
             
 
         if site_entry['rel_size_t_levels']['htlt'] > 0:
@@ -65,8 +87,24 @@ def tes_sites_lt_no_conversion_without_charging_constraint(model, ts_len, sites_
             constraint_name = site_entry['name']+'_'+'htlt_loading_constraint'
             constraint_sets = ['timesteps']
             
+            constraint = {
+                constraint_name: {
+                    'description': "Constraint to ensure that the htlt TES device is not misused to convert htht heat to htlt heat and then use a heat pump directly (i.e. no abuse of heat pumplt) as electric boiler.",
+                    'foreach': ['timesteps'],
+                    'equations' : [
+                        {
+                            'expression': (
+                                f"-flow_in[nodes='X1', techs='tes_site_{site_entry['name']}_htlt', carriers='heat_tes_site_{site_entry['name']}_htlt']"
+                                f" == "
+                                f"flow_out[nodes='X1', techs='conv_{site_entry['name']}_htht_to_heat_tes_site_{site_entry['name']}_htlt', carriers='heat_tes_site_{site_entry['name']}_htlt']"
+                            )
+                        }
+                    ]
+                }
+            }
 
-            
+            model.backend.add_constraint(constraint_name, constraint)
+
             def ltlt_loading_constraint_rule(backend_model, timestep):
 
                 charging_current = backend_model.carrier_con['X1::tes_site_'+
@@ -428,29 +466,49 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand, energy_scal
         
         constraint_name = f'd_e_ev_dy_constraint_{day}'        
         constraint_sets = []
-        
-        def d_e_ev_dy_constraint_rule(backend_model):
-            
-            ts = backend_model.timesteps # retrieve timesteps            
 
-            tmp_sum = 0 # daily sum
-            hr = 0 # hour of the day
-            while hr < 24:
-                i = day*24 + hr # absolute timestep
-                tmp_sum += (
-                    backend_model.carrier_con['X1::demand_electricity_ev_pd::electricity', ts.at(i + 1)] # Pyomo Sets are 1-indexed
-                    + backend_model.carrier_con['X1::demand_electricity_ev_delta::electricity', ts.at(i + 1)]
-                    )
-                hr+=1
+        constraint = {
+            constraint_name: {
+                'description': "Constraint to ensure that the daily EV electricity demand matches the base profile.",
+                #'foreach': ['timesteps'],
+                'equations' : [
+                    {
+                        'expression': (
+                            f"group_datetime(flow_in[nodes='X1', techs='demand_electricity_ev_pd', carriers='electricity']"
+                            f" + flow_in[nodes='X1', techs='demand_electricity_ev_delta', carriers='electricity'], date)"
+                            f" == "
+                            f"{-energy_demand.get_d_e_ev_cp_dy()[{day}] / energy_scaling_factor}"
+                        )
+                    }
+                ]
+            }
+        }
+
+        model.backend.add_constraint(constraint_name, constraint)
+        
+        # def d_e_ev_dy_constraint_rule(backend_model):
             
-            # Daily EV demand must match daily base profile (cp) demand:
-            return tmp_sum == -energy_demand.get_d_e_ev_cp_dy()[day] /energy_scaling_factor
+        #     ts = backend_model.timesteps # retrieve timesteps            
+
+        #     tmp_sum = 0 # daily sum
+        #     hr = 0 # hour of the day
+        #     while hr < 24:
+        #         i = day*24 + hr # absolute timestep
+        #         tmp_sum += (
+        #             backend_model.carrier_con['X1::demand_electricity_ev_pd::electricity', ts.at(i + 1)] # Pyomo Sets are 1-indexed
+        #             + backend_model.carrier_con['X1::demand_electricity_ev_delta::electricity', ts.at(i + 1)]
+        #             )
+        #         hr+=1
+            
+        #     # Daily EV demand must match daily base profile (cp) demand:
+
+        #     return tmp_sum == -energy_demand.get_d_e_ev_cp_dy()[day] /energy_scaling_factor
                  
-        model.backend.add_constraint(
-            constraint_name,
-            constraint_sets,
-            d_e_ev_dy_constraint_rule
-            )
+        # model.backend.add_constraint(
+        #     constraint_name,
+        #     constraint_sets,
+        #     d_e_ev_dy_constraint_rule
+        #     )
 
     # Constraint: Daily EV flexible demand
     # --------------------------------------
@@ -459,87 +517,140 @@ def ev_flexibility_constraints(model, ts_len, n_days, energy_demand, energy_scal
         
     for i in range(ts_len):
 
+        # constraint_name = f'ev_flex_var_constraint_{i}'
+        # constraint_sets = []
+        
+        # def ev_flex_var_constraint_rule(backend_model):
+            
+        #     ts = backend_model.timesteps
+            
+        #     # Variable to limit energy shift from base profile (cp) in positive direction:
+        #     pos_delta_i_max = (
+        #         backend_model.carrier_prod['X1::flexibility_ev::flexible_electricity', ts.at(i + 1)] # Pyomo Sets are 1-indexed
+        #         )
+            
+        #     d_e_ev_i = (
+        #         backend_model.carrier_con['X1::demand_electricity_ev_pd::electricity', ts.at(i + 1)] # Pyomo Sets are 1-indexed
+        #         + backend_model.carrier_con['X1::demand_electricity_ev_delta::electricity', ts.at(i + 1)]
+        #         )
+            
+        #     d_e_ev_cp_i = -energy_demand.get_d_e_ev_cp()[i] / energy_scaling_factor
+            
+        #     delta_i = d_e_ev_i - d_e_ev_cp_i
+            
+        #     return pos_delta_i_max >= delta_i
+        
+        # model.backend.add_constraint(
+        #     constraint_name,
+        #     constraint_sets,
+        #     ev_flex_var_constraint_rule
+        #     )
         constraint_name = f'ev_flex_var_constraint_{i}'
-        constraint_sets = []
-        
-        def ev_flex_var_constraint_rule(backend_model):
-            
-            ts = backend_model.timesteps
-            
-            # Variable to limit energy shift from base profile (cp) in positive direction:
-            pos_delta_i_max = (
-                backend_model.carrier_prod['X1::flexibility_ev::flexible_electricity', ts.at(i + 1)] # Pyomo Sets are 1-indexed
-                )
-            
-            d_e_ev_i = (
-                backend_model.carrier_con['X1::demand_electricity_ev_pd::electricity', ts.at(i + 1)] # Pyomo Sets are 1-indexed
-                + backend_model.carrier_con['X1::demand_electricity_ev_delta::electricity', ts.at(i + 1)]
-                )
-            
-            d_e_ev_cp_i = -energy_demand.get_d_e_ev_cp()[i] / energy_scaling_factor
-            
-            delta_i = d_e_ev_i - d_e_ev_cp_i
-            
-            return pos_delta_i_max >= delta_i
-        
-        model.backend.add_constraint(
-            constraint_name,
-            constraint_sets,
-            ev_flex_var_constraint_rule
-            )
+
+        constraint = {
+            constraint_name: {
+                'description': "Constraint to ensure that the EV flexibility variable is within the allowed range.",
+                'foreach': ['timesteps'],
+                'equations' : [
+                    {
+                        'expression': (
+                            f"flow_out[nodes='X1', techs='flexibility_ev', carriers='flexible_electricity']"
+                            f" >= "
+                            f"flow_in[nodes='X1', techs='demand_electricity_ev_pd', carriers='electricity']"
+                            f" + "
+                            f"flow_in[nodes='X1', techs='demand_electricity_ev_delta', carriers='electricity']"
+                            f" - "
+                            f"{-energy_demand.get_d_e_ev_cp()[{i}] / energy_scaling_factor}"
+                        )
+                    }
+                ]
+            }
+        }
+
+        model.backend.add_constraint(constraint_name, constraint)
         
         constraint_name = f'ev_flex_pos_constraint_{i}'
         constraint_sets = []
+
+        constraint = {
+            constraint_name: {
+                'description': 'Variable to limit energy shift from base profile (cp) in positive direction:',
+                'foreach': ['timesteps'],
+                'equations' : [
+                    {
+                        'expression': (
+                            f"flow_out[nodes='X1', techs='flexibility_ev', carriers='flexible_electricity']"
+                            f" >= 0.0"
+                        )
+                    }
+                ]
+
+            }
+        }
         
-        def ev_flex_pos_constraint_rule(backend_model):
+        # def ev_flex_pos_constraint_rule(backend_model):
             
-            ts = backend_model.timesteps
+        #     ts = backend_model.timesteps
             
-            # Variable to limit energy shift from base profile (cp) in positive direction:
-            pos_delta_i_max = (
-                backend_model.carrier_prod['X1::flexibility_ev::flexible_electricity', ts.at(i + 1)] # Pyomo Sets are 1-indexed
-                )
+        #     # Variable to limit energy shift from base profile (cp) in positive direction:
+        #     pos_delta_i_max = (
+        #         backend_model.carrier_prod['X1::flexibility_ev::flexible_electricity', ts.at(i + 1)] # Pyomo Sets are 1-indexed
+        #         )
             
-            return pos_delta_i_max >= 0.0
+        #     return pos_delta_i_max >= 0.0
         
         model.backend.add_constraint(
             constraint_name,
-            constraint_sets,
-            ev_flex_pos_constraint_rule
+            constraint,
             )
 
     for day in range(n_days): # create one constraint per day:
         
         constraint_name = f'f_e_ev_dy_constraint_{day}'        
         constraint_sets = []
-        
-        def f_e_ev_dy_constraint_rule(backend_model):
-            
-            ts = backend_model.timesteps # retrieve timesteps            
 
-            pos_delta_i_max_sum = 0 # daily sum of deviation in positive direction
-            hr = 0 # hour of the day
-            while hr < 24:
-                i = day*24 + hr # absolute timestep
-                
-                # Variable to limit energy shift from base profile (cp) in positive direction:
-                pos_delta_i_max = (
-                    backend_model.carrier_prod['X1::flexibility_ev::flexible_electricity', ts.at(i + 1)] # Pyomo Sets are 1-indexed
-                    )
-                
-                pos_delta_i_max_sum += pos_delta_i_max
-                
-                hr+=1
-                
-            f_e_ev_pot_dy = energy_demand.get_f_e_ev_pot_dy()[day] / energy_scaling_factor
+        constraint = {
+            constraint_name: {
+                'description': "Constraint to ensure that the daily EV flexible demand is within the allowed range.",
+                #'foreach': ['timesteps'],
+                'equations' : [
+                    {
+                        'expression': (
+                            f"group_datetime(flow_out[nodes='X1', techs='flexibility_ev', carriers='flexible_electricity'], date)"
+                            f" <= "
+                            f"{energy_demand.get_f_e_ev_pot_dy()[{day}] / energy_scaling_factor}"
+                        )
+                    }
+                ]
+            }
+        }
+        
+        # def f_e_ev_dy_constraint_rule(backend_model):
             
-            # Daily EV flexible demand limitation:
-            return pos_delta_i_max_sum <= f_e_ev_pot_dy
+        #     ts = backend_model.timesteps # retrieve timesteps            
+
+        #     pos_delta_i_max_sum = 0 # daily sum of deviation in positive direction
+        #     hr = 0 # hour of the day
+        #     while hr < 24:
+        #         i = day*24 + hr # absolute timestep
+                
+        #         # Variable to limit energy shift from base profile (cp) in positive direction:
+        #         pos_delta_i_max = (
+        #             backend_model.carrier_prod['X1::flexibility_ev::flexible_electricity', ts.at(i + 1)] # Pyomo Sets are 1-indexed
+        #             )
+                
+        #         pos_delta_i_max_sum += pos_delta_i_max
+                
+        #         hr+=1
+                
+        #     f_e_ev_pot_dy = energy_demand.get_f_e_ev_pot_dy()[day] / energy_scaling_factor
+            
+        #     # Daily EV flexible demand limitation:
+        #     return pos_delta_i_max_sum <= f_e_ev_pot_dy
                  
         model.backend.add_constraint(
             constraint_name,
-            constraint_sets,
-            f_e_ev_dy_constraint_rule
+            constraint,
             )
     
     return model
@@ -594,50 +705,107 @@ def building_inertia_flex_constraints(
     # ---------------------------------------------
     
     def make_flex_capacity_constraint_rule():
-        
-        def flex_capacity_constraint_rule(backend_model):
-            """
-            The sum of capacities of all virtual storages must equal the total
-            flexible capacity (E_vs_tot).
-            """
+
+        constraint_name = 'flex_capacity_constraint'
+        flex_techs = [
+            f"virtual_storage_flex_{acr}"
+            for acr in flex_systems.values()
+        ]
+
+        storage_cap_terms = " + ".join(
+            f"storage_cap[nodes=X1, techs={tech}]"
+            for tech in flex_techs
+        )
+
+        flex_capacity_math = {
+            "constraints": {
+                "flex_capacity_constraint": {
+                    "description": (
+                        "The scaled sum of all virtual-storage capacities "
+                        "must equal the total flexible capacity."
+                    ),
+                    "equations": [
+                        {
+                            "expression": (
+                                f"({storage_cap_terms}) "
+                                "* energy_scaling_factor == E_vs_tot"
+                            )
+                        }
+                    ],
+                }
+            }
+        }
+
+        model.backend.add_constraint(constraint_name, flex_capacity_math)
+
+        # def flex_capacity_constraint_rule(backend_model):
+        #     """
+        #     The sum of capacities of all virtual storages must equal the total
+        #     flexible capacity (E_vs_tot).
+        #     """
             
-            cap_sum = 0.0
-            for key_, acr_ in flex_systems.items():
-                # key: full tech name (e.g., 'heat_pump', 'district_heating')
-                # acr: acronym (e.g., 'hp', 'dh')
-                cap_tech = backend_model.storage_cap[f'X1::virtual_storage_flex_{acr_}']*energy_scaling_factor
-                cap_sum += cap_tech
+        #     cap_sum = 0.0
+        #     for key_, acr_ in flex_systems.items():
+        #         # key: full tech name (e.g., 'heat_pump', 'district_heating')
+        #         # acr: acronym (e.g., 'hp', 'dh')
+        #         cap_tech = backend_model.storage_cap[f'X1::virtual_storage_flex_{acr_}']*energy_scaling_factor
+        #         cap_sum += cap_tech
                 
-            # E_vs_tot = building_inertia_flex.get_E_vs_tot()
+        #     # E_vs_tot = building_inertia_flex.get_E_vs_tot()
             
-            return cap_sum == E_vs_tot
+        #     return cap_sum == E_vs_tot
         
-        return flex_capacity_constraint_rule
+        # return flex_capacity_constraint_rule
     
     def make_d_h_flex_upper_limit_constraint_rule(ts_i):
-        
-        def d_h_flex_upper_limit_constraint_rule(backend_model):
+
+        constraint_name = f'd_h_flex_upper_limit_constraint'
+
+        storage_techs = [f'virtual_storage_flex_{acr}' for acr in flex_systems.values()]
+
+        q_h_vs_tot_i = '+'.join([f'storage[nodes=X1, techs={storage_tech}, timestep={ts_i}]' for storage_tech in storage_techs])
+
+        d_h_flex_upper_limit_constraint_math = {
+            "constraints": {
+                "d_h_flex_upper_limit_constraint": {
+                    "description": (
+                        "The flexible district heating demand must not exceed the upper limit."
+                    ),
+                    "equations": [
+                        {
+                            "expression": (
+                                f"{d_h_flex_ll[ts_i]} + {r_tot}*({q_h_vs_tot_i}) <= {d_h_flex_ul[ts_i]}"
+                            )
+                        }
+                    ],
+                }
+            }
+        }
+
+        model.backend.add_constraint(constraint_name, d_h_flex_upper_limit_constraint_math)
+
+        # def d_h_flex_upper_limit_constraint_rule(backend_model):
             
-            ts = backend_model.timesteps # retrieve timesteps
+        #     ts = backend_model.timesteps # retrieve timesteps
             
-            q_h_vs_tot_i = 0.0
-            for key_, acr_ in flex_systems.items():
-                # key: full tech name (e.g., 'heat_pump', 'district_heating')
-                # acr: acronym (e.g., 'hp', 'dh')
-                q_h_vs_tech_i = (
-                    backend_model.
-                    storage[
-                        f'X1::virtual_storage_flex_{acr_}',
-                        ts.at(ts_i + 1) # Pyomo is 1-indexed
-                        ]*energy_scaling_factor
-                    )
-                q_h_vs_tot_i += q_h_vs_tech_i
+        #     q_h_vs_tot_i = 0.0
+        #     for key_, acr_ in flex_systems.items():
+        #         # key: full tech name (e.g., 'heat_pump', 'district_heating')
+        #         # acr: acronym (e.g., 'hp', 'dh')
+        #         q_h_vs_tech_i = (
+        #             backend_model.
+        #             storage[
+        #                 f'X1::virtual_storage_flex_{acr_}',
+        #                 ts.at(ts_i + 1) # Pyomo is 1-indexed
+        #                 ]*energy_scaling_factor
+        #             )
+        #         q_h_vs_tot_i += q_h_vs_tech_i
                 
-            d_h_flex_i = d_h_flex_ll[ts_i] + q_h_vs_tot_i*r_tot
+        #     d_h_flex_i = d_h_flex_ll[ts_i] + q_h_vs_tot_i*r_tot
             
-            return d_h_flex_i <= d_h_flex_ul[ts_i]
+        #     return d_h_flex_i <= d_h_flex_ul[ts_i]
         
-        return d_h_flex_upper_limit_constraint_rule
+        #return d_h_flex_upper_limit_constraint_rule
     
     def make_q_h_vs_constraint_rule(acr):
         
@@ -648,6 +816,25 @@ def building_inertia_flex_constraints(
             This ensures that at least the same amount of heat was
             delivered as without flexibility.
             """
+
+            
+
+            q_h_vs_constraint = {
+                'parameters': {
+                    
+                },
+                'constraints': {
+                    'description': (
+                        'On average, each virtual storage must be half full '
+                        '(which is the neutral state without over- or underheating).'
+                        'This ensures that at least the same amount of heat was delivered as without flexibility.'
+                        ),
+                    'equations': {
+                        'expressions': f'sum(storage[nodes=X1, techs=virtual_storage_flex_{acr}]*{int(flag)}, over=timesteps) >= 0.5*E_vs_tech*{number_of_ts}'
+                    }
+                } 
+            }
+
             ts = backend_model.timesteps # retrieve timesteps
 
             q_h_vs_tech_sum = 0 # [kWh] sum of flexible demand

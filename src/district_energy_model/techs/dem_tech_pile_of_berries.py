@@ -211,33 +211,40 @@ class PileOfBerries(TechCore):
     def create_techs_dict(self, techs_dict):
 
         techs_dict['pile_of_berries'] = {
-            'essentials':{
-                'name':'Pile Of Berries',
-                'parent':'storage',
-                'carrier_in':'berryjam',
-                'carrier_out':'berryjam'
-                },
-            'constraints':{
-                'storage_initial':self._ic if not self._optimized_initial_charge else None,
-                'storage_cap_max':self._cap,
-                'storage_loss':self._gamma,
-                'energy_eff':self._eta_chg_dchg,
-                'energy_cap_per_storage_cap_max': self._chg_dchg_per_cap_max,
-                'lifetime':self._lifetime,
-                # 'force_asynchronous_prod_con':True,
-                },
-            'costs':{
-                'monetary':{
+            'name':'Pile Of Berries',
+            'base_tech':'storage',
+            'carrier_in':'berryjam',
+            'carrier_out':'berryjam',
+            'storage_initial':self._ic if not self._optimized_initial_charge else None,
+            'storage_cap_max':self._cap,
+            'storage_loss':self._gamma,
+            'flow_out_eff':self._eta_chg_dchg,
+            'flow_cap_per_storage_cap_max': self._chg_dchg_per_cap_max,
+            'lifetime':self._lifetime,
+            'cost_flow_out':{
+                'data':0.0000, # artificial cost per discharged kWh; used to avoid cycling within timestep
                     # 'om_annual':0.0, # !!!TEMPORARY - KOSTEN MÜSSEN DYNAMISCH HINZUGEFÜGT WERDEN!!!
-                    'om_prod':0.0000, # # [CHF/kWh_dchg] artificial cost per discharged kWh; used to avoid cycling within timestep
-                    'storage_cap':self._capex,
-                    'interest_rate':self._interest_rate,
-                    'om_annual': self._maintenance_cost
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                }
+            'cost_storage_cap':{
+                'data':self._capex,
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_interest_rate':{
+                'data':self._interest_rate,
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_om_annual':{
+                'data': self._maintenance_cost,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
         if self._force_asynchronous_prod_con:
-            techs_dict['pile_of_berries']['constraints']['force_asynchronous_prod_con']= True
+            techs_dict['pile_of_berries']['force_async_flow']= True
 
 
         return techs_dict

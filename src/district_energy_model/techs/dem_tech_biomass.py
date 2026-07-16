@@ -297,26 +297,34 @@ class HydrothermalGasification(TechCore): # hg
     def generate_tech_dict(self, techs_dict, energy_scaling_factor):
         
         hg_dict = {
-            'essentials':{
-                'name':'Hydrothermal Gasification',
-                'color':self.__tech_dict['color'],
-                'parent':'conversion',
-                'carrier_in': 'wet_biomass',
-                'carrier_out': 'gas',
+            'name':'Hydrothermal Gasification',
+            'color':self.__tech_dict['color'],
+            'base_tech':'conversion',
+            'carrier_in': 'wet_biomass',
+            'carrier_out': 'gas',
+            'flow_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
+            'flow_out_eff':self.__tech_dict['efficiency'],
+            'lifetime':self.__tech_dict['lifetime'],
+            'cost_flow_cap':{
+                'data': self.__tech_dict['capital_cost'] * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
-                'energy_eff':self.__tech_dict['efficiency'],
-                'lifetime':self.__tech_dict['lifetime']
+            'cost_flow_in':{
+                'data':self.__tech_dict['om_cost'] * energy_scaling_factor, # [CHF/kWh]
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
-                    'om_con':self.__tech_dict['om_cost'] * energy_scaling_factor, # [CHF/kWh]
-                    'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost * energy_scaling_factor
-                    },
-                }
+            'cost_interest_rate':{
+                'data':self.__tech_dict['interest_rate'],
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
         
         techs_dict['hydrothermal_gasification'] = hg_dict
@@ -468,26 +476,34 @@ class AnaerobicDigestionUpgrade(TechCore): # agu
     def generate_tech_dict(self, techs_dict, energy_scaling_factor):
         
         adu_dict = {
-            'essentials':{
-                'name': 'Anaerobic Digestion Upgrade',
-                'color':self.__tech_dict['color'],
-                'parent':'conversion',
-                'carrier_in': 'wet_biomass',
-                'carrier_out': 'gas',
+            'name': 'Anaerobic Digestion Upgrade',
+            'color':self.__tech_dict['color'],
+            'base_tech':'conversion',
+            'carrier_in': 'wet_biomass',
+            'carrier_out': 'gas',
+            'flow_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
+            'flow_out_eff':self.__tech_dict['efficiency'],
+            'lifetime':self.__tech_dict['lifetime'],
+            'cost_flow_cap':{
+                'data': self.__tech_dict['capital_cost'] * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
-                'energy_eff':self.__tech_dict['efficiency'],
-                'lifetime':self.__tech_dict['lifetime']
+            'cost_flow_in':{
+                'data':self.__tech_dict['om_cost'] * energy_scaling_factor, # [CHF/kWh]
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
-                    'om_con':self.__tech_dict['om_cost'] * energy_scaling_factor, # [CHF/kWh]
-                    'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost * energy_scaling_factor
-                    },
-                }
+            'cost_interest_rate':{
+                'data':self.__tech_dict['interest_rate'],
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
         
         techs_dict['anaerobic_digestion_upgrade'] = adu_dict
@@ -686,42 +702,39 @@ class AnaerobicDigestionUpgradeHydrogen(TechCore): # aguh
     def generate_tech_dict(self, techs_dict, energy_scaling_factor):
 
         tech_dict = {
-            'essentials':{
-                'name':'Anaerobic Digestion Upgrade Hydrogen',
-                'color':self.__tech_dict['color'],
-                'parent':'conversion_plus',
-                'carrier_in':'wet_biomass',
-                'carrier_in_2': 'electricity',
-                'carrier_in_3': 'hydrogen',
-                'carrier_out':'gas',
-                'carrier_out_2': 'heat_biomass',
-                'primary_carrier_in': 'wet_biomass',
-                'primary_carrier_out':'gas'
+            'name':'Anaerobic Digestion Upgrade Hydrogen',
+            'color':self.__tech_dict['color'],
+            'base_tech':'conversion',
+            'carrier_in':['wet_biomass', 'electricity', 'hydrogen'],
+            'carrier_out':['gas', 'heat_biomass'],
+            'flow_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
+            'flow_out_eff':{
+                'data':[self.__tech_dict['efficiency_primary'],
+                        self.__tech_dict['efficiency_primary'] * (1 - self._methane_percentage)*self.__eta_h],
+                'index':['gas', 'heat_biomass'],
+                'dims':'carriers',
                 },
-            'constraints':{
-                'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
-                'energy_eff': self.__tech_dict['efficiency_primary'],
-                'carrier_ratios':{
-                    'carrier_in_2':{
-                        'electricity': self._eta*(1 - self._methane_percentage)*self.__eta_e
-                        },
-                    'carrier_in_3':{
-                        'hydrogen': self._eta*(1 - self._methane_percentage)/self._eta_hyd
-                        },
-                    'carrier_out_2':{
-                        'heat_biomass': (1 - self._methane_percentage)*self.__eta_h
-                        }
-                    },
-                'lifetime':self.__tech_dict['lifetime']
+            'lifetime':self.__tech_dict['lifetime'],
+            'cost_flow_cap':{
+                'data': self.__tech_dict['capital_cost'] * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
-                    'om_con':0.0, # this is reflected in the cost of the electricity
-                    'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost * energy_scaling_factor
-                    },
-                } 
+            'cost_flow_in':{
+                'data':0.0, # this is reflected in the cost of the electricity
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_interest_rate':{
+                'data':self.__tech_dict['interest_rate'],
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
         
         techs_dict['anaerobic_digestion_upgrade_hydrogen'] = tech_dict
@@ -928,34 +941,40 @@ class AnaerobicDigestionCHP(TechCore): # aguc
     def generate_tech_dict(self, techs_dict, energy_scaling_factor):
         
         tech_dict = {
-            'essentials':{
-                'name':'Anaerobic Digestion CHP',
-                'color':self.__tech_dict['color'],
-                'parent':'conversion_plus',
-                'carrier_in':'wet_biomass',
-                'carrier_out':'electricity',
-                'carrier_out_2': 'heat_biomass',
-                'primary_carrier_out':'electricity'
+            'name':'Anaerobic Digestion CHP',
+            'color':self.__tech_dict['color'],
+            'base_tech':'conversion',
+            'carrier_in':'wet_biomass',
+            'carrier_out':['electricity', 'heat_biomass'],
+            'carrier_export': 'electricity',
+            'flow_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
+            'flow_out_eff':{
+                'data':[self.__tech_dict['efficiency_electricity'],
+                        self.__tech_dict['efficiency_heat']],
+                'index':['electricity', 'heat_biomass'],
+                'dims':'carriers',
                 },
-            'constraints':{
-                'export_carrier': 'electricity',
-                'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
-                'energy_eff': self.__tech_dict['efficiency_electricity'],
-                'carrier_ratios':{
-                    'carrier_out_2':{
-                        'heat_biomass': self.__tech_dict['efficiency_heat']/self.__tech_dict['efficiency_electricity']
-                        }
-                    },
-                'lifetime':self.__tech_dict['lifetime']
+            'lifetime':self.__tech_dict['lifetime'],
+            'cost_flow_cap':{
+                'data': self.__tech_dict['capital_cost'] * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
-                    'om_con':0.0, # this is reflected in the cost of the electricity
-                    'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost * energy_scaling_factor
-                    },
-                } 
+            'cost_flow_in':{
+                'data':0.0, # this is reflected in the cost of the electricity
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_interest_rate':{
+                'data':self.__tech_dict['interest_rate'],
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
         
         techs_dict['anaerobic_digestion_chp'] = tech_dict
@@ -1148,38 +1167,39 @@ class WoodGasificationUpgrade(TechCore): # wgu
         
         
         tech_dict = {
-            'essentials':{
-                'name':'Wood Gasification Upgrade',
-                'color':self.__tech_dict['color'],
-                'parent':'conversion_plus',
-                'carrier_in':'wood',
-                'carrier_in_2': 'electricity',
-                'carrier_out': 'gas',
-                'carrier_out_2': 'heat_biomass',
-                'primary_carrier_in': 'wood',
-                'primary_carrier_out':'gas'
+            'name':'Wood Gasification Upgrade',
+            'color':self.__tech_dict['color'],
+            'base_tech':'conversion',
+            'carrier_in':['wood', 'electricity'],
+            'carrier_out':['gas', 'heat_biomass'],
+            'flow_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
+            'flow_out_eff':{
+                'data':[self.__tech_dict['efficiency'],
+                        self.__tech_dict['efficiency'] * 0.09/0.625],
+                'index':['gas', 'heat_biomass'],
+                'dims':'carriers',
                 },
-            'constraints':{
-                'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
-                'energy_eff': self.__tech_dict['efficiency'],
-                'carrier_ratios':{
-                    'carrier_in_2':{
-                        'electricity': 0.0625
-                        },
-                    'carrier_out_2':{
-                        'heat_biomass': 0.09/0.625
-                        }
-                    },
-                'lifetime':self.__tech_dict['lifetime']
+            'lifetime':self.__tech_dict['lifetime'],
+            'cost_flow_cap':{
+                'data': self.__tech_dict['capital_cost'] * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
-                    'om_con':0.0, # this is reflected in the cost of the electricity
-                    'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost * energy_scaling_factor
-                    },
-                } 
+            'cost_flow_in':{
+                'data':0.0, # this is reflected in the cost of the electricity
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_interest_rate':{
+                'data':self.__tech_dict['interest_rate'],
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
         
         techs_dict['wood_gasification_upgrade'] = tech_dict
@@ -1384,42 +1404,39 @@ class WoodGasificationUpgradeHydrogen(TechCore): # wguh
     def generate_tech_dict(self, techs_dict, energy_scaling_factor):
         
         tech_dict = {
-            'essentials':{
-                'name':'Wood Gasification Upgrade Hydrogen',
-                'color':self.__tech_dict['color'],
-                'parent':'conversion_plus',
-                'carrier_in':'wood',
-                'carrier_in_2': 'electricity',
-                'carrier_in_3': 'hydrogen',
-                'carrier_out':'gas',
-                'carrier_out_2': 'heat_biomass',
-                'primary_carrier_in': 'wood',
-                'primary_carrier_out':'gas'
+            'name':'Wood Gasification Upgrade Hydrogen',
+            'color':self.__tech_dict['color'],
+            'base_tech':'conversion',
+            'carrier_in':['wood', 'electricity', 'hydrogen'],
+            'carrier_out':['gas', 'heat_biomass'],
+            'flow_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
+            'flow_out_eff':{
+                'data':[self.__tech_dict['efficiency_primary'],
+                        self.__tech_dict['efficiency_primary'] * (1 - self._methane_percentage)*self.__eta_h],
+                'index':['gas', 'heat_biomass'],
+                'dims':'carriers',
                 },
-            'constraints':{
-                'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
-                'energy_eff': self.__tech_dict['efficiency_primary'],
-                'carrier_ratios':{
-                    'carrier_in_2':{
-                        'electricity': self._eta*(1 - self._methane_percentage)*self.__eta_e
-                        },
-                    'carrier_in_3':{
-                        'hydrogen': self._eta*(1 - self._methane_percentage)/self._eta_hyd
-                        },
-                    'carrier_out_2':{
-                        'heat_biomass': (1 - self._methane_percentage)*self.__eta_h
-                        }
-                    },
-                'lifetime':self.__tech_dict['lifetime']
+            'lifetime':self.__tech_dict['lifetime'],
+            'cost_flow_cap':{
+                'data': self.__tech_dict['capital_cost'] * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
-                    'om_con':0.0, # this is reflected in the cost of the electricity
-                    'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost * energy_scaling_factor
-                    },
-                } 
+            'cost_flow_in':{
+                'data':0.0, # this is reflected in the cost of the electricity
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_interest_rate':{
+                'data':self.__tech_dict['interest_rate'],
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
         
         techs_dict['wood_gasification_upgrade_hydrogen'] = tech_dict
@@ -1622,34 +1639,40 @@ class WoodGasificationCHP(TechCore): # wguc
     def generate_tech_dict(self, techs_dict, energy_scaling_factor):
         
         tech_dict = {
-            'essentials':{
-                'name':'Hydrothermal Gasification CHP',
-                'color':self.__tech_dict['color'],
-                'parent':'conversion_plus',
-                'carrier_in': 'wood',
-                'carrier_out': 'electricity',
-                'carrier_out_2': 'heat_biomass',
-                'primary_carrier_out':'electricity'
+            'name':'Hydrothermal Gasification CHP',
+            'color':self.__tech_dict['color'],
+            'base_tech':'conversion',
+            'carrier_in': 'wood',
+            'carrier_out': ['electricity', 'heat_biomass'],
+            'carrier_export': 'electricity',
+            'flow_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
+            'flow_out_eff':{
+                'data':[self.__tech_dict['efficiency_electricity'],
+                        self.__tech_dict['efficiency_heat']],
+                'index':['electricity', 'heat_biomass'],
+                'dims':'carriers',
                 },
-            'constraints':{
-                'export_carrier': 'electricity',
-                'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
-                'energy_eff': self.__tech_dict['efficiency_electricity'],
-                'carrier_ratios':{
-                    'carrier_out_2':{
-                        'heat_biomass': self.__tech_dict['efficiency_heat']/self.__tech_dict['efficiency_electricity']
-                        }
-                    },
-                'lifetime':self.__tech_dict['lifetime']
+            'lifetime':self.__tech_dict['lifetime'],
+            'cost_flow_cap':{
+                'data': self.__tech_dict['capital_cost'] * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'energy_cap': self.__tech_dict['capital_cost'] * energy_scaling_factor,
-                    'om_con':0.0, # this is reflected in the cost of the electricity
-                    'interest_rate':self.__tech_dict['interest_rate'],
-                    'om_annual': self._maintenance_cost * energy_scaling_factor
-                    },
-                } 
+            'cost_flow_in':{
+                'data':0.0, # this is reflected in the cost of the electricity
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_interest_rate':{
+                'data':self.__tech_dict['interest_rate'],
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_om_annual':{
+                'data': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
         
         techs_dict['wood_gasification_chp'] = tech_dict

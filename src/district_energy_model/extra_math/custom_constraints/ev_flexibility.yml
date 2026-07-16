@@ -1,0 +1,11 @@
+constraints:
+  ev_flex_var_constraint:
+    description: "Constraint to ensure that the EV flexibility variable is within the allowed range."
+    foreach: [timesteps]
+    where: PLACEHOLDER
+    equations:
+      - expressions: >-
+          flow_out[nodes=X1, techs=flexibility_ev, carriers=flexible_electricity] >= 
+          flow_in[nodes=X1, techs=demand_electricity_ev_pd, carriers= electricity] 
+          + flow_in[nodes=X1, techs=demand_electricity_ev_delta, carriers=electricity] 
+           

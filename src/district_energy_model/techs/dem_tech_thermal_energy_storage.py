@@ -380,39 +380,44 @@ class ThermalEnergyStorage(TechCore):
 
 
         techs_dict['tes'] = {
-            'essentials':{
-                'name':'Thermal Energy Storage TES',
-                'color':color,
-                'parent':'storage',
-                'carrier_in':self._input_carrier,
-                'carrier_out':self._output_carrier,
-                },
-            'constraints':{
-                'storage_initial':self._ic if not self._optimized_initial_charge else None,
-                'storage_cap_max':self._cap / energy_scaling_factor if self._cap != 'inf' else 'inf',
-                'storage_loss':self._gamma,
-                'energy_eff': self._eta_chg_dchg,
-                'energy_cap_per_storage_cap_max': self._chg_dchg_per_cap_max,
-                'lifetime':self._lifetime,
-                # 'force_asynchronous_prod_con':True,
-                },
-            'costs':{
-                'monetary':{
+            'name':'Thermal Energy Storage TES',
+            'color':color,
+            'base_tech':'storage',
+            'carrier_in':self._input_carrier,
+            'carrier_out':self._output_carrier,
+            'storage_initial':self._ic if not self._optimized_initial_charge else None,
+            'storage_cap_max':self._cap / energy_scaling_factor if self._cap != 'inf' else 'inf',
+            'storage_loss':self._gamma,
+            'flow_out_eff': self._eta_chg_dchg,
+            'flow_cap_per_storage_cap_max': self._chg_dchg_per_cap_max,
+            'lifetime':self._lifetime,
+            'cost_flow_out':{
+                'data':0.0000, # artificial cost per discharged kWh; used to avoid cycling within timestep
                     # 'om_annual':0.0, # !!!TEMPORARY - KOSTEN MÜSSEN DYNAMISCH HINZUGEFÜGT WERDEN!!!
-                    'om_prod':0.0000, # [CHF/kWh_dchg] artificial cost per discharged kWh; used to avoid cycling within timestep
-                    'storage_cap': capex_plus_maintenace * energy_scaling_factor,
-                    #'om_annual': self._maintenance_cost * energy_scaling_factor,
-                    'interest_rate':self._interest_rate
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                }
+            'cost_storage_cap':{
+                'data': capex_plus_maintenace * energy_scaling_factor,
+                    #'om_annual': self._maintenance_cost * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_interest_rate':{
+                'data':self._interest_rate,
+                'index':'monetary',
+                'dims':'costs',
+                },
             }
         if self._force_asynchronous_prod_con:
-            techs_dict['tes']['constraints']['force_asynchronous_prod_con']= True
+            techs_dict['tes']['force_async_flow']= True
 
         tes_techs_label_list = ['tes']
         
         if self._force_cap_max:
-            techs_dict['tes']['constraints']['storage_cap_equals'] = self._cap / energy_scaling_factor if self._cap != 'inf' else 'inf'
+            storage_cap = self._cap / energy_scaling_factor if self._cap != 'inf' else 'inf'
+            techs_dict['tes']['storage_cap_min'] = storage_cap
+            techs_dict['tes']['storage_cap_max'] = storage_cap
                     
         # ----------------------------------------
         # Conversion technologies for connected technologies in district heating network:
@@ -421,23 +426,23 @@ class ThermalEnergyStorage(TechCore):
 
         for connection_dict in self._connections:
             techs_dict[connection_dict['techs_dict_symb']] = {
-                'essentials':{
-                    'name': connection_dict['name'],
-                    'parent':'conversion',
-                    'carrier_in': connection_dict['heatflow_in'],
-                    'carrier_out': connection_dict['heatflow_out'],
+                'name': connection_dict['name'],
+                'base_tech':'conversion',
+                'carrier_in': connection_dict['heatflow_in'],
+                'carrier_out': connection_dict['heatflow_out'],
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             tes_techs_label_list.append(connection_dict['techs_dict_symb'])
 

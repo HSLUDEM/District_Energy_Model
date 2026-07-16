@@ -1,0 +1,6 @@
+constraints:
+  flex_capacity_constraint:
+    description: The sum of capacities of all virtual storages must equal the total flexible capacity (E_vs_tot).
+    equations:
+      - expression: >-
+    

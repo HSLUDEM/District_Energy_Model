@@ -309,34 +309,37 @@ class ThermalEnergyStorageDC(TechCore):
 
 
         techs_dict['tes_decentralised'] = {
-            'essentials':{
-                'name':'Thermal Energy Storage TES (decentralised)',
-                'color':color,
-                'parent':'storage',
-                'carrier_in':self._input_carrier,
-                'carrier_out':self._output_carrier,
-                },
-            'constraints':{
-                'storage_initial':self._ic if not self._optimized_initial_charge else None,
-                'storage_cap_max':self._cap / energy_scaling_factor if self._cap != 'inf' else 'inf',
-                'storage_loss':self._gamma,
-                'energy_eff': self._eta_chg_dchg,
-                'energy_cap_per_storage_cap_max': self._chg_dchg_per_cap_max,
-                'lifetime':self._lifetime,
-                # 'force_asynchronous_prod_con':True,
-                },
-            'costs':{
-                'monetary':{
+            'name':'Thermal Energy Storage TES (decentralised)',
+            'color':color,
+            'base_tech':'storage',
+            'carrier_in':self._input_carrier,
+            'carrier_out':self._output_carrier,
+            'storage_initial':self._ic if not self._optimized_initial_charge else None,
+            'storage_cap_max':self._cap / energy_scaling_factor if self._cap != 'inf' else 'inf',
+            'storage_loss':self._gamma,
+            'flow_out_eff': self._eta_chg_dchg,
+            'flow_cap_per_storage_cap_max': self._chg_dchg_per_cap_max,
+            'lifetime':self._lifetime,
+            'cost_flow_out':{
+                'data':0.0000, # artificial cost per discharged kWh; used to avoid cycling within timestep
                     # 'om_annual':0.0, # !!!TEMPORARY - KOSTEN MÜSSEN DYNAMISCH HINZUGEFÜGT WERDEN!!!
-                    'om_prod':0.0000, # [CHF/kWh_dchg] artificial cost per discharged kWh; used to avoid cycling within timestep
-                    'storage_cap':capex_plus_maintenace* energy_scaling_factor,
-                    'interest_rate':self._interest_rate,
-                    # 'om_annual': self._maintenance_cost * energy_scaling_factor
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                }
+            'cost_storage_cap':{
+                'data':capex_plus_maintenace* energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
+                },
+            'cost_interest_rate':{
+                'data':self._interest_rate,
+                'index':'monetary',
+                'dims':'costs',
+                    # 'om_annual': self._maintenance_cost * energy_scaling_factor
+                },
             }
         if self._force_asynchronous_prod_con:
-            techs_dict['tes_decentralised']['constraints']['force_asynchronous_prod_con']= True
+            techs_dict['tes_decentralised']['force_async_flow']= True
 
         tes_techs_label_list = ['tes_decentralised']
         
@@ -346,45 +349,45 @@ class ThermalEnergyStorageDC(TechCore):
         if self._connection_heat_pump:
             # Conversion from heat pumps to TES (one-way):
             techs_dict['conv_hp_tesdc'] = {
-                'essentials':{
-                    'name':'Conversion: HP to TESDC',
-                    'parent':'conversion',
-                    'carrier_in':'heat_hp',
-                    'carrier_out':'heat_tesdc',
+                'name':'Conversion: HP to TESDC',
+                'base_tech':'conversion',
+                'carrier_in':'heat_hp',
+                'carrier_out':'heat_tesdc',
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             tes_techs_label_list.append('conv_hp_tesdc') 
             
             # From TES to decentralised heat pump hub (one-way; virtual hub):
             techs_dict['conv_tesdc_hp'] = {
-                'essentials':{
-                    'name':'Conversion: TESDC to HP',
-                    'parent':'conversion',
-                    'carrier_in':'heat_tesdc',
-                    'carrier_out':'heat_hp',
+                'name':'Conversion: TESDC to HP',
+                'base_tech':'conversion',
+                'carrier_in':'heat_tesdc',
+                'carrier_out':'heat_hp',
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             tes_techs_label_list.append('conv_tesdc_hp')
             

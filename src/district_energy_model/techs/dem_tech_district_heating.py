@@ -372,28 +372,33 @@ class DistrictHeating(TechCore):
 
         for i in range(len(self._investment_cost_grid_categories)):
             techs_dict['district_heating_hub_'+str(i)] = {
-                'essentials':{
-                    'name': 'District Heating Hub',
-                    'parent':'conversion',
-                    'carrier_in':'heat_dh',
-
-                    'carrier_out':'heat',
+                'name': 'District Heating Hub',
+                'base_tech':'conversion',
+                'carrier_in':'heat_dh',
+                'carrier_out':'heat',
+                'flow_cap_max':self._kW_th_max_grid_categories[i] / energy_scaling_factor,
+                'flow_out_eff':1.0, # Here we could account for grid losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data':0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':self._kW_th_max_grid_categories[i] / energy_scaling_factor,
-                    'energy_eff':1.0, # Here we could account for grid losses
-                    'lifetime':self._lifetime,
-                    # 'export_carrier': 'heat',
+                'cost_interest_rate':{
+                    'data':self._interest_rate if self._kW_th_max_grid_categories[i]>0 else 0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con':0.0, # costs are reflected in supply techs
-                        'interest_rate':self._interest_rate if self._kW_th_max_grid_categories[i]>0 else 0,
-                        'energy_cap': self._investment_cost_grid_categories[i]*energy_scaling_factor if self._kW_th_max_grid_categories[i]>0 else 0,
-                        'om_annual': self._maintenance_cost_grid_categories[i]*energy_scaling_factor if self._kW_th_max_grid_categories[i]>0 else 0,
-                        # 'export': -1e-5,
-                        },
-                    } 
+                'cost_flow_cap':{
+                    'data': self._investment_cost_grid_categories[i]*energy_scaling_factor if self._kW_th_max_grid_categories[i]>0 else 0,
+                    'index':'monetary',
+                    'dims':'costs',
+                    },
+                'cost_om_annual':{
+                    'data': self._maintenance_cost_grid_categories[i]*energy_scaling_factor if self._kW_th_max_grid_categories[i]>0 else 0,
+                    'index':'monetary',
+                    'dims':'costs',
+                    },
                 }
         
         dh_techs_label_list = ['district_heating_hub_'+str(i) for i in range(len(self._investment_cost_grid_categories))]
@@ -403,26 +408,28 @@ class DistrictHeating(TechCore):
             self._import_kW_th_max = 0.0
             
         techs_dict['district_heating_import'] = {
-            'essentials':{
-                'name':'District Heating Import',
-                'color':color,
-                'parent':'supply',
-                'carrier':'heat_dhimp',
+            'name':'District Heating Import',
+            'color':color,
+            'base_tech':'supply',
+            'carrier_out':'heat_dhimp',
+            'source_use_max':'inf',
+            'flow_cap_max':self._import_kW_th_max / energy_scaling_factor if self._import_kW_th_max != 'inf' else 'inf',
+            'lifetime':self._lifetime,
+            'cost_flow_in':{
+                'data':self._tariff_CHFpkWh * energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'resource':'inf',
-                'energy_cap_max':self._import_kW_th_max / energy_scaling_factor if self._import_kW_th_max != 'inf' else 'inf',
-                'lifetime':self._lifetime
+            'cost_interest_rate':{
+                'data':self._interest_rate,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'om_con':self._tariff_CHFpkWh * energy_scaling_factor,
-                    'interest_rate':self._interest_rate,
-                    },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity * energy_scaling_factor,
-                    }
-                }
+            'cost_flow_out':{
+                'data':self._co2_intensity * energy_scaling_factor,
+                'index':'emissions_co2',
+                'dims':'costs',
+                },
             }
         dh_techs_label_list.append('district_heating_import')
             
@@ -433,230 +440,230 @@ class DistrictHeating(TechCore):
         # District heat import (dhimp):
         # if self._source_import:
         techs_dict['conv_dhimp_dh'] = {
-            'essentials':{
-                'name':'Conversion: DHImp to DH',
-                'parent':'conversion',
-                'carrier_in':'heat_dhimp',
-                'carrier_out':'heat_dh',
+            'name':'Conversion: DHImp to DH',
+            'base_tech':'conversion',
+            'carrier_in':'heat_dhimp',
+            'carrier_out':'heat_dh',
+            'flow_cap_max':'inf',
+            'flow_out_eff':1.0, # Here we could account for transmission losses
+            'lifetime':self._lifetime,
+            'cost_flow_in':{
+                'data': 0.0, # costs are reflected in supply techs
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'energy_cap_max':'inf',
-                'energy_eff':1.0, # Here we could account for transmission losses
-                'lifetime':self._lifetime,
+            'cost_interest_rate':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'om_con': 0.0, # costs are reflected in supply techs
-                    'interest_rate':0.0,
-                    },
-                } 
             }
         dh_techs_label_list.append('conv_dhimp_dh')
         
         # Combined heat and power gas turbine (chpgt):
         if self._source_chp_gt:
             techs_dict['conv_chpgt_dh'] = {
-                'essentials':{
-                    'name':'Conversion: CHPGT to DH',
-                    'parent':'conversion',
-                    'carrier_in':'heat_chpgt',
-                    'carrier_out':'heat_dh',
+                'name':'Conversion: CHPGT to DH',
+                'base_tech':'conversion',
+                'carrier_in':'heat_chpgt',
+                'carrier_out':'heat_dh',
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             dh_techs_label_list.append('conv_chpgt_dh')
         
         # Steam turbine (st):
         if self._source_steam_turbine:
             techs_dict['conv_st_dh'] = {
-                'essentials':{
-                    'name':'Conversion: ST to DH',
-                    'parent':'conversion',
-                    'carrier_in':'heat_st',
-                    'carrier_out':'heat_dh',
+                'name':'Conversion: ST to DH',
+                'base_tech':'conversion',
+                'carrier_in':'heat_st',
+                'carrier_out':'heat_dh',
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             dh_techs_label_list.append('conv_st_dh')
 
         # Waste-to-energy (wte):
         if self._source_waste_to_energy:
             techs_dict['conv_wte_dh'] = {
-                'essentials':{
-                    'name':'Conversion: WtE to DH',
-                    'parent':'conversion',
-                    'carrier_in':'heat_wte',
-                    'carrier_out':'heat_dh',
+                'name':'Conversion: WtE to DH',
+                'base_tech':'conversion',
+                'carrier_in':'heat_wte',
+                'carrier_out':'heat_dh',
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             dh_techs_label_list.append('conv_wte_dh')
         
         # Heat pump central plant (hpcp):
         if self._source_heat_pump_cp:
             techs_dict['conv_hpcp_dh'] = {
-                'essentials':{
-                    'name':'Conversion: HPCP to DH',
-                    'parent':'conversion',
-                    'carrier_in':'heat_hpcp',
-                    'carrier_out':'heat_dh',
+                'name':'Conversion: HPCP to DH',
+                'base_tech':'conversion',
+                'carrier_in':'heat_hpcp',
+                'carrier_out':'heat_dh',
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             dh_techs_label_list.append('conv_hpcp_dh')
 
         # Heat pump central plant (from low T heat) (hpcplt):
         if self._source_heat_pump_cp_lt:
             techs_dict['conv_hpcplt_dh'] = {
-                'essentials':{
-                    'name':'Conversion: HPCPLT to DH',
-                    'parent':'conversion',
-                    'carrier_in':'heat_hpcplt',
-                    'carrier_out':'heat_dh',
+                'name':'Conversion: HPCPLT to DH',
+                'base_tech':'conversion',
+                'carrier_in':'heat_hpcplt',
+                'carrier_out':'heat_dh',
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             dh_techs_label_list.append('conv_hpcplt_dh')
 
         # Oil boiler central plant (obcp):
         if self._source_oil_boiler_cp:
             techs_dict['conv_obcp_dh'] = {
-                'essentials':{
-                    'name':'Conversion: OBCP to DH',
-                    'parent':'conversion',
-                    'carrier_in':'heat_obcp',
-                    'carrier_out':'heat_dh',
+                'name':'Conversion: OBCP to DH',
+                'base_tech':'conversion',
+                'carrier_in':'heat_obcp',
+                'carrier_out':'heat_dh',
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             dh_techs_label_list.append('conv_obcp_dh')
 
         # Electric heater central plant (ehcp):
         if self._source_electric_heater_cp:
             techs_dict['conv_ehcp_dh'] = {
-                'essentials':{
-                    'name':'Conversion: EHCP to DH',
-                    'parent':'conversion',
-                    'carrier_in':'heat_ehcp',
-                    'carrier_out':'heat_dh',
+                'name':'Conversion: EHCP to DH',
+                'base_tech':'conversion',
+                'carrier_in':'heat_ehcp',
+                'carrier_out':'heat_dh',
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             dh_techs_label_list.append('conv_ehcp_dh')
 
         # Wood boiler central plant (wbcp):
         if self._source_wood_boiler_cp:
             techs_dict['conv_wbcp_dh'] = {
-                'essentials':{
-                    'name':'Conversion: WBCP to DH',
-                    'parent':'conversion',
-                    'carrier_in':'heat_wbcp',
-                    'carrier_out':'heat_dh',
+                'name':'Conversion: WBCP to DH',
+                'base_tech':'conversion',
+                'carrier_in':'heat_wbcp',
+                'carrier_out':'heat_dh',
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             dh_techs_label_list.append('conv_wbcp_dh')
 
         # Waste heat (wh)
         if self._source_waste_heat:
             techs_dict['conv_wh_dh'] = {
-                'essentials':{
-                    'name':'Conversion: WH to DH',
-                    'parent':'conversion',
-                    'carrier_in':'heat_wh',
-                    'carrier_out':'heat_dh',
+                'name':'Conversion: WH to DH',
+                'base_tech':'conversion',
+                'carrier_in':'heat_wh',
+                'carrier_out':'heat_dh',
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             dh_techs_label_list.append('conv_wh_dh')
 
@@ -664,69 +671,69 @@ class DistrictHeating(TechCore):
         # Deep geothermal (dgt)
         if self._source_deep_geothermal:
             techs_dict['conv_dgt_dh'] = {
-                'essentials':{
-                    'name':'Conversion: DGT to DH',
-                    'parent':'conversion',
-                    'carrier_in':'heat_dgt',
-                    'carrier_out':'heat_dh',
+                'name':'Conversion: DGT to DH',
+                'base_tech':'conversion',
+                'carrier_in':'heat_dgt',
+                'carrier_out':'heat_dh',
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             dh_techs_label_list.append('conv_dgt_dh')
 
         # Gas boiler central plant (gbcp):
         if self._source_gas_boiler_cp:
             techs_dict['conv_gbcp_dh'] = {
-                'essentials':{
-                    'name':'Conversion: GBCP to DH',
-                    'parent':'conversion',
-                    'carrier_in':'heat_gbcp',
-                    'carrier_out':'heat_dh',
+                'name':'Conversion: GBCP to DH',
+                'base_tech':'conversion',
+                'carrier_in':'heat_gbcp',
+                'carrier_out':'heat_dh',
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             dh_techs_label_list.append('conv_gbcp_dh')
 
         # Biomass technologies (biomass : aguh, ...):
         if self._source_biomass:
             techs_dict['conv_biomass_dh'] = {
-                'essentials':{
-                    'name':'Conversion: Heat_biomass to DH',
-                    'parent':'conversion',
-                    'carrier_in':'heat_biomass',
-                    'carrier_out':'heat_dh',
+                'name':'Conversion: Heat_biomass to DH',
+                'base_tech':'conversion',
+                'carrier_in':'heat_biomass',
+                'carrier_out':'heat_dh',
+                'flow_cap_max':'inf',
+                'flow_out_eff':1.0, # Here we could account for transmission losses
+                'lifetime':self._lifetime,
+                'cost_flow_in':{
+                    'data': 0.0, # costs are reflected in supply techs
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'energy_cap_max':'inf',
-                    'energy_eff':1.0, # Here we could account for transmission losses
-                    'lifetime':self._lifetime,
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con': 0.0, # costs are reflected in supply techs
-                        'interest_rate':0.0,
-                        },
-                    } 
                 }
             dh_techs_label_list.append('conv_biomass_dh')
 

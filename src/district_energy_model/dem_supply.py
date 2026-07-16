@@ -125,27 +125,27 @@ class Supply(TechCore):
         
         
         techs_dict['oil_supply'] = {
-            'essentials':{
-                'name':'Oil Supply',
-                'color':color,
-                'parent':'supply',
-                'carrier':'oil',
+            'name':'Oil Supply',
+            'color':color,
+            'base_tech':'supply',
+            'carrier_out':'oil',
+            'flow_cap_max':cap_max_ / energy_scaling_factor if cap_max_ != 'inf' else 'inf',
+            'lifetime':1000,
+            'cost_flow_in':{
+                'data':price_CHFpkWh *energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                # 'resource':'inf',
-                'energy_cap_max':cap_max_ / energy_scaling_factor if cap_max_ != 'inf' else 'inf',
-                # 'energy_cap_min':'inf', # ensures that supply is always large enough
-                'lifetime':1000
+            'cost_interest_rate':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'om_con':price_CHFpkWh *energy_scaling_factor,
-                    'interest_rate':0.0
-                    },
-                'emissions_co2':{
-                    'om_prod': self.supply_tech_dict['co2_content_oil']*energy_scaling_factor   # this is reflected in the emissions of oil_boiler
-                    }
-                }
+            'cost_flow_out':{
+                'data': self.supply_tech_dict['co2_content_oil']*energy_scaling_factor,   # this is reflected in the emissions of oil_boiler
+                'index':'emissions_co2',
+                'dims':'costs',
+                },
             }
         
         return techs_dict
@@ -163,26 +163,27 @@ class Supply(TechCore):
             cap_max_ = 0.0
         
         techs_dict['gas_supply'] = {
-            'essentials':{
-                'name':'Gas Supply',
-                'color':color,
-                'parent':'supply',
-                'carrier':'gas',
+            'name':'Gas Supply',
+            'color':color,
+            'base_tech':'supply',
+            'carrier_out':'gas',
+            'flow_cap_max':cap_max_ / energy_scaling_factor if cap_max_ != 'inf' else 'inf',
+            'lifetime':1000,
+            'cost_flow_in':{
+                'data':self.supply_tech_dict['gas_price_CHFpkWh']*energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                # 'resource':'inf',
-                'energy_cap_max':cap_max_ / energy_scaling_factor if cap_max_ != 'inf' else 'inf',
-                'lifetime':1000,
+            'cost_interest_rate':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'om_con':self.supply_tech_dict['gas_price_CHFpkWh']*energy_scaling_factor,
-                    'interest_rate':0.0
-                    },
-                'emissions_co2':{
-                    'om_prod': self.supply_tech_dict['co2_content_gas']*energy_scaling_factor  # this is reflected in the emissions of gas_boiler
-                    }
-                }
+            'cost_flow_out':{
+                'data': self.supply_tech_dict['co2_content_gas']*energy_scaling_factor,  # this is reflected in the emissions of gas_boiler
+                'index':'emissions_co2',
+                'dims':'costs',
+                },
             }
         
         return techs_dict
@@ -190,24 +191,26 @@ class Supply(TechCore):
     def create_supply_dict_wet_biomass(self, techs_dict, energy_scaling_factor):
         
         sup_dict = {
-            'essentials':{
-                'name':'Wet Biomass Supply',
-                'color': '#60804C',
-                'parent':'supply',
-                'carrier':'wet_biomass',
+            'name':'Wet Biomass Supply',
+            'color': '#60804C',
+            'base_tech':'supply',
+            'carrier_out':'wet_biomass',
+            'lifetime': 1000,
+            'cost_flow_in':{
+                'data':0.001*energy_scaling_factor, # WHAT COST SHOULD WE ADD HERE?; currently minimum miniscule cost to favor truly free resources (e.g. PV)
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'lifetime': 1000
+            'cost_interest_rate':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'om_con':0.001*energy_scaling_factor, # WHAT COST SHOULD WE ADD HERE?; currently minimum miniscule cost to favor truly free resources (e.g. PV)
-                    'interest_rate':0.0
-                    },
-                'emissions_co2':{
-                    'om_prod': self.supply_tech_dict['co2_content_wet_biomass']*energy_scaling_factor # this is reflected in the emissions of oil_boiler
-                    }
-                }
+            'cost_flow_out':{
+                'data': self.supply_tech_dict['co2_content_wet_biomass']*energy_scaling_factor, # this is reflected in the emissions of oil_boiler
+                'index':'emissions_co2',
+                'dims':'costs',
+                },
             }
         
         techs_dict['wet_biomass_supply'] = sup_dict
@@ -221,25 +224,27 @@ class Supply(TechCore):
         price_CHFpkWh = price_CHFpkg/hv_wood_kWhpkg
         
         sup_dict = {
-            'essentials':{
-                'name':'Wood Supply',
-                'color': '#60804C',
-                'parent':'supply',
-                'carrier':'wood',
+            'name':'Wood Supply',
+            'color': '#60804C',
+            'base_tech':'supply',
+            'carrier_out':'wood',
+            'lifetime': 1000,
+            'cost_flow_in':{
+                'data':price_CHFpkWh*energy_scaling_factor,
+                # add miniscule cost to avoid cycling of TES/BES within same timestep
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'lifetime': 1000
+            'cost_interest_rate':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'om_con':price_CHFpkWh*energy_scaling_factor,
-                    # 'om_con':0.00001, # add miniscule cost to avoid cycling of TES/BES within same timestep
-                    'interest_rate':0.0
-                    },
-                'emissions_co2':{
-                    'om_prod': self.supply_tech_dict['co2_content_local_wood']*energy_scaling_factor    # this is reflected in the emissions of the respective tech
-                    }
-                }
+            'cost_flow_out':{
+                'data': self.supply_tech_dict['co2_content_local_wood']*energy_scaling_factor,    # this is reflected in the emissions of the respective tech
+                'index':'emissions_co2',
+                'dims':'costs',
+                },
             }
         techs_dict['wood_supply'] = sup_dict
         return techs_dict
@@ -257,27 +262,28 @@ class Supply(TechCore):
         price_CHFpkWh = price_CHFpkg/hv_wood_kWhpkg
         
         sup_dict = {
-            'essentials':{
-                'name':'Wood Supply Import',
-                'color': '#60804C',
-                'parent':'supply',
-                'carrier':'wood',
+            'name':'Wood Supply Import',
+            'color': '#60804C',
+            'base_tech':'supply',
+            'carrier_out':'wood',
+            'lifetime': 1000,
+            'flow_cap_max':cap_max_ / energy_scaling_factor if cap_max_ != 'inf' else 'inf',
+            'cost_flow_in':{
+                'data':price_CHFpkWh * energy_scaling_factor,
+                # add miniscule cost to avoid cycling of TES/BES within same timestep
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'lifetime': 1000,
-                'energy_cap_max':cap_max_ / energy_scaling_factor if cap_max_ != 'inf' else 'inf',
-                # 'resource':resource_,
+            'cost_interest_rate':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'om_con':price_CHFpkWh * energy_scaling_factor,
-                    # 'om_con':0.00001, # add miniscule cost to avoid cycling of TES/BES within same timestep
-                    'interest_rate':0.0
-                    },
-                'emissions_co2':{
-                    'om_prod': self.supply_tech_dict['co2_content_imported_wood']*energy_scaling_factor # this is reflected in the emissions of the respective tech
-                    }
-                }
+            'cost_flow_out':{
+                'data': self.supply_tech_dict['co2_content_imported_wood']*energy_scaling_factor, # this is reflected in the emissions of the respective tech
+                'index':'emissions_co2',
+                'dims':'costs',
+                },
             }
         techs_dict['wood_supply_import'] = sup_dict
         
@@ -317,29 +323,31 @@ class Supply(TechCore):
             resource_ts = resource/8760
         
         techs_dict['msw_supply'] = {
-            'essentials':{
-                'name':'Municipal Solid Waste Supply',
-                'color':color,
-                'parent':'supply',
-                'carrier':'munic_solid_waste',
+            'name':'Municipal Solid Waste Supply',
+            'color':color,
+            'base_tech':'supply',
+            'carrier_out':'munic_solid_waste',
+            'source_use_max':resource_ts / energy_scaling_factor if resource_ts != 'inf' else 'inf', # [kWh] available energy per timestep
+            'lifetime':1000,
+            'cost_flow_in':{
+                'data':price_CHFpkWh*energy_scaling_factor,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'resource':resource_ts / energy_scaling_factor if resource_ts != 'inf' else 'inf', # [kWh] available energy per timestep
-                'lifetime':1000
+            'cost_interest_rate':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'om_con':price_CHFpkWh*energy_scaling_factor,
-                    'interest_rate':0.0
-                    },
-                'emissions_co2':{
-                    'om_prod': (
-                        self.supply_tech_dict['co2_content_msw']
-                        *self.supply_tech_dict['msw_share_fossile']
-                        *energy_scaling_factor
-                        ) # this is reflected in the emissions of oil_boiler
-                    }
-                }
+            'cost_flow_out':{
+                'data': (
+                    self.supply_tech_dict['co2_content_msw']
+                    *self.supply_tech_dict['msw_share_fossile']
+                    *energy_scaling_factor
+                    ), # this is reflected in the emissions of oil_boiler
+                'index':'emissions_co2',
+                'dims':'costs',
+                },
             }
         
         return techs_dict

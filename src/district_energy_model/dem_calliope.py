@@ -2234,12 +2234,10 @@ class CalliopeOptimiser:
         # Add demands: # !!! ADD THESE TO DEMAND CLASS?
         # ===========
         techs_dict['demand_electricity_baseline'] = {
-            'essentials':{
-                'name':'Electrical Demand Household',
-                'color':colors['demand_electricity'],
-                'parent':'demand',
-                'carrier':'electricity'
-                },
+            'name':'Electrical Demand Household',
+            'color':colors['demand_electricity'],
+            'base_tech':'demand',
+            'carrier_in':'electricity',
             }
         
         if (
@@ -2249,72 +2247,55 @@ class CalliopeOptimiser:
                 ):
             
             techs_dict['demand_electricity_ev_pd'] = {
-                'essentials':{
-                    'name':'Electrical Demand EV - lower bound',
-                    'color':colors['demand_electricity'],
-                    'parent':'demand',
-                    'carrier':'electricity'
-                    },
-                'constraints':{
-                    'force_resource': True,
-                    }
+                'name':'Electrical Demand EV - lower bound',
+                'color':colors['demand_electricity'],
+                'base_tech':'demand',
+                'carrier_in':'electricity',
                 }
             techs_dict['demand_electricity_ev_delta'] = { # Difference between upper and lower bound
-                'essentials':{
-                    'name':'Electrical Demand EV - delta',
-                    'color':colors['demand_electricity'],
-                    'parent':'demand',
-                    'carrier':'electricity'
-                    },
-                'constraints':{
-                    'force_resource': False,
-                    }                
+                'name':'Electrical Demand EV - delta',
+                'color':colors['demand_electricity'],
+                'base_tech':'demand',
+                'carrier_in':'electricity',
                 }
             
             # Virtual variable to quantify flexibility from EV:
             techs_dict['flexibility_ev'] = {
-                'essentials':{
-                    'name':'EV Flexibility',
-                    'color':colors['demand_electricity'],
-                    'parent':'supply',
-                    'carrier':'flexible_electricity',
+                'name':'EV Flexibility',
+                'color':colors['demand_electricity'],
+                'base_tech':'supply',
+                'carrier_out':'flexible_electricity',
+                'source_use_max':'inf',
+                'cost_flow_in':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'constraints':{
-                    'force_resource':False,
-                    'energy_prod':True,
-                    'export_carrier': 'flexible_electricity',
+                'cost_interest_rate':{
+                    'data':0.0,
+                    'index':'monetary',
+                    'dims':'costs',
                     },
-                'costs':{
-                    'monetary':{
-                        'om_con':0.0,
-                        'interest_rate':0.0
-                        },
-                    'emissions_co2':{
-                        'om_prod':0.0
-                        }
-                    }
+                'cost_flow_out':{
+                    'data':0.0,
+                    'index':'emissions_co2',
+                    'dims':'costs',
+                    },
                 }
             
         else:
             techs_dict['demand_electricity_ev'] = {
-                'essentials':{
-                    'name':'Electrical Demand Electric Vehicles',
-                    'color':colors['demand_electricity'],
-                    'parent':'demand',
-                    'carrier':'electricity'
-                    },
-                'constraints':{
-                    'force_resource': True,
-                    }
+                'name':'Electrical Demand Electric Vehicles',
+                'color':colors['demand_electricity'],
+                'base_tech':'demand',
+                'carrier_in':'electricity',
                 }
         
         techs_dict['demand_heat'] = {
-            'essentials':{
-                'name':'Heat Demand',
-                'color':colors['demand_heat'],
-                'parent':'demand',
-                'carrier':'heat'
-                }
+            'name':'Heat Demand',
+            'color':colors['demand_heat'],
+            'base_tech':'demand',
+            'carrier_in':'heat',
             }
         
         # Add Supplies:
