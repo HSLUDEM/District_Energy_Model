@@ -625,7 +625,10 @@ class DistrictEnergyModel:
         
         # Run test for solar PV:     
         # sum_PV = sum(self.tech_solar_pv.get_v_e_cons()) + sum(self.tech_solar_pv.get_v_e_exp())
-        sum_PV = sum(self.tech_solar_pv_rooftop.get_v_e_cons()) + sum(self.tech_solar_pv_rooftop.get_v_e_exp())
+        sum_PV = (
+            sum(self.tech_solar_pv_rooftop.get_v_e_cons()) 
+            + sum(self.tech_solar_pv_rooftop.get_v_e_exp())
+            )
 
         dem_eb.energy_balance_test(
             value_1=sum(self.tech_solar_pv_rooftop.get_v_e()),
@@ -645,10 +648,49 @@ class DistrictEnergyModel:
                 + sum(self.tech_grid_supply.get_m_e_cbimport())
                 )        
             dem_eb.energy_balance_test(
-                sum(self.tech_grid_supply.get_m_e_ch()), sum_a, 'electricity mix')        
+                sum(self.tech_grid_supply.get_m_e_ch()), 
+                sum_a, 
+                'electricity mix'
+                )        
             dem_eb.energy_balance_test(
-                sum(self.tech_grid_supply.get_m_e()), sum_b, 'electricity import')
+                sum(self.tech_grid_supply.get_m_e()), 
+                sum_b, 
+                'electricity import'
+                )
+            
+        """--------------------------------------------------------------------
+        Allocate fuel consumption:
+        """
+        
+        # Oil:
+        # ---
+        m_oil = np.array([0.0]*8760)
+        m_oil += self.tech_oil_boiler.get_u_oil()
+        
+        # Gas:
+        # ---
+        m_gas = np.array([0.0]*8760)
+        m_gas += self.tech_gas_boiler.get_u_gas()
+        
+        # Wood:
+        # ----
+        s_wd = self.supply.get_s_wd()        
+        m_wd = np.zeros_like(s_wd, dtype=float)
+        u_wd_wb = self.tech_wood_boiler.get_u_wd()
+        m_wd = np.maximum(u_wd_wb - s_wd, 0.0) # Imported wood is required wherever demand exceeds the local supply.
+        s_wd_remain = np.maximum(s_wd - u_wd_wb, 0.0) # Remaining local wood after supplying the wood boiler.
+        
+        # Assign fuels to supply tech:
+        # ---------------------------
+        self.supply.update_m_oil(m_oil)
+        self.supply.update_m_gas(m_gas)
+        self.supply.update_m_wd(m_wd)
+        self.supply.update_s_wd_rem(s_wd_remain)
+        
 
+
+        """--------------------------------------------------------------------
+        """
 
         #----------------------------------------------------------------------
         # Local electricity generation:
