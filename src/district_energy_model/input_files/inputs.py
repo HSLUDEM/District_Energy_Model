@@ -877,8 +877,8 @@ scen_techs = {
             'district_heating': True, # All sources supplying the DHN will be used for DR.
             },
         'dr_flexibility_building_inertia_max_overheating_rate': { # Defines metric to be used for maximum overheating rate (i.e., charging rate of virtual storage); only one can be set to True
-            'max_heating_system_cap':False, # [kWh] Use the capacity of the heating system (e.g., heat pump) as the limiting value
-            'max_virtual_storage_loss_rate':True, # [kWh_charged / kWh_storage_cap] Use the max. loss rate of the virtual storage as limiting value (more conservative)
+            'max_heating_system_cap':False, # [-] Use the capacity (kWh) of the heating system (e.g., heat pump) as the limiting value
+            'max_virtual_storage_loss_rate':True, # [-] Use the max. loss rate (kWh_charged / kWh_storage_cap) of the virtual storage as limiting value (more conservative)
             },
         },
 

@@ -998,6 +998,8 @@ class CalliopeOptimiser:
         # District heating:
         if 'district_heating' in self.tech_list:
             
+            # =================================================================
+
             v_h_dh = opt_results['carrier_prod'].loc['X1::district_heating_hub_0::heat'].values * self.energy_scaling_factor
             for i in range(self.tech_district_heating.dhn_qty -1):
                 v_h_dh += opt_results['carrier_prod'].loc['X1::district_heating_hub_'+str(i+1)+'::heat'].values * self.energy_scaling_factor
@@ -1005,6 +1007,7 @@ class CalliopeOptimiser:
             for i in range(self.tech_district_heating.dhn_qty):
                 v_h_of_category = opt_results['carrier_prod'].loc['X1::district_heating_hub_'+str(i)+'::heat'].values * self.energy_scaling_factor
                 self.tech_district_heating.update_v_h_by_categories(v_h_of_category)
+            # =================================================================
             
             self.tech_district_heating.update_v_h(v_h_dh)
 
