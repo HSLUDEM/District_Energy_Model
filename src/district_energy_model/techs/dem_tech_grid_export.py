@@ -178,12 +178,21 @@ class GridExport(TechCore):
             'base_tech':'demand',
             'carrier_in':'electricity',
             "sink_use_max": 'inf',
-            'cost_flow_in':{
-                'data': [resource_tariff_timeseries, resource_co2_intensity_timeseries],
-                'index':['monetary', 'emissions_co2'],
-                'dims':'costs',
-                },
             }
+        cost_flow_in_data = []
+        cost_flow_in_index = []
+        if resource_tariff_timeseries is not None:
+            cost_flow_in_data.append(resource_tariff_timeseries)
+            cost_flow_in_index.append('monetary')
+        if resource_co2_intensity_timeseries is not None:
+            cost_flow_in_data.append(resource_co2_intensity_timeseries)
+            cost_flow_in_index.append('emissions_co2')
+        if cost_flow_in_data:
+            techs_dict['grid_export']['cost_flow_in'] = {
+                'data':cost_flow_in_data,
+                'index':cost_flow_in_index,
+                'dims':'costs',
+                }
         
         return techs_dict
     

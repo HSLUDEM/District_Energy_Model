@@ -168,7 +168,6 @@ class HeatPumpCore(TechCore):
             'base_tech':'conversion',
             'carrier_in':self._input_carrier,
             'carrier_out':self._output_carrier,
-            'flow_out_eff':"df="+self._label+":cop",#self._hpcp_cop,
             'lifetime': self._lifetime,
             'cost_flow_in':{
                 'data': 0.0, # this is reflected in the cost of the electricity

@@ -134,7 +134,6 @@ class HydroPower(TechCore):
             'base_tech':'supply',
             'carrier_out': 'electricity',
             'carrier_export': 'electricity',
-            'source_use_equals': resource,
             'source_unit':'absolute',  # [kWh]
             'flow_cap_max': energy_cap / energy_scaling_factor, # kWp # relevant?
             'lifetime': 100,
@@ -164,6 +163,9 @@ class HydroPower(TechCore):
                 'dims':'costs',
                 },
             }
+        if resource is not None:
+            techs_dict[header]['source_use_equals'] = resource
+
         return techs_dict
     
     def update_v_e_pot(self, v_e_pot_updated):

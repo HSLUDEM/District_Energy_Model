@@ -146,8 +146,9 @@ class HeatDemandManual(TechCore):
             'color':color,
             'base_tech':'demand',
             'carrier_in': 'heat',
-            "sink_use_max": resource,
             }
+        if resource is not None:
+            techs_dict[header]['sink_use_max'] = resource
         
         return techs_dict
     

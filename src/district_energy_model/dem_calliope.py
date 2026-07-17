@@ -660,7 +660,7 @@ class CalliopeOptimiser:
         ''' -------------------------------------------------------------------
         2. Create input dict:
         '''
-        input_dict = self.__build_input_dict()
+        input_dict, math_dict = self.__build_input_dict()
             # rerun_eps=rerun_eps,
             # eps_n=eps_n
             # )
@@ -676,7 +676,8 @@ class CalliopeOptimiser:
         print("\nModel loading ...\n")
         model = calliope.Model(
             input_dict,
-            timeseries_dataframes=timeseries_dataframes
+            data_table_dfs=timeseries_dataframes,
+            math_dict=math_dict
             )
         
         print('\nModel running ...\n')
@@ -748,8 +749,7 @@ class CalliopeOptimiser:
             # flex_label
             if self.building_inertia_flex_flag:
                 pass
-                gcd = self.__create_group_constraints_dict()
-                fixed_share_techs = gcd['constant_heat_sources']['techs']
+                fixed_share_techs = self.__get_constant_heat_source_techs()
                 
                 model = dem_calliope_cc.building_inertia_flex_constraints(
                     model=model,
@@ -1946,10 +1946,10 @@ class CalliopeOptimiser:
         model_dict = self.__create_model_dict()
         tech_groups_dict = self.__create_tech_groups_dict()
         techs_dict = self.__create_techs_dict()
-        loc_dict = self.__create_location_dict()
-        links_dict = self.__create_links_dict()
+        nodes_dict = self.__create_nodes_dict()
+        data_tables_dict = self.__create_data_tables_dict()
         run_dict = self.__create_run_dict()
-        group_constraints_dict = self.__create_group_constraints_dict()
+        math_dict = self.__create_math_dict()
             # rerun_eps=rerun_eps,
             # eps_n=eps_n
             # )
@@ -1963,8 +1963,7 @@ class CalliopeOptimiser:
         #     model_dict,
         #     tech_groups_dict,
         #     techs_dict,
-        #     loc_dict,
-        #     links_dict,
+        #     nodes_dict,
         #     run_dict
         #     )       
         # =====================================================================
@@ -1973,52 +1972,13 @@ class CalliopeOptimiser:
             'model':model_dict,
             'tech_groups':tech_groups_dict,
             'techs':techs_dict,
-            'locations':loc_dict,
-            'links':links_dict,
+            'nodes':nodes_dict,
+            'data_tables':data_tables_dict,
             'run':run_dict,
-            'group_constraints':group_constraints_dict,#{
-            #     'constant_heat_sources':{
-            #             'techs':[
-            #                 'heat_pump_old',
-            #                 'heat_pump_new',
-            #                 'electric_heater_old',
-            #                 'oil_boiler_old',
-            #                 'oil_boiler_new',
-            #                 'gas_boiler_old',
-            #                 'gas_boiler_new',
-            #                 'wood_boiler_old',
-            #                 'wood_boiler_new',
-            #                 'district_heating',
-            #                 ], # ensure techs are spelled correctly!
-            #             'locs':['New_Techs', 'X1',],
-            #             'demand_share_per_timestep_decision':{
-            #                 'heat':None, # if set to 'None', the optimiser chooses a constant value; if a value is given (e.g. 0.2), this value will be used as constant share
-            #                 },
-            #             },
-            # #     'new_oil_boiler_share':{
-            # #         'techs':['oil_boiler_new', 'chp_gt_new'], # ensure techs are spelled correctly!
-            # #         'locs':['New_Techs', 'X1'],
-            # #         'demand_share_per_timestep_decision':{
-            # #             'heat':None, # if set to 'None', the optimiser chooses a constant value; if a value is given (e.g. 0.2), this value will be used as constant share
-            # #             },
-            # #         },
-            # #     'old_oil_boiler_share':{
-            # #         'techs':['oil_boiler_old'],
-            # #         'locs':['New_Techs', 'X1'],
-            # #         'demand_share_per_timestep_equals':{
-            # #             'heat':0.0,
-            # #             },
-            # #         },
-            # #     'systemwide_co2_cap':{
-            # #         'cost_max':{
-            # #             'emissions_co2':3.5e6,
-            # #             }
-            # #         },
-            #     }
             }
         
-        return input_dict
-        
+        return input_dict, math_dict
+
     def __create_model_dict(self):
 
         model_dict = {
@@ -2029,6 +1989,289 @@ class CalliopeOptimiser:
             }
 
         return model_dict
+
+    def __create_data_tables_dict(self):
+
+        data_tables_dict = {}
+
+        def add_timeseries_table(
+                name,
+                data,
+                column,
+                parameter,
+                techs,
+                nodes=None,
+                costs=None
+                ):
+
+            add_dims = {
+                'techs':techs,
+                'parameters':parameter,
+                }
+
+            if nodes is not None:
+                add_dims['nodes'] = nodes
+
+            if costs is not None:
+                add_dims['costs'] = costs
+
+            data_tables_dict[name] = {
+                'data':data,
+                'rows':'timesteps',
+                'columns':'data_variables',
+                'select':{
+                    'data_variables':column,
+                    },
+                'drop':'data_variables',
+                'add_dims':add_dims,
+                }
+
+        add_timeseries_table(
+            'demand_electricity_baseline',
+            'demand_power_baseline',
+            'd_e_baseline',
+            'sink_use_equals',
+            'demand_electricity_baseline',
+            nodes='X1'
+            )
+        add_timeseries_table(
+            'demand_heat',
+            'demand_heat',
+            'd_h',
+            'sink_use_equals',
+            'demand_heat',
+            nodes='X1'
+            )
+
+        if (
+                self.scen_techs['scenarios']['demand_side']
+                and self.scen_techs['demand_side']['ev_integration']
+                and self.scen_techs['demand_side']['ev_flexibility']
+                ):
+            add_timeseries_table(
+                'demand_electricity_ev_pd',
+                'demand_power_ev_pd',
+                'd_e_ev_pd',
+                'sink_use_equals',
+                'demand_electricity_ev_pd',
+                nodes='X1'
+                )
+            add_timeseries_table(
+                'demand_electricity_ev_delta',
+                'demand_power_ev_delta',
+                'd_e_ev_delta',
+                'sink_use_max',
+                'demand_electricity_ev_delta',
+                nodes='X1'
+                )
+        else:
+            add_timeseries_table(
+                'demand_electricity_ev',
+                'demand_power_ev',
+                'd_e_ev',
+                'sink_use_equals',
+                'demand_electricity_ev',
+                nodes='X1'
+                )
+
+        add_timeseries_table(
+            'wet_biomass_supply_resource',
+            'wet_biomass_resource',
+            's_wet_bm',
+            'source_use_max',
+            'wet_biomass_supply',
+            nodes='Limited_Supplies'
+            )
+        add_timeseries_table(
+            'wood_supply_resource',
+            'wood_resource',
+            's_wd',
+            'source_use_max',
+            'wood_supply',
+            nodes='Limited_Supplies'
+            )
+
+        if 'solar_pvrooftop' in self.tech_list:
+            for i in range(self.tech_solar_pvrooftop.get_num_installations()):
+                add_timeseries_table(
+                    'solar_pvrooftop_installation_'+str(i),
+                    'pvrooftop_resource',
+                    'v_e_pvrooftop_'+str(i),
+                    'source_use_equals',
+                    [
+                        'solar_pvrooftop_installation_'+str(i)+'_occupied',
+                        'solar_pvrooftop_installation_'+str(i)+'_unoccupied',
+                        ]
+                    )
+
+        if 'solarthermal_rooftop' in self.tech_list:
+            for i in range(self.tech_solarthermal_rooftop.get_num_installations()):
+                add_timeseries_table(
+                    'solarthermalrooftop_installation_'+str(i),
+                    'solarthermalrooftop_resource',
+                    'v_h_solarthermalrooftop_'+str(i),
+                    'source_use_equals',
+                    [
+                        'solar_solarthermalrooftop_installation_'+str(i)+'_occupied',
+                        'solar_solarthermalrooftop_installation_'+str(i)+'_unoccupied',
+                        ]
+                    )
+
+        if 'solar_pvalpine' in self.tech_list:
+            for i in range(self.tech_solar_pvalpine.get_num_installations()):
+                add_timeseries_table(
+                    'solar_pvalpine_installation_'+str(i),
+                    'pvalpine_resource',
+                    'v_e_pvalpine_'+str(i),
+                    'source_use_equals',
+                    [
+                        'solar_pvalpine_installation_'+str(i)+'_occupied',
+                        'solar_pvalpine_installation_'+str(i)+'_unoccupied',
+                        ]
+                    )
+
+        if 'wind_power' in self.tech_list:
+            add_timeseries_table(
+                'wind_power_annual_old',
+                'wp_resource_annual',
+                'v_e_wp',
+                'source_use_equals',
+                'wind_power_old',
+                nodes='loc_wp_annual'
+                )
+            add_timeseries_table(
+                'wind_power_annual_new',
+                'wp_resource_annual',
+                'v_e_wp',
+                'source_use_max',
+                'wind_power_new',
+                nodes='loc_wp_annual'
+                )
+            add_timeseries_table(
+                'wind_power_winter_old',
+                'wp_resource_winter',
+                'v_e_wp',
+                'source_use_equals',
+                'wind_power_old',
+                nodes='loc_wp_winter'
+                )
+            add_timeseries_table(
+                'wind_power_winter_new',
+                'wp_resource_winter',
+                'v_e_wp',
+                'source_use_max',
+                'wind_power_new',
+                nodes='loc_wp_winter'
+                )
+
+        if 'hydro_power' in self.tech_list:
+            add_timeseries_table(
+                'hydro_power_resource',
+                'hydro_resource',
+                'v_e_hydro',
+                'source_use_equals',
+                'hydro_power'
+                )
+
+        if 'grid_supply' in self.tech_list:
+            add_timeseries_table(
+                'grid_supply_tariff',
+                'grid_supply',
+                'tariff_timeseries',
+                'cost_flow_in',
+                'grid_supply',
+                costs='monetary'
+                )
+            add_timeseries_table(
+                'grid_supply_co2_intensity',
+                'grid_supply',
+                'co2_intensity_timeseries',
+                'cost_flow_out',
+                'grid_supply',
+                costs='emissions_co2'
+                )
+
+        if 'grid_export' in self.tech_list:
+            add_timeseries_table(
+                'grid_export_tariff',
+                'grid_export',
+                'tariff_timeseries',
+                'cost_flow_in',
+                'grid_export',
+                costs='monetary'
+                )
+            add_timeseries_table(
+                'grid_export_co2_intensity',
+                'grid_export',
+                'co2_intensity_timeseries',
+                'cost_flow_in',
+                'grid_export',
+                costs='emissions_co2'
+                )
+
+        if 'heat_pump' in self.tech_list:
+            add_timeseries_table(
+                'heat_pump_cops_existing',
+                'heat_pump_cops_existing',
+                'heat_pump_cops_existing',
+                'flow_out_eff',
+                'heat_pump_old'
+                )
+            add_timeseries_table(
+                'heat_pump_cops_one_to_one_replacement',
+                'heat_pump_cops_one_to_one_replacement',
+                'heat_pump_cops_one_to_one_replacement',
+                'flow_out_eff',
+                'heat_pump_one_to_one_replacement'
+                )
+            add_timeseries_table(
+                'heat_pump_cops_new',
+                'heat_pump_cops_new',
+                'heat_pump_cops_new',
+                'flow_out_eff',
+                'heat_pump_new'
+                )
+
+        if 'heat_pump_cp' in self.tech_list:
+            add_timeseries_table(
+                'heat_pump_cp_cops',
+                'heat_pump_cp',
+                'cop',
+                'flow_out_eff',
+                'heat_pump_cp'
+                )
+
+        if 'heat_demand_manual' in self.tech_list:
+            add_timeseries_table(
+                'heat_demand_manual',
+                'heat_demand_manual',
+                'd_h_m',
+                'sink_use_max',
+                'heat_demand_manual_exists',
+                nodes='X1'
+                )
+
+        if 'waste_heat' in self.tech_list:
+            add_timeseries_table(
+                'waste_heat',
+                'waste_heat',
+                'v_h_wh',
+                'source_use_max',
+                'waste_heat_exists',
+                nodes='X1'
+                )
+
+        if 'waste_heat_low_temperature' in self.tech_list:
+            add_timeseries_table(
+                'waste_heat_low_temperature',
+                'waste_heat_low_temperature',
+                'v_hlt_whlt',
+                'source_use_max',
+                'waste_heat_low_temperature_exists',
+                nodes='X1'
+                )
+
+        return data_tables_dict
     
     def __create_tech_groups_dict(self):
         
@@ -2515,60 +2758,6 @@ class CalliopeOptimiser:
             
             self.tech_list_old = self.tech_list_old + dh_techs_label_list
             
-        # if 'solar_thermal' in self.tech_list:            
-        #     energy_cap_old = self.tech_solar_thermal.get_v_h().max()
-            
-        #     techs_dict = self.tech_solar_thermal.create_techs_dict(techs_dict,
-        #                           header = 'solar_thermal_old',
-        #                           name = 'Solar Thermal Old', 
-        #                           color = colors['solar_thermal'], 
-        #                           resource = 'df=solar_th_resource_old:v_h_solar_th',
-        #                           energy_cap = energy_cap_old,
-        #                           capex_0 = True
-        #                           )
-            
-        #     techs_dict = self.tech_solar_thermal.create_techs_dict(techs_dict,
-        #                           header = 'solar_thermal_new',
-        #                           name = 'Solar Thermal New', 
-        #                           color = colors['solar_thermal'], 
-        #                           resource = 'df=solar_th_resource_new:v_h_solar_th',
-        #                           energy_cap = 'inf',
-        #                           )
-            
-        #     self.tech_list_old.append('solar_thermal_old')
-        #     self.tech_list_new.append('solar_thermal_new')
-            
-        # if 'solar_pv' in self.tech_list:            
-        #     energy_cap_old = self.tech_solar_pv.get_v_e().max()
-            
-        #     techs_dict = self.tech_solar_pv.create_techs_dict(techs_dict,
-        #                           header = 'solar_pv_old',
-        #                           name = 'Solar PV Old', 
-        #                           color = colors['solar_pv'], 
-        #                           resource = 'df=pv_resource_old:v_e_pv',
-        #                           energy_cap = energy_cap_old,
-        #                           capex_0 = True
-        #                           )
-            
-        #     # Force deployment of currently installed systems:
-        #     techs_dict['solar_pv_old']['constraints.energy_cap_equals'] =\
-        #         energy_cap_old
-            
-        #     self.tech_list_old.append('solar_pv_old')
-            
-        #     if self.tech_solar_pv.get_only_use_installed():
-        #         pass
-        #     else:      
-        #         techs_dict = self.tech_solar_pv.create_techs_dict(techs_dict,
-        #                               header = 'solar_pv_new',
-        #                               name = 'Solar PV New',
-        #                               color = colors['solar_pv'],
-        #                               resource = 'df=pv_resource_new:v_e_pv',
-        #                               energy_cap = 'inf',
-        #                               )
-                
-        #         self.tech_list_new.append('solar_pv_new')
-
         if 'solar_pvrooftop' in self.tech_list:
             
             # print(self.tech_solar_pvrooftop.get_num_installations())
@@ -2576,7 +2765,7 @@ class CalliopeOptimiser:
             techs_dict, headers = self.tech_solar_pvrooftop.create_techs_dict(techs_dict,
                                                                               color = colors['solar_pv'],
                                                                               resources = [
-                                                                                  'df='+'pvrooftop_resource'+':'+'v_e_pvrooftop_'+str(i) 
+                                                                                  None
                                                                                   for i in range(self.tech_solar_pvrooftop.get_num_installations())],
                                                                               energy_scaling_factor = self.energy_scaling_factor
                                                                               )
@@ -2590,7 +2779,7 @@ class CalliopeOptimiser:
             techs_dict, headers = self.tech_solarthermal_rooftop.create_techs_dict(techs_dict, 
                                                                                    color = colors['solar_thermal'],
                                                                                    resources = [
-                                                                                    'df='+'solarthermalrooftop_resource'+':'+'v_h_solarthermalrooftop_'+str(i) 
+                                                                                    None
                                                                                     for i in range(self.tech_solarthermal_rooftop.get_num_installations())], 
                                                                                   energy_scaling_factor = self.energy_scaling_factor
                                                                               )
@@ -2606,7 +2795,7 @@ class CalliopeOptimiser:
             techs_dict, headers = self.tech_solar_pvalpine.create_techs_dict(techs_dict,
                                                                               color = colors['solar_pv'],
                                                                               resources = [
-                                                                                  'df='+'pvalpine_resource'+':'+'v_e_pvalpine_'+str(i) 
+                                                                                  None
                                                                                   for i in range(self.tech_solar_pvalpine.get_num_installations())],
                                                                               energy_scaling_factor = self.energy_scaling_factor
                                                                               )
@@ -2653,7 +2842,7 @@ class CalliopeOptimiser:
                 header = 'hydro_power',
                 name = 'Hydro Power',
                 color = colors['hydro_power'],
-                resource = 'df=hydro_resource:v_e_hydro',
+                resource = None,
                 energy_cap = energy_cap,
                 capex_0 = True,
                 energy_scaling_factor = self.energy_scaling_factor
@@ -2669,8 +2858,8 @@ class CalliopeOptimiser:
             techs_dict = self.tech_grid_supply.create_techs_dict(
                 techs_dict,
                 colors['grid_supply'],
-                resource_tariff_timeseries = "df=grid_supply:tariff_timeseries",
-                resource_co2_intensity_timeseries = "df=grid_supply:co2_intensity_timeseries",
+                resource_tariff_timeseries = None,
+                resource_co2_intensity_timeseries = None,
                 energy_scaling_factor = self.energy_scaling_factor
                 )
             
@@ -2680,8 +2869,8 @@ class CalliopeOptimiser:
             techs_dict = self.tech_grid_export.create_techs_dict(
                 techs_dict,
                 colors['grid_export'],
-                resource_tariff_timeseries = "df=grid_export:tariff_timeseries",
-                resource_co2_intensity_timeseries = "df=grid_export:co2_intensity_timeseries",
+                resource_tariff_timeseries = None,
+                resource_co2_intensity_timeseries = None,
                 energy_scaling_factor = self.energy_scaling_factor
                 )
             
@@ -2921,7 +3110,7 @@ class CalliopeOptimiser:
                 header='heat_demand_manual_exists',
                 name='Heat demand manual (sink)',
                 color=colors['heat_demand_manual'],
-                resource="df=heat_demand_manual:d_h_m",
+                resource=None,
                 energy_scaling_factor = self.energy_scaling_factor
                 )
             
@@ -2935,7 +3124,7 @@ class CalliopeOptimiser:
                 header='waste_heat_exists',
                 name='Waste heat (source)',
                 color=colors['waste_heat'],
-                resource="df=waste_heat:v_h_wh",
+                resource=None,
                 energy_scaling_factor = self.energy_scaling_factor
                 )
             
@@ -2947,7 +3136,7 @@ class CalliopeOptimiser:
                 header='waste_heat_low_temperature_exists',
                 name='Waste heat (source at low temperature)',
                 color=colors['waste_heat_low_temperature'],
-                resource="df=waste_heat_low_temperature:v_hlt_whlt",
+                resource=None,
                 energy_scaling_factor = self.energy_scaling_factor
                 )
             
@@ -2965,23 +3154,122 @@ class CalliopeOptimiser:
             self.tech_list_old.append('gas_boiler_cp_exist')
 
         # Add connections (i.e. transmission lines):
-        techs_dict = self.__techs_dict_add_power_line(techs_dict, colors)
-        techs_dict = self.__techs_dict_add_heat_line(techs_dict, colors)
-        techs_dict = self.__techs_dict_add_heat_biomass_line(techs_dict, colors)
-        techs_dict = self.__techs_dict_add_hp_heat_line(techs_dict, colors)
-        techs_dict = self.__techs_dict_add_gas_line(techs_dict, colors)
-        techs_dict = self.__techs_dict_add_wood_line(techs_dict, colors)
-        techs_dict = self.__techs_dict_add_wet_biomass_line(techs_dict, colors)
+        link_nodes = ['New_Techs']
+
+        if 'wind_power' in self.tech_list:
+            link_nodes.append('loc_wp_winter')
+            link_nodes.append('loc_wp_annual')
+
+        if len(self.tech_list_pv) > 0:
+            for i in range(len(self.tech_list_pv)):
+                for j in range(len(self.tech_list_pv[i])):
+                    link_nodes.append(self.tech_list_pv[i][j])
+
+        flow_cap_equals = None
+        if self.tech_grid_supply._kW_max != 'inf':
+            flow_cap_equals = self.tech_grid_supply._kW_max / self.energy_scaling_factor
+
+        techs_dict = self.__techs_dict_add_transmission_link(
+            techs_dict,
+            colors,
+            link_from='X1',
+            link_to='Grid_Connection_Node',
+            line_type='power_line',
+            carrier='electricity',
+            name='Electrical power transmission',
+            color_key='power_line',
+            flow_cap_equals=flow_cap_equals
+            )
+
+        for node in link_nodes:
+            techs_dict = self.__techs_dict_add_transmission_link(
+                techs_dict,
+                colors,
+                link_from='X1',
+                link_to=node,
+                line_type='power_line',
+                carrier='electricity',
+                name='Electrical power transmission',
+                color_key='power_line'
+                )
+            techs_dict = self.__techs_dict_add_transmission_link(
+                techs_dict,
+                colors,
+                link_from='X1',
+                link_to=node,
+                line_type='hp_heat_line',
+                carrier='heat_hp',
+                name='Heat transmission for HP heat',
+                color_key='heat_line'
+                )
+
+        link_specs = [
+            {
+                'link_from':'X1',
+                'link_to':'New_Techs',
+                'line_type':'heat_line',
+                'carrier':'heat',
+                'name':'Heat transmission',
+                'color_key':'heat_line',
+                },
+            {
+                'link_from':'X1',
+                'link_to':'New_Techs',
+                'line_type':'heat_biomass_line',
+                'carrier':'heat_biomass',
+                'name':'Heat biomass transmission',
+                'color_key':'heat_line',
+                },
+            {
+                'link_from':'X1',
+                'link_to':'New_Techs',
+                'line_type':'gas_line',
+                'carrier':'gas',
+                'name':'Gas transmission',
+                'color_key':'gas_line',
+                },
+            {
+                'link_from':'X1',
+                'link_to':'Limited_Supplies',
+                'line_type':'wood_line',
+                'carrier':'wood',
+                'name':'Wood transmission',
+                'color_key':'wood_line',
+                },
+            {
+                'link_from':'New_Techs',
+                'link_to':'Limited_Supplies',
+                'line_type':'wood_line',
+                'carrier':'wood',
+                'name':'Wood transmission',
+                'color_key':'wood_line',
+                },
+            {
+                'link_from':'New_Techs',
+                'link_to':'Limited_Supplies',
+                'line_type':'wet_biomass_line',
+                'carrier':'wet_biomass',
+                'name':'Wet biomass transmission',
+                'color_key':'wet_biomass_line',
+                },
+            ]
+
+        for link_spec in link_specs:
+            techs_dict = self.__techs_dict_add_transmission_link(
+                techs_dict,
+                colors,
+                **link_spec
+                )
    
         return techs_dict
         
-    def __create_location_dict(self):
+    def __create_nodes_dict(self):
         
-        # Techs with separate locations:
+        # Techs with separate nodes:
         tech_locs = ['wind_power_old', 'wind_power_new']#, 'solar_thermal_old', 'solar_pv_old']
         
-        # Dictionary to be populated for main location X1:
-        loc_dict = {
+        # Dictionary to be populated for main node X1:
+        nodes_dict = {
             'X1':{
                 'techs':{
                     'demand_electricity_baseline':{},
@@ -2989,34 +3277,29 @@ class CalliopeOptimiser:
                     'demand_heat':{}
                     },
                 # 'available_area': 1, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
-                'coordinates':{} 
+                'latitude':1,
+                'longitude':1,
                 },
             'Grid_Connection_Node':{
                 'techs':{
                     },
-                'coordinates':{
-                  'lat': 0,
-                  'lon': 0
-                } 
+                'latitude':0,
+                'longitude':0,
                 },
 
             'New_Techs':{
                 'techs':{},
                 # 'available_area': self.available_area_scaling, # used for "resources competition" between pv and solar thermal; a virtual value of 1 is used.
-                'coordinates':{
-                  'lat': 5,
-                  'lon': 5
-                  }
+                'latitude':5,
+                'longitude':5,
                 },
             'Limited_Supplies':{
                 'techs':{
                     'wet_biomass_supply':{},
                     'wood_supply':{}
                     },
-                'coordinates':{
-                    'lat': 6,
-                    'lon':6
-                    }
+                'latitude':6,
+                'longitude':6,
                 }
                     }
         
@@ -3026,12 +3309,12 @@ class CalliopeOptimiser:
                 and self.scen_techs['demand_side']['ev_flexibility']
                 ):
             
-            loc_dict['X1']['techs']['demand_electricity_ev_pd'] = {}
-            loc_dict['X1']['techs']['demand_electricity_ev_delta'] = {}
-            loc_dict['X1']['techs']['flexibility_ev'] = {}
+            nodes_dict['X1']['techs']['demand_electricity_ev_pd'] = {}
+            nodes_dict['X1']['techs']['demand_electricity_ev_delta'] = {}
+            nodes_dict['X1']['techs']['flexibility_ev'] = {}
 
         else:
-            loc_dict['X1']['techs']['demand_electricity_ev'] = {}
+            nodes_dict['X1']['techs']['demand_electricity_ev'] = {}
             
         # flex_label
         if self.building_inertia_flex_flag:
@@ -3041,43 +3324,41 @@ class CalliopeOptimiser:
             for key, acr in flex_systems.items():
                 # key: full tech name (e.g., 'heat_pump', 'district_heating')
                 # acr: acronym (e.g., 'hp', 'dh')
-                loc_dict['X1']['techs'][f'virtual_storage_flex_{acr}'] = {}
-                loc_dict['X1']['techs'][f'virtual_storage_drain_{acr}'] = {}
-                loc_dict['X1']['techs'][f'conv_{acr}_vs'] = {}
+                nodes_dict['X1']['techs'][f'virtual_storage_flex_{acr}'] = {}
+                nodes_dict['X1']['techs'][f'virtual_storage_drain_{acr}'] = {}
+                nodes_dict['X1']['techs'][f'conv_{acr}_vs'] = {}
                 
         if len(self.tech_list_pv) > 0:
             for i in range(len(self.tech_list_pv)):
                 for j in range(len(self.tech_list_pv[i])):
-                    loc_dict[self.tech_list_pv[i][j]] = {
+                    nodes_dict[self.tech_list_pv[i][j]] = {
                         'techs': {},
                         'available_area': self.available_area_scaling,
-                        'coordinates':{
-                            'lat': 10+i,
-                            'lon': j
-                            }
+                        'latitude':10+i,
+                        'longitude':j,
                     }
 
         # ---------------------------------------------------------------------
-        # Populate loc_dict for main location X1:
+        # Populate nodes_dict for main node X1:
         for tech in self.tech_list_old:
             if tech in tech_locs:
-                # This tech will have a separate location
+                # This tech will have a separate node
                 pass
             else:
-                loc_dict['X1']['techs'][tech] = None
+                nodes_dict['X1']['techs'][tech] = None
         for tech in self.tech_list_grid_connection:
             if tech in tech_locs:
-                # This tech will have a separate location
+                # This tech will have a separate node
                 pass
             else:
-                loc_dict['Grid_Connection_Node']['techs'][tech] = None
+                nodes_dict['Grid_Connection_Node']['techs'][tech] = None
 
         for tech in self.tech_list_new:
             if tech in tech_locs:
-                # This tech will have a separate location
+                # This tech will have a separate node
                 pass
             else:
-                loc_dict['New_Techs']['techs'][tech] = None
+                nodes_dict['New_Techs']['techs'][tech] = None
 
         for i in range(len(self.tech_list_pv)):
 
@@ -3087,68 +3368,24 @@ class CalliopeOptimiser:
 
                 tech = techs[j]
 
-                loc_dict[tech]['techs'][tech+"_occupied"] = None
-                loc_dict[tech]['techs'][tech+"_unoccupied"] = None
+                nodes_dict[tech]['techs'][tech+"_occupied"] = None
+                nodes_dict[tech]['techs'][tech+"_unoccupied"] = None
 
                 if self.tech_list_solarthermal[i] != None:
                     tech_thermal = self.tech_list_solarthermal[i][j]
-                    loc_dict[tech]['techs'][tech_thermal+"_occupied"] = None
-                    loc_dict[tech]['techs'][tech_thermal+"_unoccupied"] = None
-
-
-
-        # Update loc_dict with timeseries
-        # loc_dict['X1']['techs']['demand_electricity']['constraints.resource'] =\
-        #     'df=demand_power:d_e_baseline'
-        loc_dict['X1']['techs']['demand_electricity_baseline']['constraints.resource'] =\
-            'df=demand_power_baseline:d_e_baseline'
-        
-        # Electric vehicles:
-        if (
-                self.scen_techs['scenarios']['demand_side']
-                and self.scen_techs['demand_side']['ev_integration']
-                and self.scen_techs['demand_side']['ev_flexibility']
-                ):
-            
-            # There is a lower bound (pd) that must be fulfilled and a max. upper bound (pd + delta):
-            loc_dict['X1']['techs']['demand_electricity_ev_pd']['constraints.resource'] =\
-                'df=demand_power_ev_pd:d_e_ev_pd'
-            loc_dict['X1']['techs']['demand_electricity_ev_delta']['constraints.resource'] =\
-                'df=demand_power_ev_delta:d_e_ev_delta'
-            # Virtual resource to quantify flexibility
-            loc_dict['X1']['techs']['flexibility_ev']['constraints.resource'] =\
-                'inf'
-
-        else:
-            # Fixed charging profile:
-            loc_dict['X1']['techs']['demand_electricity_ev']['constraints.resource'] =\
-                'df=demand_power_ev:d_e_ev'
-                
-        loc_dict['X1']['techs']['demand_heat']['constraints.resource'] =\
-            'df=demand_heat:d_h'
-            
-        # if self.building_inertia_flex_flag:
-        #     loc_dict['X1']['techs']['demand_heat_gap']['constraints.resource'] =\
-        #         'df=demand_heat:d_h'
-                
-        loc_dict['Limited_Supplies']['techs']['wet_biomass_supply']['constraints.resource'] =\
-            'df=wet_biomass_resource:s_wet_bm'
-        loc_dict['Limited_Supplies']['techs']['wood_supply']['constraints.resource'] =\
-            'df=wood_resource:s_wd'#
-        # Update coordinates:
-        loc_dict['X1']['coordinates']['lat'] = 1 
-        loc_dict['X1']['coordinates']['lon'] = 1
+                    nodes_dict[tech]['techs'][tech_thermal+"_occupied"] = None
+                    nodes_dict[tech]['techs'][tech_thermal+"_unoccupied"] = None
         
         # ---------------------------------------------------------------------
-        # Populate loc_dict for currently existing (i.e. "old") tech locations:
+        # Populate nodes_dict for currently existing (i.e. "old") tech nodes:
         # if 'solar_thermal_old' in self.tech_list_old:
-        #     loc_dict['Old_Solar_Thermal']['techs']['solar_thermal_old'] = None
+        #     nodes_dict['Old_Solar_Thermal']['techs']['solar_thermal_old'] = None
             
         # if 'solar_pv_old' in self.tech_list_old:
-        #     loc_dict['Old_Solar_PV']['techs']['solar_pv_old'] = None        
+        #     nodes_dict['Old_Solar_PV']['techs']['solar_pv_old'] = None
         
         # ---------------------------------------------------------------------
-        # Populate loc_dict for wind power locations:
+        # Populate nodes_dict for wind power nodes:
         if 'wind_power' in self.tech_list:
             # Calculate max. capacities:
             tmp_cap_max_input = self.tech_wind_power.get_kWp_max()
@@ -3194,244 +3431,57 @@ class CalliopeOptimiser:
             # Location for wind power with profile of type 'annual':
             
             # Create dict:
-            loc_dict['loc_wp_annual'] = {
+            nodes_dict['loc_wp_annual'] = {
                 'techs':{
                     'wind_power_old':{},
                     'wind_power_new':{},
                     },
-                'coordinates':{}
+                'latitude':3,
+                'longitude':3,
                 }
-            # Add resources:
-            loc_dict['loc_wp_annual']['techs']['wind_power_old']['constraints.resource'] =\
-                'df=wp_resource_annual:v_e_wp'
-            loc_dict['loc_wp_annual']['techs']['wind_power_new']['constraints.resource'] =\
-                'df=wp_resource_annual:v_e_wp'
             # Add max. capacities:
-            # loc_dict['loc_wp_annual']['techs']['wind_power_old']['constraints.energy_cap_max'] =\
+            # nodes_dict['loc_wp_annual']['techs']['wind_power_old']['flow_cap_max'] =\
             #     cap_max_installed_annual
-            loc_dict['loc_wp_annual']['techs']['wind_power_new']['constraints.energy_cap_max'] =\
+            nodes_dict['loc_wp_annual']['techs']['wind_power_new']['flow_cap_max'] =\
                 cap_max_new_annual / self.energy_scaling_factor
-            # Force capacity and resources for currently installed capacities:
-            loc_dict['loc_wp_annual']['techs']['wind_power_old']['constraints.force_resource'] =\
-                True
-            # loc_dict['loc_wp_annual']['techs']['wind_power_old']['constraints.resource_cap_equals'] =\
+            # Force capacity for currently installed capacities:
+            # nodes_dict['loc_wp_annual']['techs']['wind_power_old']['source_cap_equals'] =\
             #     cap_max_installed_annual
-            loc_dict['loc_wp_annual']['techs']['wind_power_old']['constraints.energy_cap_max'] =\
+            nodes_dict['loc_wp_annual']['techs']['wind_power_old']['flow_cap_max'] =\
                 cap_max_installed_annual / self.energy_scaling_factor
-            
-            # Update coordinates:
-            loc_dict['loc_wp_annual']['coordinates']['lat'] = 3 # ! Add here actual coordinates
-            loc_dict['loc_wp_annual']['coordinates']['lon'] = 3
             # Add wind power conversion unit:
-            loc_dict['loc_wp_annual']['techs']['wind_power_unit'] = {}
-            loc_dict['loc_wp_annual']['techs']['wind_power_unit']['constraints.energy_cap_per_unit'] =\
+            nodes_dict['loc_wp_annual']['techs']['wind_power_unit'] = {}
+            nodes_dict['loc_wp_annual']['techs']['wind_power_unit']['flow_cap_per_unit'] =\
                 cap_max_annual / self.energy_scaling_factor
             
             # -----------------------------------------------------------------
             # Location for wind power with profile of type 'winter':
             
             # Create dict:
-            loc_dict['loc_wp_winter'] = {
+            nodes_dict['loc_wp_winter'] = {
                 'techs':{
                     'wind_power_old':{},
                     'wind_power_new':{}
                     },
-                'coordinates':{}
+                'latitude':2,
+                'longitude':2,
                 }
-            # Add resources:
-            loc_dict['loc_wp_winter']['techs']['wind_power_old']['constraints.resource'] =\
-                'df=wp_resource_winter:v_e_wp'
-            loc_dict['loc_wp_winter']['techs']['wind_power_new']['constraints.resource'] =\
-                'df=wp_resource_winter:v_e_wp'
             # Add max. capacities:
-            # loc_dict['loc_wp_winter']['techs']['wind_power_old']['constraints.energy_cap_max'] =\
+            # nodes_dict['loc_wp_winter']['techs']['wind_power_old']['flow_cap_max'] =\
             #     cap_max_installed_winter
-            loc_dict['loc_wp_winter']['techs']['wind_power_new']['constraints.energy_cap_max'] =\
+            nodes_dict['loc_wp_winter']['techs']['wind_power_new']['flow_cap_max'] =\
                 cap_max_new_winter / self.energy_scaling_factor
-            # Force capacity and resources for currently installed capacities:
-            loc_dict['loc_wp_winter']['techs']['wind_power_old']['constraints.force_resource'] =\
-                True
-            # loc_dict['loc_wp_winter']['techs']['wind_power_old']['constraints.resource_cap_equals'] =\
+            # Force capacity for currently installed capacities:
+            # nodes_dict['loc_wp_winter']['techs']['wind_power_old']['source_cap_equals'] =\
             #     cap_max_installed_winter
-            loc_dict['loc_wp_winter']['techs']['wind_power_old']['constraints.energy_cap_max'] =\
+            nodes_dict['loc_wp_winter']['techs']['wind_power_old']['flow_cap_max'] =\
                 cap_max_installed_winter / self.energy_scaling_factor
-            # Update coordinates:
-            loc_dict['loc_wp_winter']['coordinates']['lat'] = 2 # ! Add here actual coordinates
-            loc_dict['loc_wp_winter']['coordinates']['lon'] = 2
             # Add wind power conversion unit:
-            loc_dict['loc_wp_winter']['techs']['wind_power_unit'] = {}
-            loc_dict['loc_wp_winter']['techs']['wind_power_unit']['constraints.energy_cap_per_unit'] =\
+            nodes_dict['loc_wp_winter']['techs']['wind_power_unit'] = {}
+            nodes_dict['loc_wp_winter']['techs']['wind_power_unit']['flow_cap_per_unit'] =\
                 cap_max_winter / self.energy_scaling_factor
             
-        return loc_dict
-    
-    def __create_links_dict(self):
-
-        # List of locations to be linked to the main location:
-        link_locs = ['New_Techs']
-        
-        link_locs_power = ['New_Techs']
-        
-        link_locs_heat = ['New_Techs']
-
-        link_locs_heat_biomass = ['New_Techs']
-        
-        link_locs_heat_hp = ['New_Techs']
-        
-        # if 'solar_thermal' in self.tech_list:
-        #     link_locs.append('Old_Solar_Thermal')
-            
-        #     link_locs_heat.append('Old_Solar_Thermal')
-        
-        # if 'solar_pv' in self.tech_list:
-        #     link_locs.append('Old_Solar_PV')
-            
-        #     link_locs_power.append('Old_Solar_PV')
-        
-        if 'wind_power' in self.tech_list:
-            link_locs.append('loc_wp_winter')
-            link_locs.append('loc_wp_annual')
-            
-            link_locs_power.append('loc_wp_winter')
-            link_locs_power.append('loc_wp_annual')
-        
-        if len(self.tech_list_pv) > 0:
-            for i in range(len(self.tech_list_pv)):
-                for j in range(len(self.tech_list_pv[i])):
-                    link_locs_power.append(self.tech_list_pv[i][j])
-
-        # Initialise dict:
-        links_dict = {}
-        
-        links_dict[f'X1,Grid_Connection_Node'] = {
-            'techs':{}
-            }
-        links_dict[f'X1,Grid_Connection_Node']['techs']['power_line'] = {
-            'constraints':{
-                }
-            }
-        if self.tech_grid_supply._kW_max != 'inf':
-            links_dict[f'X1,Grid_Connection_Node']['techs']['power_line']['constraints']['energy_cap_equals'] \
-                = self.tech_grid_supply._kW_max / self.energy_scaling_factor
-
-        # Add links:
-        for loc in link_locs:
-            links_dict[f'X1,{loc}'] = {
-                'techs':{}
-                }
-            
-        for loc in link_locs_power:
-            links_dict[f'X1,{loc}'] = {
-                'techs':{}
-            }
-            links_dict[f'X1,{loc}']['techs']['power_line'] = {
-                'constraints':{
-                    # 'energy_cap_equals':1e10
-                    }
-                }
-            links_dict[f'X1,{loc}']['techs']['hp_heat_line'] = {
-                'constraints':{
-                    # 'energy_cap_equals':1e10
-                    }
-                }
-
-                
-            
-        for loc in link_locs_heat:
-            links_dict[f'X1,{loc}']['techs']['heat_line'] = {
-                'constraints':{
-                    # 'energy_cap_equals':1e10
-                    }
-                }
-            
-        for loc in link_locs_heat_hp:
-            links_dict[f'X1,{loc}']['techs']['hp_heat_line'] = {
-                'constraints':{
-                    # 'energy_cap_equals':1e10
-                    }
-                }
-        
-        for loc in link_locs_heat_biomass:
-            links_dict[f'X1,{loc}']['techs']['heat_biomass_line'] = {
-                'constraints':{
-                    # 'energy_cap_equals':1e10
-                    }
-                }
-
-            
-        # links_dict['X1,New_Techs'] = {
-        #     'techs':{
-        #         'gas_line':{
-        #             'constraints':{
-        #                 'energy_cap_equals':1e10
-        #                 }
-        #             }
-        #         }
-        #     }
-        
-        links_dict['X1,New_Techs']['techs']['gas_line'] = {
-            'constraints':{
-                # 'energy_cap_equals':1e10
-                }
-            }
-        
-        
-        links_dict['X1,Limited_Supplies'] = {
-            'techs':{}
-            }
-        links_dict['New_Techs,Limited_Supplies'] = {
-            'techs':{}
-            }
-        
-        links_dict['X1,Limited_Supplies']['techs']['wood_line'] = {
-            'constraints':{
-                # 'energy_cap_equals':1e10
-                }
-            }
-        
-        links_dict['New_Techs,Limited_Supplies']['techs']['wood_line'] = {
-            'constraints':{
-                # 'energy_cap_equals':1e10
-                }
-            }
-        
-        links_dict['New_Techs,Limited_Supplies']['techs']['wet_biomass_line'] = {
-            'constraints':{
-                # 'energy_cap_equals':1e10
-                }
-            }
-            
-        # links_dict['X1,Limited_Supplies'] = {
-        #     'techs':{
-        #         'wood_line':{
-        #             'constraints':{
-        #                 'energy_cap_equals':1e10
-        #                 }
-        #             }
-        #         }
-        #     }
-        
-        # links_dict['New_Techs,Limited_Supplies'] = {
-        #     'techs':{
-        #         'wood_line':{
-        #             'constraints':{
-        #                 'energy_cap_equals':1e10
-        #                 }
-        #             }
-        #         }
-        #     }
-        
-        # links_dict['New_Techs,Limited_Supplies'] = {
-        #     'techs':{
-        #         'wet_biomass_line':{
-        #             'constraints':{
-        #                 'energy_cap_equals':1e10
-        #                 }
-        #             }
-        #         }
-        #     }
-
-        return links_dict
+        return nodes_dict
     
     def __create_run_dict(self):
         
@@ -3478,9 +3528,8 @@ class CalliopeOptimiser:
         
         return run_dict
     
-    # def __create_group_constraints_dict(self, rerun_eps=False, eps_n='inf'):
-    def __create_group_constraints_dict(self):
-        
+    def __get_constant_heat_source_techs(self):
+
         const_techs = [
             'heat_pump_hub',
             'electric_heater_old',
@@ -3494,87 +3543,136 @@ class CalliopeOptimiser:
             'wood_boiler_new',
             'wood_boiler_one_to_one_replacement',
             ] # ensure techs are spelled correctly (no error is thrown if tech doesn't exist)!
-        
+
         # Create district heating labels:
-        dhn_list= []
         if self.dhn_qty == 0:
             const_techs.append('district_heating_hub')
-            dhn_list.append('district_heating_hub')
         elif self.dhn_qty >= 0:
             for i in range(self.dhn_qty):
                 const_techs.append(f"district_heating_hub_{i}")
+
+        return const_techs
+
+    def __get_district_heating_share_techs(self):
+
+        dhn_list = []
+        if self.dhn_qty == 0:
+            dhn_list.append('district_heating_hub')
+        elif self.dhn_qty >= 0:
+            for i in range(self.dhn_qty):
                 dhn_list.append(f"district_heating_hub_{i}")
-        
-        group_constraints_dict = {
-            'constant_heat_sources':{
-                'techs': const_techs,
-                # 'techs':[
-                #     # 'heat_pump_old',
-                #     # 'heat_pump_new',
-                #     'heat_pump_hub',
-                #     'electric_heater_old',
-                #     'oil_boiler_old',
-                #     'oil_boiler_new',
-                #     'gas_boiler_old',
-                #     'gas_boiler_new',
-                #     'wood_boiler_old',
-                #     'wood_boiler_new',
-                #     'district_heating_hub',
-                #     ], # ensure techs are spelled correctly (no error is thrown if tech doesn't exist)!
-                'locs':['New_Techs', 'X1',],
-                # 'locs':['X1'],
-                # 'locs':[],
-                'demand_share_per_timestep_decision':{
-                    'heat':None, # if set to 'None', the optimiser chooses a constant value; if a value is given (e.g. 0.2), this value will be used as constant share
-                    },
-                },
+
+        return dhn_list
+
+    @staticmethod
+    def __math_list(items):
+
+        return '['+', '.join(items)+']'
+
+    def __create_math_dict(self):
+
+        math_dict = {
+            'variables':{},
+            'constraints':{},
             }
+
+        def add_share_constraint(name, techs, nodes, share, operator):
+
+            if len(techs) == 0:
+                return
+
+            math_dict['constraints'][name] = {
+                'foreach':['timesteps'],
+                'equations':[
+                    {
+                        'expression':(
+                            'sum('
+                            +'flow_out['
+                            +'nodes='+self.__math_list(nodes)+', '
+                            +'techs='+self.__math_list(techs)+', '
+                            +'carriers=heat'
+                            +'], over=[nodes, techs]) '
+                            +operator+' '
+                            +'sink_use_equals[nodes=X1, techs=demand_heat] * '
+                            +str(share)
+                            )
+                        }
+                    ],
+                }
+
+        const_techs = self.__get_constant_heat_source_techs()
+
+        math_dict['variables']['constant_heat_source_share'] = {
+            'foreach':['techs'],
+            'where':'techs='+self.__math_list(const_techs),
+            'bounds':{
+                'min':0,
+                'max':'.inf',
+                },
+            'default':0,
+            }
+
+        math_dict['constraints']['constant_heat_sources'] = {
+            'foreach':['techs', 'timesteps'],
+            'where':'techs='+self.__math_list(const_techs),
+            'equations':[
+                {
+                    'expression':(
+                        'sum('
+                        +'flow_out[nodes=[X1, New_Techs], carriers=heat], '
+                        +'over=nodes'
+                        +') == '
+                        +'sink_use_equals[nodes=X1, techs=demand_heat] * '
+                        +'constant_heat_source_share'
+                        )
+                    }
+                ],
+            }
+
         # self.rerun_eps = True
         # # # self.eps_n = 2091119.65019013
         # self.eps_n = 1707022.26495658
         # 429454470
         # 448447074
         
-        if self.rerun_eps: # set epsilon constraint
-            group_constraints_dict['systemwide_co2_cap'] = None
-            group_constraints_dict['systemwide_co2_cap'] = {
-                    'cost_max':{
-                        'emissions_co2':self.eps_n,
+        if self.rerun_eps:
+            math_dict['constraints']['systemwide_co2_cap'] = {
+                'equations':[
+                    {
+                        'expression':(
+                            'sum(cost[costs=emissions_co2], over=[nodes, techs]) <= '
+                            +str(self.eps_n)
+                            )
                         }
-                    }
+                    ],
+                }
 
         # Constraint in regard to what share of the heat demand shall be supplied by district heating:
+        dhn_list = self.__get_district_heating_share_techs()
         if self.dhn_share_type == 'fixed':
-            group_constraints_dict['dhn_demand_share'] = None
-            group_constraints_dict['dhn_demand_share'] = {
-                # 'techs':['district_heating_hub'],
-                'techs':dhn_list,
-                'locs':['X1'],
-                'demand_share_per_timestep_equals':{
-                            'heat':self.dhn_share_val,
-                            },
-                }
+            add_share_constraint(
+                'dhn_demand_share',
+                dhn_list,
+                ['X1'],
+                self.dhn_share_val,
+                '=='
+                )
         elif self.dhn_share_type == 'min':
-            group_constraints_dict['dhn_demand_share'] = None
-            group_constraints_dict['dhn_demand_share'] = {
-                # 'techs':['district_heating_hub'],
-                'techs':dhn_list,
-                'locs':['X1'],
-                'demand_share_per_timestep_min':{
-                            'heat':self.dhn_share_val,
-                            },
-                }
-            
+            add_share_constraint(
+                'dhn_demand_share',
+                dhn_list,
+                ['X1'],
+                self.dhn_share_val,
+                '>='
+                )
         elif self.dhn_share_type == 'max':
-            group_constraints_dict['dhn_demand_share'] = None
-            group_constraints_dict['dhn_demand_share'] = {
-                # 'techs':['district_heating_hub'],
-                'techs':dhn_list,
-                'locs':['X1'],
-                'demand_share_per_timestep_max':{
-                            'heat':self.dhn_share_val,
-                            },
-                }
+            add_share_constraint(
+                'dhn_demand_share',
+                dhn_list,
+                ['X1'],
+                self.dhn_share_val,
+                '<='
+                )
 
         elif self.dhn_share_type == 'free':
             pass
@@ -3584,258 +3682,101 @@ class CalliopeOptimiser:
             
         # Fixed demand shares of decentralised heating techs:
         if self.hp_fixed_demand_share:
-            group_constraints_dict['hp_demand_share'] = None
-            group_constraints_dict['hp_demand_share'] = {
-                'techs':['heat_pump_hub'],
-                'locs':['X1'],
-                'demand_share_per_timestep_equals':{
-                            'heat':self.hp_fixed_demand_share_val ,
-                            },
-                }
-            
-        
+            add_share_constraint(
+                'hp_demand_share',
+                ['heat_pump_hub'],
+                ['X1'],
+                self.hp_fixed_demand_share_val,
+                '=='
+                )
+
         if self.eh_fixed_demand_share:
-            group_constraints_dict['eh_demand_share'] = None
-            group_constraints_dict['eh_demand_share'] = {
-                'techs':['electric_heater_old'],
-                'locs':['X1'],
-                'demand_share_per_timestep_equals':{
-                            'heat':self.eh_fixed_demand_share_val ,
-                            },
-                }
-        
+            add_share_constraint(
+                'eh_demand_share',
+                ['electric_heater_old'],
+                ['X1'],
+                self.eh_fixed_demand_share_val,
+                '=='
+                )
+
         if self.ob_fixed_demand_share:
-            group_constraints_dict['ob_demand_share'] = None
-            group_constraints_dict['ob_demand_share'] = {
-                'techs':['oil_boiler_old', 'oil_boiler_new'],
-                'locs':['X1', 'New_Techs'],
-                'demand_share_per_timestep_equals':{
-                            'heat':self.ob_fixed_demand_share_val ,
-                            },
-                }
-        
+            add_share_constraint(
+                'ob_demand_share',
+                ['oil_boiler_old', 'oil_boiler_new'],
+                ['X1', 'New_Techs'],
+                self.ob_fixed_demand_share_val,
+                '=='
+                )
+
         if self.gb_fixed_demand_share:
-            group_constraints_dict['gb_demand_share'] = None
-            group_constraints_dict['gb_demand_share'] = {
-                'techs':['gas_boiler_old', 'gas_boiler_new'],
-                'locs':['X1', 'New_Techs'],
-                'demand_share_per_timestep_equals':{
-                            'heat':self.gb_fixed_demand_share_val ,
-                            },
-                }
-            
+            add_share_constraint(
+                'gb_demand_share',
+                ['gas_boiler_old', 'gas_boiler_new'],
+                ['X1', 'New_Techs'],
+                self.gb_fixed_demand_share_val,
+                '=='
+                )
+
         if self.wb_fixed_demand_share:
-            group_constraints_dict['wb_demand_share'] = None
-            group_constraints_dict['wb_demand_share'] = {
-                'techs':['wood_boiler_old', 'wood_boiler_new'],
-                'locs':['X1', 'New_Techs'],
-                'demand_share_per_timestep_equals':{
-                            'heat':self.wb_fixed_demand_share_val ,
-                            },
-                }
-        
-            # 'new_oil_boiler_share':{
-            #         'techs':['oil_boiler_new', 'chp_gt_new'], # ensure techs are spelled correctly!
-            #         'locs':['New_Techs', 'X1'],
-            #         'demand_share_per_timestep_decision':{
-            #             'heat':None, # if set to 'None', the optimiser chooses a constant value; if a value is given (e.g. 0.2), this value will be used as constant share
-            #             },
-            #         },
-            #     'old_oil_boiler_share':{
-            #         'techs':['oil_boiler_old'],
-            #         'locs':['New_Techs', 'X1'],
-            #         'demand_share_per_timestep_equals':{
-            #             'heat':0.0,
-            #             },
-            # }
-        
-        return group_constraints_dict
-        
-    def __techs_dict_add_power_line(self, techs_dict, colors):
-        
-        # Virtual power line with infinite capacity and no cost attributed.
-        techs_dict['power_line'] = {
-            'essentials':{
-                'name':'Electrical power transmission',
-                'color': colors['power_line'],
-                'parent':'transmission',
-                'carrier':'electricity'
-                },
-            'constraints':{
-                'energy_eff': 1.0,
-                'lifetime': 100
-                },
-            'costs':{
-                'monetary':{
-                    'interest_rate': 0.0,
-                    'energy_cap_per_distance': 0.0
-                    },
-                'emissions_co2':{
-                    'om_prod': 0.0
-                    }
-                }
-            }
-        
-        return techs_dict
-    
-    def __techs_dict_add_gas_line(self, techs_dict, colors):
-        
-        # Virtual power line with infinite capacity and no cost attributed.
-        techs_dict['gas_line'] = {
-            'essentials':{
-                'name':'gas transmission',
-                'color': colors['gas_line'],
-                'parent':'transmission',
-                'carrier':'gas'
-                },
-            'constraints':{
-                'energy_eff': 1.0,
-                'lifetime': 100
-                },
-            'costs':{
-                'monetary':{
-                    'interest_rate': 0.0,
-                    'energy_cap_per_distance': 0.0
-                    },
-                'emissions_co2':{
-                    'om_prod': 0.0
-                    }
-                }
-            }
-        
-        return techs_dict
-    
-    def __techs_dict_add_wood_line(self, techs_dict, colors):
-        
-        # Virtual power line with infinite capacity and no cost attributed.
-        techs_dict['wood_line'] = {
-            'essentials':{
-                'name':'Wood transmission',
-                'color': colors['wood_line'],
-                'parent':'transmission',
-                'carrier':'wood'
-                },
-            'constraints':{
-                'energy_eff': 1.0,
-                'lifetime': 100
-                },
-            'costs':{
-                'monetary':{
-                    'interest_rate': 0.0,
-                    'energy_cap_per_distance': 0.0
-                    },
-                'emissions_co2':{
-                    'om_prod': 0.0
-                    }
-                }
-            }
-        
-        return techs_dict
-    
-    def __techs_dict_add_wet_biomass_line(self, techs_dict, colors):
-        
-        # Virtual power line with infinite capacity and no cost attributed.
-        techs_dict['wet_biomass_line'] = {
-            'essentials':{
-                'name':'Wet_Biomass transmission',
-                'color': colors['wet_biomass_line'],
-                'parent':'transmission',
-                'carrier':'wet_biomass'
-                },
-            'constraints':{
-                'energy_eff': 1.0,
-                'lifetime': 100
-                },
-            'costs':{
-                'monetary':{
-                    'interest_rate': 0.0,
-                    'energy_cap_per_distance': 0.0
-                    },
-                'emissions_co2':{
-                    'om_prod': 0.0
-                    }
-                }
-            }
-        
-        return techs_dict
-    
-    def __techs_dict_add_heat_line(self, techs_dict, colors):
-        
-        # Virtual power line with infinite capacity and no cost attributed.
-        techs_dict['heat_line'] = {
-            'essentials':{
-                'name':'Heat transmission',
-                'color': colors['heat_line'],
-                'parent':'transmission',
-                'carrier':'heat'
-                },
-            'constraints':{
-                'energy_eff': 1.0,
-                'lifetime': 100
-                },
-            'costs':{
-                'monetary':{
-                    'interest_rate': 0.0,
-                    'energy_cap_per_distance': 0.0
-                    },
-                'emissions_co2':{
-                    'om_prod': 0.0
-                    }
-                }
-            }
-        
-        return techs_dict
+            add_share_constraint(
+                'wb_demand_share',
+                ['wood_boiler_old', 'wood_boiler_new'],
+                ['X1', 'New_Techs'],
+                self.wb_fixed_demand_share_val,
+                '=='
+                )
 
-    def __techs_dict_add_heat_biomass_line(self, techs_dict, colors):
+        return math_dict
         
-        # Virtual power line with infinite capacity and no cost attributed.
-        techs_dict['heat_biomass_line'] = {
-            'essentials':{
-                'name':'Heat_biomass transmission',
-                'color': colors['heat_line'],
-                'parent':'transmission',
-                'carrier':'heat_biomass'
-                },
-            'constraints':{
-                'energy_eff': 1.0,
-                'lifetime': 100
-                },
-            'costs':{
-                'monetary':{
-                    'interest_rate': 0.0,
-                    'energy_cap_per_distance': 0.0
-                    },
-                'emissions_co2':{
-                    'om_prod': 0.0
-                    }
-                }
-            }
-        
-        return techs_dict
+    def __techs_dict_add_transmission_link(
+            self,
+            techs_dict,
+            colors,
+            link_from,
+            link_to,
+            line_type,
+            carrier,
+            name,
+            color_key,
+            flow_cap_equals=None
+            ):
 
-    def __techs_dict_add_hp_heat_line(self, techs_dict, colors):
-        
-        # Virtual heat line with infinite capacity and no cost attributed.
-        techs_dict['hp_heat_line'] = {
-            'essentials':{
-                'name':'Heat transmission for HP heat',
-                'color': colors['heat_line'],
-                'parent':'transmission',
-                'carrier':'heat_hp'
+        header = (
+            link_from.lower()
+            +'_to_'
+            +link_to.lower()
+            +'_'
+            +line_type
+            )
+
+        techs_dict[header] = {
+            'name':name,
+            'color':colors[color_key],
+            'base_tech':'transmission',
+            'link_from':link_from,
+            'link_to':link_to,
+            'carrier_in':carrier,
+            'carrier_out':carrier,
+            'flow_out_eff':1.0,
+            'lifetime':100,
+            'cost_interest_rate':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'constraints':{
-                'energy_eff': 1.0,
-                'lifetime': 100
+            'cost_flow_cap':{
+                'data':0.0,
+                'index':'monetary',
+                'dims':'costs',
                 },
-            'costs':{
-                'monetary':{
-                    'interest_rate': 0.0,
-                    'energy_cap_per_distance': 0.0
-                    },
-                'emissions_co2':{
-                    'om_prod': 0.0
-                    }
-                }
+            'cost_flow_out':{
+                'data':0.0,
+                'index':'emissions_co2',
+                'dims':'costs',
+                },
             }
-        
+
+        if flow_cap_equals is not None:
+            techs_dict[header]['flow_cap_equals'] = flow_cap_equals
+
         return techs_dict

@@ -242,7 +242,6 @@ class SolarThermalInstallation(TechCore):
             'name': name+"_occupied",
             'color': color,
             'template': parent,
-            'source_use_equals': resource,
             'flow_cap_max': p_max_occ / energy_scaling_factor,
             'cost_flow_cap':{
                 'data': 0,
@@ -260,6 +259,8 @@ class SolarThermalInstallation(TechCore):
                 'dims':'costs',
                 },
             }    
+        if resource is not None:
+            techs_dict[header+"_occupied"]['source_use_equals'] = resource
         
         # headers.append(header+"_occupied")
 
@@ -267,7 +268,6 @@ class SolarThermalInstallation(TechCore):
             'name': name+"_unoccupied",
             'color': color,
             'template': parent,
-            'source_use_equals': resource,
             'flow_cap_max': p_max_unocc / energy_scaling_factor,
             'cost_flow_cap':{
                 'data': self._capex * energy_scaling_factor,
@@ -285,6 +285,8 @@ class SolarThermalInstallation(TechCore):
                 'dims':'costs',
                 },
             }    
+        if resource is not None:
+            techs_dict[header+"_unoccupied"]['source_use_equals'] = resource
 
         # headers.append(header+"_unoccupied")
         headers.append(header)

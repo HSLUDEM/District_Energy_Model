@@ -458,22 +458,24 @@ class GridSupply(TechCore):
             'source_use_max':'inf',
             'flow_cap_max':self._kW_max / energy_scaling_factor if self._kW_max != 'inf' else 'inf',
             'lifetime':self._lifetime,
-            'cost_flow_in':{
-                'data': resource_tariff_timeseries, # [CHF/kWh]
-                'index':'monetary',
-                'dims':'costs',
-                },
-            'cost_flow_out':{
-                'data': resource_co2_intensity_timeseries,
-                'index':'emissions_co2',
-                'dims':'costs',
-                },
             'cost_interest_rate':{
                 'data':self._interest_rate,
                 'index':'monetary',
                 'dims':'costs',
                 },
             }
+        if resource_tariff_timeseries is not None:
+            techs_dict['grid_supply']['cost_flow_in'] = {
+                'data': resource_tariff_timeseries, # [CHF/kWh]
+                'index':'monetary',
+                'dims':'costs',
+                }
+        if resource_co2_intensity_timeseries is not None:
+            techs_dict['grid_supply']['cost_flow_out'] = {
+                'data': resource_co2_intensity_timeseries,
+                'index':'emissions_co2',
+                'dims':'costs',
+                }
         
         return techs_dict
     

@@ -181,7 +181,6 @@ class WasteHeat(TechCore):
             'name': name,
             'color': color,
             'template': 'waste_heat',
-            'source_use_max': resource,
             'cost_flow_cap':{
                 'data': capex * energy_scaling_factor,
                 'index':'monetary',
@@ -199,6 +198,8 @@ class WasteHeat(TechCore):
                 'dims':'costs',
                 },
             }    
+        if resource is not None:
+            techs_dict[header]['source_use_max'] = resource
         
         return techs_dict
     

@@ -162,17 +162,10 @@ class HeatPump(HeatPumpCore):
             "'replacement' for a one-to-one device replacement capex or" \
             " 'zero' for no capex. (Existing and still running devices.) ") 
         
-        cop_df_label = 'heat_pump_cops_new' if capex_level == 'full' else (
-            'heat_pump_cops_existing' if capex_level == 'zero' else
-            'heat_pump_cops_one_to_one_replacement'
-        )
-
-
         techs_dict[header] = {
             'name': name,
             'color': color,
             'template': self._label,
-            'flow_out_eff':"df="+cop_df_label+":"+cop_df_label,
             'flow_cap_max': energy_cap / energy_scaling_factor if energy_cap != 'inf' else 'inf',
             'cost_flow_cap':{
                 'data': capex * energy_scaling_factor,
