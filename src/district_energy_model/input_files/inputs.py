@@ -313,7 +313,7 @@ scen_techs = {
         },
 
     'grid_export':{ # grid
-        'deployment':False,
+        'deployment':True,
         'kW_max': None, #Defined in grid_supply
         'tariff_mode': 'const', # 'const' or 'file'
         'co2_intensity_mode': 'const',
@@ -389,7 +389,7 @@ scen_techs = {
         },
               
     'bes':{ # bes (battery energy storage)
-        'deployment':False,
+        'deployment':True,
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
