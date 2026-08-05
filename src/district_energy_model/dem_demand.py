@@ -530,7 +530,6 @@ class EnergyDemand:
     def compute_d_e_ev(
             self,
             ev_profiles_dir,
-            ev_munic_name_nr_file,
             ev_profile_cp_file,
             ev_profile_fe_file,
             ev_profile_pd_file,
@@ -541,18 +540,12 @@ class EnergyDemand:
             ev_flexibility,
             ):
         
-        # Read munic file:
-        munic_file_path = ev_profiles_dir + ev_munic_name_nr_file
-        df_munic_name_nr = pd.read_feather(munic_file_path)
-        
-        # print(df_munic_name_nr.head())
-        
+        # File paths:
         cp_file_dir = ev_profiles_dir + ev_profile_cp_file
         pd_file_dir = ev_profiles_dir + ev_profile_pd_file
         pu_file_dir = ev_profiles_dir + ev_profile_pu_file
         fe_file_dir = ev_profiles_dir + ev_profile_fe_file
         
-        # df_ev_profile = pd.read_feather(cp_file_dir)
         df_ev_cp_profile = pd.read_feather(cp_file_dir)
         df_ev_pd_profile = pd.read_feather(pd_file_dir)
         df_ev_pu_profile = pd.read_feather(pu_file_dir)
@@ -561,41 +554,33 @@ class EnergyDemand:
         ts_len = len(self.get_d_e())
         n_days = int(ts_len/24.0)
         
-        if len(com_percent) == 0:
-            munic_name = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr']==self.com_nr,'munic_name'
-                ]
-            
-            munic_name = munic_name.iloc[0]
-                
-            tmp_d_e_ev_cp = np.array(df_ev_cp_profile[munic_name])
-            tmp_d_e_ev_pd = np.array(df_ev_pd_profile[munic_name])
-            tmp_d_e_ev_pu = np.array(df_ev_pu_profile[munic_name])
-            tmp_f_e_ev_pot_dy = np.array(df_ev_fe_profile[munic_name])
+        if len(com_percent) == 0:           
+            tmp_d_e_ev_cp = np.array(df_ev_cp_profile[self.com_nr])
+            tmp_d_e_ev_pd = np.array(df_ev_pd_profile[self.com_nr])
+            tmp_d_e_ev_pu = np.array(df_ev_pu_profile[self.com_nr])
+            tmp_f_e_ev_pot_dy = np.array(df_ev_fe_profile[self.com_nr])
         
-        else:
-            df_munic_name_nr.sort_values(by='munic_nr')
-            munic_names = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr'].isin(com_percent.index),'munic_name'
-                ]
+        else:                       
+            profile_files = {
+                "CP": df_ev_cp_profile,
+                "PD": df_ev_pd_profile,
+                "PU": df_ev_pu_profile,
+                "FE": df_ev_fe_profile,
+            }
             
-            df_ev_cp_profile = df_ev_cp_profile[munic_names]
-            df_ev_pd_profile = df_ev_pd_profile[munic_names]
-            df_ev_pu_profile = df_ev_pu_profile[munic_names]
-            df_ev_fe_profile = df_ev_fe_profile[munic_names]
+            for profile_name, profile in profile_files.items():
+                missing = com_percent.index.difference(profile.columns)
             
-            df_ev_cp_profile.columns = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr'].isin(com_percent.index),'munic_nr'
-                ]
-            df_ev_pd_profile.columns = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr'].isin(com_percent.index),'munic_nr'
-                ]
-            df_ev_pu_profile.columns = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr'].isin(com_percent.index),'munic_nr'
-                ]
-            df_ev_fe_profile.columns = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr'].isin(com_percent.index),'munic_nr'
-                ]
+                if not missing.empty:
+                    raise KeyError(
+                        f"Municipalities missing from {profile_name} profile: "
+                        f"{missing.tolist()}"
+                    )
+            
+            df_ev_cp_profile = df_ev_cp_profile.loc[:, com_percent.index]
+            df_ev_pd_profile = df_ev_pd_profile.loc[:, com_percent.index]
+            df_ev_pu_profile = df_ev_pu_profile.loc[:, com_percent.index]
+            df_ev_fe_profile = df_ev_fe_profile.loc[:, com_percent.index]            
             
             tmp_d_e_ev_cp = np.array(df_ev_cp_profile.mul(com_percent).sum(axis = 1))
             tmp_d_e_ev_pd = np.array(df_ev_pd_profile.mul(com_percent).sum(axis = 1))

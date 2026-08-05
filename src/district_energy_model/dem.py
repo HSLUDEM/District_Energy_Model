@@ -109,6 +109,7 @@ class DistrictEnergyModel:
 
         if scen_techs['meta_data']['custom_district']['implemented'] == True:
             custom_district_name = scen_techs['meta_data']['custom_district']['custom_district_name']
+            
             (
                 self.com_nr,
                 self.com_nr_majority,
@@ -122,7 +123,10 @@ class DistrictEnergyModel:
                 self.paths,
                 scen_techs
                 )
+                    
             print(f"\nCustom district: {custom_district_name} (part of {self.com_name_})")
+            # print(f"\n{self.com_nr_majority}")
+
         
         else:
             (
@@ -177,14 +181,15 @@ class DistrictEnergyModel:
                 )
             
         self.wind_power_cap_file = paths.wind_power_cap_file # installed wind power capacity [kW] per municipality
-        self.wind_power_profile_file_annual = f"{self.com_name_}.feather" # feather-file containing generation profiles of wind power
-        self.wind_power_profile_file_winter = f"{self.com_name_}_winter.feather" # feather-file containing generation profiles of wind power, with profiles favored for winter-production
+        # self.wind_power_profile_file_annual = f"{self.com_name_}.feather" # feather-file containing generation profiles of wind power
+        # self.wind_power_profile_file_winter = f"{self.com_name_}_winter.feather" # feather-file containing generation profiles of wind power, with profiles favored for winter-production
+        self.wind_power_profile_file_annual = f"windtopo_{self.com_nr_majority}.feather" # feather-file containing generation profiles of wind power
+        self.wind_power_profile_file_winter = f"windtopo_{self.com_nr_majority}_winter.feather" # feather-file containing generation profiles of wind power, with profiles favored for winter-production
         self.wind_power_national_profile_file = paths.wind_power_national_profile_file # Hourly profile of national wind power generation [kWh]
         self.ev_profile_cp_file = paths.ev_profile_cp_file # hourly charging load [kW]
         self.ev_profile_fe_file = paths.ev_profile_fe_file # daily flexible energy [kWh]
         self.ev_profile_pd_file = paths.ev_profile_pd_file # hourly upper power bound [kW]
         self.ev_profile_pu_file = paths.ev_profile_pu_file # hourly lower power bound [kW]
-        self.ev_munic_name_nr = paths.ev_munic_name_nr_file # municipalities and BFS numnbers for ev data
         
         # List to collect input data and write to a file at the end:
         self.list_input_data = []
@@ -283,7 +288,11 @@ class DistrictEnergyModel:
         Create demand instance:
         """
         
-        self.energy_demand = dem_demand.EnergyDemand(paths=self.paths, com_nr=self.com_nr, com_nr_majority=self.com_nr_majority)
+        self.energy_demand = dem_demand.EnergyDemand(
+            paths=self.paths,
+            com_nr=self.com_nr,
+            com_nr_majority=self.com_nr_majority
+            )
         
         """--------------------------------------------------------------------
         Create resource supply instance:
@@ -486,7 +495,10 @@ class DistrictEnergyModel:
             wind_power_profile_file_winter = self.wind_power_profile_file_winter,
             wind_power_national_profile_file = self.wind_power_national_profile_file,
             com_name = self.com_name_,
+            # com_nr = self.com_nr,
+            com_nr = self.com_nr_majority,
             com_percent = self.com_percent,
+            com_percent_2 = self.com_percent_2,
             tech_dict = scen_techs['wind_power'],
             )
         self.tech_instances['wind_power'] = self.tech_wind_power
@@ -1360,7 +1372,6 @@ class DistrictEnergyModel:
                 print('\n demand_side')
                 self.energy_demand.compute_d_e_ev(
                     ev_profiles_dir=self.ev_profiles_dir,
-                    ev_munic_name_nr_file=self.ev_munic_name_nr,
                     ev_profile_cp_file=self.ev_profile_cp_file,
                     ev_profile_fe_file=self.ev_profile_fe_file,
                     ev_profile_pd_file=self.ev_profile_pd_file,
@@ -1370,7 +1381,18 @@ class DistrictEnergyModel:
                     optimisation = scen_techs['optimisation']['enabled'],
                     ev_flexibility = scen_techs['demand_side']['ev_flexibility'],
                     )
-                
+            
+            # =================================================================
+            # DELETE
+            # print("\n =========== self.com_percent_2: =============")
+            # print(type(self.com_percent_2))
+            # print("\n")
+            # print(self.com_percent_2.index)
+            # print("\n")
+            # print(f"{self.com_percent_2}")
+            # print("\n")
+            # =================================================================
+            
             # Electricity demand for heating (hourly and annual):
             self.energy_demand.compute_d_e_h(self.tech_instances)
 
