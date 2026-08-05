@@ -1381,18 +1381,7 @@ class DistrictEnergyModel:
                     optimisation = scen_techs['optimisation']['enabled'],
                     ev_flexibility = scen_techs['demand_side']['ev_flexibility'],
                     )
-            
-            # =================================================================
-            # DELETE
-            # print("\n =========== self.com_percent_2: =============")
-            # print(type(self.com_percent_2))
-            # print("\n")
-            # print(self.com_percent_2.index)
-            # print("\n")
-            # print(f"{self.com_percent_2}")
-            # print("\n")
-            # =================================================================
-            
+
             # Electricity demand for heating (hourly and annual):
             self.energy_demand.compute_d_e_h(self.tech_instances)
 
