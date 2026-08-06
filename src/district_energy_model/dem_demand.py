@@ -280,42 +280,6 @@ class EnergyDemand:
             + self._d_e_pump_yr
             )
 
-        # return d_e_yr_sfh, d_e_yr_mfh, d_e_yr_ind, d_e_yr_ser
-    
-    
-    # def d_e_hr(d_e_yr,
-    #            electricity_profile_dir,
-    #            electricity_profile_file
-    #            ):
-        
-    #     """Returns the hourly electricity demand (d_e_hr) of the selected community.
-        
-    #     Parameters
-    #     ----------
-    #     d_e_yr : float
-    #         Annual electricity demand of selected community [kWh].
-    #     electricity_profile_dir : str
-    #         Path to directory containing files of electricity load profiles.
-    #     electricity_profile_file : str
-    #         Name of csv file containing timeseries data of electricity load
-    #         profile. (e.g. 'Buildings_A_B_power_load_profile.csv')
-        
-    #     Returns
-    #     -------
-    #     list
-    #         hourly electricity demand [kWh]
-    #     """
-    #     file_path = electricity_profile_dir + electricity_profile_file
-    #     tmp_df = pd.read_csv(file_path) # [Wh] profile for one building:
-    #     tmp_df['P_avg'] = tmp_df['P_avg']/1000 # [kWh] convert unit from Wh to kWh:
-    #     tmp_df.reset_index(inplace=True)
-    #     tmp_sum = tmp_df['P_avg'].sum()
-    #     d_e_hr = d_e_yr/tmp_sum*tmp_df['P_avg']
-    #     tmp_df.drop(tmp_df.index, inplace=True) # Delete tmp_df content
-        
-    #     return d_e_hr
-    
-    # def get_d_e_baseline_hr(
     def compute_d_e_baseline_hr(
             self,
             df_profiles,
@@ -342,33 +306,7 @@ class EnergyDemand:
             ]
         
         for val in annual_vals:
-            self.num_test(val)
-        
-        # delete_label
-        # self.num_test(self._d_e_sfh_yr)
-        # self.num_test(self._d_e_mfh_yr)
-        # self.num_test(self._d_e_ind_yr)
-        # self.num_test(self._d_e_ser_yr)
-        
-        # cond = (
-        #     self._d_e_sfh_yr == 0,
-        #     self._d_e_mfh_yr == 0,
-        #     self._d_e_ind_yr == 0,
-        #     self._d_e_ser_yr == 0,
-        #     )
-        # # print(self._d_e_sfh_yr)
-        # # print(self._d_e_mfh_yr)
-        # # print(self._d_e_ind_yr)
-        # # print(self._d_e_ser_yr)
-        # if any(cond):
-        #     raise ValueError("Annual values must be computed first!")
-        
-        # d_e_hr = (tmp_df['SFH'] * d_e_yr_sfh + 
-        #           tmp_df['MFH'] * d_e_yr_mfh +  
-        #           temp_df_industry[com_kt] * d_e_yr_ser + 
-        #           temp_df_industry[com_kt] * d_e_yr_ind)
-        
-        
+            self.num_test(val)       
         
         self._d_e_sfh = np.array(
             self.profiles['Electricity_profile_household_SFH']
@@ -404,21 +342,7 @@ class EnergyDemand:
             + self._d_e_loss
             + self._d_e_pump
             )
-        
-        # delete_label
-        # d_e_baseline_hr = (
-        #     self.profiles['Electricity_profile_household_SFH'] * self._d_e_sfh_yr + 
-        #     self.profiles['Electricity_profile_household_MFH'] * self._d_e_mfh_yr +
-        #     self.profiles['Electricity_profile_industry_and_services_' + com_kt] * self._d_e_ser_yr + 
-        #     self.profiles['Electricity_profile_industry_and_services_' + com_kt] * self._d_e_ind_yr
-        #     )
-        
-        # self._d_e_baseline = np.array(d_e_baseline_hr)
-        
-        
-        # return np.array(d_e_baseline_hr)
-    
-    # def get_d_e_h(self, tech_instances):
+
     def compute_d_e_h(self, tech_instances):
         """
         Compute the electricity demand for heating (hourly and annual).

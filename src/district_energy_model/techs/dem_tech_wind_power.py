@@ -7,17 +7,8 @@ Created on Fri Apr 12 09:23:05 2024
 
 import numpy as np
 import pandas as pd
-import os
-import numbers
 
 from district_energy_model.techs.dem_tech_core import TechCore
-
-# How to handle different paths? --> this module is not only called from
-# src dir, but also from tests dir
-
-
-# import dem_helper
-
 
 class WindPower(TechCore):
     
@@ -227,9 +218,6 @@ class WindPower(TechCore):
                 f"of {repl_munic} instead.", UserWarning
                 )
 
-            
-            # self.wind_power_profile_file_annual = f"{repl_munic}.feather"
-            # self.wind_power_profile_file_winter = f"{repl_munic}_winter.feather"
             self.wind_power_profile_file_annual = f"windtopo_{repl_gdenr[repl_munic]}.feather"
             self.wind_power_profile_file_winter = f"windtopo_{repl_gdenr[repl_munic]}_winter.feather"
         # ---------------------------------------------------------------------
@@ -239,9 +227,6 @@ class WindPower(TechCore):
                               + self.wind_power_profile_file_annual)
         wp_path_winter = (self.wind_power_profiles_dir
                               + self.wind_power_profile_file_winter)
-        # Hourly profiles:
-        # self.df_profiles_annual = self.__csv_to_df_profiles(wp_path_annual)
-        # self.df_profiles_winter = self.__csv_to_df_profiles(wp_path_winter)
         
         self.df_profiles_annual = self.__feather_to_df_profiles(wp_path_annual)
         self.df_profiles_winter = self.__feather_to_df_profiles(wp_path_winter)
@@ -310,133 +295,6 @@ class WindPower(TechCore):
     
         return df_profiles
 
-    # NOT USED ANYMORE
-    # @staticmethod
-    # def __csv_to_df_profiles(self, file_path):
-    #     """
-    #     Read wind power data from csv and convert to dataframe. The input file
-    #     format is as follows:
-    #         - Each column represents a bin for a specific installation capacity
-    #         - Row 0: Percentage values (will be ignored).
-    #         - Row 1: Installation capacity [W] for specific bin.
-    #         - Row 2 and following: Capacity factor for each hour [-].
-
-    #     Parameters
-    #     ----------
-    #     file_path : str
-    #         Path to csv file.
-
-    #     Returns
-    #     -------
-    #     df_profiles : pandas dataframe
-    #         Processed dataframe with wind power profiles data.
-    #         Format:
-    #         - Each column represents a bin for a specific installation capacity
-    #         - Row 0: Installation capacity [W] for specific bin.
-    #         - Row 1 and following: Capacity factor for each hour [-].
-
-    #     """
-        
-    #     file_exist = os.path.isfile(file_path)
-        
-    #     if file_exist == False:
-    #         raise Exception("No wind power data found. Check for file or "
-    #                         "correct file name.")
-        
-    #     # Read files:
-    #     df_profiles = pd.read_csv(
-    #         file_path,
-    #         skiprows=1,
-    #         delimiter=" ",
-    #         header=None
-    #         )
-        
-    #     # Check if there is only one row and it is full of zeroes (i.e. no wind power potential):
-    #     if len(df_profiles) == 1 and (df_profiles.iloc[0] == 0).all():
-    #         # Add 8760 rows of zeroes
-    #         additional_rows = pd.DataFrame(0, index=range(8760), columns=df_profiles.columns)
-    #         df_profiles = pd.concat([df_profiles, additional_rows])
-    #         df_profiles.reset_index(inplace=True, drop=True)
-        
-    #     # If profile contains leap year (i.e. 8784h), remove last 24h:
-    #     if len(df_profiles) == 8785:
-    #         df_profiles = df_profiles.iloc[:-24]
-        
-    #     # replace 'NaN' values with zeroes:
-    #     df_profiles.fillna(0,inplace=True)
-        
-        
-    #     return df_profiles
-        
-        
-    
-    # NOT USED ANYMORE -- DELETE?    
-    # def get_v_e(self, pot_perc, profile='annual'): # IS THIS USED ANYWHERE?
-    #     """
-    #     Generate hourly wind power profile [kWh] based on selected percentage
-    #     of total wind power potential.
-
-    #     Parameters
-    #     ----------
-    #     pot_perc : float
-    #         Selected percentage of wind power potential (e.g. 41.0).
-    #     profile : str, optional
-    #         Options: 'annual', 'winter'. The default is 'annual'.
-
-    #     Raises
-    #     ------
-    #     Exception
-    #         If profile type is invalid. Must be either 'annual' or 'winter'.
-
-    #     Returns
-    #     -------
-    #     df_v_e : dataframe column
-    #         Hourly profile of wind power (acc. to selected percentage) [kWh].
-
-    #     """
-        
-    #     # Select which set of profiles to use:
-    #     if profile=='annual':
-    #         df_profiles = self.df_profiles_annual
-    #     elif profile=='winter':
-    #         df_profiles = self.df_profiles_winter
-    #     else:
-    #         raise Exception('Selected profile type invalid. '
-    #                         'Choose either \'annual\' or \'winter\' as '
-    #                         'profile type.')
-        
-    #     # Get actual percentages of bins:
-    #     cap_perc_bins = self.__get_actual_cap_perc_bins(df_profiles)
-        
-    #     # Number of profiles:
-    #     n = len(cap_perc_bins)
-        
-    #     # Get the actual capacity based on the selected percentage:
-    #     # selected_bin = None
-    #     bin_i = None
-    #     # Iterate through the list of bin percentages:
-    #     for i, bin_perc in enumerate(cap_perc_bins):
-    #         # Check if the current bin percentage is larger or equal to the selected fraction:
-    #         if bin_perc*100 >= pot_perc:
-    #             # selected_bin = bin_perc
-    #             bin_i = i
-    #             break
-            
-    #     # Compute the respective capacity [kW]:
-    #     p = pot_perc/100.0*df_profiles.iloc[0,n-1]/1000.0
-        
-    #     # Generate the hourly profile [kWh]:
-    #     cap_factors_hourly = df_profiles.iloc[1:,bin_i]
-    #     df_v_e = cap_factors_hourly*p       
-        
-    #     # Reset the index:
-    #     df_v_e.reset_index(inplace=True, drop=True)
-        
-    #     return df_v_e
-    
-    
-    # @staticmethod
-    # def get_v_e_from_p(self, profile='total'):
     def compute_v_e(self, profile='total'):
         """
         Generate hourly wind power profile [kWh] based on selected wind power

@@ -82,3 +82,6 @@ DIFF_SUM_ACC = 1.0 # 5.0 # 1.0 # 0.15
 
 # Accepted negative values:
 NEG_ACC =  -0.1 # -100000000000 #
+
+# Accepted constraint violation (one timestep) by solver:
+MAX_VIOLATION_kWh = 0.05 # 1e-6

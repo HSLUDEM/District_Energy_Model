@@ -11,6 +11,7 @@ import numpy as np
 import os
 import math
 import yaml
+from numbers import Number
 # from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any
@@ -1739,7 +1740,23 @@ def add_missing_keys(df_scen, tes_sites_plotting_inf = {}):
     return df_scen
 
 
-
+def check_number(value, var_name, check_positive=False):
+    """
+    Raises a TypeError if value is not a numeric type.
+    """
+    if not isinstance(value, Number):
+        raise TypeError(
+            f"Expected a numeric value for {var_name}, got {type(value).__name__}."
+        )
+    
+    if check_positive:
+        if value <= 0:
+            raise ValueError(
+                f"Expected a positive value for {var_name}. "
+                f"Selected value: {value}."
+                )
+    
+    return value
 
 
 

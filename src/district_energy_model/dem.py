@@ -45,7 +45,6 @@ class DistrictEnergyModel:
     def __init__(self,
                  paths,
                  arg_com_nr,
-                 # base_tech_data,
                  scen_techs,
                  hist_data_year = C.HIST_DATA_YEAR_DEFAULT,
                  current_year = C.CURRENT_YEAR,
@@ -99,11 +98,10 @@ class DistrictEnergyModel:
                 scen_techs['demand_side']['simulation_year']['future_year']
                 
         print(f"\nSimulated year: {self.simulation_year}")
+        print(f"\nWeather data year: {self.hist_data_year}")
 
         # Switch energy balance tests ON/OFF:
         self.toggle_energy_balance_tests = toggle_energy_balance_tests
-
-        # self.com_nr_original = copy.deepcopy(self.com_nr)
 
         self.com_nr_majority = copy.deepcopy(self.com_nr)
 
@@ -125,8 +123,6 @@ class DistrictEnergyModel:
                 )
                     
             print(f"\nCustom district: {custom_district_name} (part of {self.com_name_})")
-            # print(f"\n{self.com_nr_majority}")
-
         
         else:
             (
@@ -181,8 +177,6 @@ class DistrictEnergyModel:
                 )
             
         self.wind_power_cap_file = paths.wind_power_cap_file # installed wind power capacity [kW] per municipality
-        # self.wind_power_profile_file_annual = f"{self.com_name_}.feather" # feather-file containing generation profiles of wind power
-        # self.wind_power_profile_file_winter = f"{self.com_name_}_winter.feather" # feather-file containing generation profiles of wind power, with profiles favored for winter-production
         self.wind_power_profile_file_annual = f"windtopo_{self.com_nr_majority}.feather" # feather-file containing generation profiles of wind power
         self.wind_power_profile_file_winter = f"windtopo_{self.com_nr_majority}_winter.feather" # feather-file containing generation profiles of wind power, with profiles favored for winter-production
         self.wind_power_national_profile_file = paths.wind_power_national_profile_file # Hourly profile of national wind power generation [kWh]
@@ -214,12 +208,7 @@ class DistrictEnergyModel:
         """--------------------------------------------------------------------
         Read and prepare data:
         """
-    
-        #----------------------------------------------------------------------
-        # Read pv meta file:
-        # pv_meta_file_path = self.pv_data_dir + self.pv_data_meta_file
-        # self.df_pv_meta = pd.read_csv(pv_meta_file_path)
-        
+       
         
         """--------------------------------------------------------------------
         Extract information about community:
@@ -318,13 +307,7 @@ class DistrictEnergyModel:
         # Hourly heat demand:
         self.energy_demand.compute_d_h_hr(
             com_name=self.com_name_,
-            # com_nr_original=self.com_nr_original,
-            com_nr_original=self.com_nr_majority, # changed: 23.12.2025
-            # com_lat=self.com_lat,
-            # com_lon=self.com_lon,
-            # com_alt=self.com_alt,
-            # tf_start=C.tf_meteostat_start,
-            # tf_end=C.tf_meteostat_end,
+            com_nr_original=self.com_nr_majority,
             weather_year=self.hist_data_year, 
             )
 
@@ -344,7 +327,6 @@ class DistrictEnergyModel:
             quality_factor_gshp_old = scen_techs['heat_pump']['quality_factor_gshp_old'],
             com_nr = self.com_nr_majority,
             dem_demand = self.energy_demand,
-            # weather_year = C.METEO_YEAR,
             weather_year = self.hist_data_year,
             consider_renovation_effects=False,
             total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios =\
@@ -399,20 +381,6 @@ class DistrictEnergyModel:
             self.energy_demand
             )
         self.tech_instances['district_heating'] = self.tech_district_heating
-        
-        # self.tech_solar_thermal = dem_techs.SolarThermal(scen_techs['solar_thermal'])
-        # self.tech_instances['solar_thermal'] = self.tech_solar_thermal
-        
-
-
-        # self.tech_solar_pv = dem_techs.SolarPV(
-        #     com_nr = self.com_nr,
-        #     tech_dict = scen_techs['solar_pv']
-        #     )
-        # self.tech_instances['solar_pv'] = self.tech_solar_pv
-        
-
-
 
         if not scen_techs['meta_data']['custom_district']['implemented']:
             pv_profile_and_capex_factors = (
@@ -502,9 +470,7 @@ class DistrictEnergyModel:
             tech_dict = scen_techs['wind_power'],
             )
         self.tech_instances['wind_power'] = self.tech_wind_power
-        
-        # self.tech_biomass = dem_techs.Biomass(scen_techs['biomass'])
-        
+            
         self.tech_hydro_power = dem_techs.HydroPower(scen_techs['hydro_power'])
         self.tech_instances['hydro_power'] = self.tech_hydro_power
         
@@ -574,16 +540,6 @@ class DistrictEnergyModel:
         """--------------------------------------------------------------------
         Solar PV Potentials and Current Consumption:
         """ 
-        # # Compute annual and hourly output of installed PV:
-        # self.tech_solar_pv.compute_v_e(
-        #     self.df_meta,
-        #     self.df_profiles
-        #     )
-        
-        # # Compute total (incl. installed) and remaining rooftop PV potential:
-        # self.tech_solar_pv.compute_v_e_pot_base(
-        #     self.df_meta
-        #     )
         
         self.tech_solar_pv_rooftop.compute_v_e()
         self.tech_solar_pv_rooftop.compute_v_e_pot_base()
@@ -636,7 +592,6 @@ class DistrictEnergyModel:
             )
         
         # Run test for solar PV:     
-        # sum_PV = sum(self.tech_solar_pv.get_v_e_cons()) + sum(self.tech_solar_pv.get_v_e_exp())
         sum_PV = (
             sum(self.tech_solar_pv_rooftop.get_v_e_cons()) 
             + sum(self.tech_solar_pv_rooftop.get_v_e_exp())
@@ -789,9 +744,6 @@ class DistrictEnergyModel:
         for tech_name, tech_instance in list(self.tech_instances.items()): # iterate over a copy()
             if scen_techs[tech_name]['deployment']:
                 tech_instance.update_tech_properties(scen_techs[tech_name])
-                # print(f"{tech_name} added to scenario.\n")
-            # elif tech_name == 'solar_pv' and scen_techs['solar_thermal']['deployment'] == True:
-            #     tech_instance.update_tech_properties(scen_techs[tech_name]) # Keep solar PV because information is required for solar thermal
             else:
                 del self.tech_instances[tech_name]
                 # print(f"{tech_name} was removed from scenario.\n")
@@ -868,7 +820,7 @@ class DistrictEnergyModel:
                 self.tech_tes_decentralised
 
         # Battery energy storage
-        if scen_techs['bes']['deployment']:                
+        if scen_techs['bes']['deployment']:          
             self.tech_bes = dem_techs.BatteryEnergyStorage(scen_techs['bes'])
             self.tech_bes.initialise_zero(n_days)
             self.tech_instances['bes'] = self.tech_bes
@@ -1026,7 +978,6 @@ class DistrictEnergyModel:
             self.tech_heat_pump_cp.set_temperature_based_cop(dem_hp_cop_calculation.calculateHPCP_COP(
                 self.paths,
                 self.tech_heat_pump_cp,
-                # scen_techs['demand_side']['year'] if scen_techs['scenarios']['demand_side'] else C.METEO_YEAR,
                 weather_year_,
                 self.com_nr_majority
             ))
@@ -1099,96 +1050,6 @@ class DistrictEnergyModel:
                 diff_sum_accepted = C.DIFF_SUM_ACC,
                 tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                 )
-
-        #----------------------------------------------------------------------
-            
-        # Check if there is unmet demand / supply.
-        
-        # Electricity generation:
-            # grid supply
-            # solar PV
-            # wind power
-        
-        # Electricity consumption:
-            # electricity demand
-            # heat pump
-            # electric heater
-        
-        # Heat generation:
-            # heat pump
-            # electric heater
-            # oil boiler
-            # gas boiler
-            # wood boiler
-            # district heating
-            # solar thermal
-            # tes discharging
-            
-        # Heat consumption:
-            # heat demand
-            # tes charging
-            
-        # """--------------------------------------------------------------------
-        # Add EV demand:
-        # """
-        # UNDER CONSTRUCTIO
-        # EVENTUALLY PACK EVERYTHING INTO A FUNCTION (E.G. in dem_demand.py)
-        
-        # How is this additional demand covered in case no scenario is applied?
-        #   --> "unmet demand"
-        
-        # # Add column for EV demand:
-        # if scen_techs['demand_side']['ev_integration'] and scen_techs['scenarios']['demand_side']:
-            
-        #     if dem_helper.check_if_scenario_active(scen_techs): # Only add demand if scenario is activated
-
-        #         # Read munic file:
-        #         munic_file_path = self.ev_profiles_dir + self.ev_munic_name_nr
-        #         df_munic_name_nr = pd.read_feather(munic_file_path)
-                
-        #         # print(df_munic_name_nr.head())
-                
-        #         munic_name = df_munic_name_nr.loc[
-        #             df_munic_name_nr['munic_nr']==self.com_nr,'munic_name'
-        #             ]
-        #         munic_name = munic_name.iloc[0]
-                
-        #         if scen_techs['demand_side']['ev_profile'] == 'nominal':
-        #             cp_file_dir = self.ev_profiles_dir + self.ev_profile_cp_file
-        #             df_ev_profile = pd.read_feather(cp_file_dir)                
-                    
-        #         elif scen_techs['demand_side']['ev_profile'] == 'upper_limit':                
-        #             pd_file_dir = self.ev_profiles_dir + self.ev_profile_pd_file
-        #             df_ev_profile = pd.read_feather(pd_file_dir)
-                    
-        #         elif scen_techs['demand_side']['ev_profile'] == 'lower_limit':
-        #             pu_file_dir = self.ev_profiles_dir + self.ev_profile_pu_file
-        #             df_ev_profile = pd.read_feather(pu_file_dir)
-                    
-        #         else:
-        #             # tmp_val = scen_techs['demand_side']['ev_profile']
-        #             err_msg = (
-        #                 "Chosen value for "
-        #                 "scen_techs['demand_side']['ev_profile'] is invalid! Must "
-        #                 "be one of the following: "
-        #                 "'nominal', 'upper_limit', 'lower_limit'"
-        #                 )
-                    
-        #             raise ValueError(err_msg)
-                
-        #         ts_len = len(self.energy_demand.get_d_e())
-                    
-        #         tmp_d_e_ev = np.array(df_ev_profile[munic_name])
-        #         tmp_d_e_ev = tmp_d_e_ev[:ts_len]
-        #         df_scen['d_e_ev'] = tmp_d_e_ev
-        #         self.energy_demand.update_d_e_ev(tmp_d_e_ev)
-                
-        #         tmp_d_e = self.energy_demand.get_d_e() + tmp_d_e_ev
-        #         df_scen['d_e'] = tmp_d_e
-        #         self.energy_demand.update_d_e(tmp_d_e)
-                
-            
-            # df_scen['d_e_unmet'] =         
         
         # ---------------------------------------------------------------------
         # Update df_scen:
@@ -1208,6 +1069,7 @@ class DistrictEnergyModel:
         """--------------------------------------------------------------------
         Apply scenarios:
         """
+        
         if scen_techs['scenarios']['demand_side'] == True:
             # TO DO: WRAP IN SCENARIO FUNCTION
             weather_year_ = (
@@ -1221,9 +1083,7 @@ class DistrictEnergyModel:
             
             # -----------------------------------------------------------------
             # Recalculate heat demand:
-            # ------------------------
-            # d_h_prev = self.energy_demand.get_d_h()
-            
+            # ------------------------            
             if len(self.com_percent) != 0:
                 com_nrs = self.df_com_yr['GGDENR'].unique()
             else:
@@ -1234,7 +1094,6 @@ class DistrictEnergyModel:
                 com_nrs = com_nrs,
                 df_com_yr=self.df_com_yr,
                 df_meta = self.df_meta,
-                # year=scen_techs['demand_side']['year'],
                 weather_year=weather_year_,
                 hist_data_year=self.hist_data_year,
                 rcp_scenario=scen_techs['demand_side']['rcp_scenario'],
@@ -1267,7 +1126,6 @@ class DistrictEnergyModel:
                 com_nrs = com_nrs,
                 df_com_yr=self.df_com_yr,
                 df_meta = self.df_meta,
-                # year=scen_techs['demand_side']['year'],
                 year=self.simulation_year,
                 total_renovation_activated= scen_techs['demand_side']['total_renovation'],
                 use_constant_total_renovation_rate = scen_techs['demand_side']['use_constant_total_renovation_rate'],
@@ -1294,7 +1152,6 @@ class DistrictEnergyModel:
                 quality_factor_gshp_old = scen_techs['heat_pump']['quality_factor_gshp_old'],
                 com_nr = self.com_nr_majority,
                 dem_demand = self.energy_demand,
-                # weather_year = scen_techs['demand_side']['year'],
                 weather_year = weather_year_,
                 consider_renovation_effects=True,
                 total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios =\
@@ -1332,13 +1189,7 @@ class DistrictEnergyModel:
             # Hourly heat demand:
             self.energy_demand.compute_d_h_hr(
                 com_name=self.com_name_,
-                # com_nr_original=self.com_nr_original,
-                com_nr_original=self.com_nr_majority, # changed: 23.12.2025
-                # com_lat=self.com_lat,
-                # com_lon=self.com_lon,
-                # com_alt=self.com_alt,
-                # tf_start=C.tf_meteostat_start,
-                # tf_end=C.tf_meteostat_end,
+                com_nr_original=self.com_nr_majority,
                 weather_year=weather_year_,
                 )
             
@@ -1388,24 +1239,16 @@ class DistrictEnergyModel:
             # Total electricity demand (hourly and annual):
             self.energy_demand.compute_d_e()
 
-            # d_e_new = self.energy_demand.get_d_e()
-
             # Update local electricity mix:
-            dem_eb.get_local_electricity_mix(self.energy_demand, self.tech_instances)
+            dem_eb.get_local_electricity_mix(
+                self.energy_demand,
+                self.tech_instances,
+                with_bes=scen_techs['bes']['deployment'],
+                )
             
             # Update import split:
             m_e_updated = self.tech_grid_supply.get_m_e()
-            self.tech_grid_supply.update_m_e(m_e_updated)            
-                        
-            # m_e_diff = self.tech_grid_supply.compute_m_e_diff(d_e_new, d_e_prev)            
-            # m_e_new = m_e_prev + m_e_diff            
-            # self.tech_grid_supply.update_m_e(m_e_new)
-            
-            # Unmet electricity demand:
-            # d_e_new = self.energy_demand.get_d_e()
-            # d_e_unmet = d_e_new - d_e_prev
-            # self.energy_demand.update_d_e_unmet(d_e_unmet)
-            
+            self.tech_grid_supply.update_m_e(m_e_updated)                      
             
             # -----------------------------------------------------------------
             # Update df_scen:
@@ -1473,26 +1316,18 @@ class DistrictEnergyModel:
                 scenario='fossil_heater_retrofit',
                 scen_techs=scen_techs
                 )
-            
-            # Reset unmet demands (must be met through scenario):
-            # self.energy_demand.reset_d_e_unmet()
-            # self.energy_demand.reset_d_h_unmet()
 
             # Apply scenario:
-
             dem_scenarios.scenario_heater_electric_to_hp(
                 self.energy_demand,
                 scen_techs,
                 self.tech_instances
                 )
-
-
             dem_scenarios.scenario_heater_oil_to_hp(
                 self.energy_demand,
                 scen_techs,
                 self.tech_instances
-                )
-            
+                )            
             dem_scenarios.scenario_heater_gas_to_hp(
                 self.energy_demand,
                 scen_techs,
@@ -1537,24 +1372,12 @@ class DistrictEnergyModel:
                 scen_techs=scen_techs
                 )
             
-            # Reset unmet demands (must be met through scenario):
-            # self.energy_demand.reset_d_e_unmet()
-            # self.energy_demand.reset_d_h_unmet()
-            
             # Apply scenario:
             dem_scenarios.scenario_pv_integration(
                 self.energy_demand,
                 scen_techs,
                 self.tech_instances
                 )
-                # scen_techs=scen_techs,
-                # df_scen=df_scen,
-                # tech_solar_pv=self.tech_solar_pv,
-                # tech_wind_power=self.tech_wind_power,
-                # tech_biomass=self.tech_biomass,
-                # tech_hydro_power=self.tech_hydro_power,
-                # tech_grid_supply=self.tech_grid_supply,
-                # )
                 
             # -----------------------------------------------------------------
             # Update df_scen:
@@ -1594,24 +1417,12 @@ class DistrictEnergyModel:
                 scen_techs=scen_techs
                 )
             
-            # Reset unmet demands (must be met through scenario):
-            # self.energy_demand.reset_d_e_unmet()
-            # self.energy_demand.reset_d_h_unmet()
-            
             # Apply scenario:
             dem_scenarios.scenario_wind_integration(
                 self.energy_demand,
                 scen_techs,
                 self.tech_instances
                 )
-                # scen_techs=scen_techs,
-                # df_scen=df_scen,
-                # tech_solar_pv=self.tech_solar_pv,
-                # tech_wind_power=self.tech_wind_power,
-                # tech_biomass=self.tech_biomass,
-                # tech_hydro_power=self.tech_hydro_power,
-                # tech_grid_supply=self.tech_grid_supply,
-                # )
                 
             # -----------------------------------------------------------------
             # Update df_scen:
@@ -1672,17 +1483,6 @@ class DistrictEnergyModel:
                 scen_techs,
                 self.tech_instances
                 )
-                # scen_techs=scen_techs,
-                # df_scen=df_scen,
-                # tech_tes=self.tech_tes,
-                # tech_solar_pv=self.tech_solar_pv,
-                # tech_wind_power=self.tech_wind_power,
-                # tech_biomass=self.tech_biomass,
-                # tech_hydro_power=self.tech_hydro_power,
-                # tech_heat_pump=self.tech_heat_pump,
-                # tech_grid_supply=self.tech_grid_supply,
-                # tech_electric_heater=self.tech_electric_heater     
-                # )
                 
             # -----------------------------------------------------------------
             # Update df_scen:
@@ -1736,27 +1536,12 @@ class DistrictEnergyModel:
                 scen_techs=scen_techs
                 )
             
-            # Reset unmet demands (must be met through scenario):
-            # self.energy_demand.reset_d_e_unmet()
-            # self.energy_demand.reset_d_h_unmet()
-            
             # Apply scenario:
             dem_scenarios.scenario_thermal_energy_storage_via_pv_hp(
                 self.energy_demand,
                 scen_techs,
                 self.tech_instances
                 )
-                # scen_techs=scen_techs,
-                # df_scen=df_scen,
-                # tech_tes=self.tech_tes,
-                # tech_solar_pv=self.tech_solar_pv,
-                # tech_wind_power=self.tech_wind_power,
-                # tech_biomass=self.tech_biomass,
-                # tech_hydro_power=self.tech_hydro_power,
-                # tech_heat_pump=self.tech_heat_pump,
-                # tech_grid_supply=self.tech_grid_supply,
-                # tech_electric_heater=self.tech_electric_heater     
-                # )
                 
             # -----------------------------------------------------------------
             # Update df_scen:
@@ -1767,8 +1552,6 @@ class DistrictEnergyModel:
                 self.tech_instances,
                 df_scen
                 )
-            
-            print('\nDone')
             
             #------------------------------------------------------------------
             # Check overall energy balance:            
@@ -1789,15 +1572,8 @@ class DistrictEnergyModel:
                     )
             
         if scen_techs['scenarios']['nuclear_phaseout'] == True:
-            print('\nnuclear_phaseout')
-            
-            # el_mix_filename_path = (self.energy_mix_CH_dir +
-            #                         self.electricity_mix_file
-            #                         )
-            
-            # e_import_filename_path = (self.energy_mix_CH_dir +
-            #                           self.electricity_import_file
-            #                           )
+            print('\n nuclear_phaseout')
+
             
             # Reset unmet demands (must be met through scenario):
             self.energy_demand.reset_d_e_unmet()
@@ -1807,14 +1583,6 @@ class DistrictEnergyModel:
                 scen_techs=scen_techs,
                 tech_instances = self.tech_instances,
                 df_scen=df_scen,
-                # el_mix_filename_path = el_mix_filename_path,
-                # e_import_filename_path = e_import_filename_path
-            
-                # energy_mix_CH_dir=self.energy_mix_CH_dir,
-                # strom_profiles_2050_file=self.strom_profiles_2050_file,
-                # electricity_mix_file=self.electricity_mix_file,
-                # electricity_mix_totals_file=self.electricity_mix_totals_file,
-                # electricity_import_file=self.electricity_import_file
                 )
             
             # -----------------------------------------------------------------
@@ -1834,7 +1602,6 @@ class DistrictEnergyModel:
         Apply optimisation:
         """
         if scen_techs['optimisation']['enabled'] == True:
-            # print(df_scen.isna().sum().loc[df_scen.isna().sum() != 0])
             # Reset unmet demands (must be met through scenario):
             self.energy_demand.reset_d_e_unmet()
             self.energy_demand.reset_d_h_unmet()
@@ -1859,23 +1626,6 @@ class DistrictEnergyModel:
                 self.energy_demand.compute_d_h_s_flex_ll(delta_loss_tot)
                 self.energy_demand.generate_flex_flag()
                 self.energy_demand.generate_vs_drain_flag()
-                
-                # delete_label
-                # # =======================================================
-                # # TEMORARY
-                # flex_flag_ = self.energy_demand.get_flex_flag()
-                
-                # print("\n ==================================================")
-                # print("dem.py")
-                # print("save file")
-                # np.savetxt(
-                #     '../flex_flag.csv',
-                #     flex_flag_.astype(int),
-                #     delimiter=',',
-                #     fmt='%d'
-                # )
-                # # =======================================================
-                
      
             else:
                 self.building_inertia_flex = None
@@ -1985,19 +1735,8 @@ class DistrictEnergyModel:
         self.model = model
         self.scenario_generated = True
         
-        # print("\nprint in dem.py:")
-        # print("\nOil Boiler:")
-        # print(df_scen['v_h_ob']/df_scen['d_h']*100)
-        # print("")
-        # print("\nCHP GT:")
-        # print(df_scen['v_h_chp_gt']/df_scen['d_h']*100)
-        # print("")
-        # print("\nHP:")
-        # print(df_scen['v_h_hp']/df_scen['d_h']*100)
-        # print("")
-        # print("\nDistrict Heating:")
-        # print(df_scen['v_h_dh']/df_scen['d_h']*100)
-        
+        print('\nDone')
+       
     
     def generate_pareto_monetary_co2(self, scen_techs, N_pareto):
         """
@@ -2040,19 +1779,6 @@ class DistrictEnergyModel:
         # ENERGY-BALANCE TEST AFTER EACH RUN!!!
         
         from district_energy_model import dem_calliope
-        
-        # =====================================================================
-        # DELETE IF NOT USED
-        # ------------------
-        # # Run scenario without optimisation, to generate input for pareto optimisation:
-        # tmp_opt_enabled_orig = scen_techs['optimisation']['enabled'] # save initial setting
-        # scen_techs['optimisation']['enabled'] = False # deactivate optimisation to generate scenario
-        
-        # self.generate_scenario(scen_techs) # generate scenario without optimisation
-        # df_scen = self.df_scen
-        
-        # scen_techs['optimisation']['enabled'] = tmp_opt_enabled_orig # change back to initial setting
-        # =====================================================================
         
         # ======================================================================================================
         # Run scenario without optimisation, to generate input for pareto optimisation:
@@ -2357,12 +2083,7 @@ class DistrictEnergyModel:
                 dem_output.flexibility_metrics_to_file(
                     self.results_path,
                     self.building_inertia_flex,
-                    # self.dict_flexibility_metrics
                     )
-                # dem_output.flexibility_clusters_to_file( # delete_label
-                #     dir_path=self.results_path,
-                #     flexibility_instance=self.building_inertia_flex
-                #     )
 
             else:
                 return
@@ -2387,12 +2108,8 @@ class DistrictEnergyModel:
             dem_output.flexibility_metrics_to_file(
                 self.results_path,
                 self.building_inertia_flex,
-                # self.dict_flexibility_metrics
                 )
-            # dem_output.flexibility_clusters_to_file( # delete_label
-            #     dir_path=self.results_path,
-            #     flexibility_instance=self.building_inertia_flex
-            #     )
+
         else:
             raise(Exception('No Scenario has been generated!'))
             
@@ -2453,7 +2170,7 @@ class DistrictEnergyModel:
                 )
 
         else:
-            print("\nGenerating Scenario")
+            print("\nGenerating scenario ...")
             self.generate_scenario(scen_techs)
             
         # Record the ending time

@@ -25,6 +25,7 @@ import pandas as pd
 import numpy as np
 
 from district_energy_model import dem_calliope_cc
+from district_energy_model import dem_constants as C
 
 class CalliopeOptimiser:
     
@@ -408,28 +409,7 @@ class CalliopeOptimiser:
         if 'solar_pvalpine' in self.tech_list:
             pv_alpine_resources = [np.array(x)[:n_hours] for x in self.tech_solar_pvalpine.get_resources()]
         else:
-            pv_alpine_resources = [null_array.copy()]
-
-        # if 'solar_thermal' in self.tech_list:
-        #     solar_th_resource_old = null_array.copy() # TEMPORARY FIX: assumption: currently no solar thermal installed
-            
-        #     solar_th_resource_new = self.tech_solar_thermal.convert_pv_to_thermal(
-        #         # df_pv_kWh=self.tech_solar_pv.get_v_e_pot_remain(),
-        #         df_pv_kWh=pv_resource_new,
-        #         # eta_pv=self.tech_solar_pv.get_eta_overall(),
-        #         eta_pv = eta_pv,
-        #         eta_thermal=self.tech_solar_thermal.get_eta_overall()
-        #         )
-        # else:
-        #     solar_th_resource_old = null_array.copy()
-        #     solar_th_resource_new = null_array.copy()
-        
-        # pv_resource_old = pv_resource_old/self.available_area_scaling
-        # pv_resource_new = pv_resource_new/self.available_area_scaling
-
-        # solar_th_resource_old = solar_th_resource_old/self.available_area_scaling
-        # solar_th_resource_new = solar_th_resource_new/self.available_area_scaling
-        
+            pv_alpine_resources = [null_array.copy()]     
 
         
         pv_rooftop_resources = [x / self.available_area_scaling for x in pv_rooftop_resources]
@@ -1222,6 +1202,35 @@ class CalliopeOptimiser:
             self.tech_wind_power.update_v_e(v_e_wp)
             self.tech_wind_power.update_v_e_exp(v_e_wp_exp)
             self.tech_wind_power.update_v_e_cons(v_e_wp_cons)
+            
+            # ----------------------------------------------
+            # Check for solver violations in wind conversion:
+            # ----------------------------------------------
+            wind_power_unit_con = -(
+                opt_results['carrier_con'].loc['loc_wp_winter::wind_power_unit::wp_electricity'].values*self.energy_scaling_factor
+                + opt_results['carrier_con'].loc['loc_wp_annual::wind_power_unit::wp_electricity'].values*self.energy_scaling_factor
+                )
+            wind_power_unit_prod = (
+                opt_results['carrier_prod'].loc['loc_wp_winter::wind_power_unit::electricity'].values*self.energy_scaling_factor
+                + opt_results['carrier_prod'].loc['loc_wp_annual::wind_power_unit::electricity'].values*self.energy_scaling_factor
+                )
+            
+            difference_1 = wind_power_unit_con - v_e_wp
+            difference_2 = wind_power_unit_con - wind_power_unit_prod
+            max_violation_1 = np.max(np.abs(difference_1))
+            max_violation_2 = np.max(np.abs(difference_2))
+            max_violation = np.max([max_violation_1, max_violation_2])
+            max_violation_kWh = max_violation / self.energy_scaling_factor
+            
+            if max_violation_kWh > C.MAX_VIOLATION_kWh:
+                msg = (
+                    f"Maximum constraint violation is {max_violation_kWh:.6f} kWh "
+                    f"({max_violation:.6f} in scaled units). "
+                    "This may be reduced by increasing bigM_value in optimisation.yaml. "
+                    f"Currently allowed max. violation is {C.MAX_VIOLATION_kWh} kWh."
+                )
+                raise RuntimeError(msg)
+            # ----------------------------------------------
 
         #--------
         #Hydrothermal Gasification
