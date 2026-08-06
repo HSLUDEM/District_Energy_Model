@@ -499,40 +499,6 @@ def electricity_balance_test(scen_techs,
     
     #--------------------------------------------------------------------------
     # Check timeseries:
-    
-    # missing_keys = [
-    #     'v_e_pv',
-    #     'v_e_pv_cons',
-    #     'v_e_pv_exp',
-    #     'v_e_pvrooftop',
-    #     'v_e_pvrooftop_cons',
-    #     'v_e_pvrooftop_exp',
-    #     'u_e_bes',
-    #     'v_e_bes',
-    #     'q_e_bes',
-    #     'l_u_e_bes',
-    #     'l_v_e_bes',
-    #     'l_q_e_bes',
-    #     'v_e_chpgt',
-    #     'v_e_gtcp',
-    #     'v_e_st',
-    #     'v_e_st_gtcp',
-    #     'v_e_st_wbsg',
-    #     'v_e_wte',
-    #     'u_e_hpcp',
-    #     'u_e_ehcp',
-    #     'u_e_hpcplt',
-    #     'u_e_aguh',
-    #     'u_e_wgu',
-    #     'u_e_wguh',
-    #     'u_e_hydp',
-    #     ]
-    
-    # for k in missing_keys:
-    #     if k in df_scen.columns:
-    #         pass
-    #     else:
-    #         df_scen[k] = 0
 
     df_scen = dem_helper.add_missing_keys(df_scen)
         
@@ -628,20 +594,7 @@ def electricity_balance_test(scen_techs,
         df_scen['v_e_pvrooftop']
         + df_scen['v_e_pvrooftop_pot_remain']
         )
-    
-    # if optimisation:
-    #     pv_potential_split = (
-    #         tmp_pv_equi                 # TEMPORARY FIX!!! Wie sollen wir Solarthermie behandeln?                
-    #         + df_scen['v_e_pvrooftop']
-    #         + df_scen['v_e_pvrooftop_pot_remain']
-    #         )
-    # else:
-    #     pv_potential_split = (
-    #         0# tmp_pv_equi                 # TEMPORARY FIX!!! Wie sollen wir Solarthermie behandeln?                
-    #         + df_scen['v_e_pvrooftop']
-    #         + df_scen['v_e_pvrooftop_pot_remain']
-    #         )
-    
+        
     pv_potential = df_scen['v_e_pvrooftop_pot'] # installed and additional potential
     
     wp_generation = df_scen['v_e_wp']
@@ -662,16 +615,10 @@ def electricity_balance_test(scen_techs,
         + df_scen['l_v_e_bes']
         + df_scen['l_q_e_bes']
         ).sum()
-    
-
-    # print('l_u_e_bes: ', df_scen['l_u_e_bes'].sum())
-    # print('l_v_e_bes: ', df_scen['l_v_e_bes'].sum())
-    # print('l_q_e_bes: ', df_scen['l_q_e_bes'].sum())
 
     bes_input_sum = df_scen['u_e_bes'].sum() 
     
-    bes_output_sum = df_scen['v_e_bes'].sum() 
-    # print('diff = ', df_scen['u_e_bes'].sum()- df_scen['v_e_bes'].sum())
+    bes_output_sum = df_scen['v_e_bes'].sum()
     
     bes_sos_diff = (df_scen['q_e_bes'].iloc[-1]
                     -df_scen['l_q_e_bes'].iloc[-1] 
@@ -818,67 +765,13 @@ def heat_balance_test(scen_techs,
     # Fill dataframe with 0s if columns are missing:
 
     df_scen = dem_helper.add_missing_keys(df_scen, tes_sites_plotting_inf)
-
-    # missing_keys = [
-    #     'd_h_m',
-    #     'u_h_tes',
-    #     'u_h_tesdc',
-    #     'v_h_tes',
-    #     'v_h_tesdc',
-    #     'q_h_tes',
-    #     'q_h_tesdc',
-    #     'l_u_h_tes',
-    #     'l_u_h_tesdc',
-    #     'l_v_h_tes',
-    #     'l_v_h_tesdc',
-    #     'l_q_h_tes',
-    #     'l_q_h_tesdc',
-    #     'v_h_chpgt',
-    #     'v_h_chpgt_con',
-    #     'v_h_chpgt_waste',
-    #     'v_h_st',
-    #     'v_h_st_con',
-    #     'v_h_st_waste',
-    #     'v_h_st_gtcp',
-    #     'v_h_st_gtcp_con',
-    #     'v_h_st_gtcp_waste',
-    #     'v_h_st_wbsg',
-    #     'v_h_st_wbsg_con',
-    #     'v_h_st_wbsg_waste',
-    #     'v_h_wte',
-    #     'v_h_wte_con',
-    #     'v_h_wte_waste',
-    #     'v_h_hpcp',
-    #     'v_h_hpcplt',
-    #     'v_h_obcp',
-    #     'v_h_ehcp',
-    #     'v_h_wbcp',
-    #     'v_h_wh',
-    #     'v_h_dgt',
-    #     'v_h_gbcp',
-    #     'u_e_aguh',
-    #     'm_h_dh',
-    #     ]
-    
-    # for k in tes_sites_plotting_inf.keys():
-    #     for k2 in tes_sites_plotting_inf[k].keys():
-    #         if k2 != 'color':
-    #             for x in tes_sites_plotting_inf[k][k2]:
-    #                 if x not in missing_keys:
-    #                     missing_keys.append(x)
-
-    # for k in missing_keys:
-    #     if k in df_scen.columns:
-    #         pass
-    #     else:
-    #         df_scen[k] = 0
     
     # flex_label
     if (
         scen_techs['optimisation']['enabled']
         and scen_techs['scenarios']['demand_side']
         and scen_techs['demand_side']['dr_flexibility_building_inertia']
-        ):        
+        ):
         heat_demand = df_scen['d_h_flex_ll']
     else:
         heat_demand = df_scen['d_h']
@@ -891,22 +784,6 @@ def heat_balance_test(scen_techs,
                         # + df_scen['u_h_vs_dh'] # Virtual storage for flexiblity modelling # INCLUDED IN DISTRICT HEATING
                         # + df_scen['u_h_tes'] # INCLUDED IN DISTRICT HEATING
                         )
-    
-    # heat_generation = (df_scen['v_h_hp']
-    #                    + df_scen['v_h_eh']
-    #                    + df_scen['v_h_ob']
-    #                    + df_scen['v_h_gb']
-    #                    + df_scen['v_h_wb']
-    #                    + df_scen['v_h_dh']
-    #                    + df_scen['v_h_solar']
-    #                    + df_scen['v_h_other']
-    #                    + df_scen['v_h_tes']
-    #                    + df_scen['v_h_bm']
-    #                    + df_scen['v_h_chpgt']
-    #                    + df_scen['v_h_st']
-    #                    + df_scen['v_h_wte']
-    #                    + df_scen['d_h_unmet']
-    #                    )
     
     heat_generation = (df_scen['v_h_hp']
                        + df_scen['v_h_eh']
