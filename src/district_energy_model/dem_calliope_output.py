@@ -6,77 +6,15 @@ from __future__ import annotations
 import numpy as np
 
 
-class CalliopeResults07:
-    """Dimension-aware access to Calliope 0.7 result variables."""
-
-    def __init__(self, results):
-        self.results = results
-
-    def _array(self, variable, **selectors):
-        data = self.results[variable]
-        valid_selectors = {
-            dim: value
-            for dim, value in selectors.items()
-            if dim in data.dims or dim in data.coords
-        }
-        return data.sel(**valid_selectors)
-
-    @staticmethod
-    def _split_flow_key(key):
-        node, tech, carrier = key.split("::", 2)
-        return node, tech, carrier
-
-    @staticmethod
-    def _split_node_carrier_key(key):
-        node, carrier = key.split("::", 1)
-        return node, carrier
-
-    def flow_out(self, node, tech, carrier):
-        return self._array("flow_out", nodes=node, techs=tech, carriers=carrier).values
-
-    def flow_in(self, node, tech, carrier):
-        return self._array("flow_in", nodes=node, techs=tech, carriers=carrier).values
-
-    def flow_export(self, node, tech, carrier):
-        return self._array("flow_export", nodes=node, techs=tech, carriers=carrier).values
-
-    def storage(self, node, tech):
-        return self._array("storage", nodes=node, techs=tech).values
-
-    def storage_cap(self, node, tech):
-        return self._array("storage_cap", nodes=node, techs=tech).values
-
-    def unmet_demand(self, node, carrier):
-        return self._array("unmet_demand", nodes=node, carriers=carrier).values
-
-    def flow_out_key(self, key):
-        return self.flow_out(*self._split_flow_key(key))
-
-    def flow_in_key(self, key):
-        return self.flow_in(*self._split_flow_key(key))
-
-    def flow_export_key(self, key):
-        return self.flow_export(*self._split_flow_key(key))
-
-    def storage_key(self, key):
-        node, tech = key.split("::", 1)
-        return self.storage(node, tech)
-
-    def storage_cap_key(self, key):
-        node, tech = key.split("::", 1)
-        return self.storage_cap(node, tech)
-
-    def unmet_demand_key(self, key):
-        return self.unmet_demand(*self._split_node_carrier_key(key))
-
-
 def _objective_function_value(opt_results):
-    if "objective_function_value" not in opt_results.attrs:
-        raise KeyError(
-            "Calliope results are missing attrs['objective_function_value']; "
-            "cannot derive total monetary costs reliably."
-        )
-    return float(opt_results.attrs["objective_function_value"])
+    # if "objective" in opt_results.attrs and "total" in opt_results.attrs:
+    return float(opt_results.attrs["objective"]["total"])
+    # else:
+    #     raise KeyError(
+    #         "Calliope results are missing attrs['objective']['total']; "
+    #         "cannot derive total monetary costs reliably."
+    #     )
+   
 
 
 def get_optimal_output_df(optimiser, opt_results):
@@ -105,20 +43,6 @@ def get_optimal_output_df(optimiser, opt_results):
     
     # ---------------------------------------------------------------------       
     self = optimiser
-    access = CalliopeResults07(opt_results)
-    flow_out = access.flow_out
-    flow_in = access.flow_in
-    flow_export = access.flow_export
-    storage = access.storage
-    storage_cap = access.storage_cap
-    unmet_demand = access.unmet_demand
-    flow_out_key = access.flow_out_key
-    flow_in_key = access.flow_in_key
-    flow_export_key = access.flow_export_key
-    storage_key = access.storage_key
-    storage_cap_key = access.storage_cap_key
-    unmet_demand_key = access.unmet_demand_key
-
     n_hours = len(self.energy_demand.get_d_e())
     null_array = np.array([0.0]*n_hours)
 
@@ -155,21 +79,21 @@ def get_optimal_output_df(optimiser, opt_results):
             # key: full tech name (e.g., 'heat_pump', 'district_heating')
             # acr: acronym (e.g., 'hp', 'dh')
 
-            u_h_vs_i_ = flow_in_key(f'X1::virtual_storage_flex_{acr}::heat_vs_{acr}') * self.energy_scaling_factor
-            v_h_vs_i_ = flow_out_key(f'X1::virtual_storage_flex_{acr}::heat_vs_{acr}') * self.energy_scaling_factor
+            u_h_vs_i_ = opt_results['flow_in'].sel(nodes='X1', techs=f'virtual_storage_flex_{acr}', carriers=f'heat_vs_{acr}').values * self.energy_scaling_factor
+            v_h_vs_i_ = opt_results['flow_out'].sel(nodes='X1', techs=f'virtual_storage_flex_{acr}', carriers=f'heat_vs_{acr}').values * self.energy_scaling_factor
 
-            u_h_vs_drain_i = flow_in_key(f'X1::virtual_storage_drain_{acr}::heat_vs_{acr}') * self.energy_scaling_factor
-            v_h_vs_drain_i = flow_out_key(f'X1::virtual_storage_drain_{acr}::heat_vs_{acr}') * self.energy_scaling_factor
+            u_h_vs_drain_i = opt_results['flow_in'].sel(nodes='X1', techs=f'virtual_storage_drain_{acr}', carriers=f'heat_vs_{acr}').values * self.energy_scaling_factor
+            v_h_vs_drain_i = opt_results['flow_out'].sel(nodes='X1', techs=f'virtual_storage_drain_{acr}', carriers=f'heat_vs_{acr}').values * self.energy_scaling_factor
             
             # Adjust charging and discharging of virtual storage based on drain:
             u_h_vs_i = u_h_vs_i_ - v_h_vs_drain_i
             v_h_vs_i = v_h_vs_i_ - u_h_vs_drain_i
             
-            q_h_vs_i = storage_key(f'X1::virtual_storage_flex_{acr}') * self.energy_scaling_factor
-            E_vs_i = float(storage_cap_key(f'X1::virtual_storage_flex_{acr}')) * self.energy_scaling_factor
+            q_h_vs_i = opt_results['storage'].sel(nodes='X1', techs=f'virtual_storage_flex_{acr}').values * self.energy_scaling_factor
+            E_vs_i = float(opt_results['storage_cap'].sel(nodes='X1', techs=f'virtual_storage_flex_{acr}').values) * self.energy_scaling_factor
  
-            q_h_vs_drain_i = storage_key(f'X1::virtual_storage_drain_{acr}') * self.energy_scaling_factor
-            E_vs_drain_i = float(storage_cap_key(f'X1::virtual_storage_drain_{acr}')) * self.energy_scaling_factor
+            q_h_vs_drain_i = opt_results['storage'].sel(nodes='X1', techs=f'virtual_storage_drain_{acr}').values * self.energy_scaling_factor
+            E_vs_drain_i = float(opt_results['storage_cap'].sel(nodes='X1', techs=f'virtual_storage_drain_{acr}').values) * self.energy_scaling_factor
             
             if E_vs_i > 0:
                 sos_vs_i = q_h_vs_i / E_vs_i                    
@@ -222,13 +146,13 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # Heat pump:
     if 'heat_pump' in self.tech_list:                    
-        v_h_hp_old = flow_out_key('X1::heat_pump_old::heat_hp') * self.energy_scaling_factor
-        v_h_hp_one_to_one_replacement = flow_out_key('X1::heat_pump_one_to_one_replacement::heat_hp') * self.energy_scaling_factor
-        v_h_hp_new = flow_out_key('New_Techs::heat_pump_new::heat_hp') * self.energy_scaling_factor
+        v_h_hp_old = opt_results['flow_out'].sel(nodes='X1', techs='heat_pump_old', carriers='heat_hp').values * self.energy_scaling_factor
+        v_h_hp_one_to_one_replacement = opt_results['flow_out'].sel(nodes='X1', techs='heat_pump_one_to_one_replacement', carriers='heat_hp').values * self.energy_scaling_factor
+        v_h_hp_new = opt_results['flow_out'].sel(nodes='New_Techs', techs='heat_pump_new', carriers='heat_hp').values * self.energy_scaling_factor
        
-        u_e_hp_old = flow_in_key('X1::heat_pump_old::electricity') * self.energy_scaling_factor
-        u_e_hp_one_to_one_replacement = flow_in_key('X1::heat_pump_one_to_one_replacement::electricity') * self.energy_scaling_factor
-        u_e_hp_new = flow_in_key('New_Techs::heat_pump_new::electricity') * self.energy_scaling_factor
+        u_e_hp_old = opt_results['flow_in'].sel(nodes='X1', techs='heat_pump_old', carriers='electricity').values * self.energy_scaling_factor
+        u_e_hp_one_to_one_replacement = opt_results['flow_in'].sel(nodes='X1', techs='heat_pump_one_to_one_replacement', carriers='electricity').values * self.energy_scaling_factor
+        u_e_hp_new = opt_results['flow_in'].sel(nodes='New_Techs', techs='heat_pump_new', carriers='electricity').values * self.energy_scaling_factor
 
         v_h_hp = v_h_hp_old + v_h_hp_one_to_one_replacement + v_h_hp_new
         u_e_hp = u_e_hp_old + u_e_hp_one_to_one_replacement + u_e_hp_new
@@ -245,7 +169,7 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # Electric heater:
     if 'electric_heater' in self.tech_list:
-        v_h_eh = flow_out_key('X1::electric_heater_old::heat') * self.energy_scaling_factor               
+        v_h_eh = opt_results['flow_out'].sel(nodes='X1', techs='electric_heater_old', carriers='heat').values * self.energy_scaling_factor               
         self.tech_electric_heater.update_v_h(v_h_eh)
         u_e_eh = self.tech_electric_heater.get_u_e()
     else:
@@ -255,9 +179,9 @@ def get_optimal_output_df(optimiser, opt_results):
     # Oil boiler:
     if 'oil_boiler' in self.tech_list:
         v_h_ob = (
-            flow_out_key('X1::oil_boiler_old::heat') * self.energy_scaling_factor
-            + flow_out_key('New_Techs::oil_boiler_new::heat') * self.energy_scaling_factor
-            + flow_out_key('X1::oil_boiler_one_to_one_replacement::heat') * self.energy_scaling_factor
+            opt_results['flow_out'].sel(nodes='X1', techs='oil_boiler_old', carriers='heat').values * self.energy_scaling_factor
+            + opt_results['flow_out'].sel(nodes='New_Techs', techs='oil_boiler_new', carriers='heat').values * self.energy_scaling_factor
+            + opt_results['flow_out'].sel(nodes='X1', techs='oil_boiler_one_to_one_replacement', carriers='heat').values * self.energy_scaling_factor
             )
         self.tech_oil_boiler.update_v_h(v_h_ob)
     
@@ -265,9 +189,9 @@ def get_optimal_output_df(optimiser, opt_results):
     # Gas boiler:
     if 'gas_boiler' in self.tech_list:
         v_h_gb = (
-            flow_out_key('X1::gas_boiler_old::heat') * self.energy_scaling_factor
-            + flow_out_key('New_Techs::gas_boiler_new::heat') * self.energy_scaling_factor
-            + flow_out_key('X1::gas_boiler_one_to_one_replacement::heat') * self.energy_scaling_factor
+            opt_results['flow_out'].sel(nodes='X1', techs='gas_boiler_old', carriers='heat').values * self.energy_scaling_factor
+            + opt_results['flow_out'].sel(nodes='New_Techs', techs='gas_boiler_new', carriers='heat').values * self.energy_scaling_factor
+            + opt_results['flow_out'].sel(nodes='X1', techs='gas_boiler_one_to_one_replacement', carriers='heat').values * self.energy_scaling_factor
             )
         self.tech_gas_boiler.update_v_h(v_h_gb)
 
@@ -275,9 +199,9 @@ def get_optimal_output_df(optimiser, opt_results):
     # Wood boiler:
     if 'wood_boiler' in self.tech_list:
         v_h_wb = (
-            flow_out_key('X1::wood_boiler_old::heat') * self.energy_scaling_factor
-            + flow_out_key('New_Techs::wood_boiler_new::heat') * self.energy_scaling_factor
-            + flow_out_key('X1::wood_boiler_one_to_one_replacement::heat') * self.energy_scaling_factor
+            opt_results['flow_out'].sel(nodes='X1', techs='wood_boiler_old', carriers='heat').values * self.energy_scaling_factor
+            + opt_results['flow_out'].sel(nodes='New_Techs', techs='wood_boiler_new', carriers='heat').values * self.energy_scaling_factor
+            + opt_results['flow_out'].sel(nodes='X1', techs='wood_boiler_one_to_one_replacement', carriers='heat').values * self.energy_scaling_factor
             )
         self.tech_wood_boiler.update_v_h(v_h_wb)
 
@@ -285,17 +209,17 @@ def get_optimal_output_df(optimiser, opt_results):
     # District heating:
     if 'district_heating' in self.tech_list:
         
-        v_h_dh = flow_out_key('X1::district_heating_hub_0::heat') * self.energy_scaling_factor
+        v_h_dh = opt_results['flow_out'].sel(nodes='X1', techs='district_heating_hub_0', carriers='heat').values * self.energy_scaling_factor
         for i in range(self.tech_district_heating.dhn_qty -1):
-            v_h_dh += flow_out_key('X1::district_heating_hub_'+str(i+1)+'::heat') * self.energy_scaling_factor
+            v_h_dh += opt_results['flow_out'].sel(nodes='X1', techs='district_heating_hub_' + str(i+1), carriers='heat').values * self.energy_scaling_factor
         
         for i in range(self.tech_district_heating.dhn_qty):
-            v_h_of_category = flow_out_key('X1::district_heating_hub_'+str(i)+'::heat') * self.energy_scaling_factor
+            v_h_of_category = opt_results['flow_out'].sel(nodes='X1', techs='district_heating_hub_' + str(i), carriers='heat').values * self.energy_scaling_factor
             self.tech_district_heating.update_v_h_by_categories(v_h_of_category)
         
         self.tech_district_heating.update_v_h(v_h_dh)
 
-        m_h_dh = flow_out_key('X1::district_heating_import::heat_dhimp') * self.energy_scaling_factor
+        m_h_dh = opt_results['flow_out'].sel(nodes='X1', techs='district_heating_import', carriers='heat_dhimp').values * self.energy_scaling_factor
         self.tech_district_heating.update_m_h(m_h_dh)
 
     # -------------------
@@ -303,8 +227,8 @@ def get_optimal_output_df(optimiser, opt_results):
     if 'solar_thermal' in self.tech_list:
         v_h_solar =\
             (
-                flow_out_key('New_Techs::solar_thermal_new::heat') * self.energy_scaling_factor
-                + flow_out_key('Old_Solar_Thermal::solar_thermal_old::heat') * self.energy_scaling_factor
+                opt_results['flow_out'].sel(nodes='New_Techs', techs='solar_thermal_new', carriers='heat').values * self.energy_scaling_factor
+                + opt_results['flow_out'].sel(nodes='Old_Solar_Thermal', techs='solar_thermal_old', carriers='heat').values * self.energy_scaling_factor
                 
                 )
         self.tech_solar_thermal.update_v_h(v_h_solar)
@@ -320,27 +244,27 @@ def get_optimal_output_df(optimiser, opt_results):
     # if 'solar_pv' in self.tech_list:
     #     if self.tech_solar_pv.get_only_use_installed():
     #         v_e_pv =\
-    #             flow_out_key('Old_Solar_PV::solar_pv_old::electricity')
+    #             opt_results['flow_out'].sel(nodes='Old_Solar_PV', techs='solar_pv_old', carriers='electricity').values
     #         v_e_pv_cons = (
     #             v_e_pv
-    #             -flow_export_key('Old_Solar_PV::solar_pv_old::electricity')
+    #             -opt_results['flow_export'].sel(nodes='Old_Solar_PV', techs='solar_pv_old', carriers='electricity').values
     #             )
     #         v_e_pv_exp =\
-    #             flow_export_key('Old_Solar_PV::solar_pv_old::electricity')
+    #             opt_results['flow_export'].sel(nodes='Old_Solar_PV', techs='solar_pv_old', carriers='electricity').values
             
     #     else:
     #         v_e_pv = (
-    #             flow_out_key('New_Techs::solar_pv_new::electricity') +
-    #             flow_out_key('Old_Solar_PV::solar_pv_old::electricity')
+    #             opt_results['flow_out'].sel(nodes='New_Techs', techs='solar_pv_new', carriers='electricity').values +
+    #             opt_results['flow_out'].sel(nodes='Old_Solar_PV', techs='solar_pv_old', carriers='electricity').values
     #             )
     #         v_e_pv_cons = (
     #             v_e_pv
-    #             -flow_export_key('New_Techs::solar_pv_new::electricity')
-    #             -flow_export_key('Old_Solar_PV::solar_pv_old::electricity')
+    #             -opt_results['flow_export'].sel(nodes='New_Techs', techs='solar_pv_new', carriers='electricity').values
+    #             -opt_results['flow_export'].sel(nodes='Old_Solar_PV', techs='solar_pv_old', carriers='electricity').values
     #             )
     #         v_e_pv_exp = (
-    #             flow_export_key('New_Techs::solar_pv_new::electricity') + 
-    #             flow_export_key('Old_Solar_PV::solar_pv_old::electricity')
+    #             opt_results['flow_export'].sel(nodes='New_Techs', techs='solar_pv_new', carriers='electricity').values + 
+    #             opt_results['flow_export'].sel(nodes='Old_Solar_PV', techs='solar_pv_old', carriers='electricity').values
     #             )
     #     if 'solar_thermal' in self.tech_list:
     #         self.tech_solar_pv.update_v_e(
@@ -366,27 +290,27 @@ def get_optimal_output_df(optimiser, opt_results):
 
         if self.tech_solar_pvrooftop.get_only_use_installed():
 
-            v_e_pvrooftop_s = [self.energy_scaling_factor*flow_out_key('solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_occupied'+'::electricity') 
+            v_e_pvrooftop_s = [self.energy_scaling_factor*opt_results['flow_out'].sel(nodes='solar_pvrooftop_installation_' + str(i), techs='solar_pvrooftop_installation_' + str(i) + '_occupied', carriers='electricity').values 
                        for i in range(pvrooftop_cats)]
 
-            v_e_pvrooftop_s_cons = [v_e_pvrooftop_s[i] - self.energy_scaling_factor*flow_export_key('solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_occupied'+'::electricity') 
+            v_e_pvrooftop_s_cons = [v_e_pvrooftop_s[i] - self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvrooftop_installation_' + str(i), techs='solar_pvrooftop_installation_' + str(i) + '_occupied', carriers='electricity').values 
                        for i in range(pvrooftop_cats)]
 
-            v_e_pvrooftop_s_exp = [self.energy_scaling_factor*flow_export_key('solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_occupied'+'::electricity') 
+            v_e_pvrooftop_s_exp = [self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvrooftop_installation_' + str(i), techs='solar_pvrooftop_installation_' + str(i) + '_occupied', carriers='electricity').values 
                        for i in range(pvrooftop_cats)]
             
         else:
 
-            v_e_pvrooftop_s = [self.energy_scaling_factor*flow_out_key('solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_occupied'+'::electricity') 
-                       + self.energy_scaling_factor*flow_out_key('solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_unoccupied'+'::electricity')
+            v_e_pvrooftop_s = [self.energy_scaling_factor*opt_results['flow_out'].sel(nodes='solar_pvrooftop_installation_' + str(i), techs='solar_pvrooftop_installation_' + str(i) + '_occupied', carriers='electricity').values 
+                       + self.energy_scaling_factor*opt_results['flow_out'].sel(nodes='solar_pvrooftop_installation_' + str(i), techs='solar_pvrooftop_installation_' + str(i) + '_unoccupied', carriers='electricity').values
                        for i in range(pvrooftop_cats)]
 
-            v_e_pvrooftop_s_cons = [v_e_pvrooftop_s[i] - self.energy_scaling_factor*flow_export_key('solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_occupied'+'::electricity') 
-                            - self.energy_scaling_factor*flow_export_key('solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_unoccupied'+'::electricity') 
+            v_e_pvrooftop_s_cons = [v_e_pvrooftop_s[i] - self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvrooftop_installation_' + str(i), techs='solar_pvrooftop_installation_' + str(i) + '_occupied', carriers='electricity').values 
+                            - self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvrooftop_installation_' + str(i), techs='solar_pvrooftop_installation_' + str(i) + '_unoccupied', carriers='electricity').values 
                        for i in range(pvrooftop_cats)]
 
-            v_e_pvrooftop_s_exp = [self.energy_scaling_factor*flow_export_key('solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_occupied'+'::electricity') 
-                           + self.energy_scaling_factor*flow_export_key('solar_pvrooftop_installation_'+str(i)+'::solar_pvrooftop_installation_'+str(i)+'_unoccupied'+'::electricity')
+            v_e_pvrooftop_s_exp = [self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvrooftop_installation_' + str(i), techs='solar_pvrooftop_installation_' + str(i) + '_occupied', carriers='electricity').values 
+                           + self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvrooftop_installation_' + str(i), techs='solar_pvrooftop_installation_' + str(i) + '_unoccupied', carriers='electricity').values
                        for i in range(pvrooftop_cats)]
         
         self.tech_solar_pvrooftop.update_v_e(v_e_pvrooftop_s)
@@ -399,13 +323,13 @@ def get_optimal_output_df(optimiser, opt_results):
 
         # if self.tech_solarthermal_rooftop.get_only_use_installed():
 
-            # v_h_solarthermalrooftop_s = [flow_out_key('solarthermal_rooftop_installation_'+str(i)+'::solarthermal_rooftop_installation_'+str(i)+'_occupied'+'::heat_hp') 
+            # v_h_solarthermalrooftop_s = [opt_results['flow_out'].sel(nodes='solarthermal_rooftop_installation_' + str(i), techs='solarthermal_rooftop_installation_' + str(i) + '_occupied', carriers='heat_hp').values 
             #            for i in range(solarthermal_rooftop_cats)]
 
-            # v_h_solarthermalrooftop_s_cons = [v_h_pvrooftop_s[i] - flow_export_key('solarthermal_rooftop_installation_'+str(i)+'::solarthermal_rooftop_installation_'+str(i)+'_occupied'+'::heat_hp') 
+            # v_h_solarthermalrooftop_s_cons = [v_h_pvrooftop_s[i] - opt_results['flow_export'].sel(nodes='solarthermal_rooftop_installation_' + str(i), techs='solarthermal_rooftop_installation_' + str(i) + '_occupied', carriers='heat_hp').values 
             #            for i in range(solarthermal_rooftop_cats)]
 
-            # v_h_solarthermalrooftop_s_exp = [flow_export_key('solarthermal_rooftop_installation_'+str(i)+'::solarthermal_rooftop_installation_'+str(i)+'_occupied'+'::heat_hp') 
+            # v_h_solarthermalrooftop_s_exp = [opt_results['flow_export'].sel(nodes='solarthermal_rooftop_installation_' + str(i), techs='solarthermal_rooftop_installation_' + str(i) + '_occupied', carriers='heat_hp').values 
             #            for i in range(solarthermal_rooftop_cats)]
             
         # else:
@@ -415,16 +339,16 @@ def get_optimal_output_df(optimiser, opt_results):
             # print(type(opt_results['flow_out']))
             # exit()
 
-            v_h_solarthermalrooftop_s = [self.energy_scaling_factor*flow_out_key('solar_pvrooftop_installation_'+str(i)+'::solar_solarthermalrooftop_installation_'+str(i)+'_occupied'+'::heat_hp') 
-                       + self.energy_scaling_factor*flow_out_key('solar_pvrooftop_installation_'+str(i)+'::solar_solarthermalrooftop_installation_'+str(i)+'_unoccupied'+'::heat_hp')
+            v_h_solarthermalrooftop_s = [self.energy_scaling_factor*opt_results['flow_out'].sel(nodes='solar_pvrooftop_installation_' + str(i), techs='solar_solarthermalrooftop_installation_' + str(i) + '_occupied', carriers='heat_hp').values 
+                       + self.energy_scaling_factor*opt_results['flow_out'].sel(nodes='solar_pvrooftop_installation_' + str(i), techs='solar_solarthermalrooftop_installation_' + str(i) + '_unoccupied', carriers='heat_hp').values
                        for i in range(solarthermal_rooftop_cats)]
 
-            v_h_solarthermalrooftop_s_cons = [v_h_solarthermalrooftop_s[i] - self.energy_scaling_factor*flow_export_key('solar_pvrooftop_installation_'+str(i)+'::solar_solarthermalrooftop_installation_'+str(i)+'_occupied'+'::heat_hp') 
-                            - self.energy_scaling_factor*flow_export_key('solar_pvrooftop_installation_'+str(i)+'::solar_solarthermalrooftop_installation_'+str(i)+'_unoccupied'+'::heat_hp') 
+            v_h_solarthermalrooftop_s_cons = [v_h_solarthermalrooftop_s[i] - self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvrooftop_installation_' + str(i), techs='solar_solarthermalrooftop_installation_' + str(i) + '_occupied', carriers='heat_hp').values 
+                            - self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvrooftop_installation_' + str(i), techs='solar_solarthermalrooftop_installation_' + str(i) + '_unoccupied', carriers='heat_hp').values 
                        for i in range(solarthermal_rooftop_cats)]
 
-            v_h_solarthermalrooftop_s_exp = [self.energy_scaling_factor*flow_export_key('solar_pvrooftop_installation_'+str(i)+'::solar_solarthermalrooftop_installation_'+str(i)+'_occupied'+'::heat_hp') 
-                           + self.energy_scaling_factor*flow_export_key('solar_pvrooftop_installation_'+str(i)+'::solar_solarthermalrooftop_installation_'+str(i)+'_unoccupied'+'::heat_hp')
+            v_h_solarthermalrooftop_s_exp = [self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvrooftop_installation_' + str(i), techs='solar_solarthermalrooftop_installation_' + str(i) + '_occupied', carriers='heat_hp').values 
+                           + self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvrooftop_installation_' + str(i), techs='solar_solarthermalrooftop_installation_' + str(i) + '_unoccupied', carriers='heat_hp').values
                        for i in range(solarthermal_rooftop_cats)]
         
         self.tech_solarthermal_rooftop.update_v_h(v_h_solarthermalrooftop_s)
@@ -453,27 +377,27 @@ def get_optimal_output_df(optimiser, opt_results):
 
         if self.tech_solar_pvalpine.get_only_use_installed():
 
-            v_e_pvalpine_s = [self.energy_scaling_factor*flow_out_key('solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_occupied'+'::electricity') 
+            v_e_pvalpine_s = [self.energy_scaling_factor*opt_results['flow_out'].sel(nodes='solar_pvalpine_installation_' + str(i), techs='solar_pvalpine_installation_' + str(i) + '_occupied', carriers='electricity').values 
                        for i in range(pvalpine_cats)]
 
-            v_e_pvalpine_s_cons = [v_e_pvalpine_s[i] - self.energy_scaling_factor*flow_export_key('solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_occupied'+'::electricity') 
+            v_e_pvalpine_s_cons = [v_e_pvalpine_s[i] - self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvalpine_installation_' + str(i), techs='solar_pvalpine_installation_' + str(i) + '_occupied', carriers='electricity').values 
                        for i in range(pvalpine_cats)]
 
-            v_e_pvalpine_s_exp = [self.energy_scaling_factor*flow_export_key('solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_occupied'+'::electricity') 
+            v_e_pvalpine_s_exp = [self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvalpine_installation_' + str(i), techs='solar_pvalpine_installation_' + str(i) + '_occupied', carriers='electricity').values 
                        for i in range(pvalpine_cats)]
             
         else:
 
-            v_e_pvalpine_s = [self.energy_scaling_factor*flow_out_key('solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_occupied'+'::electricity') 
-                       + self.energy_scaling_factor*flow_out_key('solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_unoccupied'+'::electricity')
+            v_e_pvalpine_s = [self.energy_scaling_factor*opt_results['flow_out'].sel(nodes='solar_pvalpine_installation_' + str(i), techs='solar_pvalpine_installation_' + str(i) + '_occupied', carriers='electricity').values 
+                       + self.energy_scaling_factor*opt_results['flow_out'].sel(nodes='solar_pvalpine_installation_' + str(i), techs='solar_pvalpine_installation_' + str(i) + '_unoccupied', carriers='electricity').values
                        for i in range(pvalpine_cats)]
 
-            v_e_pvalpine_s_cons = [v_e_pvalpine_s[i] - self.energy_scaling_factor*flow_export_key('solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_occupied'+'::electricity') 
-                            - self.energy_scaling_factor*flow_export_key('solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_unoccupied'+'::electricity') 
+            v_e_pvalpine_s_cons = [v_e_pvalpine_s[i] - self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvalpine_installation_' + str(i), techs='solar_pvalpine_installation_' + str(i) + '_occupied', carriers='electricity').values 
+                            - self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvalpine_installation_' + str(i), techs='solar_pvalpine_installation_' + str(i) + '_unoccupied', carriers='electricity').values 
                        for i in range(pvalpine_cats)]
 
-            v_e_pvalpine_s_exp = [self.energy_scaling_factor*flow_export_key('solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_occupied'+'::electricity') 
-                           + self.energy_scaling_factor*flow_export_key('solar_pvalpine_installation_'+str(i)+'::solar_pvalpine_installation_'+str(i)+'_unoccupied'+'::electricity')
+            v_e_pvalpine_s_exp = [self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvalpine_installation_' + str(i), techs='solar_pvalpine_installation_' + str(i) + '_occupied', carriers='electricity').values 
+                           + self.energy_scaling_factor*opt_results['flow_export'].sel(nodes='solar_pvalpine_installation_' + str(i), techs='solar_pvalpine_installation_' + str(i) + '_unoccupied', carriers='electricity').values
                        for i in range(pvalpine_cats)]
         
         self.tech_solar_pvalpine.update_v_e(v_e_pvalpine_s)
@@ -489,16 +413,16 @@ def get_optimal_output_df(optimiser, opt_results):
     # Wind power:
     if 'wind_power' in self.tech_list:
         v_e_wp = (
-            flow_out_key('loc_wp_winter::wind_power_old::wp_electricity')*self.energy_scaling_factor
-            + flow_out_key('loc_wp_winter::wind_power_new::wp_electricity')*self.energy_scaling_factor
-            + flow_out_key('loc_wp_annual::wind_power_old::wp_electricity')*self.energy_scaling_factor
-            + flow_out_key('loc_wp_annual::wind_power_new::wp_electricity')*self.energy_scaling_factor
+            opt_results['flow_out'].sel(nodes='loc_wp_winter', techs='wind_power_old', carriers='wp_electricity').values*self.energy_scaling_factor
+            + opt_results['flow_out'].sel(nodes='loc_wp_winter', techs='wind_power_new', carriers='wp_electricity').values*self.energy_scaling_factor
+            + opt_results['flow_out'].sel(nodes='loc_wp_annual', techs='wind_power_old', carriers='wp_electricity').values*self.energy_scaling_factor
+            + opt_results['flow_out'].sel(nodes='loc_wp_annual', techs='wind_power_new', carriers='wp_electricity').values*self.energy_scaling_factor
             )
         v_e_wp_exp = (
-            flow_export_key('loc_wp_winter::wind_power_old::wp_electricity')*self.energy_scaling_factor
-            + flow_export_key('loc_wp_winter::wind_power_new::wp_electricity')*self.energy_scaling_factor
-            + flow_export_key('loc_wp_annual::wind_power_old::wp_electricity')*self.energy_scaling_factor
-            + flow_export_key('loc_wp_annual::wind_power_new::wp_electricity')*self.energy_scaling_factor
+            opt_results['flow_export'].sel(nodes='loc_wp_winter', techs='wind_power_old', carriers='wp_electricity').values*self.energy_scaling_factor
+            + opt_results['flow_export'].sel(nodes='loc_wp_winter', techs='wind_power_new', carriers='wp_electricity').values*self.energy_scaling_factor
+            + opt_results['flow_export'].sel(nodes='loc_wp_annual', techs='wind_power_old', carriers='wp_electricity').values*self.energy_scaling_factor
+            + opt_results['flow_export'].sel(nodes='loc_wp_annual', techs='wind_power_new', carriers='wp_electricity').values*self.energy_scaling_factor
             )
         v_e_wp_cons = (v_e_wp - v_e_wp_exp)
         self.tech_wind_power.update_v_e(v_e_wp)
@@ -508,7 +432,7 @@ def get_optimal_output_df(optimiser, opt_results):
     #--------
     #Hydrothermal Gasification
     if 'hydrothermal_gasification' in self.tech_list:
-        v_gas_hg = flow_out_key('New_Techs::hydrothermal_gasification::gas')*self.energy_scaling_factor
+        v_gas_hg = opt_results['flow_out'].sel(nodes='New_Techs', techs='hydrothermal_gasification', carriers='gas').values*self.energy_scaling_factor
         self.tech_hydrothermal_gasification.update_v_gas(v_gas_hg)            
         # u_wet_bm_hg = self.tech_hydrothermal_gasification.get_u_wet_bm()
     
@@ -519,7 +443,7 @@ def get_optimal_output_df(optimiser, opt_results):
     #--------
     #Anaerobic Digesion Upgrade
     if 'anaerobic_digestion_upgrade' in self.tech_list:
-        v_gas_agu = flow_out_key('New_Techs::anaerobic_digestion_upgrade::gas')*self.energy_scaling_factor
+        v_gas_agu = opt_results['flow_out'].sel(nodes='New_Techs', techs='anaerobic_digestion_upgrade', carriers='gas').values*self.energy_scaling_factor
         self.tech_anaerobic_digestion_upgrade.update_v_gas(v_gas_agu)            
         u_wet_bm_agu = self.tech_anaerobic_digestion_upgrade.get_u_wet_bm()
     
@@ -530,11 +454,11 @@ def get_optimal_output_df(optimiser, opt_results):
     #--------
     #Anaerobic Digestion Upgrade Hydrogen
     if 'anaerobic_digestion_upgrade_hydrogen' in self.tech_list:
-        u_wet_bm_aguh = flow_in_key('New_Techs::anaerobic_digestion_upgrade_hydrogen::wet_biomass')*self.energy_scaling_factor
-        u_e_aguh = flow_in_key('New_Techs::anaerobic_digestion_upgrade_hydrogen::electricity')*self.energy_scaling_factor
-        u_hyd_aguh = flow_in_key('New_Techs::anaerobic_digestion_upgrade_hydrogen::hydrogen')*self.energy_scaling_factor
-        v_gas_aguh = flow_out_key('New_Techs::anaerobic_digestion_upgrade_hydrogen::gas')*self.energy_scaling_factor
-        v_h_aguh = flow_out_key('New_Techs::anaerobic_digestion_upgrade_hydrogen::heat_biomass')*self.energy_scaling_factor
+        u_wet_bm_aguh = opt_results['flow_in'].sel(nodes='New_Techs', techs='anaerobic_digestion_upgrade_hydrogen', carriers='wet_biomass').values*self.energy_scaling_factor
+        u_e_aguh = opt_results['flow_in'].sel(nodes='New_Techs', techs='anaerobic_digestion_upgrade_hydrogen', carriers='electricity').values*self.energy_scaling_factor
+        u_hyd_aguh = opt_results['flow_in'].sel(nodes='New_Techs', techs='anaerobic_digestion_upgrade_hydrogen', carriers='hydrogen').values*self.energy_scaling_factor
+        v_gas_aguh = opt_results['flow_out'].sel(nodes='New_Techs', techs='anaerobic_digestion_upgrade_hydrogen', carriers='gas').values*self.energy_scaling_factor
+        v_h_aguh = opt_results['flow_out'].sel(nodes='New_Techs', techs='anaerobic_digestion_upgrade_hydrogen', carriers='heat_biomass').values*self.energy_scaling_factor
         self.tech_anaerobic_digestion_upgrade_hydrogen.update_u_wet_bm(u_wet_bm_aguh)
         self.tech_anaerobic_digestion_upgrade_hydrogen.update_u_e(u_e_aguh)
         self.tech_anaerobic_digestion_upgrade_hydrogen.update_u_hyd(u_hyd_aguh)
@@ -551,10 +475,10 @@ def get_optimal_output_df(optimiser, opt_results):
     #--------
     #Anaerobic Digestion CHP
     if 'anaerobic_digestion_chp' in self.tech_list:
-        u_wet_bm_aguc = flow_in_key('New_Techs::anaerobic_digestion_chp::wet_biomass')*self.energy_scaling_factor
-        v_e_aguc = flow_out_key('New_Techs::anaerobic_digestion_chp::electricity')*self.energy_scaling_factor
-        v_h_aguc = flow_out_key('New_Techs::anaerobic_digestion_chp::heat_biomass')*self.energy_scaling_factor
-        v_e_aguc_exp = flow_export_key('New_Techs::anaerobic_digestion_chp::electricity')*self.energy_scaling_factor
+        u_wet_bm_aguc = opt_results['flow_in'].sel(nodes='New_Techs', techs='anaerobic_digestion_chp', carriers='wet_biomass').values*self.energy_scaling_factor
+        v_e_aguc = opt_results['flow_out'].sel(nodes='New_Techs', techs='anaerobic_digestion_chp', carriers='electricity').values*self.energy_scaling_factor
+        v_h_aguc = opt_results['flow_out'].sel(nodes='New_Techs', techs='anaerobic_digestion_chp', carriers='heat_biomass').values*self.energy_scaling_factor
+        v_e_aguc_exp = opt_results['flow_export'].sel(nodes='New_Techs', techs='anaerobic_digestion_chp', carriers='electricity').values*self.energy_scaling_factor
         self.tech_anaerobic_digestion_chp.update_u_wet_bm(u_wet_bm_aguc)
         self.tech_anaerobic_digestion_chp.update_v_e(v_e_aguc)
         self.tech_anaerobic_digestion_chp.update_v_h(v_h_aguc)
@@ -569,10 +493,10 @@ def get_optimal_output_df(optimiser, opt_results):
     #--------
     #Wood Gasification Upgrade
     if 'wood_gasification_upgrade' in self.tech_list:
-        u_wd_wgu = flow_in_key('New_Techs::wood_gasification_upgrade::wood')*self.energy_scaling_factor
-        u_e_wgu = flow_in_key('New_Techs::wood_gasification_upgrade::electricity')*self.energy_scaling_factor
-        v_gas_wgu = flow_out_key('New_Techs::wood_gasification_upgrade::gas')*self.energy_scaling_factor
-        v_h_wgu = flow_out_key('New_Techs::wood_gasification_upgrade::heat_biomass')*self.energy_scaling_factor
+        u_wd_wgu = opt_results['flow_in'].sel(nodes='New_Techs', techs='wood_gasification_upgrade', carriers='wood').values*self.energy_scaling_factor
+        u_e_wgu = opt_results['flow_in'].sel(nodes='New_Techs', techs='wood_gasification_upgrade', carriers='electricity').values*self.energy_scaling_factor
+        v_gas_wgu = opt_results['flow_out'].sel(nodes='New_Techs', techs='wood_gasification_upgrade', carriers='gas').values*self.energy_scaling_factor
+        v_h_wgu = opt_results['flow_out'].sel(nodes='New_Techs', techs='wood_gasification_upgrade', carriers='heat_biomass').values*self.energy_scaling_factor
         self.tech_wood_gasification_upgrade.update_u_wd(u_wd_wgu)
         self.tech_wood_gasification_upgrade.update_u_e(u_e_wgu)
         self.tech_wood_gasification_upgrade.update_v_gas(v_gas_wgu)
@@ -587,11 +511,11 @@ def get_optimal_output_df(optimiser, opt_results):
     #--------
     #Wood Gasification Upgrade Hydrogen
     if 'wood_gasification_upgrade_hydrogen' in self.tech_list:
-        u_wd_wguh = flow_in_key('New_Techs::wood_gasification_upgrade_hydrogen::wood')*self.energy_scaling_factor
-        u_e_wguh = flow_in_key('New_Techs::wood_gasification_upgrade_hydrogen::electricity')*self.energy_scaling_factor
-        u_hyd_wguh = flow_in_key('New_Techs::wood_gasification_upgrade_hydrogen::hydrogen')*self.energy_scaling_factor
-        v_gas_wguh = flow_out_key('New_Techs::wood_gasification_upgrade_hydrogen::gas')*self.energy_scaling_factor
-        v_h_wguh = flow_out_key('New_Techs::wood_gasification_upgrade_hydrogen::heat_biomass')*self.energy_scaling_factor
+        u_wd_wguh = opt_results['flow_in'].sel(nodes='New_Techs', techs='wood_gasification_upgrade_hydrogen', carriers='wood').values*self.energy_scaling_factor
+        u_e_wguh = opt_results['flow_in'].sel(nodes='New_Techs', techs='wood_gasification_upgrade_hydrogen', carriers='electricity').values*self.energy_scaling_factor
+        u_hyd_wguh = opt_results['flow_in'].sel(nodes='New_Techs', techs='wood_gasification_upgrade_hydrogen', carriers='hydrogen').values*self.energy_scaling_factor
+        v_gas_wguh = opt_results['flow_out'].sel(nodes='New_Techs', techs='wood_gasification_upgrade_hydrogen', carriers='gas').values*self.energy_scaling_factor
+        v_h_wguh = opt_results['flow_out'].sel(nodes='New_Techs', techs='wood_gasification_upgrade_hydrogen', carriers='heat_biomass').values*self.energy_scaling_factor
         self.tech_wood_gasification_upgrade_hydrogen.update_u_wd(u_wd_wguh)
         self.tech_wood_gasification_upgrade_hydrogen.update_u_e(u_e_wguh)
         self.tech_wood_gasification_upgrade_hydrogen.update_u_hyd(u_hyd_wguh)
@@ -608,10 +532,10 @@ def get_optimal_output_df(optimiser, opt_results):
     #--------
     #Wood Gasification CHP
     if 'wood_gasification_chp' in self.tech_list:
-        u_wd_wguc = flow_in_key('New_Techs::wood_gasification_chp::wood')*self.energy_scaling_factor
-        v_e_wguc = flow_out_key('New_Techs::wood_gasification_chp::electricity')*self.energy_scaling_factor
-        v_h_wguc = flow_out_key('New_Techs::wood_gasification_chp::heat_biomass')*self.energy_scaling_factor
-        v_e_wguc_exp = flow_export_key('New_Techs::wood_gasification_chp::electricity')*self.energy_scaling_factor
+        u_wd_wguc = opt_results['flow_in'].sel(nodes='New_Techs', techs='wood_gasification_chp', carriers='wood').values*self.energy_scaling_factor
+        v_e_wguc = opt_results['flow_out'].sel(nodes='New_Techs', techs='wood_gasification_chp', carriers='electricity').values*self.energy_scaling_factor
+        v_h_wguc = opt_results['flow_out'].sel(nodes='New_Techs', techs='wood_gasification_chp', carriers='heat_biomass').values*self.energy_scaling_factor
+        v_e_wguc_exp = opt_results['flow_export'].sel(nodes='New_Techs', techs='wood_gasification_chp', carriers='electricity').values*self.energy_scaling_factor
         self.tech_wood_gasification_chp.update_u_wd(u_wd_wguc)
         self.tech_wood_gasification_chp.update_v_e(v_e_wguc)
         self.tech_wood_gasification_chp.update_v_h(v_h_wguc)
@@ -626,7 +550,7 @@ def get_optimal_output_df(optimiser, opt_results):
     #--------
     #Hydrogen Production
     if 'hydrogen_production' in self.tech_list:
-        v_hyd_hydp = flow_out_key('New_Techs::hydrogen_production::hydrogen')*self.energy_scaling_factor
+        v_hyd_hydp = opt_results['flow_out'].sel(nodes='New_Techs', techs='hydrogen_production', carriers='hydrogen').values*self.energy_scaling_factor
         self.tech_hydrogen_production.update_v_hyd(v_hyd_hydp)
         u_e_hydp = self.tech_hydrogen_production.get_u_e()
     else:
@@ -652,16 +576,16 @@ def get_optimal_output_df(optimiser, opt_results):
 
     s_wet_bm_rem = (
         s_wet_bm_prev
-        - flow_out_key('Limited_Supplies::wet_biomass_supply::wet_biomass')*self.energy_scaling_factor
+        - opt_results['flow_out'].sel(nodes='Limited_Supplies', techs='wet_biomass_supply', carriers='wet_biomass').values*self.energy_scaling_factor
         )
 
     s_wd_rem = (
         s_wd_prev
-        - flow_out_key('Limited_Supplies::wood_supply::wood')*self.energy_scaling_factor
+        - opt_results['flow_out'].sel(nodes='Limited_Supplies', techs='wood_supply', carriers='wood').values*self.energy_scaling_factor
         )
 
-    s_wet_bm = flow_out_key('Limited_Supplies::wet_biomass_supply::wet_biomass')*self.energy_scaling_factor
-    s_wd = flow_out_key('Limited_Supplies::wood_supply::wood')*self.energy_scaling_factor        
+    s_wet_bm = opt_results['flow_out'].sel(nodes='Limited_Supplies', techs='wet_biomass_supply', carriers='wet_biomass').values*self.energy_scaling_factor
+    s_wd = opt_results['flow_out'].sel(nodes='Limited_Supplies', techs='wood_supply', carriers='wood').values*self.energy_scaling_factor        
     self.supply.update_s_wet_bm(s_wet_bm)
     self.supply.update_s_wd(s_wd)
     self.supply.update_s_wet_bm_rem(s_wet_bm_rem)
@@ -671,14 +595,14 @@ def get_optimal_output_df(optimiser, opt_results):
     # Hydro Power (local):
     if 'hydro_power' in self.tech_list:
         v_e_hydro = (
-            flow_out_key('X1::hydro_power::electricity')*self.energy_scaling_factor
+            opt_results['flow_out'].sel(nodes='X1', techs='hydro_power', carriers='electricity').values*self.energy_scaling_factor
             )
         v_e_hydro_cons = (
             v_e_hydro
-            -flow_export_key('X1::hydro_power::electricity')*self.energy_scaling_factor
+            -opt_results['flow_export'].sel(nodes='X1', techs='hydro_power', carriers='electricity').values*self.energy_scaling_factor
             )
         v_e_hydro_exp = (
-            flow_export_key('X1::hydro_power::electricity')*self.energy_scaling_factor
+            opt_results['flow_export'].sel(nodes='X1', techs='hydro_power', carriers='electricity').values*self.energy_scaling_factor
             )
         self.tech_hydro_power.update_v_e(v_e_hydro)
         self.tech_hydro_power.update_v_e_cons(v_e_hydro_cons)
@@ -687,9 +611,9 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # CHP gas turbine:
     if 'chp_gt' in self.tech_list:
-        v_e_chp_gt = flow_out_key('X1::chp_gt_new::electricity')*self.energy_scaling_factor
-        v_h_chp_gt = flow_out_key('X1::chp_gt_new::heat_chpgt')*self.energy_scaling_factor
-        v_h_chp_gt_waste = flow_export_key('X1::chp_gt_new::heat_chpgt')*self.energy_scaling_factor
+        v_e_chp_gt = opt_results['flow_out'].sel(nodes='X1', techs='chp_gt_new', carriers='electricity').values*self.energy_scaling_factor
+        v_h_chp_gt = opt_results['flow_out'].sel(nodes='X1', techs='chp_gt_new', carriers='heat_chpgt').values*self.energy_scaling_factor
+        v_h_chp_gt_waste = opt_results['flow_export'].sel(nodes='X1', techs='chp_gt_new', carriers='heat_chpgt').values*self.energy_scaling_factor
         v_h_chp_gt_con = v_h_chp_gt - v_h_chp_gt_waste
         
         self.tech_chp_gt.update_v_e(v_e_chp_gt)
@@ -704,9 +628,9 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # Gas turbine (central plant):
     if 'gas_turbine_cp' in self.tech_list:
-        v_e_gtcp = flow_out_key('X1::gas_turbine_cp_exist::electricity')*self.energy_scaling_factor
-        v_steam_gtcp = flow_out_key('X1::gas_turbine_cp_exist::steam')*self.energy_scaling_factor
-        v_steam_gtcp_surp = flow_export_key('X1::gas_turbine_cp_exist::steam')*self.energy_scaling_factor
+        v_e_gtcp = opt_results['flow_out'].sel(nodes='X1', techs='gas_turbine_cp_exist', carriers='electricity').values*self.energy_scaling_factor
+        v_steam_gtcp = opt_results['flow_out'].sel(nodes='X1', techs='gas_turbine_cp_exist', carriers='steam').values*self.energy_scaling_factor
+        v_steam_gtcp_surp = opt_results['flow_export'].sel(nodes='X1', techs='gas_turbine_cp_exist', carriers='steam').values*self.energy_scaling_factor
         v_steam_gtcp_con = v_steam_gtcp - v_steam_gtcp_surp
         self.tech_gas_turbine_cp.update_v_e(v_e_gtcp)
         self.tech_gas_turbine_cp.update_v_steam(v_steam_gtcp)
@@ -716,15 +640,15 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # Wood boiler (steam generator):
     if 'wood_boiler_sg' in self.tech_list:
-        v_steam_wbsg = flow_out_key('X1::wood_boiler_sg_exist::steam')*self.energy_scaling_factor
+        v_steam_wbsg = opt_results['flow_out'].sel(nodes='X1', techs='wood_boiler_sg_exist', carriers='steam').values*self.energy_scaling_factor
         self.tech_wood_boiler_sg.update_v_steam(v_steam_wbsg)
         
     # -------------------
     # Steam turbine:
     if 'steam_turbine' in self.tech_list:
-        v_e_st = flow_out_key('X1::steam_turbine_exist::electricity')*self.energy_scaling_factor
-        v_h_st = flow_out_key('X1::steam_turbine_exist::heat_st')*self.energy_scaling_factor
-        v_h_st_waste = flow_export_key('X1::steam_turbine_exist::heat_st')*self.energy_scaling_factor
+        v_e_st = opt_results['flow_out'].sel(nodes='X1', techs='steam_turbine_exist', carriers='electricity').values*self.energy_scaling_factor
+        v_h_st = opt_results['flow_out'].sel(nodes='X1', techs='steam_turbine_exist', carriers='heat_st').values*self.energy_scaling_factor
+        v_h_st_waste = opt_results['flow_export'].sel(nodes='X1', techs='steam_turbine_exist', carriers='heat_st').values*self.energy_scaling_factor
         v_h_st_con = v_h_st - v_h_st_waste
 
         self.tech_steam_turbine.update_v_e(v_e_st)
@@ -744,9 +668,9 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # Waste-to-energy plant:
     if 'waste_to_energy' in self.tech_list:
-        v_e_wte = flow_out_key('X1::waste_to_energy_exist::electricity')*self.energy_scaling_factor
-        v_h_wte = flow_out_key('X1::waste_to_energy_exist::heat_wte')*self.energy_scaling_factor
-        v_h_wte_waste = flow_export_key('X1::waste_to_energy_exist::heat_wte')*self.energy_scaling_factor
+        v_e_wte = opt_results['flow_out'].sel(nodes='X1', techs='waste_to_energy_exist', carriers='electricity').values*self.energy_scaling_factor
+        v_h_wte = opt_results['flow_out'].sel(nodes='X1', techs='waste_to_energy_exist', carriers='heat_wte').values*self.energy_scaling_factor
+        v_h_wte_waste = opt_results['flow_export'].sel(nodes='X1', techs='waste_to_energy_exist', carriers='heat_wte').values*self.energy_scaling_factor
         v_h_wte_con = v_h_wte - v_h_wte_waste
         
         self.tech_waste_to_energy.update_v_e(v_e_wte)
@@ -758,7 +682,7 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # Heat pump (central plant):
     if 'heat_pump_cp' in self.tech_list:
-        v_h_hpcp = flow_out_key('X1::heat_pump_cp_exist::heat_hpcp')*self.energy_scaling_factor
+        v_h_hpcp = opt_results['flow_out'].sel(nodes='X1', techs='heat_pump_cp_exist', carriers='heat_hpcp').values*self.energy_scaling_factor
         self.tech_heat_pump_cp.update_v_h(v_h_hpcp)
         u_e_hpcp = self.tech_heat_pump_cp.get_u_e()
     
@@ -768,7 +692,7 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # Heat pump (central plant, from low temperature heat):
     if 'heat_pump_cp_lt' in self.tech_list:
-        v_h_hpcplt = flow_out_key('X1::heat_pump_cp_lt_exist::heat_hpcplt')*self.energy_scaling_factor
+        v_h_hpcplt = opt_results['flow_out'].sel(nodes='X1', techs='heat_pump_cp_lt_exist', carriers='heat_hpcplt').values*self.energy_scaling_factor
         self.tech_heat_pump_cp_lt.update_v_h(v_h_hpcplt)
         u_e_hpcplt = self.tech_heat_pump_cp_lt.get_u_e()
 
@@ -778,7 +702,7 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # Oil boiler (central plant):
     if 'oil_boiler_cp' in self.tech_list:
-        v_h_obcp = flow_out_key('X1::oil_boiler_cp_exist::heat_obcp')*self.energy_scaling_factor
+        v_h_obcp = opt_results['flow_out'].sel(nodes='X1', techs='oil_boiler_cp_exist', carriers='heat_obcp').values*self.energy_scaling_factor
         self.tech_oil_boiler_cp.update_v_h(v_h_obcp)
         # u_oil_obcp = self.tech_oil_boiler_cp.get_u_oil()
     
@@ -788,7 +712,7 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # Electric heater (central plant):
     if 'electric_heater_cp' in self.tech_list:
-        v_h_ehcp = flow_out_key('X1::electric_heater_cp_exist::heat_ehcp')*self.energy_scaling_factor
+        v_h_ehcp = opt_results['flow_out'].sel(nodes='X1', techs='electric_heater_cp_exist', carriers='heat_ehcp').values*self.energy_scaling_factor
         self.tech_electric_heater_cp.update_v_h(v_h_ehcp)
         u_e_ehcp = self.tech_electric_heater_cp.get_u_e()
     else:
@@ -797,59 +721,59 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # Wood boiler (central plant):
     if 'wood_boiler_cp' in self.tech_list:
-        v_h_wbcp = flow_out_key('X1::wood_boiler_cp_exist::heat_wbcp')*self.energy_scaling_factor
+        v_h_wbcp = opt_results['flow_out'].sel(nodes='X1', techs='wood_boiler_cp_exist', carriers='heat_wbcp').values*self.energy_scaling_factor
         self.tech_wood_boiler_cp.update_v_h(v_h_wbcp)
 
     # -------------------
     # Deep_Geothermal
     if 'deep_geothermal' in self.tech_list:
 
-        v_h_dgt = flow_out_key('X1::deep_geothermal_exists::heat_dgt')*self.energy_scaling_factor
+        v_h_dgt = opt_results['flow_out'].sel(nodes='X1', techs='deep_geothermal_exists', carriers='heat_dgt').values*self.energy_scaling_factor
         self.tech_deep_geothermal.update_v_h(v_h_dgt)
 
     # -------------------
     # Heat_demand_manual
     if 'heat_demand_manual' in self.tech_list:
 
-        d_h_m = flow_in_key('X1::heat_demand_manual_exists::heat')*self.energy_scaling_factor
+        d_h_m = opt_results['flow_in'].sel(nodes='X1', techs='heat_demand_manual_exists', carriers='heat').values*self.energy_scaling_factor
         self.tech_heat_demand_manual.update_d_h(d_h_m)
 
     # -------------------
     # Waste_heat
     if 'waste_heat' in self.tech_list:
-        # rasa = flow_out_key('X1::waste_heat_exists')
+        # rasa = opt_results['flow_out'].sel(nodes='X1', techs='waste_heat_exists')
         # print(rasa)
         # exit()
 
-        v_h_wh = flow_out_key('X1::waste_heat_exists::heat_wh')*self.energy_scaling_factor
+        v_h_wh = opt_results['flow_out'].sel(nodes='X1', techs='waste_heat_exists', carriers='heat_wh').values*self.energy_scaling_factor
         self.tech_waste_heat.update_v_h(v_h_wh)
 
     # -------------------
     # Waste_heat_low_temperature
     if 'waste_heat_low_temperature' in self.tech_list:
 
-        v_hlt_whlt = flow_out_key('X1::waste_heat_low_temperature_exists::heatlt')*self.energy_scaling_factor
+        v_hlt_whlt = opt_results['flow_out'].sel(nodes='X1', techs='waste_heat_low_temperature_exists', carriers='heatlt').values*self.energy_scaling_factor
         self.tech_waste_heat_low_temperature.update_v_hlt(v_hlt_whlt)
         
     # -------------------
     # Gas boiler (central plant):
     if 'gas_boiler_cp' in self.tech_list:
-        v_h_gbcp = flow_out_key('X1::gas_boiler_cp_exist::heat_gbcp')*self.energy_scaling_factor
+        v_h_gbcp = opt_results['flow_out'].sel(nodes='X1', techs='gas_boiler_cp_exist', carriers='heat_gbcp').values*self.energy_scaling_factor
         self.tech_gas_boiler_cp.update_v_h(v_h_gbcp)
 
     # -------------------
     # Resources import:
     m_oil = (
-        flow_out_key('New_Techs::oil_supply::oil')*self.energy_scaling_factor
-        + flow_out_key('X1::oil_supply::oil')*self.energy_scaling_factor
+        opt_results['flow_out'].sel(nodes='New_Techs', techs='oil_supply', carriers='oil').values*self.energy_scaling_factor
+        + opt_results['flow_out'].sel(nodes='X1', techs='oil_supply', carriers='oil').values*self.energy_scaling_factor
         )
     m_gas = (
-        flow_out_key('New_Techs::gas_supply::gas')*self.energy_scaling_factor
-        + flow_out_key('X1::gas_supply::gas')*self.energy_scaling_factor
+        opt_results['flow_out'].sel(nodes='New_Techs', techs='gas_supply', carriers='gas').values*self.energy_scaling_factor
+        + opt_results['flow_out'].sel(nodes='X1', techs='gas_supply', carriers='gas').values*self.energy_scaling_factor
         )
     m_wd = (
-        flow_out_key('New_Techs::wood_supply_import::wood')*self.energy_scaling_factor
-        + flow_out_key('X1::wood_supply_import::wood')*self.energy_scaling_factor
+        opt_results['flow_out'].sel(nodes='New_Techs', techs='wood_supply_import', carriers='wood').values*self.energy_scaling_factor
+        + opt_results['flow_out'].sel(nodes='X1', techs='wood_supply_import', carriers='wood').values*self.energy_scaling_factor
         )
     self.supply.update_m_oil(m_oil)
     self.supply.update_m_gas(m_gas)
@@ -866,24 +790,24 @@ def get_optimal_output_df(optimiser, opt_results):
             ):
         
         d_e_ev = (
-            flow_in_key('X1::demand_electricity_ev_pd::electricity')*self.energy_scaling_factor
-            + flow_in_key('X1::demand_electricity_ev_delta::electricity')*self.energy_scaling_factor
+            opt_results['flow_in'].sel(nodes='X1', techs='demand_electricity_ev_pd', carriers='electricity').values*self.energy_scaling_factor
+            + opt_results['flow_in'].sel(nodes='X1', techs='demand_electricity_ev_delta', carriers='electricity').values*self.energy_scaling_factor
             )
         # tmp_dict = {
-        #     'd_e_ev_pd':flow_in_key('X1::demand_electricity_ev_pd::electricity'),
-        #     'd_e_ev_delta':flow_in_key('X1::demand_electricity_ev_delta::electricity'),
+        #     'd_e_ev_pd':opt_results['flow_in'].sel(nodes='X1', techs='demand_electricity_ev_pd', carriers='electricity').values,
+        #     'd_e_ev_delta':opt_results['flow_in'].sel(nodes='X1', techs='demand_electricity_ev_delta', carriers='electricity').values,
         #     'd_e_ev':d_e_ev,
         #     'd_e_ev_cp':self.energy_demand.get_d_e_ev_cp(),
-        #     'flexibility_ev':flow_out_key('X1::flexibility_ev::flexible_electricity'),
+        #     'flexibility_ev':opt_results['flow_out'].sel(nodes='X1', techs='flexibility_ev', carriers='flexible_electricity').values,
         #     }
         # tmp_df_ev = pd.DataFrame(tmp_dict)
         # tmp_df_ev.to_csv('tmp_results_for_testing/df_d_e_ev.csv')
     else:
-        d_e_ev = flow_in_key('X1::demand_electricity_ev::electricity')*self.energy_scaling_factor
+        d_e_ev = opt_results['flow_in'].sel(nodes='X1', techs='demand_electricity_ev', carriers='electricity').values*self.energy_scaling_factor
     
     d_e = (
-        flow_in_key('X1::demand_electricity_baseline::electricity')*self.energy_scaling_factor
-        # flow_in_key('X1::demand_electricity_ev::electricity')
+        opt_results['flow_in'].sel(nodes='X1', techs='demand_electricity_baseline', carriers='electricity').values*self.energy_scaling_factor
+        # opt_results['flow_in'].sel(nodes='X1', techs='demand_electricity_ev', carriers='electricity').values
         + d_e_ev
         + u_e_hp
         + u_e_eh
@@ -896,7 +820,7 @@ def get_optimal_output_df(optimiser, opt_results):
         + u_e_hydp
         )         
     d_e_baseline = (
-        flow_in_key('X1::demand_electricity_baseline::electricity')*self.energy_scaling_factor
+        opt_results['flow_in'].sel(nodes='X1', techs='demand_electricity_baseline', carriers='electricity').values*self.energy_scaling_factor
         )        
     d_e_h = u_e_hp + u_e_eh + u_e_hpcp + u_e_hpcplt + u_e_ehcp
 
@@ -911,12 +835,12 @@ def get_optimal_output_df(optimiser, opt_results):
             losses = losses + self.building_inertia_flex.get_list_l_q_h()[i]
 
         d_h_flex = (
-            flow_in_key('X1::demand_heat::heat')*self.energy_scaling_factor
+            opt_results['flow_in'].sel(nodes='X1', techs='demand_heat', carriers='heat').values*self.energy_scaling_factor
             + losses
             )
 
     else:
-        d_h = flow_in_key('X1::demand_heat::heat')*self.energy_scaling_factor
+        d_h = opt_results['flow_in'].sel(nodes='X1', techs='demand_heat', carriers='heat').values*self.energy_scaling_factor
         d_h_flex = d_h
     
     self.energy_demand.update_d_e(d_e)
@@ -929,81 +853,81 @@ def get_optimal_output_df(optimiser, opt_results):
     # Unmet demand:
 
     d_e_unmet = (
-        unmet_demand_key('X1::electricity')*self.energy_scaling_factor
-        + unmet_demand_key('New_Techs::electricity')*self.energy_scaling_factor
+        opt_results['unmet_demand'].sel(nodes='X1', carriers='electricity').values*self.energy_scaling_factor
+        + opt_results['unmet_demand'].sel(nodes='New_Techs', carriers='electricity').values*self.energy_scaling_factor
         )
         
     d_h_unmet = (
-        unmet_demand_key('X1::heat')*self.energy_scaling_factor
-        # + unmet_demand_key('X1::heat_tes')
-        + unmet_demand_key('New_Techs::heat')*self.energy_scaling_factor
+        opt_results['unmet_demand'].sel(nodes='X1', carriers='heat').values*self.energy_scaling_factor
+        # + opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_tes').values
+        + opt_results['unmet_demand'].sel(nodes='New_Techs', carriers='heat').values*self.energy_scaling_factor
         )
     
     if 'heat_pump' in self.tech_list:
         d_h_unmet += (
-            unmet_demand_key('X1::heat_hp')*self.energy_scaling_factor
-            + unmet_demand_key('New_Techs::heat_hp')*self.energy_scaling_factor
-            # + unmet_demand_key('loc_wp_annual::heat_hp')*self.energy_scaling_factor
-            # + unmet_demand_key('loc_wp_winter::heat_hp')*self.energy_scaling_factor
-            + unmet_demand_key('solar_pvrooftop_installation_0::heat_hp')*self.energy_scaling_factor
-            + unmet_demand_key('solar_pvrooftop_installation_1::heat_hp')*self.energy_scaling_factor
-            + unmet_demand_key('solar_pvrooftop_installation_2::heat_hp')*self.energy_scaling_factor
-            + unmet_demand_key('solar_pvrooftop_installation_3::heat_hp')*self.energy_scaling_factor
+            opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_hp').values*self.energy_scaling_factor
+            + opt_results['unmet_demand'].sel(nodes='New_Techs', carriers='heat_hp').values*self.energy_scaling_factor
+            # + opt_results['unmet_demand'].sel(nodes='loc_wp_annual', carriers='heat_hp').values*self.energy_scaling_factor
+            # + opt_results['unmet_demand'].sel(nodes='loc_wp_winter', carriers='heat_hp').values*self.energy_scaling_factor
+            + opt_results['unmet_demand'].sel(nodes='solar_pvrooftop_installation_0', carriers='heat_hp').values*self.energy_scaling_factor
+            + opt_results['unmet_demand'].sel(nodes='solar_pvrooftop_installation_1', carriers='heat_hp').values*self.energy_scaling_factor
+            + opt_results['unmet_demand'].sel(nodes='solar_pvrooftop_installation_2', carriers='heat_hp').values*self.energy_scaling_factor
+            + opt_results['unmet_demand'].sel(nodes='solar_pvrooftop_installation_3', carriers='heat_hp').values*self.energy_scaling_factor
             )
     
         if 'wind_power' in self.tech_list:
             d_h_unmet += (
-                + unmet_demand_key('loc_wp_annual::heat_hp')*self.energy_scaling_factor
-                + unmet_demand_key('loc_wp_winter::heat_hp')*self.energy_scaling_factor
+                + opt_results['unmet_demand'].sel(nodes='loc_wp_annual', carriers='heat_hp').values*self.energy_scaling_factor
+                + opt_results['unmet_demand'].sel(nodes='loc_wp_winter', carriers='heat_hp').values*self.energy_scaling_factor
                 )
     
     d_h_unmet_dhn = np.array([0.0]*len(d_h_unmet))
     
     if 'district_heating' in self.tech_list:
         d_h_unmet_dhn += (
-            unmet_demand_key('X1::heat_dh')*self.energy_scaling_factor
-            + unmet_demand_key('X1::heat_dhimp')*self.energy_scaling_factor
+            opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_dh').values*self.energy_scaling_factor
+            + opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_dhimp').values*self.energy_scaling_factor
             )
     
     if 'steam_turbine' in self.tech_list:
-        d_h_unmet_dhn += unmet_demand_key('X1::heat_st')*self.energy_scaling_factor
+        d_h_unmet_dhn += opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_st').values*self.energy_scaling_factor
         
     if 'tes' in self.tech_list:
-        d_h_unmet_dhn += unmet_demand_key('X1::heat_tes')*self.energy_scaling_factor
+        d_h_unmet_dhn += opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_tes').values*self.energy_scaling_factor
 
     if 'tes_sites' in self.tech_list:
 
         for loc in self.tech_tes_sites.get_list_of_sitekeys():
             for x in loc:
                 if x.endswith("ht"):
-                    d_h_unmet_dhn += unmet_demand_key('X1::heat_'+x)*self.energy_scaling_factor
+                    d_h_unmet_dhn += opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_' + x).values*self.energy_scaling_factor
 
     if 'waste_to_energy' in self.tech_list:
-        d_h_unmet_dhn += unmet_demand_key('X1::heat_wte')*self.energy_scaling_factor
+        d_h_unmet_dhn += opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_wte').values*self.energy_scaling_factor
         
     if 'heat_pump_cp' in self.tech_list:
-        d_h_unmet_dhn += unmet_demand_key('X1::heat_hpcp')*self.energy_scaling_factor
+        d_h_unmet_dhn += opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_hpcp').values*self.energy_scaling_factor
 
     if 'heat_pump_cp_lt' in self.tech_list:
-        d_h_unmet_dhn += unmet_demand_key('X1::heat_hpcplt')*self.energy_scaling_factor
+        d_h_unmet_dhn += opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_hpcplt').values*self.energy_scaling_factor
 
     if 'oil_boiler_cp' in self.tech_list:
-        d_h_unmet_dhn += unmet_demand_key('X1::heat_obcp')*self.energy_scaling_factor
+        d_h_unmet_dhn += opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_obcp').values*self.energy_scaling_factor
 
     if 'electric_heater_cp' in self.tech_list:
-        d_h_unmet_dhn += unmet_demand_key('X1::heat_ehcp')*self.energy_scaling_factor
+        d_h_unmet_dhn += opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_ehcp').values*self.energy_scaling_factor
 
     if 'wood_boiler_cp' in self.tech_list:
-        d_h_unmet_dhn += unmet_demand_key('X1::heat_wbcp')*self.energy_scaling_factor
+        d_h_unmet_dhn += opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_wbcp').values*self.energy_scaling_factor
 
     if 'waste_heat' in self.tech_list:
-        d_h_unmet_dhn += unmet_demand_key('X1::heat_wh')*self.energy_scaling_factor
+        d_h_unmet_dhn += opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_wh').values*self.energy_scaling_factor
 
     if 'deep_geothermal' in self.tech_list:
-        d_h_unmet_dhn += unmet_demand_key('X1::heat_dgt')*self.energy_scaling_factor
+        d_h_unmet_dhn += opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_dgt').values*self.energy_scaling_factor
 
     if 'gas_boiler_cp' in self.tech_list:
-        d_h_unmet_dhn += unmet_demand_key('X1::heat_gbcp')*self.energy_scaling_factor
+        d_h_unmet_dhn += opt_results['unmet_demand'].sel(nodes='X1', carriers='heat_gbcp').values*self.energy_scaling_factor
 
     self.energy_demand.update_d_e_unmet(d_e_unmet)
     self.energy_demand.update_d_h_unmet(d_h_unmet)
@@ -1013,14 +937,14 @@ def get_optimal_output_df(optimiser, opt_results):
     # Electricity import:
     if 'grid_supply' in self.tech_list:
         m_e =\
-            flow_out_key('Grid_Connection_Node::grid_supply::electricity')*self.energy_scaling_factor
+            opt_results['flow_out'].sel(nodes='Grid_Connection_Node', techs='grid_supply', carriers='electricity').values*self.energy_scaling_factor
             
         # Recalculate electricity mix:
         self.tech_grid_supply.update_m_e(m_e)
 
     if 'grid_export' in self.tech_list:
         f_e =\
-            flow_in_key('Grid_Connection_Node::grid_export::electricity')*self.energy_scaling_factor
+            opt_results['flow_in'].sel(nodes='Grid_Connection_Node', techs='grid_export', carriers='electricity').values*self.energy_scaling_factor
             
         # Recalculate electricity mix:
         self.tech_grid_export.update_f_e(f_e)
@@ -1028,10 +952,10 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # Thermal energy storage: # LOSSES TO BE ADDED
     if 'tes' in self.tech_list:
-        v_h_tes = flow_out_key('X1::tes::heat_tes')*self.energy_scaling_factor
-        u_h_tes = flow_in_key('X1::tes::heat_tes')*self.energy_scaling_factor
-        q_h_tes = storage_key('X1::tes')*self.energy_scaling_factor
-        cap_tes = float(storage_cap_key('X1::tes')*self.energy_scaling_factor)
+        v_h_tes = opt_results['flow_out'].sel(nodes='X1', techs='tes', carriers='heat_tes').values*self.energy_scaling_factor
+        u_h_tes = opt_results['flow_in'].sel(nodes='X1', techs='tes', carriers='heat_tes').values*self.energy_scaling_factor
+        q_h_tes = opt_results['storage'].sel(nodes='X1', techs='tes').values*self.energy_scaling_factor
+        cap_tes = float(opt_results['storage_cap'].sel(nodes='X1', techs='tes').values*self.energy_scaling_factor)
 
         self.tech_tes.update_v_h(v_h_tes)
         self.tech_tes.update_u_h(u_h_tes)
@@ -1055,11 +979,11 @@ def get_optimal_output_df(optimiser, opt_results):
             for subsite in sitekeys:
                 t = subsite.split("_")[-1]
 
-                v_h_tessite = flow_out_key('X1::'+subsite+'::heat_'+subsite)*self.energy_scaling_factor
-                u_h_tessite = flow_in_key('X1::'+subsite+'::heat_'+subsite)*self.energy_scaling_factor
-                q_h_tessite = storage_key('X1::'+subsite)*self.energy_scaling_factor
+                v_h_tessite = opt_results['flow_out'].sel(nodes='X1', techs=subsite, carriers='heat_' + subsite).values*self.energy_scaling_factor
+                u_h_tessite = opt_results['flow_in'].sel(nodes='X1', techs=subsite, carriers='heat_' + subsite).values*self.energy_scaling_factor
+                q_h_tessite = opt_results['storage'].sel(nodes='X1', techs=subsite).values*self.energy_scaling_factor
 
-                cap_tessite = float(storage_cap_key('X1::'+subsite)*self.energy_scaling_factor)
+                cap_tessite = float(opt_results['storage_cap'].sel(nodes='X1', techs=subsite).values*self.energy_scaling_factor)
 
                 
 
@@ -1071,15 +995,15 @@ def get_optimal_output_df(optimiser, opt_results):
                 if subsite[-4:] == 'ltlt':
 
                     name = sites_list[site_indexval]['name']
-                    u_hht_to_hlt = (flow_out_key('X1::conv_'+name+'_htht_to_'+name+'_ltlt::heat_'+subsite)*self.energy_scaling_factor
-                     +flow_out_key('X1::conv_'+name+'_htlt_to_'+name+'_ltlt::heat_'+subsite)*self.energy_scaling_factor)
+                    u_hht_to_hlt = (opt_results['flow_out'].sel(nodes='X1', techs='conv_' + name + '_htht_to_' + name + '_ltlt', carriers='heat_' + subsite).values*self.energy_scaling_factor
+                     +opt_results['flow_out'].sel(nodes='X1', techs='conv_' + name + '_htlt_to_' + name + '_ltlt', carriers='heat_' + subsite).values*self.energy_scaling_factor)
                     self.tech_tes_sites.set_u_hht_to_hlt(
                         u_hht_to_hlt+self.tech_tes_sites.get_u_hht_to_hlt(site_indexval)
                         , site_indexval)
                 if subsite[-4:] == 'htlt':
                     name = sites_list[site_indexval]['name']
                     
-                    u_hht_to_hlt = flow_out_key('X1::conv_'+name+'_lt_to_'+'heatlt_htlt::heatlt')*self.energy_scaling_factor-v_h_tessite
+                    u_hht_to_hlt = opt_results['flow_out'].sel(nodes='X1', techs='conv_' + name + '_lt_to_' + 'heatlt_htlt', carriers='heatlt').values*self.energy_scaling_factor-v_h_tessite
                     self.tech_tes_sites.set_u_hht_to_hlt(
                         u_hht_to_hlt+self.tech_tes_sites.get_u_hht_to_hlt(site_indexval)
                         , site_indexval)
@@ -1093,10 +1017,10 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # Thermal energy storage - decentralised: # LOSSES TO BE ADDED
     if 'tes_decentralised' in self.tech_list:
-        v_h_tesdc = flow_out_key('X1::tes_decentralised::heat_tesdc')*self.energy_scaling_factor
-        u_h_tesdc = flow_in_key('X1::tes_decentralised::heat_tesdc')*self.energy_scaling_factor
-        q_h_tesdc = storage_key('X1::tes_decentralised')*self.energy_scaling_factor
-        cap_tesdc = float(storage_cap_key('X1::tes_decentralised')*self.energy_scaling_factor)
+        v_h_tesdc = opt_results['flow_out'].sel(nodes='X1', techs='tes_decentralised', carriers='heat_tesdc').values*self.energy_scaling_factor
+        u_h_tesdc = opt_results['flow_in'].sel(nodes='X1', techs='tes_decentralised', carriers='heat_tesdc').values*self.energy_scaling_factor
+        q_h_tesdc = opt_results['storage'].sel(nodes='X1', techs='tes_decentralised').values*self.energy_scaling_factor
+        cap_tesdc = float(opt_results['storage_cap'].sel(nodes='X1', techs='tes_decentralised').values*self.energy_scaling_factor)
 
         self.tech_tes_decentralised.update_v_h(v_h_tesdc)
         self.tech_tes_decentralised.update_u_h(u_h_tesdc)
@@ -1109,10 +1033,10 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # Battery energy storage:
     if 'bes' in self.tech_list:
-        v_e_bes = flow_out_key('X1::bes::electricity')*self.energy_scaling_factor
-        u_e_bes = flow_in_key('X1::bes::electricity')*self.energy_scaling_factor
-        q_e_bes = storage_key('X1::bes')*self.energy_scaling_factor
-        cap_bes = float(storage_cap_key('X1::bes')*self.energy_scaling_factor)
+        v_e_bes = opt_results['flow_out'].sel(nodes='X1', techs='bes', carriers='electricity').values*self.energy_scaling_factor
+        u_e_bes = opt_results['flow_in'].sel(nodes='X1', techs='bes', carriers='electricity').values*self.energy_scaling_factor
+        q_e_bes = opt_results['storage'].sel(nodes='X1', techs='bes').values*self.energy_scaling_factor
+        cap_bes = float(opt_results['storage_cap'].sel(nodes='X1', techs='bes').values*self.energy_scaling_factor)
 
         self.tech_bes.update_v_e(v_e_bes)
         self.tech_bes.update_u_e(u_e_bes)
@@ -1126,10 +1050,10 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # Gas tank energy storage:
     if 'gtes' in self.tech_list:
-        v_gas_gtes = flow_out_key('X1::gtes::gas')*self.energy_scaling_factor
-        u_gas_gtes = flow_in_key('X1::gtes::gas')*self.energy_scaling_factor
-        q_gas_gtes = storage_key('X1::gtes')*self.energy_scaling_factor
-        cap_gtes = float(storage_cap_key('X1::gtes')*self.energy_scaling_factor)
+        v_gas_gtes = opt_results['flow_out'].sel(nodes='X1', techs='gtes', carriers='gas').values*self.energy_scaling_factor
+        u_gas_gtes = opt_results['flow_in'].sel(nodes='X1', techs='gtes', carriers='gas').values*self.energy_scaling_factor
+        q_gas_gtes = opt_results['storage'].sel(nodes='X1', techs='gtes').values*self.energy_scaling_factor
+        cap_gtes = float(opt_results['storage_cap'].sel(nodes='X1', techs='gtes').values*self.energy_scaling_factor)
 
         self.tech_gtes.update_v_gas(v_gas_gtes)
         self.tech_gtes.update_u_gas(u_gas_gtes)
@@ -1143,10 +1067,10 @@ def get_optimal_output_df(optimiser, opt_results):
     # -------------------
     # Wood storage:
     if 'ws' in self.tech_list:
-        v_wd_ws = flow_out_key('X1::ws::wood')*self.energy_scaling_factor
-        u_wd_ws = flow_in_key('X1::ws::wood')*self.energy_scaling_factor
-        q_wd_ws = storage_key('X1::ws')*self.energy_scaling_factor
-        cap_ws = float(storage_cap_key('X1::ws')*self.energy_scaling_factor)
+        v_wd_ws = opt_results['flow_out'].sel(nodes='X1', techs='ws', carriers='wood').values*self.energy_scaling_factor
+        u_wd_ws = opt_results['flow_in'].sel(nodes='X1', techs='ws', carriers='wood').values*self.energy_scaling_factor
+        q_wd_ws = opt_results['storage'].sel(nodes='X1', techs='ws').values*self.energy_scaling_factor
+        cap_ws = float(opt_results['storage_cap'].sel(nodes='X1', techs='ws').values*self.energy_scaling_factor)
 
         self.tech_ws.update_v_wd(v_wd_ws)
         self.tech_ws.update_u_wd(u_wd_ws)
@@ -1165,10 +1089,10 @@ def get_optimal_output_df(optimiser, opt_results):
         # print(opt_results['flow_out'])
         # exit()
 
-        v_hyd_hes = flow_out_key('New_Techs::hes::hydrogen')*self.energy_scaling_factor
-        u_hyd_hes = flow_in_key('New_Techs::hes::hydrogen')*self.energy_scaling_factor
-        q_hyd_hes = storage_key('New_Techs::hes')*self.energy_scaling_factor
-        cap_hes = float(storage_cap_key('New_Techs::hes')*self.energy_scaling_factor)
+        v_hyd_hes = opt_results['flow_out'].sel(nodes='New_Techs', techs='hes', carriers='hydrogen').values*self.energy_scaling_factor
+        u_hyd_hes = opt_results['flow_in'].sel(nodes='New_Techs', techs='hes', carriers='hydrogen').values*self.energy_scaling_factor
+        q_hyd_hes = opt_results['storage'].sel(nodes='New_Techs', techs='hes').values*self.energy_scaling_factor
+        cap_hes = float(opt_results['storage_cap'].sel(nodes='New_Techs', techs='hes').values*self.energy_scaling_factor)
 
         self.tech_hes.update_v_hyd(v_hyd_hes)
         self.tech_hes.update_u_hyd(u_hyd_hes)

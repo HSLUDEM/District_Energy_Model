@@ -81,21 +81,20 @@ def _figure_update_traces(self, selector=None, **kwargs):
 
 def _translate_axis_kwargs(kwargs):
     out = {}
-    titlefont = {}
+    title = {}
 
     for key, value in kwargs.items():
         if key == 'title_text':
-            out['title'] = value
+            title['text'] = value
         elif key == 'title_font_size':
-            titlefont['size'] = value
+            title.setdefault('font', {})['size'] = value
         elif key == 'title_standoff':
-            # not available in Plotly 3.x
-            continue
+            title['standoff'] = value
         else:
             out[key] = value
 
-    if titlefont:
-        out['titlefont'] = titlefont
+    if title:
+        out['title'] = title
     return out
 
 

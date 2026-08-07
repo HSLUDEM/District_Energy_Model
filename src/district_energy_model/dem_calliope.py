@@ -371,16 +371,16 @@ class CalliopeOptimiser:
         
         # flex_label
         if self.building_inertia_flex_flag:
-            demand_heat = -(self.energy_demand.get_d_h_flex_ll())
+            demand_heat = self.energy_demand.get_d_h_flex_ll()
         else:
-            demand_heat = -(self.energy_demand.get_d_h())
+            demand_heat = self.energy_demand.get_d_h()
         
-        demand_power_baseline = -(self.energy_demand.get_d_e_baseline())
+        demand_power_baseline = self.energy_demand.get_d_e_baseline()
         
-        demand_power_ev = -(self.energy_demand.get_d_e_ev())
-        demand_power_ev_cp = -(self.energy_demand.get_d_e_ev_cp())
-        demand_power_ev_pd = -(self.energy_demand.get_d_e_ev_pd())
-        demand_power_ev_pu = -(self.energy_demand.get_d_e_ev_pu())
+        demand_power_ev = self.energy_demand.get_d_e_ev()
+        demand_power_ev_cp = self.energy_demand.get_d_e_ev_cp()
+        demand_power_ev_pd = self.energy_demand.get_d_e_ev_pd()
+        demand_power_ev_pu = self.energy_demand.get_d_e_ev_pu()
         demand_power_ev_delta = demand_power_ev_pu - demand_power_ev_pd
         
         n_hours = len(self.energy_demand.get_d_e())
@@ -674,11 +674,11 @@ class CalliopeOptimiser:
         #----------------------------------------------------------------------
         # Load model:
         print("\nModel loading ...\n")
-        model = calliope.Model(
+        model = calliope.read_dict(
             input_dict,
             data_table_dfs=timeseries_dataframes,
-            math_dict=math_dict
-            )
+            math_dict=math_dict,
+        )
         
         print('\nModel running ...\n')
     
@@ -844,12 +844,31 @@ class CalliopeOptimiser:
         # =====================================================================
         
         input_dict = {
-            'model':model_dict,
-            'tech_groups':tech_groups_dict,
+            'config':{
+                'init':{
+                    **model_dict,
+                    'mode':run_dict['mode'],
+                    },
+                'build':{
+                    'ensure_feasibility':run_dict['ensure_feasibility'],
+                    },
+                'solve':{
+                    'solver':run_dict['solver'],
+                    'solver_options':run_dict['solver_options'],
+                    },
+                },
+            'data_definitions':{
+                'bigM':run_dict['bigM'],
+                'objective_cost_weights':{
+                    'data':list(run_dict['objective_options']['cost_class'].values()),
+                    'index':list(run_dict['objective_options']['cost_class'].keys()),
+                    'dims':'costs',
+                    },
+                },
+            'templates':tech_groups_dict,
             'techs':techs_dict,
             'nodes':nodes_dict,
             'data_tables':data_tables_dict,
-            'run':run_dict,
             }
         
         return input_dict, math_dict
@@ -858,8 +877,7 @@ class CalliopeOptimiser:
 
         model_dict = {
             'name':self.com_name,
-            'calliope_version':'0.6.10', #'0.6.8', # !!! How to handle the model version dynamically?
-            'timeseries_data_path':'timeseries_data',
+            'calliope_version':'0.7.0', #'0.6.8', # !!! How to handle the model version dynamically?
             # 'subset_time':['2050-02-01', '2050-02-15']
             }
 
@@ -1724,8 +1742,7 @@ class CalliopeOptimiser:
                 )
             
             # Force deployment of currently installed systems:
-            techs_dict['hydro_power']['constraints.energy_cap_equals'] =\
-                energy_cap
+            techs_dict['hydro_power']['flow_cap_equals'] = float(energy_cap)/self.energy_scaling_factor
             
             self.tech_list_old.append('hydro_power')
             
@@ -2379,7 +2396,7 @@ class CalliopeOptimiser:
                       "optimisation.\n")
         
         run_dict = {
-            'mode':'plan',
+            'mode':'base',
             'solver':self.opt_metrics['solver'],
             'ensure_feasibility':True,
             # 'cyclic_storage':'true', # If uncommented, 'storage_initial' in bes and tes is not working; cycling constraint is activated by default
