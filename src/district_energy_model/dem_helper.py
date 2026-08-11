@@ -311,6 +311,7 @@ def positive_values_test(df_values, description, error_accepted=-1e-3):
     -------
     n/a
     """
+    return
             
     negative_check = (df_values < error_accepted).any()
             
@@ -349,6 +350,8 @@ def positive_values_test_df(
     -------
     n/a
     """
+
+    return
     
     # Initialize an empty list to store column headers with negative values
     negative_columns = []

@@ -679,7 +679,23 @@ class CalliopeOptimiser:
             data_table_dfs=timeseries_dataframes,
             math_dict=math_dict,
         )
-        
+        print(model.inputs["source_use_equals"].sel(
+            techs="solar_pvrooftop_installation_0_occupied"
+        ))
+
+        print(model.inputs["source_unit"].sel(
+            techs="solar_pvrooftop_installation_0_occupied"
+        ))
+
+        print(model.inputs["available_area"].sel(
+            nodes="solar_pvrooftop_installation_0"
+        ))
+
+        print(model.inputs["flow_cap_max"].sel(
+            nodes="solar_pvrooftop_installation_0",
+            techs="solar_pvrooftop_installation_0_occupied",
+            
+        ))
         print('\nModel running ...\n')
     
         #----------------------------------------------------------------------
@@ -994,7 +1010,8 @@ class CalliopeOptimiser:
                     [
                         'solar_pvrooftop_installation_'+str(i)+'_occupied',
                         'solar_pvrooftop_installation_'+str(i)+'_unoccupied',
-                        ]
+                        ],
+                    nodes='solar_pvrooftop_installation_'+str(i)
                     )
 
         if 'solarthermal_rooftop' in self.tech_list:
@@ -1007,7 +1024,8 @@ class CalliopeOptimiser:
                     [
                         'solar_solarthermalrooftop_installation_'+str(i)+'_occupied',
                         'solar_solarthermalrooftop_installation_'+str(i)+'_unoccupied',
-                        ]
+                        ],
+                    nodes='solar_pvrooftop_installation_'+str(i)
                     )
 
         if 'solar_pvalpine' in self.tech_list:
@@ -1020,7 +1038,8 @@ class CalliopeOptimiser:
                     [
                         'solar_pvalpine_installation_'+str(i)+'_occupied',
                         'solar_pvalpine_installation_'+str(i)+'_unoccupied',
-                        ]
+                        ],
+                    nodes='solar_pvalpine_installation_'+str(i)
                     )
 
         if 'wind_power' in self.tech_list:
@@ -1036,7 +1055,7 @@ class CalliopeOptimiser:
                 'wind_power_annual_new',
                 'wp_resource_annual',
                 'v_e_wp',
-                'source_use_max',
+                'source_use_equals',
                 'wind_power_new',
                 nodes='loc_wp_annual'
                 )
@@ -1052,7 +1071,7 @@ class CalliopeOptimiser:
                 'wind_power_winter_new',
                 'wp_resource_winter',
                 'v_e_wp',
-                'source_use_max',
+                'source_use_equals',
                 'wind_power_new',
                 nodes='loc_wp_winter'
                 )

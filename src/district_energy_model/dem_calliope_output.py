@@ -1141,7 +1141,7 @@ def get_optimal_output_df(optimiser, opt_results):
         float(opt_results['cost'].sel(costs='emissions_co2').values.sum())
 
     dict_total_costs['objective']['total'] =\
-        _objective_function_value(opt_results)
+        float(opt_results['min_cost_optimisation']) # total objective value (monetary + co2)
 
     if objective_monetary > 0:
         dict_total_costs['monetary']['total'] =\

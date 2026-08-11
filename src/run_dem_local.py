@@ -12,7 +12,7 @@ import argparse
 from district_energy_model.model import launch
 
 root_dir = '.'
-
+ 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
