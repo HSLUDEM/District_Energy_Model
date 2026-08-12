@@ -383,11 +383,11 @@ scen_techs = {
             'solar_thermal':False, # CONNECTION NOT YET IMPLEMENTED
             },
         'lifetime':25,
-        'capex':3.0, #1.67, # [CHF/kWh_th]
+        'capex':59, #1.67, # [CHF/kWh_th] J. Košičan et al., A Multicriteria Methodology to Select the Best Installation of Solar Thermal Power in a Family House, Energies 13 (2020), 1047.
         'maintenance_cost': 0.02, # [CHF/kW/year]
         'interest_rate':interest_rate
         },
-              
+            
     'bes':{ # bes (battery energy storage)
         'deployment':False,
         'force_asynchronous_prod_con': force_asynchronous_storage,
@@ -400,7 +400,7 @@ scen_techs = {
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
         'lifetime':10,
         'interest_rate':interest_rate,
-        'capex':500, # [CHF/kWh_el]
+        'capex':800, # [CHF/kWh_el]
         'maintenance_cost': 2.0, # [CHF/kW/year]
         },
     
