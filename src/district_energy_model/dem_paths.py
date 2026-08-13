@@ -77,7 +77,7 @@ class DEMPaths:
         self.electricity_dir = path_strt1 + '/data/electricity/'
         self.pv_roof_dir = path_strt1 + '/data/tech_solar_pv/roof_data_per_com'
         self.wind_power_data_dir = path_strt1 + '/data/tech_wind_power/' # location of wind power data (e.g. installed capacities per municipality)
-        self.wind_power_profiles_dir = path_strt1 + '/data/tech_wind_power/profiles/' # location of wind power hourly profile files
+        self.wind_power_profiles_dir = path_strt1 + f'/data/tech_wind_power/profiles/{hist_data_year}/' # location of wind power hourly profile files
         self.ev_profiles_dir = path_strt1 + '/data/electricity/ev_profiles/' # location of electric vehicle (ev) charging profiles
         
         # Input data files:
@@ -92,7 +92,6 @@ class DEMPaths:
         self.ev_profile_fe_file = 'profile_FE_y4.feather' # daily flexible energy [kWh]
         self.ev_profile_pd_file = 'profile_PD_y4.feather' # hourly upper power bound [kW]
         self.ev_profile_pu_file = 'profile_PU_y4.feather' # hourly lower power bound [kW]
-        self.ev_munic_name_nr_file = 'ev_munic_name_nr.feather' # municipalities and BFS numnbers for ev data
         
         # Output directory:
         if output_dir == '':

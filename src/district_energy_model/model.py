@@ -112,7 +112,7 @@ def launch(root_dir=None,
         )
     
     print("------------------------------")
-    print('\nModel instance generated.')
+    print('Model instance generated.')
     print("------------------------------")
     print('\nStart model run ...')
     

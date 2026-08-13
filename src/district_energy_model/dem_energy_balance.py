@@ -152,6 +152,7 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     # Initialise the remaining electricity demand
     
     d_e_remain = pd.Series(d_e + u_e_bes) if with_bes else pd.Series(d_e)
+    # d_e_remain = pd.Series(d_e)
     
     for tech_key in tech_hierarchy:
         # Electricity production timeseries for specific tech:
@@ -225,79 +226,6 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     #--------------------------------------------------------------------------
     # Update import:
     tech_grid_supply.add_m_e(np.array(m_e))
-    
-    
-    # return dict_v_e_cons, dict_v_e_exp, m_e
-
-# delete_label
-# def update_electricity_gen_techs(
-#         tech_solar_pv,
-#         tech_wind_power,
-#         tech_biomass, # TO BE IMPLEMENTED
-#         tech_hydro_power,
-#         tech_grid_supply,
-#         dict_v_e_cons,
-#         dict_v_e_exp,
-#         m_e
-#         ):
-#     """
-#     Assign the results of get_local_electricity_mix(...) to the respective
-#     tech object attributes for electricity generating techs.
-
-#     Parameters
-#     ----------
-#     tech_solar_pv : instance of SolarPV class
-#         Instance of solar pv.
-#     tech_wind_power : instance of WindPower class
-#         Instance of wind power.
-#     # tech_biomass : instance of Biomass class
-#         Instance of biomass.
-#     # tech_hydro : instance
-#         Instance of hydro.
-#     tech_grid_supply : instance
-#         Instance of grid supply.
-#     dict_v_e_cons : dict
-#         Dict containing timeseries of consumed energy for each tech [kWh]. Keys
-#         are according to tech names (e.g. 'pv', 'wp', 'bm', ...)
-#     dict_v_e_exp : dict
-#         Dict containing timeseries of exported energy for each tech [kWh]. Keys
-#         are according to tech names (e.g. 'pv', 'wp', 'bm', ...).
-#     m_e : pandas dataseries
-#         Timeseries of imported energy [kWh].
-
-#     Returns
-#     -------
-#     None.
-
-#     """
-    
-#     #--------------------------------------------------------------------------
-#     # Update local renewable tech objects:
-    
-#     # Solar PV:
-#     # ---------
-#     tech_solar_pv.update_v_e_cons(dict_v_e_cons['pv'])
-#     tech_solar_pv.update_v_e_exp(dict_v_e_exp['pv'])
-        
-#     # Wind power:
-#     # -----------
-#     tech_wind_power.update_v_e_cons(dict_v_e_cons['wp'])
-#     tech_wind_power.update_v_e_exp(dict_v_e_exp['wp'])
-    
-#     # Biomass:
-#     # -----------
-#     tech_biomass.update_v_e_cons(dict_v_e_cons['bm'])
-#     tech_biomass.update_v_e_exp(dict_v_e_exp['bm'])
-    
-#     # Hydro:
-#     # -----------
-#     tech_hydro_power.update_v_e_cons(dict_v_e_cons['hydro'])
-#     tech_hydro_power.update_v_e_exp(dict_v_e_exp['hydro'])
-    
-#     #--------------------------------------------------------------------------
-#     # Update import:
-    
-#     tech_grid_supply.m_grid = m_e
     
 def update_m_e(m_e_updated, tech_grid_supply):
     """
@@ -571,40 +499,6 @@ def electricity_balance_test(scen_techs,
     
     #--------------------------------------------------------------------------
     # Check timeseries:
-    
-    # missing_keys = [
-    #     'v_e_pv',
-    #     'v_e_pv_cons',
-    #     'v_e_pv_exp',
-    #     'v_e_pvrooftop',
-    #     'v_e_pvrooftop_cons',
-    #     'v_e_pvrooftop_exp',
-    #     'u_e_bes',
-    #     'v_e_bes',
-    #     'q_e_bes',
-    #     'l_u_e_bes',
-    #     'l_v_e_bes',
-    #     'l_q_e_bes',
-    #     'v_e_chpgt',
-    #     'v_e_gtcp',
-    #     'v_e_st',
-    #     'v_e_st_gtcp',
-    #     'v_e_st_wbsg',
-    #     'v_e_wte',
-    #     'u_e_hpcp',
-    #     'u_e_ehcp',
-    #     'u_e_hpcplt',
-    #     'u_e_aguh',
-    #     'u_e_wgu',
-    #     'u_e_wguh',
-    #     'u_e_hydp',
-    #     ]
-    
-    # for k in missing_keys:
-    #     if k in df_scen.columns:
-    #         pass
-    #     else:
-    #         df_scen[k] = 0
 
     df_scen = dem_helper.add_missing_keys(df_scen)
         
@@ -700,20 +594,7 @@ def electricity_balance_test(scen_techs,
         df_scen['v_e_pvrooftop']
         + df_scen['v_e_pvrooftop_pot_remain']
         )
-    
-    # if optimisation:
-    #     pv_potential_split = (
-    #         tmp_pv_equi                 # TEMPORARY FIX!!! Wie sollen wir Solarthermie behandeln?                
-    #         + df_scen['v_e_pvrooftop']
-    #         + df_scen['v_e_pvrooftop_pot_remain']
-    #         )
-    # else:
-    #     pv_potential_split = (
-    #         0# tmp_pv_equi                 # TEMPORARY FIX!!! Wie sollen wir Solarthermie behandeln?                
-    #         + df_scen['v_e_pvrooftop']
-    #         + df_scen['v_e_pvrooftop_pot_remain']
-    #         )
-    
+        
     pv_potential = df_scen['v_e_pvrooftop_pot'] # installed and additional potential
     
     wp_generation = df_scen['v_e_wp']
@@ -734,16 +615,10 @@ def electricity_balance_test(scen_techs,
         + df_scen['l_v_e_bes']
         + df_scen['l_q_e_bes']
         ).sum()
-    
-
-    # print('l_u_e_bes: ', df_scen['l_u_e_bes'].sum())
-    # print('l_v_e_bes: ', df_scen['l_v_e_bes'].sum())
-    # print('l_q_e_bes: ', df_scen['l_q_e_bes'].sum())
 
     bes_input_sum = df_scen['u_e_bes'].sum() 
     
-    bes_output_sum = df_scen['v_e_bes'].sum() 
-    # print('diff = ', df_scen['u_e_bes'].sum()- df_scen['v_e_bes'].sum())
+    bes_output_sum = df_scen['v_e_bes'].sum()
     
     bes_sos_diff = (df_scen['q_e_bes'].iloc[-1]
                     -df_scen['l_q_e_bes'].iloc[-1] 
@@ -794,64 +669,17 @@ def electricity_balance_test(scen_techs,
     
     for nr, diff_max in dict_diff_max.items():
         if diff_max > diff_accepted:
-            print(f"Electricity balance ({nr}) is not fulfilled!")
-            print(f"Max. difference (kWh): {diff_max}")
+            # print(f"Electricity balance ({nr}) is not fulfilled!")
+            # print(f"Max. difference (kWh): {diff_max}")
             raise Exception(
-                f"Electricity balance (timeseries) is not fulfilled!({nr})"
+                f"Electricity balance ({nr}) is not fulfilled!"
+                f"\nMax. difference (kWh): {diff_max}"
+                f"\nElectricity balance (timeseries) is not fulfilled!({nr})"
+                "\nThis error can potentially be avoided by increasing "
+                "bigM_value in optimisation.yaml. "
+                "\nIf no solution can be found, please report the error here: "
+                r"https://dem-documentation.readthedocs.io/en/latest/contact.html"
                 )
-    # delete_label
-    # if max_diff_1 > diff_accepted:
-    #     print("Electricity balance (1) is not fulfilled!")
-    #     print(f"Max. difference (kWh): {max_diff_1}")
-    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(1)")
-        
-    # if max_diff_2 > diff_accepted:
-    #     print("Electricity balance (2) is not fulfilled!")
-    #     print(f"Max. difference (kWh): {max_diff_2}")
-    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(2)")
-        
-    # if max_diff_3 > diff_accepted:
-    #     print("Electricity balance (3) is not fulfilled!")
-    #     print(f"Max. difference (kWh): {max_diff_3}")
-    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(3)")
-        
-    # if max_diff_4 > diff_accepted:
-    #     print("Electricity balance (4) is not fulfilled!")
-    #     print(f"Max. difference (kWh): {max_diff_4}")
-    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(4)")
-        
-    # if max_diff_5 > diff_accepted:
-    #     print("Electricity balance (5) is not fulfilled!")
-    #     print(f"Max. difference (kWh): {max_diff_5}")
-    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(5)")
-        
-    # if max_diff_6 > diff_accepted:
-    #     print("Electricity balance (6) is not fulfilled!")
-    #     print(f"Max. difference (kWh): {max_diff_6}")
-    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(6)")
-        
-    # if max_diff_7 > diff_accepted:
-    #     print("Electricity balance (7) is not fulfilled!")
-    #     print(f"Max. difference (kWh): {max_diff_7}")
-    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(7)")
-        
-    # if max_diff_8 > diff_accepted:
-    #     print("Electricity balance (8) is not fulfilled!")
-    #     print(f"Max. difference (kWh): {max_diff_8}")
-    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(8)")
-        
-    # if max_diff_9 > diff_accepted:
-    #     print("Electricity balance (9) is not fulfilled!")
-    #     print(f"Max. difference (kWh): {max_diff_9}")
-    #     raise Exception("Electricity balance (timeseries) is not fulfilled!(9)")
-    
-    # if max_diff_11 > diff_accepted:
-    #     nr = 11
-    #     print(f"Electricity balance ({nr}) is not fulfilled!")
-    #     print(f"Max. difference (kWh): {max_diff_11}")
-    #     raise Exception(
-    #         f"Electricity balance (timeseries) is not fulfilled!({nr})"
-    #         )
     
     #--------------------------------------------------------------------------
     # Check sums:
@@ -897,80 +725,12 @@ def electricity_balance_test(scen_techs,
     dict_diff_sum[11] = abs(
         electricity_baseline_demand_sum - electricity_baseline_demand_split_sum
         )
-    # delete_label
-    # diff_sum_1 = abs(electricity_consumption_sum - electricity_generation_sum)
-    # diff_sum_2 = abs(electricity_consumption_sum - electricity_demand_split_sum)
-    # diff_sum_3 = abs(electricity_for_heating_sum - electricity_for_heating_split_sum)
-    # diff_sum_4 = abs(pv_generation_sum - pv_generation_split_sum)
-    # diff_sum_5 = abs(total_import_sum - total_import_split_sum)
-    # diff_sum_6 = abs(swiss_import_sum - swiss_import_split_sum)
-    # diff_sum_7 = abs(pv_potential_split_sum - pv_potential_sum)
-    # diff_sum_8 = abs(wp_generation_sum - wp_generation_split_sum)
-    # diff_sum_9 = abs(wp_potential_sum - wp_potential_split_sum)
-    # # diff_sum_10 = abs(bes_input_sum - bes_output_sum - bes_losses_sum - bes_sos_diff)
-    # diff_sum_10 = abs(
-    #     bes_input_sum - bes_output_sum - bes_losses_sum - bes_sos_diff
-    #     ) # assuming cycling constraint
-    # diff_sum_11 = abs(
-    #     electricity_baseline_demand_sum - electricity_baseline_demand_split_sum
-    #     )
     
     for nr, diff_sum in dict_diff_sum.items():
         if diff_sum > diff_sum_accepted:
             print(f"Electricity balance ({nr}) is not fulfilled!")
             print(f"Sum difference (kWh): {diff_sum}")
             raise Exception(f"Electricity balance (sum) is not fulfilled! ({nr})")
-    # delete_label
-    # if diff_sum_1 > diff_sum_accepted:
-    #     print("Electricity balance (1) is not fulfilled!")
-    #     print(f"Sum difference (kWh): {diff_sum_1}")
-    #     raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    # if diff_sum_2 > diff_sum_accepted:
-    #     print("Electricity balance (2) is not fulfilled!")
-    #     print(f"Sum difference (kWh): {diff_sum_2}")
-    #     raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    # if diff_sum_3 > diff_sum_accepted:
-    #     print("Electricity balance (3) is not fulfilled!")
-    #     print(f"Sum difference (kWh): {diff_sum_3}")
-    #     raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    # if diff_sum_4 > diff_sum_accepted:
-    #     print("Electricity balance (4) is not fulfilled!")
-    #     print(f"Sum difference (kWh): {diff_sum_4}")
-    #     raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    # if diff_sum_5 > diff_sum_accepted:
-    #     print("Electricity balance (5) is not fulfilled!")
-    #     print(f"Sum difference (kWh): {diff_sum_5}")
-    #     raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    # if diff_sum_6 > diff_sum_accepted:
-    #     print("Electricity balance (6) is not fulfilled!")
-    #     print(f"Sum difference (kWh): {diff_sum_6}")
-    #     raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    # if diff_sum_7 > diff_sum_accepted:
-    #     print("Electricity balance (7) is not fulfilled!")
-    #     print(f"Sum difference (kWh): {diff_sum_7}")
-    #     raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    # if diff_sum_8 > diff_sum_accepted:
-    #     print("Electricity balance (8) is not fulfilled!")
-    #     print(f"Sum difference (kWh): {diff_sum_8}")
-    #     raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    # if diff_sum_9 > diff_sum_accepted:
-    #     print("Electricity balance (9) is not fulfilled!")
-    #     print(f"Sum difference (kWh): {diff_sum_9}")
-    #     raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    # if diff_sum_10 > diff_sum_accepted:
-    #     print("Electricity balance (10) is not fulfilled!")
-    #     print(f"Sum difference (kWh): {diff_sum_10}")
-    #     raise Exception("Electricity balance (sum) is not fulfilled!")
-        
 
 def heat_balance_test(scen_techs,
                       df_scen,
@@ -1005,67 +765,13 @@ def heat_balance_test(scen_techs,
     # Fill dataframe with 0s if columns are missing:
 
     df_scen = dem_helper.add_missing_keys(df_scen, tes_sites_plotting_inf)
-
-    # missing_keys = [
-    #     'd_h_m',
-    #     'u_h_tes',
-    #     'u_h_tesdc',
-    #     'v_h_tes',
-    #     'v_h_tesdc',
-    #     'q_h_tes',
-    #     'q_h_tesdc',
-    #     'l_u_h_tes',
-    #     'l_u_h_tesdc',
-    #     'l_v_h_tes',
-    #     'l_v_h_tesdc',
-    #     'l_q_h_tes',
-    #     'l_q_h_tesdc',
-    #     'v_h_chpgt',
-    #     'v_h_chpgt_con',
-    #     'v_h_chpgt_waste',
-    #     'v_h_st',
-    #     'v_h_st_con',
-    #     'v_h_st_waste',
-    #     'v_h_st_gtcp',
-    #     'v_h_st_gtcp_con',
-    #     'v_h_st_gtcp_waste',
-    #     'v_h_st_wbsg',
-    #     'v_h_st_wbsg_con',
-    #     'v_h_st_wbsg_waste',
-    #     'v_h_wte',
-    #     'v_h_wte_con',
-    #     'v_h_wte_waste',
-    #     'v_h_hpcp',
-    #     'v_h_hpcplt',
-    #     'v_h_obcp',
-    #     'v_h_ehcp',
-    #     'v_h_wbcp',
-    #     'v_h_wh',
-    #     'v_h_dgt',
-    #     'v_h_gbcp',
-    #     'u_e_aguh',
-    #     'm_h_dh',
-    #     ]
-    
-    # for k in tes_sites_plotting_inf.keys():
-    #     for k2 in tes_sites_plotting_inf[k].keys():
-    #         if k2 != 'color':
-    #             for x in tes_sites_plotting_inf[k][k2]:
-    #                 if x not in missing_keys:
-    #                     missing_keys.append(x)
-
-    # for k in missing_keys:
-    #     if k in df_scen.columns:
-    #         pass
-    #     else:
-    #         df_scen[k] = 0
     
     # flex_label
     if (
         scen_techs['optimisation']['enabled']
         and scen_techs['scenarios']['demand_side']
         and scen_techs['demand_side']['dr_flexibility_building_inertia']
-        ):        
+        ):
         heat_demand = df_scen['d_h_flex_ll']
     else:
         heat_demand = df_scen['d_h']
@@ -1078,22 +784,6 @@ def heat_balance_test(scen_techs,
                         # + df_scen['u_h_vs_dh'] # Virtual storage for flexiblity modelling # INCLUDED IN DISTRICT HEATING
                         # + df_scen['u_h_tes'] # INCLUDED IN DISTRICT HEATING
                         )
-    
-    # heat_generation = (df_scen['v_h_hp']
-    #                    + df_scen['v_h_eh']
-    #                    + df_scen['v_h_ob']
-    #                    + df_scen['v_h_gb']
-    #                    + df_scen['v_h_wb']
-    #                    + df_scen['v_h_dh']
-    #                    + df_scen['v_h_solar']
-    #                    + df_scen['v_h_other']
-    #                    + df_scen['v_h_tes']
-    #                    + df_scen['v_h_bm']
-    #                    + df_scen['v_h_chpgt']
-    #                    + df_scen['v_h_st']
-    #                    + df_scen['v_h_wte']
-    #                    + df_scen['d_h_unmet']
-    #                    )
     
     heat_generation = (df_scen['v_h_hp']
                        + df_scen['v_h_eh']

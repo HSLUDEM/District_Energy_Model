@@ -280,42 +280,6 @@ class EnergyDemand:
             + self._d_e_pump_yr
             )
 
-        # return d_e_yr_sfh, d_e_yr_mfh, d_e_yr_ind, d_e_yr_ser
-    
-    
-    # def d_e_hr(d_e_yr,
-    #            electricity_profile_dir,
-    #            electricity_profile_file
-    #            ):
-        
-    #     """Returns the hourly electricity demand (d_e_hr) of the selected community.
-        
-    #     Parameters
-    #     ----------
-    #     d_e_yr : float
-    #         Annual electricity demand of selected community [kWh].
-    #     electricity_profile_dir : str
-    #         Path to directory containing files of electricity load profiles.
-    #     electricity_profile_file : str
-    #         Name of csv file containing timeseries data of electricity load
-    #         profile. (e.g. 'Buildings_A_B_power_load_profile.csv')
-        
-    #     Returns
-    #     -------
-    #     list
-    #         hourly electricity demand [kWh]
-    #     """
-    #     file_path = electricity_profile_dir + electricity_profile_file
-    #     tmp_df = pd.read_csv(file_path) # [Wh] profile for one building:
-    #     tmp_df['P_avg'] = tmp_df['P_avg']/1000 # [kWh] convert unit from Wh to kWh:
-    #     tmp_df.reset_index(inplace=True)
-    #     tmp_sum = tmp_df['P_avg'].sum()
-    #     d_e_hr = d_e_yr/tmp_sum*tmp_df['P_avg']
-    #     tmp_df.drop(tmp_df.index, inplace=True) # Delete tmp_df content
-        
-    #     return d_e_hr
-    
-    # def get_d_e_baseline_hr(
     def compute_d_e_baseline_hr(
             self,
             df_profiles,
@@ -342,33 +306,7 @@ class EnergyDemand:
             ]
         
         for val in annual_vals:
-            self.num_test(val)
-        
-        # delete_label
-        # self.num_test(self._d_e_sfh_yr)
-        # self.num_test(self._d_e_mfh_yr)
-        # self.num_test(self._d_e_ind_yr)
-        # self.num_test(self._d_e_ser_yr)
-        
-        # cond = (
-        #     self._d_e_sfh_yr == 0,
-        #     self._d_e_mfh_yr == 0,
-        #     self._d_e_ind_yr == 0,
-        #     self._d_e_ser_yr == 0,
-        #     )
-        # # print(self._d_e_sfh_yr)
-        # # print(self._d_e_mfh_yr)
-        # # print(self._d_e_ind_yr)
-        # # print(self._d_e_ser_yr)
-        # if any(cond):
-        #     raise ValueError("Annual values must be computed first!")
-        
-        # d_e_hr = (tmp_df['SFH'] * d_e_yr_sfh + 
-        #           tmp_df['MFH'] * d_e_yr_mfh +  
-        #           temp_df_industry[com_kt] * d_e_yr_ser + 
-        #           temp_df_industry[com_kt] * d_e_yr_ind)
-        
-        
+            self.num_test(val)       
         
         self._d_e_sfh = np.array(
             self.profiles['Electricity_profile_household_SFH']
@@ -404,21 +342,7 @@ class EnergyDemand:
             + self._d_e_loss
             + self._d_e_pump
             )
-        
-        # delete_label
-        # d_e_baseline_hr = (
-        #     self.profiles['Electricity_profile_household_SFH'] * self._d_e_sfh_yr + 
-        #     self.profiles['Electricity_profile_household_MFH'] * self._d_e_mfh_yr +
-        #     self.profiles['Electricity_profile_industry_and_services_' + com_kt] * self._d_e_ser_yr + 
-        #     self.profiles['Electricity_profile_industry_and_services_' + com_kt] * self._d_e_ind_yr
-        #     )
-        
-        # self._d_e_baseline = np.array(d_e_baseline_hr)
-        
-        
-        # return np.array(d_e_baseline_hr)
-    
-    # def get_d_e_h(self, tech_instances):
+
     def compute_d_e_h(self, tech_instances):
         """
         Compute the electricity demand for heating (hourly and annual).
@@ -530,7 +454,6 @@ class EnergyDemand:
     def compute_d_e_ev(
             self,
             ev_profiles_dir,
-            ev_munic_name_nr_file,
             ev_profile_cp_file,
             ev_profile_fe_file,
             ev_profile_pd_file,
@@ -541,18 +464,12 @@ class EnergyDemand:
             ev_flexibility,
             ):
         
-        # Read munic file:
-        munic_file_path = ev_profiles_dir + ev_munic_name_nr_file
-        df_munic_name_nr = pd.read_feather(munic_file_path)
-        
-        # print(df_munic_name_nr.head())
-        
+        # File paths:
         cp_file_dir = ev_profiles_dir + ev_profile_cp_file
         pd_file_dir = ev_profiles_dir + ev_profile_pd_file
         pu_file_dir = ev_profiles_dir + ev_profile_pu_file
         fe_file_dir = ev_profiles_dir + ev_profile_fe_file
         
-        # df_ev_profile = pd.read_feather(cp_file_dir)
         df_ev_cp_profile = pd.read_feather(cp_file_dir)
         df_ev_pd_profile = pd.read_feather(pd_file_dir)
         df_ev_pu_profile = pd.read_feather(pu_file_dir)
@@ -561,41 +478,33 @@ class EnergyDemand:
         ts_len = len(self.get_d_e())
         n_days = int(ts_len/24.0)
         
-        if len(com_percent) == 0:
-            munic_name = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr']==self.com_nr,'munic_name'
-                ]
-            
-            munic_name = munic_name.iloc[0]
-                
-            tmp_d_e_ev_cp = np.array(df_ev_cp_profile[munic_name])
-            tmp_d_e_ev_pd = np.array(df_ev_pd_profile[munic_name])
-            tmp_d_e_ev_pu = np.array(df_ev_pu_profile[munic_name])
-            tmp_f_e_ev_pot_dy = np.array(df_ev_fe_profile[munic_name])
+        if len(com_percent) == 0:           
+            tmp_d_e_ev_cp = np.array(df_ev_cp_profile[self.com_nr])
+            tmp_d_e_ev_pd = np.array(df_ev_pd_profile[self.com_nr])
+            tmp_d_e_ev_pu = np.array(df_ev_pu_profile[self.com_nr])
+            tmp_f_e_ev_pot_dy = np.array(df_ev_fe_profile[self.com_nr])
         
-        else:
-            df_munic_name_nr.sort_values(by='munic_nr')
-            munic_names = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr'].isin(com_percent.index),'munic_name'
-                ]
+        else:                       
+            profile_files = {
+                "CP": df_ev_cp_profile,
+                "PD": df_ev_pd_profile,
+                "PU": df_ev_pu_profile,
+                "FE": df_ev_fe_profile,
+            }
             
-            df_ev_cp_profile = df_ev_cp_profile[munic_names]
-            df_ev_pd_profile = df_ev_pd_profile[munic_names]
-            df_ev_pu_profile = df_ev_pu_profile[munic_names]
-            df_ev_fe_profile = df_ev_fe_profile[munic_names]
+            for profile_name, profile in profile_files.items():
+                missing = com_percent.index.difference(profile.columns)
             
-            df_ev_cp_profile.columns = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr'].isin(com_percent.index),'munic_nr'
-                ]
-            df_ev_pd_profile.columns = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr'].isin(com_percent.index),'munic_nr'
-                ]
-            df_ev_pu_profile.columns = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr'].isin(com_percent.index),'munic_nr'
-                ]
-            df_ev_fe_profile.columns = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr'].isin(com_percent.index),'munic_nr'
-                ]
+                if not missing.empty:
+                    raise KeyError(
+                        f"Municipalities missing from {profile_name} profile: "
+                        f"{missing.tolist()}"
+                    )
+            
+            df_ev_cp_profile = df_ev_cp_profile.loc[:, com_percent.index]
+            df_ev_pd_profile = df_ev_pd_profile.loc[:, com_percent.index]
+            df_ev_pu_profile = df_ev_pu_profile.loc[:, com_percent.index]
+            df_ev_fe_profile = df_ev_fe_profile.loc[:, com_percent.index]            
             
             tmp_d_e_ev_cp = np.array(df_ev_cp_profile.mul(com_percent).sum(axis = 1))
             tmp_d_e_ev_pd = np.array(df_ev_pd_profile.mul(com_percent).sum(axis = 1))

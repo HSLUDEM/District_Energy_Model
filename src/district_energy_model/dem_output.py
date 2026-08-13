@@ -343,36 +343,6 @@ def flexibility_metrics_to_file(
     # write YAML
     with open(file, 'w') as f:
         yaml.safe_dump(dict_flexibility_metrics, f, default_flow_style=False)
-        
-# def flexibility_clusters_to_file( # delete_label
-#         dir_path,
-#         flexibility_instance,
-#         filename = 'flexibility_clusters.txt'
-#         ):
-    
-#     if flexibility_instance == None:
-#         # Flexibility was not activated in model
-#         return
-#     else:
-#         if dir_path == '':
-#             file = filename
-#         else:
-#             file = dir_path + '/' + filename
-            
-#     clusters_dfs = flexibility_instance.get_list_df_cluster_yr()
-    
-#     dict_EGIDs = {}
-#     for i, df in enumerate(clusters_dfs):
-#         dict_EGIDs[f'cluster_{i}'] = df['EGID'].dropna().tolist()
-
-#     # Write dict to text file:
-#     with open(file, 'w', encoding='utf-8') as f:
-#         for cluster, egids in dict_EGIDs.items():
-#             f.write(f"{cluster}:\n")
-#             for egid in egids:
-#                 f.write(f"  - {egid}\n")
-#             f.write("\n")
-    
     
 def annual_results_to_file(dir_path,
                            dict_yr,
