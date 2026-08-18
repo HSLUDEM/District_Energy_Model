@@ -17,6 +17,8 @@ All notable changes to this project will be documented in this file.
 - Added manual district functionality that loads data from user-provided files to model a user-defined district.
 - Added PV Alpine
 - Added PV-Alpine and electricity feedin to Sankey diagram
+- Added possibility to pass list of possible sites to TES_Sites tech via input_file
+- Added possibility to add several waste heat / waste heat low temperature sources with different properties.
 
 
 ### Fixed
