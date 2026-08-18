@@ -444,7 +444,7 @@ class CalliopeOptimiser:
         if 'waste_heat' in self.tech_list:
             waste_heat_resource = self.tech_waste_heat.get_v_h_resource()
         else:
-            waste_heat_resource = null_array.copy()
+            waste_heat_resource = np.zeros(shape=(1, n_hours))
 
         if 'heat_demand_manual' in self.tech_list:
             heat_demand_manual_resource = self.tech_heat_demand_manual.get_timeseries()
@@ -470,7 +470,7 @@ class CalliopeOptimiser:
         if 'waste_heat_low_temperature' in self.tech_list:
             waste_heat_low_temperature_resource = self.tech_waste_heat_low_temperature.get_v_hlt_resource()
         else:
-            waste_heat_low_temperature_resource = null_array.copy()
+            waste_heat_low_temperature_resource = np.zeros(shape=(1, n_hours))
 
         if 'heat_pump_cp' in self.tech_list:
             heat_pump_cp_cops = self.tech_heat_pump_cp.get_cop()
@@ -522,8 +522,8 @@ class CalliopeOptimiser:
         wp_resource_winter = pd.Series(wp_resource_winter, index=date_index)
         hydro_resource = pd.Series(hydro_resource, index=date_index)
         heat_demand_manual_resource = pd.Series(heat_demand_manual_resource, index=date_index)
-        waste_heat_resource = pd.Series(waste_heat_resource, index=date_index)
-        waste_heat_low_temperature_resource = pd.Series(waste_heat_low_temperature_resource, index=date_index)
+        waste_heat_resource = [pd.Series(waste_heat_resource[i], index=date_index) for i in range(len(waste_heat_resource))]
+        waste_heat_low_temperature_resource = [pd.Series(waste_heat_low_temperature_resource[i], index=date_index) for i in range(len(waste_heat_low_temperature_resource))]
 
         grid_supply_resource_tariff_timeseries = pd.Series(grid_supply_resource_tariff_timeseries, index=date_index)
         grid_supply_resource_co2_intensity_timeseries = pd.Series(grid_supply_resource_co2_intensity_timeseries, index=date_index)
@@ -571,8 +571,9 @@ class CalliopeOptimiser:
         df_wp_resource_winter = wp_resource_winter.to_frame('v_e_wp')
         df_hydro_resource = hydro_resource.to_frame('v_e_hydro')
         df_heat_demand_manual_resource = - heat_demand_manual_resource.to_frame('d_h_m')
-        df_waste_heat_resource = waste_heat_resource.to_frame('v_h_wh')
-        df_waste_heat_low_temperature_resource = waste_heat_low_temperature_resource.to_frame('v_hlt_whlt')
+        df_waste_heat_resource = pd.DataFrame({'v_h_wh_'+str(i): waste_heat_resource[i] for i in range(len(waste_heat_resource))})
+        df_waste_heat_low_temperature_resource = pd.DataFrame({'v_hlt_whlt_'+str(i): waste_heat_low_temperature_resource[i] for i in range(len(waste_heat_low_temperature_resource))})
+        # df_waste_heat_low_temperature_resource = waste_heat_low_temperature_resource.to_frame('v_hlt_whlt')
 
         df_grid_supply_timeseries = pd.DataFrame({
                                     "tariff_timeseries": grid_supply_resource_tariff_timeseries * self.energy_scaling_factor,
@@ -621,9 +622,9 @@ class CalliopeOptimiser:
             'hydro_resource': df_hydro_resource / self.energy_scaling_factor,
             'heat_demand_manual': df_heat_demand_manual_resource / self.energy_scaling_factor,
             'waste_heat': df_waste_heat_resource / self.energy_scaling_factor,
+            'waste_heat_low_temperature': df_waste_heat_low_temperature_resource / self.energy_scaling_factor,
             'grid_supply': df_grid_supply_timeseries,
             'grid_export': df_grid_export_timeseries,
-            'waste_heat_low_temperature': df_waste_heat_low_temperature_resource / self.energy_scaling_factor,
             'heat_pump_cp': df_heat_pump_cp_cops,
             'heat_pump_cops_existing': df_heat_pump_cops_existing,
             'heat_pump_cops_new': df_heat_pump_cops_new,
@@ -1544,19 +1545,20 @@ class CalliopeOptimiser:
         # -------------------
         # Waste_heat
         if 'waste_heat' in self.tech_list:
-            # rasa = opt_results['carrier_prod'].loc['X1::waste_heat_exists']
-            # print(rasa)
-            # exit()
+            v_h_wh_l = []
+            for i in range(self.tech_waste_heat.number_of_instances):
 
-            v_h_wh = opt_results['carrier_prod'].loc['X1::waste_heat_exists::heat_wh'].values*self.energy_scaling_factor
-            self.tech_waste_heat.update_v_h(v_h_wh)
+                v_h_wh_l.append(opt_results['carrier_prod'].loc['X1::waste_heat_exists_'+str(i)+'::heat_wh'].values*self.energy_scaling_factor)
+            self.tech_waste_heat.update_v_h(np.array(v_h_wh_l))
 
         # -------------------
         # Waste_heat_low_temperature
         if 'waste_heat_low_temperature' in self.tech_list:
+            v_hlt_whlt_l = []
+            for i in range(self.tech_waste_heat_low_temperature.number_of_instances):
 
-            v_hlt_whlt = opt_results['carrier_prod'].loc['X1::waste_heat_low_temperature_exists::heatlt'].values*self.energy_scaling_factor
-            self.tech_waste_heat_low_temperature.update_v_hlt(v_hlt_whlt)
+                v_hlt_whlt_l.append(opt_results['carrier_prod'].loc['X1::waste_heat_low_temperature_exists_'+str(i)+'::heatlt'].values*self.energy_scaling_factor)
+            self.tech_waste_heat_low_temperature.update_v_hlt(np.array(v_hlt_whlt_l))
             
         # -------------------
         # Gas boiler (central plant):
@@ -2966,11 +2968,12 @@ class CalliopeOptimiser:
                 header='waste_heat_exists',
                 name='Waste heat (source)',
                 color=colors['waste_heat'],
-                resource="df=waste_heat:v_h_wh",
+                resources=["df=waste_heat:v_h_wh_"+str(i) for i in range(self.tech_waste_heat.number_of_instances)],
                 energy_scaling_factor = self.energy_scaling_factor
                 )
             
-            self.tech_list_old.append('waste_heat_exists')
+            for i in range(self.tech_waste_heat.number_of_instances):
+                self.tech_list_old.append('waste_heat_exists_'+str(i))
 
         if 'waste_heat_low_temperature' in self.tech_list:
             techs_dict = self.tech_waste_heat_low_temperature.create_techs_dict(
@@ -2978,11 +2981,11 @@ class CalliopeOptimiser:
                 header='waste_heat_low_temperature_exists',
                 name='Waste heat (source at low temperature)',
                 color=colors['waste_heat_low_temperature'],
-                resource="df=waste_heat_low_temperature:v_hlt_whlt",
+                resources=["df=waste_heat_low_temperature:v_hlt_whlt_"+str(i) for i in range(self.tech_waste_heat_low_temperature.number_of_instances)],
                 energy_scaling_factor = self.energy_scaling_factor
                 )
-            
-            self.tech_list_old.append('waste_heat_low_temperature_exists')
+            for i in range(self.tech_waste_heat_low_temperature.number_of_instances):
+                self.tech_list_old.append('waste_heat_low_temperature_exists_'+str(i))
 
         if 'gas_boiler_cp' in self.tech_list:
             techs_dict = self.tech_gas_boiler_cp.create_techs_dict(

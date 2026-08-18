@@ -179,8 +179,9 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
                 opex = tech_instances[tech].get_total_maintenance()
                 energy_revenue = tech_instances[tech].get_energy_revenue()
             energy_costs = tech_instances[tech].get_energy_costs()
-
-            if hasattr(tech_instances[tech], '_lifetime') and hasattr(tech_instances[tech], '_interest_rate'):
+            if hasattr(tech_instances[tech], 'get_total_annualized_capex'):
+                annualized_capex = tech_instances[tech].get_total_annualized_capex()
+            elif hasattr(tech_instances[tech], '_lifetime') and hasattr(tech_instances[tech], '_interest_rate'):
                 annualized_capex = (
                     capex
                     * annuity_factor(

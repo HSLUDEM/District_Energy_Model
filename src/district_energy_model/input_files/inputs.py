@@ -695,7 +695,7 @@ scen_techs = {
         },
 
 
-    'waste_heat':{ # wh
+    'waste_heat':{ # wh #The parameters of waste_heat can be lists! #If the parameters are lists, they must all be of the same length, but deployment
         'deployment':False,
         'capex': 0.0,
         'maintenance_cost': 0.0,
@@ -706,7 +706,7 @@ scen_techs = {
         'interest_rate':interest_rate,
         },
 
-    'waste_heat_low_temperature':{ # whlt
+    'waste_heat_low_temperature':{ # whlt #The parameters of waste_heat can be lists! #The parameters of waste_heat can be lists! #If the parameters are lists, they must all be of the same length, but deployment
         'deployment':False,
         'capex': 0.0,
         'maintenance_cost': 0.0,
