@@ -363,8 +363,8 @@ scen_techs = {
     'tes_sites':{ # tes sites (thermal energy storage) (large scale, connected to District Heating Network): sites with different properties
         'deployment':False,
         'force_asynchronous_prod_con': force_asynchronous_storage,
-        'list_generation_mode': 'stub', #options: 'stub'
-        'generation_function_parameters': {},
+        'list_generation_mode': 'stub', #options: 'stub', 'externally_controlled'
+        'generation_function_parameters': {}, #if 'externally_controlled', pass here {'list_of_tes_options': [...]} the list of tes sites
         'interest_rate':interest_rate
         },
 
