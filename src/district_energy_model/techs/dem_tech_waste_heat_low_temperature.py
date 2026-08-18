@@ -143,7 +143,7 @@ class WasteHeatLowTemperature(TechCore):
     
     def __compute_import_cost(self):
         self.len_test(self._v_hlt)
-        self._v_mon = self._tariff_CHFpkWh * self._v_co2
+        self._v_mon = self._tariff_CHFpkWh * self._v_h
     
     def create_tech_groups_dict(self, tech_groups_dict):
         
