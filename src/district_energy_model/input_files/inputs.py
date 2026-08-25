@@ -363,8 +363,8 @@ scen_techs = {
     'tes_sites':{ # tes sites (thermal energy storage) (large scale, connected to District Heating Network): sites with different properties
         'deployment':False,
         'force_asynchronous_prod_con': force_asynchronous_storage,
-        'list_generation_mode': 'stub', #options: 'stub'
-        'generation_function_parameters': {},
+        'list_generation_mode': 'stub', #options: 'stub', 'externally_controlled'
+        'generation_function_parameters': {}, #if 'externally_controlled', pass here {'list_of_tes_options': [...]} the list of tes sites
         'interest_rate':interest_rate
         },
 
@@ -383,11 +383,11 @@ scen_techs = {
             'solar_thermal':False, # CONNECTION NOT YET IMPLEMENTED
             },
         'lifetime':25,
-        'capex':3.0, #1.67, # [CHF/kWh_th]
+        'capex':59, #1.67, # [CHF/kWh_th] J. Košičan et al., A Multicriteria Methodology to Select the Best Installation of Solar Thermal Power in a Family House, Energies 13 (2020), 1047.
         'maintenance_cost': 0.02, # [CHF/kW/year]
         'interest_rate':interest_rate
         },
-              
+            
     'bes':{ # bes (battery energy storage)
         'deployment':True,
         'force_asynchronous_prod_con': force_asynchronous_storage,
@@ -400,7 +400,7 @@ scen_techs = {
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
         'lifetime':10,
         'interest_rate':interest_rate,
-        'capex':500, # [CHF/kWh_el]
+        'capex':800, # [CHF/kWh_el]
         'maintenance_cost': 2.0, # [CHF/kW/year]
         },
     
@@ -695,7 +695,7 @@ scen_techs = {
         },
 
 
-    'waste_heat':{ # wh
+    'waste_heat':{ # wh #The parameters of waste_heat can be lists! #If the parameters are lists, they must all be of the same length, but deployment
         'deployment':False,
         'capex': 0.0,
         'maintenance_cost': 0.0,
@@ -706,7 +706,7 @@ scen_techs = {
         'interest_rate':interest_rate,
         },
 
-    'waste_heat_low_temperature':{ # whlt
+    'waste_heat_low_temperature':{ # whlt #The parameters of waste_heat can be lists! #The parameters of waste_heat can be lists! #If the parameters are lists, they must all be of the same length, but deployment
         'deployment':False,
         'capex': 0.0,
         'maintenance_cost': 0.0,

@@ -54,7 +54,7 @@ class WasteHeatLowTemperature(TechCore):
         self.update_tech_properties(tech_dict)
                 
         # Carrier types:
-        self.output_carrier = 'heatlt' #low temperature
+        self.output_carrier = 'heatlt'
         
         # Accounting:
         self._v_hlt = []
@@ -69,7 +69,7 @@ class WasteHeatLowTemperature(TechCore):
     def update_tech_properties(self, tech_dict):
         
         """
-        Updates the solar pv technology properties based on a new tech_dict.
+        Updates the waste heat lt technology properties based on a new tech_dict.
         
         Parameters
         ----------
@@ -82,38 +82,54 @@ class WasteHeatLowTemperature(TechCore):
         """
         # Properties:
         # self.v_max = tech_dict['kWp_max']
-        self._lifetime = tech_dict['lifetime']
-        self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
-        self._capex = tech_dict['capex']
-        self._maintenance_cost = tech_dict['maintenance_cost']
-        self._timeseries_file_path = tech_dict['timeseries_file_path']
-        self._tariff_CHFpkWh = tech_dict['tariff_CHFpkWh']
+
+        if isinstance(tech_dict['lifetime'], list):
+
+            self._lifetime = tech_dict['lifetime']
+            self._interest_rate = tech_dict['interest_rate']
+            self._co2_intensity = tech_dict['co2_intensity']
+            self._capex = tech_dict['capex']
+            self._maintenance_cost = tech_dict['maintenance_cost']
+            self._timeseries_file_path = tech_dict['timeseries_file_path']
+            self._tariff_CHFpkWh = tech_dict['tariff_CHFpkWh']
+        else:
+            self._lifetime = [tech_dict['lifetime']]
+            self._interest_rate = [tech_dict['interest_rate']]
+            self._co2_intensity = [tech_dict['co2_intensity']]
+            self._capex = [tech_dict['capex']]
+            self._maintenance_cost = [tech_dict['maintenance_cost']]
+            self._timeseries_file_path = [tech_dict['timeseries_file_path']]
+            self._tariff_CHFpkWh = [tech_dict['tariff_CHFpkWh']]
         # self._maintenance_cost = tech_dict['maintenance_cost']
 
+        self.number_of_instances = len(self._lifetime)
         # Update input dict:
         self.__tech_dict = tech_dict
         
 
     def initialise_finite(self, n_days):
         n_hours = n_days*24
-        zero_vals = np.zeros(n_hours)
-        timeseries_data = np.zeros(n_hours)
-        if self._timeseries_file_path.endswith(".feather"):
-            timeseries_data = pd.read_feather(self._timeseries_file_path).to_numpy()[:n_hours, 0]
+        zero_vals = np.zeros(shape = (self.number_of_instances, n_hours))
+        timeseries_data = np.zeros(shape = (self.number_of_instances, n_hours))
+        self._v_hlt_resource = zero_vals.copy()
+        for i in range(len(self._timeseries_file_path)):
+            path = self._timeseries_file_path[i]
+            if path.endswith(".feather"):
+                timeseries_data[i,:] = pd.read_feather(path).to_numpy()[:n_hours, 0]
             
 
+            self._v_hlt_resource[i,:] = timeseries_data[i,:].copy()
         self._v_hlt = zero_vals.copy()
         self._v_co2 = zero_vals.copy()
-        self._v_hlt_resource = timeseries_data.copy()
 
     def update_df_results(self, df):
         
-        df['v_hlt_whlt'] = self.get_v_hlt()
-        df['v_hlt_resource_whlt'] = self.get_v_hlt_resource()
-        df['v_co2_whlt'] = self.get_v_co2()
+        df['v_hlt_whlt'] = self.get_v_hlt() #Total
+        df['v_hlt_resource_whlt'] = self.get_v_hlt_resource().sum(axis=0) #Total
+        df['v_co2_whlt'] = self.get_v_co2() #Total
         
         return df
+
     
     def reduce_timeframe(self, n_days):
         """
@@ -132,18 +148,18 @@ class WasteHeatLowTemperature(TechCore):
         
         n_hours = n_days*24
         
-        self._v_hlt = self._v_hlt[:n_hours]
-        self._v_hlt_resource = self._v_hlt_resource[:n_hours]
-        self._v_co2 = self._v_co2[:n_hours]
+        self._v_hlt = self._v_hlt[:, :n_hours]
+        self._v_hlt_resource = self._v_hlt_resource[:, :n_hours]
+        self._v_co2 = self._v_co2[:, :n_hours]
     
-        
     def __compute_v_co2(self):
-        self.len_test(self._v_hlt)        
-        self._v_co2 = self._v_hlt*self.__tech_dict['co2_intensity']
-    
-    def __compute_import_cost(self):
-        self.len_test(self._v_hlt)
-        self._v_mon = self._tariff_CHFpkWh * self._v_co2
+        for i in range(self.number_of_instances):
+            self.len_test(self._v_hlt[i])            
+            self._v_co2[i] = self._v_hlt[i]*self._co2_intensity[i]
+
+    # def __compute_import_cost(self):
+    #     self.len_test(self._v_hlt)
+    #     self._v_mon = self._tariff_CHFpkWh * self._v_h
     
     def create_tech_groups_dict(self, tech_groups_dict):
         
@@ -153,86 +169,120 @@ class WasteHeatLowTemperature(TechCore):
                 'carrier': 'heatlt'
                 },
             'constraints':{
-                'lifetime': self._lifetime,
                 },
             'costs':{
                 'monetary':{
-                    'interest_rate':self._interest_rate,
                     'om_con':0.0
-                    },
-                
+                    }
                 }
             }
         
         return tech_groups_dict
-        
+
     def create_techs_dict(self,
                           techs_dict,
                           header,
                           name, 
                           color, 
-                          resource,
+                          resources,
                           energy_scaling_factor
                         #   energy_cap,
                           ):
-        
-        capex = self._capex
-        
-        techs_dict[header] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent': 'waste_heat_low_temperature'
-                },
-            'constraints':{
-                'resource': resource,
-                # 'energy_cap_max': energy_cap
-                },
-            'costs':{
-                'monetary':{
-                    'energy_cap': capex * energy_scaling_factor,
-                    'om_annual': self._maintenance_cost * energy_scaling_factor,
-                    'om_prod': self._tariff_CHFpkWh * energy_scaling_factor
+                 
+        for i in range(self.number_of_instances):
+            capex = self._capex[i]
+            
+            techs_dict[header+"_"+str(i)] = {
+                'essentials':{
+                    'name': name,
+                    'color': color,
+                    'parent': 'waste_heat_low_temperature'
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity * energy_scaling_factor,
+                'constraints':{
+                    'lifetime': self._lifetime[i],
+                    'resource': resources[i],
+                    # 'energy_cap_max': energy_cap
+                    },
+                'costs':{
+                    'monetary':{
+                        'interest_rate':self._interest_rate[i],
+                        'energy_cap': capex * energy_scaling_factor,
+                        'om_annual': self._maintenance_cost[i] * energy_scaling_factor,
+                        'om_prod': self._tariff_CHFpkWh[i] * energy_scaling_factor
+                        },
+                    'emissions_co2':{
+                        'om_prod':self._co2_intensity[i] * energy_scaling_factor, 
+                        }
                     }
-                }
-            }    
-        
+                }    
+
         return techs_dict
     
     def get_v_hlt(self):
-        self.len_test(self._v_hlt)
-        return self._v_hlt
-    
+        for i in range(self.number_of_instances):
+            self.len_test(self._v_hlt[i])
+        return self._v_hlt.sum(axis = 0)
+
     def get_v_hlt_resource(self):
-        self.len_test(self._v_hlt_resource)
+        for i in range(self.number_of_instances):
+            self.len_test(self._v_hlt_resource[i])
         return self._v_hlt_resource    
+
     def get_v_co2(self):
-        self.len_test(self._v_co2)
-        return self._v_co2
-    
+        for i in range(self.number_of_instances):
+            self.len_test(self._v_co2[i])
+        return self._v_co2.sum(axis=0)
+
     def update_v_hlt(self, v_hlt_updated):
         
-        if len(v_hlt_updated) != len(self._v_hlt):
-            raise ValueError("v_hlt_updated must have the same length as v_hlt!")
+        if np.shape(v_hlt_updated) != np.shape(self._v_hlt):
+            raise ValueError("v_hlt_updated must have the same shape as v_hlt!")
         
         self._v_hlt = np.array(v_hlt_updated)
         
 
         self.__compute_v_co2()
-        self.__compute_import_cost()
+        # self.__compute_import_cost()
 
     def update_v_hlt_resource(self, v_hlt_resource_updated):
         
-        if len(v_hlt_resource_updated) != len(self._v_hlt_resource):
-            raise ValueError("v_hlt_resource_updated must have the same length as v_hlt_resource!")
+        if np.shape(v_hlt_resource_updated) != np.shape(self._v_hlt_resource):
+            raise ValueError("v_hlt_resource_updated must have the same shape as v_hlt_resource!")
         
         self._v_hlt_resource = np.array(v_hlt_resource_updated)
-                
+    
     def get_energy_costs(self):
-        return self._tariff_CHFpkWh*np.sum(self._v_hlt)
+        tot_cost = 0.0
+        for i in range(self.number_of_instances):
+            tot_cost += self._tariff_CHFpkWh[i]*np.sum(self._v_hlt[i,:])
+        return tot_cost
+
+    def get_total_capex(self):
+        new_capex = np.sum([self._capex[i]*(self._v_hlt[i].max()) for i in range(self.number_of_instances)])
+        if new_capex < 0:
+            new_capex = 0
+        total_capex = new_capex
+        return total_capex
     
- 
-    
+    def get_total_maintenance(self):
+        new_mc = np.sum([self._maintenance_cost[i]*(self._v_hlt[i].max()) for i in range(self.number_of_instances)])
+        if new_mc < 0:
+            new_mc = 0
+        total_mc = new_mc
+        return total_mc
+
+    def get_total_annualized_capex(self):
+
+        tacapex = 0.0
+
+        for i in range(self.number_of_instances):
+            af =  1 / self._lifetime[i]
+            if self._interest_rate[i] != 0:
+                r = self._interest_rate[i]
+                t = self._lifetime[i]
+                af = (r * (1 + r) ** t) / ((1 + r) ** t - 1)
+            tacapex += af * self._capex[i] * (self._v_hlt[i].max())
+            
+        return tacapex
+            
+

@@ -805,6 +805,8 @@ class DistrictEnergyModel:
 
             if generation_function_mode == 'stub':
                 tes_sites_list = dem_district_tes_availability_switzerland.tes_availability_script_stub(params)
+            elif generation_function_mode == 'externally_controlled':
+                tes_sites_list = dem_district_tes_availability_switzerland.tes_availability_script_externally_controlled(params)
 
             self.tech_tes_sites = dem_techs.ThermalEnergyStorageSites(scen_techs['tes_sites'], tes_sites_list)
             self.tech_tes_sites.initialise_zero(n_days)

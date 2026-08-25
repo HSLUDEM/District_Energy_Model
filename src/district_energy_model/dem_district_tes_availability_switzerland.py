@@ -7,6 +7,10 @@
 
 #Importantly capex_base and maintenance_cost_base are ONLY applied if capacity_kWh_min > 0
 
+def tes_availability_script_externally_controlled(params):
+    list_of_tes_options = params['list_of_tes_options']
+    return list_of_tes_options
+
 def tes_availability_script_stub(params): #This is just a placeholder for future, better implementations
 
     list_of_tes_options = []
