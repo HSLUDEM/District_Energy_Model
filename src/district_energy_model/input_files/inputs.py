@@ -861,7 +861,7 @@ scen_techs = {
             'v_h_eh' : 0.0, 'v_h_hp' : 0.8, 'v_h_dh' : 0.05, 'v_h_gb' : 0.05, 'v_h_ob' : 0.05,
             'v_h_wb' : 0.05, 'v_h_solar' : 0.0, 'v_h_other' : 0.0 },
         'total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios': {
-            'v_hw_eh' : 0.05, 'v_hw_hp' : 0.0, 'v_hw_dh' : 0.95, 
+            'v_hw_eh' : 0.05, 'v_hw_hp' : 0.95, 'v_hw_dh' : 0.0, 
             'v_hw_gb' : 0.0, 'v_hw_ob' : 0.0, 'v_hw_wb' : 0.0, 
             'v_hw_solar' : 0.0, 'v_hw_other' : 0.0 },
         
