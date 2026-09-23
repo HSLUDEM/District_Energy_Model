@@ -110,9 +110,9 @@ scen_techs = {
         'kW_th_max':'inf',
         'lifetime':25,
         'interest_rate':interest_rate,
-        'capex': 6000, # [CHF/kWth]
-        'capex_one_to_one_replacement': 2000, #[CHF/kWth]
-        'maintenance_cost': 10, # [CHF/kW/year]
+        'capex': 3018, # [CHF/kWth] Source: Philippen et al. (2025). CoSi modelling assumptions. SWEET-CoSi
+        'capex_one_to_one_replacement': 2422, #[CHF/kWth] Source:Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
+        'maintenance_cost': 32, # [CHF/kW/year] Source:Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
         'fixed_demand_share':False, # If set to 'True', a fixed share (per timestep) of the total heat demand will be served by this tech
         'fixed_demand_share_val':0.0, # [-] Only relevant if fixed_demand_share == True; the share(per timestep) of the total heat demand served by this tech; ensure that resource and max. cap are set accordingly
         'only_allow_existing':False, # Only relevant for optimisation; if set to 'True', only the existing (allready installed) capacity can be used; CAREFUL: Avoid conflict with fixed_demand_share.
@@ -134,7 +134,7 @@ scen_techs = {
         'interest_rate':interest_rate,
         'replacement_factor':ehrp/100,
         'capex':0.0, # No new electric heaters allowed
-        'capex_one_to_one_replacement': 500, #[CHF/kWth]
+        'capex_one_to_one_replacement': 800, #[CHF/kWth] Hofmeister, M. and Guddat, M., Techno-economic projections until 2050 for smaller heating and cooling technologies in the residential and tertiary 
         'maintenance_cost': 0, # [CHF/kW/year]
         'fixed_demand_share':False, # If set to 'True', a fixed share (per timestep) of the total heat demand will be served by this tech
         'fixed_demand_share_val':0.0, # [-] Only relevant if fixed_demand_share == True; the share(per timestep) of the total heat demand served by this tech;
@@ -150,9 +150,9 @@ scen_techs = {
         'lifetime':25,
         'interest_rate':interest_rate,
         'replacement_factor':fhrp/100,
-        'capex':3000,
-        'capex_one_to_one_replacement': 1500, #[CHF/kWth]
-        'maintenance_cost': 30, # [CHF/kW/year]
+        'capex':2041, # [CHF/kW] Source: Philippen et al. (2025). CoSi modelling assumptions. SWEET-CoSi
+        'capex_one_to_one_replacement': 1628, #[CHF/kWth]
+        'maintenance_cost': 36, # [CHF/kW/year] Source:Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
         'fixed_demand_share':False, # If set to 'True', a fixed share (per timestep) of the total heat demand will be served by this tech
         'fixed_demand_share_val':0.0, # [-] Only relevant if fixed_demand_share == True; the share(per timestep) of the total heat demand served by this tech;
         'only_allow_existing':False, # Only relevant for optimisation; if set to 'True', only the existing (allready installed) capacity can be used; CAREFUL: Avoid conflict with fixed_demand_share.
@@ -168,9 +168,9 @@ scen_techs = {
         'lifetime':25,
         'interest_rate':interest_rate,
         'replacement_factor':fhrp/100,
-        'capex':2500, # [CHF/kW_th]
-        'capex_one_to_one_replacement': 1000, #[CHF/kWth]
-        'maintenance_cost': 25, # [CHF/kW/year]
+        'capex':1592, # [CHF/kW_th] Source: Philippen et al. (2025). CoSi modelling assumptions. SWEET-CoSi
+        'capex_one_to_one_replacement': 1042, #[CHF/kWth]
+        'maintenance_cost': 46, # [CHF/kW/year] Source: Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
         'fixed_demand_share':False, # If set to 'True', a fixed share (per timestep) of the total heat demand will be served by this tech
         'fixed_demand_share_val':0.0, # [-] Only relevant if fixed_demand_share == True; the share(per timestep) of the total heat demand served by this tech;
         'only_allow_existing':False, # Only relevant for optimisation; if set to 'True', only the existing (allready installed) capacity can be used; CAREFUL: Avoid conflict with fixed_demand_share.
@@ -186,9 +186,9 @@ scen_techs = {
         'lifetime':25,
         'interest_rate':interest_rate,
         'replacement_factor':fhrp/100,
-        'capex': 4500,
-        'capex_one_to_one_replacement': 2000, #[CHF/kWth]
-        'maintenance_cost': 50, # [CHF/kW/year]
+        'capex': 2254, # Source: Philippen et al. (2025). CoSi modelling assumptions. SWEET-CoSi
+        'capex_one_to_one_replacement': 2128, # [CHF/kWth] Source: Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
+        'maintenance_cost': 41, # [CHF/kW/year] Source: Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
         'fixed_demand_share':False, # If set to 'True', a fixed share (per timestep) of the total heat demand will be served by this tech
         'fixed_demand_share_val':0.0, # [-] Only relevant if fixed_demand_share == True; the share(per timestep) of the total heat demand served by this tech;
         'only_allow_existing':False, # Only relevant for optimisation; if set to 'True', only the existing (allready installed) capacity can be used; CAREFUL: Avoid conflict with fixed_demand_share.
@@ -204,8 +204,8 @@ scen_techs = {
         'investment_dh_grid_per_m': 400, # [CHF / m]
         'maintenance_cost_dh_grid_per_m' : 5, # [CHF / m / year]
         'closeness_based_dh_expansio_cost' : True,
-        'capex' : 1000, #[CHF/kW] relevant if and only if closeness_based_dh_expansio_cost==False
-        'maintenance_cost' : 10, # [CHF/kW/year] relevant if and only if closeness_based_dh_expansio_cost==False
+        'capex' : 1442, #[CHF/kW] relevant if and only if closeness_based_dh_expansio_cost==False # Source: Philippen et al. (2025). CoSi modelling assumptions. SWEET-CoSi
+        'maintenance_cost' : 15, # [CHF/kW/year] relevant if and only if closeness_based_dh_expansio_cost==False Source: Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
 
         'tariff_CHFpkWh':dh_tariff, # 0.15, # Average from "Faktenblatt Thermische Netze"; only used for import
         'co2_intensity': 0.108,
@@ -234,8 +234,8 @@ scen_techs = {
         'kWp_max':'inf', 
         'eta_overall': 0.23*0.95,
         'lifetime':25,
-        'base_capex':3000, #capex per installed kWp power. This is not the same as the peak of the solar PV production.
-        'base_maintenance_cost': 6.45,
+        'base_capex':2079, #capex per installed kWp power. This is not the same as the peak of the solar PV production; Source: Photovoltaikmarkt:Lionel Bloch, Planair SA Yannick Sauter, Planair SA Florent Jacqmin, Planair SA Preisbeobachtungsstudie 2024 https://pubdb.bfe.admin.ch/de/publication/download/12228capex per installed kWp power. This is not the same as the peak of the solar PV production. Source: Photovoltaikmarkt: Preisbeobachtungsstudie 2024 Lionel Bloch, Planair SA Yannick Sauter, Planair SA Florent Jacqmin, Planair SA Preisbeobachtungsstudie 2024 https://pubdb.bfe.admin.ch/de/publication/download/12227
+        'base_maintenance_cost': 0.03, # Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
         'interest_rate':interest_rate,
         'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
         'only_use_installed':False,
@@ -246,7 +246,7 @@ scen_techs = {
         'kWp_max':'inf', 
         'eta_overall': -1.0, #Not used by code.
         'lifetime':25,
-        'base_capex':6000, #capex per installed kWp power. This is not the same as the peak of the solar PV production.
+        'base_capex':4370, #capex per installed kWp power. upper limit, Quelle: Harnessing solar power in the Alps: A study on the financial viability of mountain PV systems (RePEc:eee:appene:v:375:y:2024:i:c:s0306261924014028)This is not the same as the peak of the solar PV production.
         'base_maintenance_cost': 13.0,
         'interest_rate':interest_rate,
         'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
@@ -260,7 +260,7 @@ scen_techs = {
         'eta_overall':0.7,
         'lifetime':25,
         'interest_rate':interest_rate,
-        'base_capex': 2857, # [CHF/kW_th]
+        'base_capex': 1950, # [CHF/kW_th] Source: Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
         'base_capex_one_to_one_replacement': 1000, #[CHF/kW_th] does nothing
         'base_maintenance_cost': 10, # [CHF/kW_th/year]
         'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
@@ -274,7 +274,7 @@ scen_techs = {
         'kWp_max': tech_cap_default,
         'kWp_max_systemwide': 'inf',
         'lifetime':25,
-        'capex_CHFpkWp': 2075, # 1400,
+        'capex_CHFpkWp': 2190, # 1400, # Source: Bauer et al. (2017) “Potentials, costs and environmental assessment of electricity generation technologies.” PSI, WSL, ETHZ, EPFL. Paul Scherrer Institut, Villigen PSI, Switzerland. 
         'maintenance_cost': 11.3, # [CHF/kW/year]
         'interest_rate':interest_rate,
         'potential_integration_factor':wppf/100,
@@ -291,7 +291,7 @@ scen_techs = {
         'kWp_max':'inf',
         'existing_decentralised':True, # NOCH NICHT IMPLEMENTIERT
         'lifetime':25,
-        'capex':0,
+        'capex':6735, # [CHF/kW] Source: Bauer et al. (2017) “Potentials, costs and environmental assessment of electricity generation technologies.” PSI, WSL, ETHZ, EPFL. Paul Scherrer Institut, Villigen PSI, Switzerland. 
         'maintenance_cost': 130, # [CHF/kW/year]
         'interest_rate':interest_rate,
         'virtual_export_tariff':virtual_export_tariff_hydro,
@@ -307,7 +307,7 @@ scen_techs = {
         'tariff_timeseries_filepath': '',
         'co2_intensity_timeseries_filepath': '',
         'constant_tariff_CHFpkWh':grid_tariff_CHFpkWh, #0.29, # [CHF/kWh] electricity tariff !!! MUST BE CHANGED TO A TIME SERIES
-        'constant_co2_intensity':0.128,
+        'constant_co2_intensity':0.097, # [kgCO2/kWh] Source: Verband Schweizerischer Elektrizitätsunternehmen VSE CO2-Gehalt des Strommix Schweiz https://www.strom.ch/de/media/15408/download
         'lifetime':25,
         'interest_rate':interest_rate
         },
@@ -334,7 +334,7 @@ scen_techs = {
         'tes_gamma':0.001,
         'capacity_kWh':tes_cap*1e6 if tes_cap != 'inf' else 'inf',
         'force_cap_max':False, # implement max. storage capacity (kWh)
-        'chg_dchg_per_cap_max':0.1, # max. charge/discharge (kW) per storage cap (kWh) per timestep
+        'chg_dchg_per_cap_max':0.01, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':tes_ic,
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
         'connections':{
@@ -355,7 +355,7 @@ scen_techs = {
             'biomass': True
             },
         'lifetime':25,
-        'capex':1.67, # [CHF/kWh_th]
+        'capex':3.40, #[CHF/kWh_th] Pit; 19 for Tank Storage; 2.16 for Borehole TES; Lüchinger et al. (2025) Cost Analysis for Large Thermal Energy Storage Systems  DOI: 10.1115/1.4069122 
         'maintenance_cost': 0, # [CHF/kWh_th/year]
         'interest_rate':interest_rate
         },
@@ -383,7 +383,7 @@ scen_techs = {
             'solar_thermal':False, # CONNECTION NOT YET IMPLEMENTED
             },
         'lifetime':25,
-        'capex':59, #1.67, # [CHF/kWh_th] J. Košičan et al., A Multicriteria Methodology to Select the Best Installation of Solar Thermal Power in a Family House, Energies 13 (2020), 1047.
+        'capex': 64, # Water tank # [CHF/kWh_th] Danish Energy Agency / European Commission Joint Research Centre, Techno-economic projections until 2050 for smaller heating and cooling technologies in the residential and tertiary sector in the EU, 2017 # 59, #1.67, # [CHF/kWh_th] J. Košičan et al., A Multicriteria Methodology to Select the Best Installation of Solar Thermal Power in a Family House, Energies 13 (2020), 1047.
         'maintenance_cost': 0.02, # [CHF/kW/year]
         'interest_rate':interest_rate
         },
@@ -400,7 +400,7 @@ scen_techs = {
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
         'lifetime':10,
         'interest_rate':interest_rate,
-        'capex':800, # [CHF/kWh_el]
+        'capex':586, # [CHF/kWh_el] (15 kWh capacity) Source: sws_batteriemonitor Maja Schoch
         'maintenance_cost': 2.0, # [CHF/kW/year]
         },
     
@@ -416,7 +416,7 @@ scen_techs = {
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
         'lifetime':25,
         'interest_rate':interest_rate,
-        'capex':0.2, # [CHF/(gas unit?)]
+        'capex':9.5, # [CHF/kWh] Gerad M. Freeman, Jay Apt, Seth Blumsack, Thomas Coleman, Could on-site fuel storage economically reduce power plant-gas grid dependence in pipeline constrained areas like New England?, The Electricity Journal, Volume 34, Issue 5, 2021, 106956, ISSN 1040-6190, https://doi.org/10.1016/j.tej.2021.106956
         'maintenance_cost': 0.01, # [CHF/kW/year]
         },
 
@@ -448,8 +448,8 @@ scen_techs = {
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
         'lifetime':25,
         'interest_rate':interest_rate,
-        'capex':15.0, # [CHF/(gas unit?)]
-        'maintenance_cost': 1.0, # [CHF/kW/year]
+        'capex':5.0, # [CHF/(kWh)] # Source: Merve Altuntas-Vahapo, Dogan Erdemir, Life cycle and economic assessment of physical hydrogen storage tanks: Comparative analysis from steel to composite systems
+        'maintenance_cost': 0.01, # [CHF/kW/year]
         },
 
 
@@ -469,8 +469,8 @@ scen_techs = {
         'capacity_kWh': 'inf',
         'lifetime': 25,
         'om_cost': 0, #Carrier Consumption Cost
-        'capital_cost': 8268,
-        'maintenance_cost': 10, # [CHF/kW/year]
+        'capital_cost': 8268, # Integration of Biomass Conversion into an Energy System (PSI)
+        'maintenance_cost': 517, # [CHF/kW/year]  Integration of Biomass Conversion into an Energy System (PSI)
         'interest_rate': interest_rate
         },
     
@@ -482,8 +482,8 @@ scen_techs = {
         'capacity_kWh': 'inf',
         'lifetime': 25,
         'om_cost': 0, #Carrier Consumption Cost
-        'capital_cost': 1053,
-        'maintenance_cost': 10, # [CHF/kW/year]
+        'capital_cost': 1053, #  Integration of Biomass Conversion into an Energy System (PSI)
+        'maintenance_cost': 93.75, # [CHF/kW/year]  Integration of Biomass Conversion into an Energy System (PSI)
         'interest_rate': interest_rate
         },
     
@@ -498,8 +498,8 @@ scen_techs = {
         'capacity_kWh': 'inf',
         'lifetime': 25,
         'om_cost': 0, #Carrier Consumption Cost (electricity?)
-        'capital_cost': 1834, # [CHF/kW chem LHV] # 1900,
-        'maintenance_cost': 10, # [CHF/kW/year]
+        'capital_cost': 2068, # [CHF/kW chem LHV] # 1900,  Integration of Biomass Conversion into an Energy System (PSI)
+        'maintenance_cost': 75, # [CHF/kW/year]  Integration of Biomass Conversion into an Energy System (PSI)
         'interest_rate': interest_rate
         },
     
@@ -512,8 +512,8 @@ scen_techs = {
         'capacity_kWh': 'inf',
         'lifetime': 25,
         'om_cost': 0,
-        'capital_cost': 1776,
-        'maintenance_cost': 10, # [CHF/kW/year]
+        'capital_cost': 1776,  # Integration of Biomass Conversion into an Energy System (PSI)
+        'maintenance_cost': 147, # [CHF/kW/year]  Integration of Biomass Conversion into an Energy System (PSI)
         'interest_rate': interest_rate
         },
     
@@ -526,8 +526,8 @@ scen_techs = {
         'capacity_kWh': 'inf',
         'lifetime': 25,
         'interest_rate': interest_rate,
-        'capital_cost': 2315, # [CHF/kW chem LHV]
-        'maintenance_cost': 10, # [CHF/kW/year]
+        'capital_cost': 2315, # [CHF/kW chem LHV]  Integration of Biomass Conversion into an Energy System (PSI)
+        'maintenance_cost': 10, # [CHF/kW/year]  Integration of Biomass Conversion into an Energy System (PSI)
         },
     
     'wood_gasification_upgrade_hydrogen':{ # wguh
@@ -541,8 +541,8 @@ scen_techs = {
         'capacity_kWh': 'inf',
         'lifetime': 25,
         'om_cost': 0,
-        'capital_cost': 2706, # [CHF/kW chem LHV]
-        'maintenance_cost': 10, # [CHF/kW/year]
+        'capital_cost': 2706, # [CHF/kW chem LHV]  Integration of Biomass Conversion into an Energy System (PSI)
+        'maintenance_cost': 91, # [CHF/kW/year]  Integration of Biomass Conversion into an Energy System (PSI)
         'interest_rate': interest_rate
         },
     
@@ -555,8 +555,8 @@ scen_techs = {
         'capacity_kWh': 'inf',
         'lifetime': 25,
         'om_cost': 0,
-        'capital_cost': 3942,
-        'maintenance_cost': 43.2, # [CHF/kW/year]
+        'capital_cost': 3942, # Integration of Biomass Conversion into an Energy System (PSI)
+        'maintenance_cost': 43.2, # [CHF/kW/year]  Integration of Biomass Conversion into an Energy System (PSI)
         'interest_rate': interest_rate
         },
     
@@ -568,7 +568,7 @@ scen_techs = {
         'capacity_kWh': 'inf',
         'lifetime': 25,
         'om_cost': 0,
-        'capital_cost': 600,
+        'capital_cost': 4090, #Philippen et al. (2025). CoSi modelling assumptions. SWEET-CoSi 
         'maintenance_cost': 10, # [CHF/kW/year]
         'interest_rate': interest_rate
         },
@@ -583,8 +583,8 @@ scen_techs = {
         'htp_ratio':1.5, # [-] heat-to-power (htp) ratio (kW_h/kW_el)
         'gas_price_CHFpkWh':gas_price, # [CHF/kWh] price of gas
         'lifetime':25,
-        'capital_cost':5000, # [CHF/kW_el]
-        'maintenance_cost': 10, # [CHF/kW/year]
+        'capital_cost':1350, # Philippen et al. (2025). CoSi modelling assumptions. SWEET-CoSi
+        'maintenance_cost': 5, # [CHF/kW/year] Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
         'interest_rate':interest_rate,
 
         'allow_heat_export': True,
@@ -602,7 +602,7 @@ scen_techs = {
         'htp_ratio':1.5, # [-] heat-to-power (htp) ratio (kW_th/kW_el)
         # 'gas_price_CHFpkWh':gas_price, # [CHF/kWh] price of gas
         'lifetime':25,
-        'capital_cost':5000.0, # [CHF/kW_el] # TO BE VERIFIED
+        'capital_cost':1170.0, # [CHF/kW_el] Philippen et al. (2025). CoSi modelling assumptions. SWEET-CoSi
         'maintenance_cost': 40.1, # [CHF/kW/year]
         'interest_rate':interest_rate,
         },
@@ -617,7 +617,7 @@ scen_techs = {
         'eta_el':0.35,
         'htp_ratio':1.5, # [-] heat-to-power (htp) ratio (kW_h/kW_el)
         'lifetime':25,
-        'capital_cost':5000.0, # [CHF/kW_el]
+        'capital_cost':3500.0, # For 1MW power with the given cost function [CHF/kW_el] 3.50*(10^6)*(MW^1.2) Kumar, R., Sharma, A.K. & Tewari, P.C. Cost analysis of a coal-fired power plant using the NPV method. J Ind Eng Int 11, 495–504 (2015). https://doi.org/10.1007/s40092-015-0116-8
         'maintenance_cost': 10, # [CHF/kW/year]
         'interest_rate':interest_rate,   
 
@@ -652,8 +652,8 @@ scen_techs = {
         'oil_price_CHFpl':oil_price, # 1.00, # [CHF/l] Oil price; see: https://www.migrol.ch/de/energie-w%C3%A4rme/heiz%C3%B6lpreisentwicklung/preisindex/
         'lifetime':25,
         'interest_rate':interest_rate,
-        'capex':2000.0,
-        'maintenance_cost': 1.26, # [CHF/kW/year]
+        'capex':221, # [CHF/kW] Source: Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW system
+        'maintenance_cost': 1.6, # [CHF/kW/year] Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW system
         },
 
     'electric_heater_cp':{ # ehcp
@@ -662,7 +662,7 @@ scen_techs = {
         'eta':0.98,
         'lifetime':30,
         'interest_rate':interest_rate,
-        'capex':100.0,
+        'capex':100.0, # Estimate needs to be adjusted manually
         'maintenance_cost': 0.5, # [CHF/kW/year]
         },
 
@@ -674,13 +674,13 @@ scen_techs = {
         'eta':0.85,
         'lifetime':25,
         'interest_rate':interest_rate,
-        'capex':2000.0,
-        'maintenance_cost': 1.26, # [CHF/kW/year]
+        'capex':439, # [CHF/kW] # Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW wood chip boiler
+        'maintenance_cost': 6.25, # [CHF/kW/year] Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)  costs for 2000kW wood chip boiler
         },
 
     'deep_geothermal':{ # deep geothermal energy
         'deployment':False,
-        'capex': 25000.0,
+        'capex': 25000.0, # [CHF/kWth] personal communication
         'maintenance_cost': 0.0,
         'lifetime':50,
         'co2_intensity':0.0, # [kgCO2/kWh]
@@ -728,8 +728,8 @@ scen_techs = {
         'lifetime':25,
         'interest_rate':interest_rate,
         # 'replacement_factor':fhrp/100,
-        'capex':2000, # [CHF/kW_th]
-        'maintenance_cost': 1.26, # [CHF/kW/year]
+        'capex':160, # [CHF/kW_th] Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW gas boiler
+        'maintenance_cost': 3.95, # [CHF/kW/year] Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW gas boiler
         # 'fixed_demand_share':False, # If set to 'True', a fixed share (per timestep) of the total heat demand will be served by this tech
         # 'fixed_demand_share_val':0.0, # [-] Only relevant if fixed_demand_share == True; the share(per timestep) of the total heat demand served by this tech;
         # 'only_allow_existing':False, # Only relevant for optimisation; if set to 'True', only the existing (allready installed) capacity can be used; CAREFUL: Avoid conflict with fixed_demand_share.
@@ -747,7 +747,7 @@ scen_techs = {
         'htp_ratio':1.5, # [-] heat-to-power (htp) ratio (kW_h/kW_el)
         'msw_price_CHFpkg':msw_price, # [CHF/kg] price of msw (will be negative --> revenue)
         'lifetime':25,
-        'capital_cost':2000.0, # [CHF/kW_el] # TO BE VERIFIED
+        'capital_cost':5203.0*1.5, #2000 [CHF/kW_el] # DEM Parameterdatenbank Average of 3 real KVA plant costs and 2 reference estimates
         'maintenance_cost': 119, # [CHF/kW/year]
         'interest_rate':interest_rate,        
         },
@@ -760,8 +760,8 @@ scen_techs = {
         'cap_min_use':0.0, # [-] Share of capacity to be forced [0.0-1.0]; Default: 0.0
         'cop':8.0,
         'lifetime':25,
-        'capital_cost':2000.0, # [CHF/kW_th] # TO BE VERIFIED
-        'maintenance_cost': 10, # [CHF/kW/year]
+        'capital_cost':730.0, # [CHF/kW_th] # Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW Water-Water heat pump without heatsource (ground water connection)
+        'maintenance_cost': 5.025, # [CHF/kW/year] Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW Water-Water heat pump
         'interest_rate':interest_rate,   
         },
 
@@ -772,8 +772,8 @@ scen_techs = {
         'force_cap_max':False, # implement max. capacity (kW)
         'cap_min_use':0.0, # [-] Share of capacity to be forced [0.0-1.0]; Default: 0.0
         'lifetime':25,
-        'capital_cost':2000.0, # [CHF/kW_th] # TO BE VERIFIED
-        'maintenance_cost': 10, # [CHF/kW/year]
+        'capital_cost':1230.0, # [CHF/kW_th] # Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW Water-Water heat pump
+        'maintenance_cost': 5.025, # [CHF/kW/year] # Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW Water-Water heat pump
         'interest_rate':interest_rate,
 
         'cop_mode': 'temperature_based', #option 'temperature_based', 'constant', 'from_file', 'from_file_adjusted_to_spf'
@@ -935,8 +935,8 @@ scen_techs = {
         'wood_price_CHFpkg_local':wood_price, # [CHF/kg] price of wood (local)
         'wood_price_CHFpkg_imported':wood_price, # [CHF/kg] price of wood (imported)
         'wood_import':True, # if set to True, wood can be imported
-        'co2_content_local_wood': 0.027,
-        'co2_content_imported_wood': 0.027, #TODOTODO find value
+        'co2_content_local_wood': 0.027, # [kgCO2/kWh]
+        'co2_content_imported_wood': 0.027, # [kgCO2/kWh] #TODOTODO find value
 
         #Wet biomass
         'co2_content_wet_biomass': 0.0,
