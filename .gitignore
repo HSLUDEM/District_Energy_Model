@@ -27,7 +27,9 @@ data/*
 
 # ignore directories:
 # ------------------
+0_results_WORKSTATION/
 dem_output*/
+data_OREES_study/
 #dist/
 **/tmp*/
 tmp*/
