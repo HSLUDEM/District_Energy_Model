@@ -1007,7 +1007,11 @@ def get_com_files(com_nr,
         # create new csv file with community data:
         com_mask = df_master['GGDENR'] == com_nr
         df_com_yr = df_master[com_mask]
-        df_com_yr.to_csv(com_yr_file_path)
+        # Write to a temporary file first, so that an interrupted run cannot
+        # leave an incomplete community file behind:
+        com_yr_file_path_tmp = f"{com_yr_file_path}.{os.getpid()}.tmp"
+        df_com_yr.to_csv(com_yr_file_path_tmp)
+        os.replace(com_yr_file_path_tmp, com_yr_file_path)
         
     elif file_exist == True:
         # read community file:

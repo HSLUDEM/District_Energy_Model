@@ -3506,7 +3506,7 @@ class CalliopeOptimiser:
                 'Aggregate':self.opt_metrics['solver_option_Aggregate'],
                 'FeasibilityTol':self.opt_metrics['solver_option_FeasibilityTol'] / self.energy_scaling_factor,
                 'MIPGap':mipgap_,
-                
+                'Threads':self.opt_metrics.get('solver_option_Threads', 0), # .get(): input files without this key use the solver default (0)
                 }
             }
         

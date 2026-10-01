@@ -19,6 +19,8 @@ All notable changes to this project will be documented in this file.
 - Added PV-Alpine and electricity feedin to Sankey diagram
 - Added possibility to pass list of possible sites to TES_Sites tech via input_file
 - Added possibility to add several waste heat / waste heat low temperature sources with different properties.
+- Added run_dem_local_parallel.py to run multiple municipalities in parallel (list of BFS numbers in a .yaml file). Interrupted batches can be continued by restarting the script.
+- Added solver option `solver_option_Threads` (number of Gurobi threads; default: 0 = automatic).
 
 
 ### Fixed
