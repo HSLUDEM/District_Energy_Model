@@ -752,6 +752,14 @@ scen_techs = {
         'nuclear_phaseout':False,
 
         'battery_energy_storage': False,
+        'scenario_battery_plus_thermal_energy_storage': {
+            'enabled': False,
+            'electricity_supply_order': [
+                'solar_pv', 'wind_power', 'biomass', 'hydro_power',
+            ],
+            'prioritize_tes_over_bes': False,
+            'tes_charge_heat_source_order': ['heat_pump'],
+        },
 
         },
                              
