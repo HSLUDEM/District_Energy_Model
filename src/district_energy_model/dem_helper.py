@@ -11,6 +11,7 @@ import numpy as np
 import sys
 import os
 import math
+import warnings
 # import dem_techs
 # from meteostat import Point, Hourly, Daily
 from datetime import datetime
@@ -888,6 +889,115 @@ def check_tech_for_scenario(techs, scenario, scen_techs):
                 )
             
             raise ValueError(printout)
+
+
+def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
+    """Validate the configuration of the combined manual storage scenario.
+
+    Settings belong to
+    ``scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage']``.
+    A missing or disabled scenario is ignored. An enabled scenario requires
+    at least one deployed storage unit. With only one storage unit, emit a
+    UserWarning and continue. This function does not change the configuration.
+
+    ``electricity_supply_order`` must contain exactly the deployed local
+    generators supported here: solar_pv, wind_power, biomass and hydro_power.
+    Grid supply and storage units are not local generators in this list.
+    ``prioritize_tes_over_bes`` is optional and defaults to False.
+    ``tes_charge_heat_source_order`` is
+    checked only when TES is deployed. It is an ordered, nonempty selection
+    of deployed heat_pump and/or electric_heater technologies.
+
+    This validates configuration only; conversion paths, capacity limits and
+    energy balances must also be enforced by the scenario implementation.
+
+    Raises
+    ------
+    ValueError
+        If an enabled configuration is inconsistent or has invalid types.
+    """
+    scenario = 'scenario_battery_plus_thermal_energy_storage'
+
+    def fail(message):
+        raise ValueError(f"{scenario}: {message}")
+
+    if not isinstance(scen_techs, dict):
+        fail('scen_techs must be a dictionary.')
+    scenarios = scen_techs.get('scenarios', {})
+    if not isinstance(scenarios, dict):
+        fail('scenarios must be a dictionary.')
+    if scenario not in scenarios:
+        return
+    config = scenarios[scenario]
+    if not isinstance(config, dict):
+        fail('scenario settings must be a dictionary with an enabled boolean.')
+    enabled = config.get('enabled', False)
+    if not isinstance(enabled, bool):
+        fail('enabled must be a boolean.')
+    if not enabled:
+        return
+
+    def deployed(tech):
+        settings = scen_techs.get(tech)
+        if not isinstance(settings, dict):
+            fail(f"Missing technology settings for '{tech}'.")
+        value = settings.get('deployment')
+        if not isinstance(value, bool):
+            fail(f"{tech}.deployment must be a boolean.")
+        return value
+
+    def ordered_sources(key, supported):
+        value = config.get(key)
+        if not isinstance(value, list) or any(
+                not isinstance(item, str) for item in value):
+            fail(f'{key} must be a list of technology names.')
+        if len(value) != len(set(value)):
+            fail(f'{key} contains duplicate technologies.')
+        unknown = sorted(set(value) - set(supported))
+        if unknown:
+            fail(f'{key} contains unknown or unsupported technologies: {unknown}.')
+        return value
+
+    bes_active = deployed('bes')
+    tes_active = deployed('tes_decentralised')
+    if not bes_active and not tes_active:
+        fail('Both bes and tes_decentralised are disabled. Enable at least '
+             'one storage technology using deployment=true.')
+
+    for old_scenario in ('battery_energy_storage', 'thermal_energy_storage'):
+        if scenarios.get(old_scenario, False):
+            fail(f"Disable the legacy scenario '{old_scenario}' to avoid "
+                 'running multiple storage controllers.')
+
+    if not isinstance(config.get('prioritize_tes_over_bes', False), bool):
+        fail('prioritize_tes_over_bes must be a boolean.')
+
+    generators = ('solar_pv', 'wind_power', 'biomass', 'hydro_power')
+    order = ordered_sources('electricity_supply_order', generators)
+    active_generators = {tech for tech in generators if deployed(tech)}
+    missing = sorted(active_generators - set(order))
+    disabled = sorted(set(order) - active_generators)
+    if missing or disabled:
+        fail('electricity_supply_order does not match deployed local '
+             f'generators. Missing: {missing}. Listed but disabled: {disabled}.')
+
+    if tes_active:
+        key = 'tes_charge_heat_source_order'
+        heat_sources = ordered_sources(key, ('heat_pump', 'electric_heater'))
+        if not heat_sources:
+            fail(f'{key} must not be empty when TES is deployed.')
+        disabled_heat = [tech for tech in heat_sources if not deployed(tech)]
+        if disabled_heat:
+            fail(f'{key} lists disabled technologies: {disabled_heat}.')
+
+    if not bes_active or not tes_active:
+        inactive = 'bes' if not bes_active else 'tes_decentralised'
+        warnings.warn(
+            f'{scenario}: {inactive}.deployment=False. The scenario will run '
+            'without this storage unit. Check whether activation was forgotten.',
+            UserWarning,
+            stacklevel=2,
+        )
 
 
 def multi_objective_weights(steps):
