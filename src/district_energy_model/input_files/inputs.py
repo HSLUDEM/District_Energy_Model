@@ -750,8 +750,11 @@ scen_techs = {
         'thermal_energy_storage':False,
         # 'thermal_energy_storage':True,
         'nuclear_phaseout':False,
-
+        # 'nuclear_phaseout':True,
         'battery_energy_storage': False,
+        # 'battery_energy_storage': True,
+
+        # New Scenario (not yet implemented in the model):
         'scenario_battery_plus_thermal_energy_storage': {
             'enabled': False,
             'electricity_supply_order': [
