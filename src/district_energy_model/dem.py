@@ -950,6 +950,14 @@ class DistrictEnergyModel:
         """--------------------------------------------------------------------
         Apply scenarios:
         """
+        if scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage']['enabled'] == True:
+            # Safety check before any scenario runs: the combined controller
+            # cannot run together with either legacy storage scenario.
+            # Validate once here so optional-storage warnings are not repeated.
+            dem_helper.validate_scenario_battery_plus_thermal_energy_storage(
+                scen_techs
+                )
+
         if scen_techs['scenarios']['demand_side'] == True:
             # TO DO: WRAP IN SCENARIO FUNCTION
             
@@ -1350,6 +1358,8 @@ class DistrictEnergyModel:
                     diff_accepted = C.DIFF_ACC,
                     diff_sum_accepted = C.DIFF_SUM_ACC
                     )
+
+                
         if (scen_techs['scenarios']['battery_energy_storage'] == True 
             and scen_techs['scenarios']['thermal_energy_storage'] == True):
 
@@ -1421,9 +1431,6 @@ class DistrictEnergyModel:
                     )
 
 
-
-
-
         if scen_techs['scenarios']['thermal_energy_storage'] == True:
             print('\n thermal_energy_storage')
             # Check if required technologies are deployed:
@@ -1489,7 +1496,48 @@ class DistrictEnergyModel:
                     diff_accepted = C.DIFF_ACC,
                     diff_sum_accepted = C.DIFF_SUM_ACC
                     )
+
             
+        if scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage']['enabled'] == True:
+            print('\n scenario_battery_plus_thermal_energy_storage')
+            # Configuration was validated at the start of Apply scenarios.
+            # Apply storage after demand changes and PV/wind integration.
+            dem_scenarios.scenario_battery_plus_thermal_energy_storage(
+                energy_demand=self.energy_demand,
+                tech_instances=self.tech_instances,
+                config=scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage']
+                )
+
+            #------------------------------------------------------------------
+            # Update df_scen:
+            dem_helper.update_df_results(
+                self.energy_demand,
+                self.supply,
+                self.tech_instances,
+                df_scen
+                )
+
+            print('\nDone (placeholder only; combined storage operation '
+                  'is not implemented yet).')
+
+            #------------------------------------------------------------------
+            # Check overall energy balance.
+            if self.toggle_energy_balance_tests:
+                dem_eb.electricity_balance_test(
+                    scen_techs=scen_techs,
+                    df_scen=df_scen,
+                    optimisation=False,
+                    diff_accepted=C.DIFF_ACC,
+                    diff_sum_accepted=C.DIFF_SUM_ACC
+                    )
+                dem_eb.heat_balance_test(
+                    df_scen=df_scen,
+                    optimisation=False,
+                    diff_accepted=C.DIFF_ACC,
+                    diff_sum_accepted=C.DIFF_SUM_ACC
+                    )
+
+
         if scen_techs['scenarios']['nuclear_phaseout'] == True:
             print('\nnuclear_phaseout')
             print("WARNING: Nuclear phaseout scenario is not yet available in DEM.")

@@ -18,7 +18,7 @@ from district_energy_model import dem_energy_balance as dem_eb
 
 # pd.options.mode.chained_assignment = None
 
-def scenario_heater_electric_to_hp(energy_demand, tech_instances):    
+def scenario_heater_electric_to_hp(energy_demand, tech_instances):
     """
     Function to adjust energy system balance in case of direct electric heater replacement
     by heat pumps.
@@ -156,7 +156,7 @@ def scenario_heater_oil_to_hp(energy_demand, tech_instances):
     del tmp_v_h_shifted
     del tmp_u_e_additional
     
-    
+
 def scenario_heater_gas_to_hp(energy_demand, tech_instances):    
     """
     Function to adjust energy system balance in case of gas boiler replacement
@@ -231,8 +231,7 @@ def scenario_heater_gas_to_hp(energy_demand, tech_instances):
     
     del tmp_v_h_shifted
     del tmp_u_e_additional
-    
-    
+
 def scenario_pv_integration(energy_demand, tech_instances):
     """
     Function to adjust energy system balance in case of solar pv integration.
@@ -397,7 +396,6 @@ def scenario_nuclear_phaseout(
         strom_profiles_2050_file=strom_profiles_2050_file
         )
 
-
 def scenario_battery_energy_storage_via_pv(energy_demand, tech_instances):
     tech_bes = tech_instances['bes']
     tech_solar_pv = tech_instances['solar_pv']
@@ -482,11 +480,6 @@ def scenario_battery_energy_storage_via_pv(energy_demand, tech_instances):
     #--------------------------------------------------------------------------
     # Run tests for import:
     __test_import_balance(tech_grid_supply) 
-
-
-
-
-
 
 def scenario_thermal_energy_storage_via_pv_hp(energy_demand, tech_instances):
         # scen_techs,
@@ -1230,9 +1223,16 @@ def scenario_thermal_energy_storage_via_pv_hp(energy_demand, tech_instances):
     #                                 )
     # dem_helper.positive_values_test(df_scen['m_e_cbimport'],
     #                                 'cross-border import'
-    #                                 )
-      
-    
+    #                                 ) 
+
+def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, config):
+    """Placeholder for combined battery and thermal storage operation.
+
+    The caller validates config before invoking this function. No demand,
+    technology state or configuration is changed yet.
+    """
+    pass
+
 def __test_import_balance(tech_grid_supply):
     
     #--------------------------------------------------------------------------
@@ -1271,7 +1271,6 @@ def __test_import_balance(tech_grid_supply):
     dem_helper.positive_values_test(tech_grid_supply.get_m_e_cbimport(),
                                     'cross-border import'
                                     ) 
-    
     
     
     
