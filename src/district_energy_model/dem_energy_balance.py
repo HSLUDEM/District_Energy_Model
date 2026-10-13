@@ -48,7 +48,16 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
         Timeseries of imported energy [kWh].
 
     """
-    tech_solar_pv = tech_instances['solar_pv']
+    # tech_solar_pv = tech_instances['solar_pv']
+    tech_solar_pvrooftop = tech_instances['solar_pvrooftop']
+
+    with_pvalpine = False
+
+    if 'solar_pvalpine' in tech_instances:
+        tech_solar_pvalpine = tech_instances['solar_pvalpine']
+        # v_e_pvalpine = tech_solar_pvalpine.get_v_e_from_installations()[0]
+        v_e_pvalpine = tech_solar_pvalpine.get_v_e_from_installations()
+        with_pvalpine = True
     tech_wind_power = tech_instances['wind_power']
     tech_biomass = tech_instances['biomass']
     tech_hydro_power = tech_instances['hydro_power']
@@ -56,7 +65,8 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     tech_grid_supply = tech_instances['grid_supply']
     
     d_e = energy_demand.get_d_e()
-    v_e_pv = tech_solar_pv.get_v_e()
+    # v_e_pv = tech_solar_pv.get_v_e()
+    v_e_pvrooftop = tech_solar_pvrooftop.get_v_e_from_installations()
     v_e_wp = tech_wind_power.get_v_e()
     v_e_bm = tech_biomass.get_v_e()
     v_e_hydro = tech_hydro_power.get_v_e()
@@ -66,32 +76,74 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
         v_e_bes = tech_bes.get_v_e()
         u_e_bes = tech_bes.get_u_e()
 
-    if not with_bes:
-        dem_helper.check_dataseries_lengths(d_e, v_e_pv, v_e_wp, v_e_bm, v_e_hydro)
+    if not with_bes and not with_pvalpine:
+        dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro)
+    elif with_bes:
+        dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_bes, u_e_bes)
+    elif with_pvalpine:
+        # dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_pvalpine)
+        dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, *v_e_pvalpine)
     else:
-        dem_helper.check_dataseries_lengths(d_e, v_e_pv, v_e_wp, v_e_bm, v_e_hydro, v_e_bes, u_e_bes)
+        # dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_bes, u_e_bes, v_e_pvalpine)
+        dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_bes, u_e_bes, *v_e_pvalpine)
 
     # Get dataseries length:
     ds_n = len(d_e)    
     
     # Create hierarchy of technologies, acc. to what is used first:
-    if with_bes:
-        tech_hierarchy = ['pv', 'wp', 'bm', 'hydro', 'bes']
-    else:
-        tech_hierarchy = ['pv', 'wp', 'bm', 'hydro']
+    # if with_bes:
+    #     tech_hierarchy = ['pv', 'wp', 'bm', 'hydro', 'bes']
+    # else:
+    #     tech_hierarchy = ['pv', 'wp', 'bm', 'hydro']
     
+    tech_hierarchy_pvrooftop_section = ['pvrooftop_'+str(_) for _ in range(len(v_e_pvrooftop))]
+    tech_hierarchy_pv_section = tech_hierarchy_pvrooftop_section
+    if with_pvalpine:
+        tech_hierarchy_pvalpine_section = ['pvalpine_'+str(_) for _ in range(len(v_e_pvalpine))]
+        tech_hierarchy_pv_section = tech_hierarchy_pvrooftop_section + tech_hierarchy_pvalpine_section
+
+
+    if with_bes:
+        tech_hierarchy = tech_hierarchy_pv_section+['wp', 'bm', 'hydro', 'bes']
+    else:
+        tech_hierarchy = tech_hierarchy_pv_section+['wp', 'bm', 'hydro']
+
+    
+    # dict_v_e = {
+    #     'pv':pd.Series(v_e_pv),
+    #     'wp':pd.Series(v_e_wp),
+    #     'bm':pd.Series(v_e_bm),
+    #     'hydro':pd.Series(v_e_hydro),
+    #     'bes':pd.Series(v_e_bes),
+    #     } if with_bes else {
+    #     'pv':pd.Series(v_e_pv),
+    #     'wp':pd.Series(v_e_wp),
+    #     'bm':pd.Series(v_e_bm),
+    #     'hydro':pd.Series(v_e_hydro),
+    #     }
     dict_v_e = {
-        'pv':pd.Series(v_e_pv),
-        'wp':pd.Series(v_e_wp),
-        'bm':pd.Series(v_e_bm),
-        'hydro':pd.Series(v_e_hydro),
-        'bes':pd.Series(v_e_bes),
-        } if with_bes else {
-        'pv':pd.Series(v_e_pv),
-        'wp':pd.Series(v_e_wp),
-        'bm':pd.Series(v_e_bm),
-        'hydro':pd.Series(v_e_hydro),
+        'pvrooftop_'+str(i): pd.Series(v_e_pvrooftop[i]) for i in range(len(v_e_pvrooftop))
         }
+        
+    if with_pvalpine:
+         for i in range(len(v_e_pvalpine)):
+             dict_v_e['pvalpine_'+str(i)] = pd.Series(v_e_pvalpine[i])
+
+    tmp_d_to_add = {
+        'wp':pd.Series(v_e_wp),
+        'bm':pd.Series(v_e_bm),
+        'hydro':pd.Series(v_e_hydro)
+        }
+    for k in tmp_d_to_add.keys():
+        dict_v_e[k] = tmp_d_to_add[k]
+
+    # dict_v_e |= {
+    #     'wp':pd.Series(v_e_wp),
+    #     'bm':pd.Series(v_e_bm),
+    #     'hydro':pd.Series(v_e_hydro)
+    #     }
+    if with_bes:
+        dict_v_e['bes'] =pd.Series(v_e_bes)
     
     # Initialise dicts for self-consumption (con) and export (exp)
     dict_v_e_cons = {}
@@ -100,8 +152,7 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     # Initialise the remaining electricity demand
     
     d_e_remain = pd.Series(d_e + u_e_bes) if with_bes else pd.Series(d_e)
-    
-    # print(dict_v_e['wp'])
+    # d_e_remain = pd.Series(d_e)
     
     for tech_key in tech_hierarchy:
         # Electricity production timeseries for specific tech:
@@ -136,7 +187,7 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
         
         del tmp_v_e
         del df_calc
-        
+
     # Required import:
     m_e = d_e_remain
     
@@ -145,9 +196,18 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     
     # Solar PV:
     # ---------
-    tech_solar_pv.update_v_e_cons(dict_v_e_cons['pv'])
-    tech_solar_pv.update_v_e_exp(dict_v_e_exp['pv'])
+
+    tech_solar_pvrooftop.update_v_e_cons([dict_v_e_cons[x] for x in tech_hierarchy_pvrooftop_section])
+    tech_solar_pvrooftop.update_v_e_exp([dict_v_e_exp[x] for x in tech_hierarchy_pvrooftop_section])
+    
+    # Solar Alpine:
+    # ---------
+
+    if with_pvalpine:
+        tech_solar_pvalpine.update_v_e_cons([dict_v_e_cons[x] for x in tech_hierarchy_pvalpine_section])
+        tech_solar_pvalpine.update_v_e_exp([dict_v_e_exp[x] for x in tech_hierarchy_pvalpine_section])
         
+
     # Wind power:
     # -----------
     tech_wind_power.update_v_e_cons(dict_v_e_cons['wp'])
@@ -164,81 +224,8 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     tech_hydro_power.update_v_e_exp(dict_v_e_exp['hydro'])
     
     #--------------------------------------------------------------------------
-    # Update import:    
+    # Update import:
     tech_grid_supply.add_m_e(np.array(m_e))
-    
-    
-    # return dict_v_e_cons, dict_v_e_exp, m_e
-
-
-# def update_electricity_gen_techs(
-#         tech_solar_pv,
-#         tech_wind_power,
-#         tech_biomass, # TO BE IMPLEMENTED
-#         tech_hydro_power,
-#         tech_grid_supply,
-#         dict_v_e_cons,
-#         dict_v_e_exp,
-#         m_e
-#         ):
-#     """
-#     Assign the results of get_local_electricity_mix(...) to the respective
-#     tech object attributes for electricity generating techs.
-
-#     Parameters
-#     ----------
-#     tech_solar_pv : instance of SolarPV class
-#         Instance of solar pv.
-#     tech_wind_power : instance of WindPower class
-#         Instance of wind power.
-#     # tech_biomass : instance of Biomass class
-#         Instance of biomass.
-#     # tech_hydro : instance
-#         Instance of hydro.
-#     tech_grid_supply : instance
-#         Instance of grid supply.
-#     dict_v_e_cons : dict
-#         Dict containing timeseries of consumed energy for each tech [kWh]. Keys
-#         are according to tech names (e.g. 'pv', 'wp', 'bm', ...)
-#     dict_v_e_exp : dict
-#         Dict containing timeseries of exported energy for each tech [kWh]. Keys
-#         are according to tech names (e.g. 'pv', 'wp', 'bm', ...).
-#     m_e : pandas dataseries
-#         Timeseries of imported energy [kWh].
-
-#     Returns
-#     -------
-#     None.
-
-#     """
-    
-#     #--------------------------------------------------------------------------
-#     # Update local renewable tech objects:
-    
-#     # Solar PV:
-#     # ---------
-#     tech_solar_pv.update_v_e_cons(dict_v_e_cons['pv'])
-#     tech_solar_pv.update_v_e_exp(dict_v_e_exp['pv'])
-        
-#     # Wind power:
-#     # -----------
-#     tech_wind_power.update_v_e_cons(dict_v_e_cons['wp'])
-#     tech_wind_power.update_v_e_exp(dict_v_e_exp['wp'])
-    
-#     # Biomass:
-#     # -----------
-#     tech_biomass.update_v_e_cons(dict_v_e_cons['bm'])
-#     tech_biomass.update_v_e_exp(dict_v_e_exp['bm'])
-    
-#     # Hydro:
-#     # -----------
-#     tech_hydro_power.update_v_e_cons(dict_v_e_cons['hydro'])
-#     tech_hydro_power.update_v_e_exp(dict_v_e_exp['hydro'])
-    
-#     #--------------------------------------------------------------------------
-#     # Update import:
-    
-#     tech_grid_supply.m_grid = m_e
     
 def update_m_e(m_e_updated, tech_grid_supply):
     """
@@ -512,37 +499,15 @@ def electricity_balance_test(scen_techs,
     
     #--------------------------------------------------------------------------
     # Check timeseries:
-    
-    missing_keys = [
-        'u_e_bes',
-        'v_e_bes',
-        'q_e_bes',
-        'l_u_e_bes',
-        'l_v_e_bes',
-        'l_q_e_bes',
-        'v_e_chpgt',
-        'v_e_gtcp',
-        'v_e_st',
-        'v_e_st_gtcp',
-        'v_e_st_wbsg',
-        'v_e_wte',
-        'u_e_hpcp',
-        'u_e_hpcplt',
-        'u_e_aguh',
-        'u_e_wgu',
-        'u_e_wguh',
-        'u_e_hydp',
-        ]
-    
-    for k in missing_keys:
-        if k in df_scen.columns:
-            pass
-        else:
-            df_scen[k] = 0
+
+    df_scen = dem_helper.add_missing_keys(df_scen)
         
-    electricity_consumption = df_scen['d_e'] + df_scen['u_e_bes']
+    electricity_consumption = df_scen['d_e'] + df_scen['u_e_bes'] + df_scen['f_e']
     
-    electricity_generation = (df_scen['v_e_pv_cons']
+    electricity_generation = (
+                                # df_scen['v_e_pv_cons']
+                                df_scen['v_e_pvrooftop_cons']
+                              + df_scen['v_e_pvalpine_cons']
                               + df_scen['v_e_wp_cons']
                               + df_scen['v_e_bm_cons']
                               + df_scen['v_e_hydro_cons']
@@ -556,14 +521,25 @@ def electricity_balance_test(scen_techs,
                               )
     
     electricity_demand_split = (df_scen['d_e_h'] # heating demand
-                                + df_scen['d_e_hh']  # household demand
+                                + df_scen['d_e_baseline']  # baseline demand
                                 + df_scen['d_e_ev'] # EV demand
                                 + df_scen['u_e_aguh']
                                 + df_scen['u_e_wgu'] 
                                 + df_scen['u_e_wguh']# TEMPORARY!!!
                                 + df_scen['u_e_hydp']
                                 + df_scen['u_e_bes']
+                                + df_scen['f_e']
                                 )
+    
+    electricity_baseline_demand = df_scen['d_e_baseline']
+    
+    electricity_baseline_demand_split = (
+        df_scen['d_e_res']
+        + df_scen['d_e_ind']
+        + df_scen['d_e_ser']
+        + df_scen['d_e_pump']
+        + df_scen['d_e_loss']
+        )
     
     electricity_for_heating = df_scen['d_e_h']
     
@@ -571,13 +547,19 @@ def electricity_balance_test(scen_techs,
                                      + df_scen['u_e_eh']
                                      + df_scen['u_e_hpcp']
                                      + df_scen['u_e_hpcplt']
+                                     + df_scen['u_e_ehcp']
                                      )
     
-    pv_generation = df_scen['v_e_pv']
+    pv_generation = df_scen['v_e_pvrooftop']
     
-    pv_generation_split = (df_scen['v_e_pv_cons']
-                           + df_scen['v_e_pv_exp']
-                           )
+    # pv_generation_split = (df_scen['v_e_pv_cons']
+    #                        + df_scen['v_e_pv_exp']
+    #                        )
+
+    pv_generation_split = (
+        df_scen['v_e_pvrooftop_cons']
+        + df_scen['v_e_pvrooftop_exp']
+            )
     
     total_import = df_scen['m_e']
     
@@ -595,11 +577,12 @@ def electricity_balance_test(scen_techs,
                           )
     
     # Convert solar thermal to equivalent solar pv yield:
-    tmp_pv_equi = dem_techs.SolarPV.convert_thermal_to_pv(
-        df_thermal_kWh=df_scen['v_h_solar'],
-        eta_pv=scen_techs['solar_pv']['eta_overall'],
-        eta_thermal=scen_techs['solar_thermal']['eta_overall']
-        )
+    
+    # tmp_pv_equi = dem_techs.SolarPV.convert_thermal_to_pv(
+    #     df_thermal_kWh=df_scen['v_h_solar'],
+    #     eta_pv=scen_techs['solar_pv']['eta_overall'],
+    #     eta_thermal=scen_techs['solar_thermal']['eta_overall']
+    #     )
     
     # pv_potential_split = (
     #     tmp_pv_equi                 # TEMPORARY FIX!!! Wie sollen wir Solarthermie behandeln?                
@@ -607,20 +590,12 @@ def electricity_balance_test(scen_techs,
     #     + df_scen['v_e_pv_pot_remain']
     #     )
     
-    if optimisation:
-        pv_potential_split = (
-            tmp_pv_equi                 # TEMPORARY FIX!!! Wie sollen wir Solarthermie behandeln?                
-            + df_scen['v_e_pv']
-            + df_scen['v_e_pv_pot_remain']
-            )
-    else:
-        pv_potential_split = (
-            0# tmp_pv_equi                 # TEMPORARY FIX!!! Wie sollen wir Solarthermie behandeln?                
-            + df_scen['v_e_pv']
-            + df_scen['v_e_pv_pot_remain']
-            )
-    
-    pv_potential = df_scen['v_e_pv_pot'] # installed and additional potential
+    pv_potential_split = (
+        df_scen['v_e_pvrooftop']
+        + df_scen['v_e_pvrooftop_pot_remain']
+        )
+        
+    pv_potential = df_scen['v_e_pvrooftop_pot'] # installed and additional potential
     
     wp_generation = df_scen['v_e_wp']
     
@@ -640,16 +615,10 @@ def electricity_balance_test(scen_techs,
         + df_scen['l_v_e_bes']
         + df_scen['l_q_e_bes']
         ).sum()
-    
-
-    # print('l_u_e_bes: ', df_scen['l_u_e_bes'].sum())
-    # print('l_v_e_bes: ', df_scen['l_v_e_bes'].sum())
-    # print('l_q_e_bes: ', df_scen['l_q_e_bes'].sum())
 
     bes_input_sum = df_scen['u_e_bes'].sum() 
     
-    bes_output_sum = df_scen['v_e_bes'].sum() 
-    # print('diff = ', df_scen['u_e_bes'].sum()- df_scen['v_e_bes'].sum())
+    bes_output_sum = df_scen['v_e_bes'].sum()
     
     bes_sos_diff = (df_scen['q_e_bes'].iloc[-1]
                     -df_scen['l_q_e_bes'].iloc[-1] 
@@ -658,87 +627,70 @@ def electricity_balance_test(scen_techs,
                     + df_scen['u_e_bes'].iloc[0]*scen_techs['bes']['eta_chg_dchg']) # state-of-charge (sos) difference
     
     # ------------------------------------------------------------------------
+    dict_diff_max = {}
 
-    diff_1 = abs(electricity_consumption - electricity_generation)
-    max_diff_1 = diff_1.max()
+    dict_diff_max[1] = abs(electricity_consumption - electricity_generation).max()
+    # max_diff_1 = diff_1.max()
     
-    diff_2 = abs(electricity_consumption - electricity_demand_split)
-    max_diff_2 = diff_2.max()
+    dict_diff_max[2] = abs(
+        electricity_consumption - electricity_demand_split
+        ).max()
+    # max_diff_2 = diff_2.max()
     
-    diff_3 = abs(electricity_for_heating - electricity_for_heating_split)
-    max_diff_3 = diff_3.max()
+    dict_diff_max[3] = abs(
+        electricity_for_heating - electricity_for_heating_split
+        ).max()
+    # max_diff_3 = diff_3.max()
+
+    dict_diff_max[4] = abs(pv_generation - pv_generation_split).max()
+    # max_diff_4 = diff_4.max()
     
-    diff_4 = abs(pv_generation - pv_generation_split)
-    max_diff_4 = diff_4.max()
+    dict_diff_max[5] = abs(total_import - total_import_split).max()
+    # max_diff_5 = diff_5.max()
     
-    diff_5 = abs(total_import - total_import_split)
-    max_diff_5 = diff_5.max()
+    dict_diff_max[6] = abs(swiss_import - swiss_import_split).max()
+    # max_diff_6 = diff_6.max()
     
-    diff_6 = abs(swiss_import - swiss_import_split)
-    max_diff_6 = diff_6.max()
+    dict_diff_max[7] = abs(pv_potential_split - pv_potential).max()
+    # max_diff_7 = diff_7.max()
     
-    diff_7 = abs(pv_potential_split - pv_potential)
-    max_diff_7 = diff_7.max()
+    dict_diff_max[8] = abs(wp_generation - wp_generation_split).max()
+    # max_diff_8 = diff_8.max()
     
-    diff_8 = abs(wp_generation - wp_generation_split)
-    max_diff_8 = diff_8.max()
-    
-    diff_9 = abs(wp_potential - wp_potential_split)
-    max_diff_9 = diff_9.max()
-    
+    dict_diff_max[9] = abs(wp_potential - wp_potential_split).max()
+    # max_diff_9 = diff_9.max()
+        
     # diff_10: Battery Energy Storage(BES) losses are only checked as sums
-
-    if max_diff_1 > diff_accepted:
-        print("Electricity balance (1) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_1}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(1)")
-        
-    if max_diff_2 > diff_accepted:
-        print("Electricity balance (2) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_2}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(2)")
-        
-    if max_diff_3 > diff_accepted:
-        print("Electricity balance (3) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_3}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(3)")
-        
-    if max_diff_4 > diff_accepted:
-        print("Electricity balance (4) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_4}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(4)")
-        
-    if max_diff_5 > diff_accepted:
-        print("Electricity balance (5) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_5}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(5)")
-        
-    if max_diff_6 > diff_accepted:
-        print("Electricity balance (6) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_6}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(6)")
-        
-    if max_diff_7 > diff_accepted:
-        print("Electricity balance (7) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_7}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(7)")
-        
-    if max_diff_8 > diff_accepted:
-        print("Electricity balance (8) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_8}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(8)")
-        
-    if max_diff_9 > diff_accepted:
-        print("Electricity balance (9) is not fulfilled!")
-        print(f"Max. difference (kWh): {max_diff_9}")
-        raise Exception("Electricity balance (timeseries) is not fulfilled!(9)")
+    
+    dict_diff_max[11] = abs(
+        electricity_baseline_demand - electricity_baseline_demand_split
+        ).max()
+    # max_diff_11 = diff_11.max()
+    
+    for nr, diff_max in dict_diff_max.items():
+        if diff_max > diff_accepted:
+            # print(f"Electricity balance ({nr}) is not fulfilled!")
+            # print(f"Max. difference (kWh): {diff_max}")
+            raise Exception(
+                f"Electricity balance ({nr}) is not fulfilled!"
+                f"\nMax. difference (kWh): {diff_max}"
+                f"\nElectricity balance (timeseries) is not fulfilled!({nr})"
+                "\nThis error can potentially be avoided by increasing "
+                "bigM_value in optimisation.yaml. "
+                "\nIf no solution can be found, please report the error here: "
+                r"https://dem-documentation.readthedocs.io/en/latest/contact.html"
+                )
     
     #--------------------------------------------------------------------------
     # Check sums:
-    
+    dict_diff_sum = {}
+
     electricity_consumption_sum = electricity_consumption.sum()
     electricity_generation_sum = electricity_generation.sum()
-    electricity_demand_split_sum = electricity_demand_split.sum()    
+    electricity_demand_split_sum = electricity_demand_split.sum()
+    electricity_baseline_demand_split_sum =\
+        electricity_baseline_demand_split.sum()
+    electricity_baseline_demand_sum = electricity_baseline_demand.sum()    
     electricity_for_heating_sum = electricity_for_heating.sum()    
     electricity_for_heating_split_sum = electricity_for_heating_split.sum()  
     pv_generation_sum = pv_generation.sum()
@@ -754,73 +706,38 @@ def electricity_balance_test(scen_techs,
     wp_potential_sum = wp_potential.sum()
     wp_potential_split_sum = wp_potential_split.sum()
     
-    diff_sum_1 = abs(electricity_consumption_sum - electricity_generation_sum)
-    diff_sum_2 = abs(electricity_consumption_sum - electricity_demand_split_sum)
-    diff_sum_3 = abs(electricity_for_heating_sum - electricity_for_heating_split_sum)
-    diff_sum_4 = abs(pv_generation_sum - pv_generation_split_sum)
-    diff_sum_5 = abs(total_import_sum - total_import_split_sum)
-    diff_sum_6 = abs(swiss_import_sum - swiss_import_split_sum)
-    diff_sum_7 = abs(pv_potential_split_sum - pv_potential_sum)
-    diff_sum_8 = abs(wp_generation_sum - wp_generation_split_sum)
-    diff_sum_9 = abs(wp_potential_sum - wp_potential_split_sum)
+    dict_diff_sum[1] =\
+        abs(electricity_consumption_sum - electricity_generation_sum)
+    dict_diff_sum[2] =\
+        abs(electricity_consumption_sum - electricity_demand_split_sum)
+    dict_diff_sum[3] =\
+        abs(electricity_for_heating_sum - electricity_for_heating_split_sum)
+    dict_diff_sum[4] = abs(pv_generation_sum - pv_generation_split_sum)
+    dict_diff_sum[5] = abs(total_import_sum - total_import_split_sum)
+    dict_diff_sum[6] = abs(swiss_import_sum - swiss_import_split_sum)
+    dict_diff_sum[7] = abs(pv_potential_split_sum - pv_potential_sum)
+    dict_diff_sum[8] = abs(wp_generation_sum - wp_generation_split_sum)
+    dict_diff_sum[9] = abs(wp_potential_sum - wp_potential_split_sum)
     # diff_sum_10 = abs(bes_input_sum - bes_output_sum - bes_losses_sum - bes_sos_diff)
-    diff_sum_10 = abs(bes_input_sum - bes_output_sum - bes_losses_sum - bes_sos_diff) # assuming cycling constraint
+    dict_diff_sum[10] = abs(
+        bes_input_sum - bes_output_sum - bes_losses_sum - bes_sos_diff
+        ) # assuming cycling constraint
+    dict_diff_sum[11] = abs(
+        electricity_baseline_demand_sum - electricity_baseline_demand_split_sum
+        )
+    
+    for nr, diff_sum in dict_diff_sum.items():
+        if diff_sum > diff_sum_accepted:
+            print(f"Electricity balance ({nr}) is not fulfilled!")
+            print(f"Sum difference (kWh): {diff_sum}")
+            raise Exception(f"Electricity balance (sum) is not fulfilled! ({nr})")
 
-    if diff_sum_1 > diff_sum_accepted:
-        print("Electricity balance (1) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_1}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    if diff_sum_2 > diff_sum_accepted:
-        print("Electricity balance (2) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_2}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    if diff_sum_3 > diff_sum_accepted:
-        print("Electricity balance (3) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_3}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    if diff_sum_4 > diff_sum_accepted:
-        print("Electricity balance (4) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_4}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    if diff_sum_5 > diff_sum_accepted:
-        print("Electricity balance (5) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_5}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    if diff_sum_6 > diff_sum_accepted:
-        print("Electricity balance (6) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_6}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    if diff_sum_7 > diff_sum_accepted:
-        print("Electricity balance (7) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_7}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    if diff_sum_8 > diff_sum_accepted:
-        print("Electricity balance (8) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_8}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    if diff_sum_9 > diff_sum_accepted:
-        print("Electricity balance (9) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_9}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-    if diff_sum_10 > diff_sum_accepted:
-        print("Electricity balance (10) is not fulfilled!")
-        print(f"Sum difference (kWh): {diff_sum_10}")
-        raise Exception("Electricity balance (sum) is not fulfilled!")
-        
-
-def heat_balance_test(df_scen,
+def heat_balance_test(scen_techs,
+                      df_scen,
                       optimisation=False,
                       diff_accepted = 1e-5,
-                      diff_sum_accepted = 0.1
+                      diff_sum_accepted = 0.1,
+                      tes_sites_plotting_inf = {}
                       ):
     
     """
@@ -829,6 +746,8 @@ def heat_balance_test(df_scen,
     
     Parameters
     ----------
+    scen_techs : dictionary
+        Dictionary containing info about technologies.
     df_scen : pandas dataframe
         Dataframe with resulting hourly values.
     diff_accepted : float
@@ -842,71 +761,29 @@ def heat_balance_test(df_scen,
     -------
     n/a
     """
+
     # Fill dataframe with 0s if columns are missing:
-    missing_keys = [
-        'u_h_tes',
-        'u_h_tesdc',
-        'v_h_tes',
-        'v_h_tesdc',
-        'q_h_tes',
-        'q_h_tesdc',
-        'l_u_h_tes',
-        'l_u_h_tesdc',
-        'l_v_h_tes',
-        'l_v_h_tesdc',
-        'l_q_h_tes',
-        'l_q_h_tesdc',
-        'v_h_chpgt',
-        'v_h_chpgt_con',
-        'v_h_chpgt_waste',
-        'v_h_st',
-        'v_h_st_con',
-        'v_h_st_waste',
-        'v_h_st_gtcp',
-        'v_h_st_gtcp_con',
-        'v_h_st_gtcp_waste',
-        'v_h_st_wbsg',
-        'v_h_st_wbsg_con',
-        'v_h_st_wbsg_waste',
-        'v_h_wte',
-        'v_h_wte_con',
-        'v_h_wte_waste',
-        'v_h_hpcp',
-        'v_h_hpcplt',
-        'v_h_obcp',
-        'v_h_wbcp',
-        'v_h_wh',
-        'v_h_gbcp',
-        'u_e_aguh',
-        'm_h_dh',
-        ]
+
+    df_scen = dem_helper.add_missing_keys(df_scen, tes_sites_plotting_inf)
     
-    for k in missing_keys:
-        if k in df_scen.columns:
-            pass
-        else:
-            df_scen[k] = 0
+    # flex_label
+    if (
+        scen_techs['optimisation']['enabled']
+        and scen_techs['scenarios']['demand_side']
+        and scen_techs['demand_side']['dr_flexibility_building_inertia']
+        ):
+        heat_demand = df_scen['d_h_flex_ll']
+    else:
+        heat_demand = df_scen['d_h']
     
-    heat_consumption = (df_scen['d_h']
+    heat_consumption = (heat_demand # df_scen['d_h']
                         + df_scen['u_h_tesdc']
+                        + df_scen['v_h_solarthermalrooftop_exp']
+                        + df_scen['d_h_m']
+                        + df_scen['u_h_vs_hp'] # Virtual storage for flexiblity modelling
+                        # + df_scen['u_h_vs_dh'] # Virtual storage for flexiblity modelling # INCLUDED IN DISTRICT HEATING
                         # + df_scen['u_h_tes'] # INCLUDED IN DISTRICT HEATING
                         )
-    
-    # heat_generation = (df_scen['v_h_hp']
-    #                    + df_scen['v_h_eh']
-    #                    + df_scen['v_h_ob']
-    #                    + df_scen['v_h_gb']
-    #                    + df_scen['v_h_wb']
-    #                    + df_scen['v_h_dh']
-    #                    + df_scen['v_h_solar']
-    #                    + df_scen['v_h_other']
-    #                    + df_scen['v_h_tes']
-    #                    + df_scen['v_h_bm']
-    #                     + df_scen['v_h_chpgt']
-    #                    + df_scen['v_h_st']
-    #                    + df_scen['v_h_wte']
-    #                    + df_scen['d_h_unmet']
-    #                    )
     
     heat_generation = (df_scen['v_h_hp']
                        + df_scen['v_h_eh']
@@ -914,12 +791,14 @@ def heat_balance_test(df_scen,
                        + df_scen['v_h_gb']
                        + df_scen['v_h_wb']
                        + df_scen['v_h_dh']
-                       + df_scen['v_h_solar']
+                       + df_scen['v_h_solarthermalrooftop']
                        + df_scen['v_h_other']
-                        + df_scen['v_h_tesdc']
+                       + df_scen['v_h_tesdc']
+                       + df_scen['v_h_vs_hp'] # Virtual storage for flexiblity modelling
+                       # + df_scen['v_h_vs_dh'] # Virtual storage for flexiblity modelling # INCLUDED IN DISTRICT HEATING
                        # + df_scen['v_h_tes'] # INCLUDED IN DISTRICT HEATING
-                    #    + df_scen['v_h_bm'] # INCLUDED IN DISTRICT HEATING
-                        # + df_scen['v_h_chpgt'] # INCLUDED IN DISTRICT HEATING
+                       # + df_scen['v_h_bm'] # INCLUDED IN DISTRICT HEATING
+                       # + df_scen['v_h_chpgt'] # INCLUDED IN DISTRICT HEATING
                        # + df_scen['v_h_st'] # INCLUDED IN DISTRICT HEATING
                        # + df_scen['v_h_wte'] # INCLUDED IN DISTRICT HEATING
                        # + df_scen['v_h_hpcp'] # INCLUDED IN DISTRICT HEATING
@@ -935,11 +814,30 @@ def heat_balance_test(df_scen,
         + df_scen['l_v_h_tes']
         + df_scen['l_q_h_tes']
         ).sum()
+    for k in tes_sites_plotting_inf:
+        for k2 in tes_sites_plotting_inf[k]:
+            if k2 != 'color':
+                if k2.startswith('l_') and '_lt' not in k2:
+                    for x in tes_sites_plotting_inf[k][k2]:
+                        tes_losses_sum += df_scen[x].sum()
+
     
     tes_input_sum = df_scen['u_h_tes'].sum()
     
     tes_output_sum = df_scen['v_h_tes'].sum()
-    
+
+    for k in tes_sites_plotting_inf:
+        for k2 in tes_sites_plotting_inf[k]:
+            if k2 != 'color':
+                if k2.startswith('u') and '_lt' not in k2:
+                    for x in tes_sites_plotting_inf[k][k2]:
+                        tes_input_sum += df_scen[x].sum()
+                if k2.startswith('v') and '_lt' not in k2:
+                    for x in tes_sites_plotting_inf[k][k2]:
+                        tes_output_sum += df_scen[x].sum()
+
+
+
     tes_sos_diff = df_scen['q_h_tes'].iloc[-1] - df_scen['q_h_tes'].iloc[0] # state-of-charge (sos) difference
     
     # ------------------------------------------------
@@ -970,15 +868,45 @@ def heat_balance_test(df_scen,
         + df_scen['v_h_hpcp']
         + df_scen['v_h_hpcplt']
         + df_scen['v_h_obcp']
+        + df_scen['v_h_ehcp']
         + df_scen['v_h_wbcp']
         + df_scen['v_h_wh']
+        + df_scen['v_h_dgt']
         + df_scen['v_h_gbcp']
         + df_scen['v_h_bm']
         + df_scen['v_h_tes']
         - df_scen['u_h_tes']
+        + df_scen['v_h_vs_dh']
+        - df_scen['u_h_vs_dh']
         + df_scen['d_h_unmet_dhn']
         )
-    
+
+    for k in tes_sites_plotting_inf:
+        for k2 in tes_sites_plotting_inf[k]:
+            if k2 != 'color':
+                if k2.startswith('u') and '_lt' not in k2:
+                    
+                    for x in tes_sites_plotting_inf[k][k2]:
+                        district_heat_techs -= df_scen[x]
+                if k2.startswith('v') and '_lt' not in k2:
+                    
+                    for x in tes_sites_plotting_inf[k][k2]:
+                        district_heat_techs += df_scen[x]
+
+
+    # ------------------------------------------------
+    # Virtual storage for demand response flexibility from building inertia:
+    if 'q_h_vs_tot' in df_scen.columns:
+        
+        # Storage losses are only checked as a sum:
+        vs_losses_sum = ( # virtual storage has no charging/discharging losses
+            + df_scen['l_q_h_vs_tot']
+            ).sum()
+        
+        vs_input_sum = df_scen['u_h_vs_tot'].sum()
+        
+        vs_output_sum = df_scen['v_h_vs_tot'].sum()
+
     # -------------------------------------------------------------------------
     # Check timeseries
     
@@ -1021,6 +949,9 @@ def heat_balance_test(df_scen,
     
     diff_sum_4 = abs(district_heat_sum - district_heat_techs_sum)
     
+    if 'q_h_vs_tot' in df_scen.columns:
+        diff_sum_5 = abs(vs_input_sum - vs_output_sum - vs_losses_sum) # assuming cycling constraint
+    
     if diff_sum_1 > diff_sum_accepted:
         print("Overall heat balance (1) is not fulfilled!")
         print(f"Sum difference (kWh): {diff_sum_1}")
@@ -1042,6 +973,14 @@ def heat_balance_test(df_scen,
         print("Overall heat balance (4) is not fulfilled!")
         print(f"Sum difference (kWh): {diff_sum_4}")
         raise Exception("Heat balance (sum) is not fulfilled! (4)")
+        
+    if 'q_h_vs_tot' in df_scen.columns:
+        if diff_sum_5 > diff_sum_accepted*100: # larger tolerance for virtual storage
+            print("Overall heat balance (5) is not fulfilled!")
+            print(f"Sum difference (kWh): {diff_sum_5}")
+            raise Exception("Heat balance (sum) is not fulfilled! (5)")
+        
+
           
     
     

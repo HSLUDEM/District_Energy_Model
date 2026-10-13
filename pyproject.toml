@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "district_energy_model"
-version = "0.1.0-rc1"
+version = "0.1.0-rc2"
 authors = [
   { name="Ueli Schilt", email="ueli.schilt@hslu.ch" },
 ]

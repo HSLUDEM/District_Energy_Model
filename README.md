@@ -1,7 +1,8 @@
 # District Energy Model (DEM)
 
 District Energy Model (DEM) is a Python-based multi-energy system model for simulating energy demand, generation, storage, and optimisation at the district and municipal scale with a focus on decentralised renewable energy technologies.
-The model is developed at [HSLU CC TES](https://www.hslu.ch/cctes) in the framework of the [SWEET EDGE](https://www.sweet-edge.ch/en/work-packages/wp-1) project.
+
+The model is developed at the [Competence Center for Thermal Energy Storage (CC TES)](https://www.hslu.ch/cctes) at Lucerne University of Applied Sciences and Arts (HSLU). The development of the DEM was carried out with the support of the Swiss Federal Office of Energy SFOE as part of the [SWEET consortium EDGE](https://www.sweet-edge.ch/en/work-packages/wp-1).
 
 ---
 ## Documentation

@@ -115,7 +115,7 @@ def calculateCOPs(
       if not consider_renovation_effects:
             df_com_yr["total_renovation_flag"] = 0.0
             df_com_yr["heat_generator_replacement_flag"] = 0.0
-            df_com_yr["d_h_s_yr_future_renov_adjusted"] = df_com_yr["heat_energy_demand_estimate_kWh_combined"]
+            df_com_yr["d_h_s_yr_future_renov_adjusted"] = df_com_yr["space_heating_demand_estimation_kWh"]
 
       reassignment_dict_sh = {'v_h_eh' : 0.0,
                                 'v_h_hp' : 0.0, 
@@ -281,7 +281,7 @@ def calculateCOPs(
 
 
       energy_array = probability_array*(df_com_yr["d_h_s_yr_future_renov_adjusted"].to_numpy()[:, np.newaxis, np.newaxis, np.newaxis, np.newaxis])
-      energy_array_dhw = probability_array_dhw*(df_com_yr["dhw_estimation_kWh_combined"].to_numpy()[:, np.newaxis, np.newaxis])
+      energy_array_dhw = probability_array_dhw*(df_com_yr["DHW_demand_estimation_kWh"].to_numpy()[:, np.newaxis, np.newaxis])
             
       energy_vals = np.nansum(energy_array, axis=0)
       energy_vals_dhw = np.nansum(energy_array_dhw, axis = 0)

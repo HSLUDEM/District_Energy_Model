@@ -38,7 +38,7 @@ class GridSupply(TechCore):
         
         # Initialize properties:
         self.update_tech_properties(tech_dict)
-        
+        self.init_timeseries()
         # Carrier types:
         self.output_carrier = 'electricity'
         
@@ -69,12 +69,62 @@ class GridSupply(TechCore):
         """
         self._kW_max = tech_dict['kW_max'] # Max electric capacity
         self._lifetime = tech_dict['lifetime']
-        self._tariff_CHFpkWh = tech_dict['tariff_CHFpkWh']
+
+
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
+
+        self._tariff_mode = tech_dict['tariff_mode']
+        self._co2_intensity_mode = tech_dict['co2_intensity_mode']
+
+        self._tariff_timeseries_filepath = tech_dict['tariff_timeseries_filepath']
+        self._co2_intensity_timeseries_filepath = tech_dict['co2_intensity_timeseries_filepath']
+
+        self._constant_tariff_CHFpkWh = tech_dict['constant_tariff_CHFpkWh']
+        self._constant_co2_intensity = tech_dict['constant_co2_intensity']
+
+        self._capex = 0
+        self._capex_one_to_one_replacement = 0
+        self._maintenance_cost = 0
         
-        # Update input dict:
         self.__tech_dict = tech_dict
+        
+    def init_timeseries(self):
+
+        #Price
+
+        n_hours = 365*24
+
+        self._tariff_timeseries = np.zeros(n_hours)
+        self._co2_intensity_timeseries = np.zeros(n_hours)
+
+        if self._tariff_mode == 'const':
+            self._tariff_timeseries = self._tariff_timeseries + self._constant_tariff_CHFpkWh
+        elif self._tariff_mode == 'file':
+            if self._tariff_timeseries_filepath.endswith(".feather"):
+                self._tariff_timeseries = pd.read_feather(self._tariff_timeseries_filepath).to_numpy()[:n_hours, 0]
+            elif self._tariff_timeseries_filepath.endswith(".npy"):
+                self._tariff_timeseries = np.load(self._tariff_timeseries_filepath)
+            else:
+                raise ValueError("Unknown file format for timeseries of electricity prices. Use feather or npy.")
+        else:
+            raise ValueError("Unknown mode for timeseries of electricity prices. Use 'const' or 'file'.")
+
+        #CO2 intensity
+
+        if self._co2_intensity_mode == 'const':
+            self._co2_intensity_timeseries = self._co2_intensity_timeseries + self._constant_co2_intensity
+        elif self._co2_intensity_mode == 'file':
+            if self._co2_intensity_timeseries_filepath.endswith(".feather"):
+                self._co2_intensity_timeseries = pd.read_feather(self._co2_intensity_timeseries_filepath).to_numpy()[:n_hours, 0]
+            elif self._co2_intensity_timeseries_filepath.endswith(".npy"):
+                self._co2_intensity_timeseries = np.load(self._co2_intensity_timeseries_filepath)
+            else:
+                raise ValueError("Unknown file format for timeseries of electricity co2 intensity. Use feather or npy.")
+        else:
+            raise ValueError("Unknown mode for timeseries of electricity co2 intensity. Use 'const' or 'file'.")
+
+
+        
         
     def update_df_results(self, df):
         
@@ -116,6 +166,9 @@ class GridSupply(TechCore):
         self._m_e_ch_biomass = self._m_e_ch_biomass[:n_hours]
         self._m_e_ch_other = self._m_e_ch_other[:n_hours]
         self._m_co2 = self._m_co2[:n_hours]
+
+        self._co2_intensity_timeseries = self._co2_intensity_timeseries[:n_hours]
+        self._tariff_timeseries = self._tariff_timeseries[:n_hours]
         
     # def return_balance(self):
         
@@ -130,16 +183,37 @@ class GridSupply(TechCore):
             # ):
         self.len_test(self._m_e)
         
-        el_mix_path = self.paths.energy_mix_CH_dir + self.paths.electricity_mix_file
+        el_mix_path = self.paths.electricity_dir + self.paths.electricity_mix_file
         el_mix_file = pd.read_feather(el_mix_path)
         
-        el_gen_imp = pd.DataFrame(index = range(8760))
-        el_gen_imp['Hydro'] = el_mix_file.iloc[:, :3].sum(axis = 1)
-        el_gen_imp['Nuclear'] = el_mix_file.iloc[:, 3]
-        el_gen_imp['Wind'] = el_mix_file.iloc[:, 5]
-        el_gen_imp['Biomass'] = el_mix_file.iloc[:, 6]
-        el_gen_imp['Other'] = el_mix_file.iloc[:, 7]
-        el_gen_imp['Import'] = el_mix_file.iloc[:, -1]
+        # el_gen_imp = pd.DataFrame(index = range(8760))
+        # el_gen_imp['Hydro'] = el_mix_file.iloc[:, :3].sum(axis = 1)
+        # el_gen_imp['Nuclear'] = el_mix_file.iloc[:, 3]
+        # el_gen_imp['Wind'] = el_mix_file.iloc[:, 5]
+        # el_gen_imp['Biomass'] = el_mix_file.iloc[:, 6]
+        # el_gen_imp['Other'] = el_mix_file.iloc[:, 7]
+        # el_gen_imp['Import'] = el_mix_file.iloc[:, -1]
+        
+        # =====================================================================
+        el_gen_imp = pd.DataFrame(index=el_mix_file.index)
+        
+        el_gen_imp['Hydro'] = (
+            el_mix_file[
+                [
+                    'Hydro Pumpspeicher',
+                    'Hydro Laufwasser',
+                    'Hydro Speicher'
+                ]
+            ]
+            .sum(axis=1)
+        )
+        
+        el_gen_imp['Nuclear'] = el_mix_file['Nuclear']
+        el_gen_imp['Wind'] = el_mix_file['Wind']
+        el_gen_imp['Biomass'] = el_mix_file['Biomass']
+        el_gen_imp['Other'] = el_mix_file['Other']
+        el_gen_imp['Import'] = el_mix_file['Import']
+        # =====================================================================
         
         
         el_gen_imp_percentages = el_gen_imp.div(el_gen_imp.sum(axis = 1), axis = 0)
@@ -167,7 +241,7 @@ class GridSupply(TechCore):
         # return m_e_mix
     
     def __compute_m_co2(self):        
-        self._m_co2 = self._m_e*self.__tech_dict['co2_intensity']
+        self._m_co2 = self._m_e*self._co2_intensity_timeseries
         # !!! THIS MUST BE SPLIT UP (cbimport vs national production)
         
     def compute_m_e_cbimport(self):
@@ -195,6 +269,8 @@ class GridSupply(TechCore):
     #     return np.array(df['m_e_diff'])
 
     
+
+
     def update_m_e(self, m_e_updated):
         self._m_e = np.array(m_e_updated)
         
@@ -368,7 +444,11 @@ class GridSupply(TechCore):
         
     #     return df_mix_new
     
-    def create_techs_dict(self, techs_dict, color):
+    def create_techs_dict(self, 
+                          techs_dict, color, 
+                          resource_tariff_timeseries,
+                          resource_co2_intensity_timeseries,
+                          energy_scaling_factor):
             
         techs_dict['grid_supply'] = {
             'essentials':{
@@ -379,18 +459,18 @@ class GridSupply(TechCore):
                 },
             'constraints':{
                 'resource':'inf',
-                'energy_cap_max':self._kW_max,
+                'energy_cap_max':self._kW_max / energy_scaling_factor if self._kW_max != 'inf' else 'inf',
                 'lifetime':self._lifetime
                 },
             'costs':{
                 'monetary':{
                     # 'energy_cap':1000,
-                    'om_con':self._tariff_CHFpkWh, # [CHF/kWh]
+                    'om_con': resource_tariff_timeseries, # [CHF/kWh]
                     # 'om_prod':self.scen_techs['grid_supply']['tariff_CHFpkWh'], # [CHF/kWh]
                     'interest_rate':self._interest_rate
                     },
                 'emissions_co2':{
-                    'om_prod':self._co2_intensity
+                    'om_prod': resource_co2_intensity_timeseries
                     }
                 }
             }
@@ -436,3 +516,18 @@ class GridSupply(TechCore):
     def update_m_e_i(self, i, val):
         self.num_test(val)
         self._m_e[i] = float(val)
+
+    def set_m_e_ch_nuclear(self, val):
+        self._m_e_ch_nuclear = val
+
+    def set_m_e_ch(self, val):
+        self._m_e_ch = val
+
+    def get_energy_costs(self):
+        return np.sum(np.array(self._m_e)*self._tariff_timeseries)
+
+    def get_tariff_timeseries(self):
+        return self._tariff_timeseries
+    
+    def get_co2_intensity_timeseries(self):
+        return self._co2_intensity_timeseries

@@ -7,6 +7,7 @@ Created on Wed Apr 10 16:21:45 2024
 
 import numpy as np
 import pandas as pd
+import input_files.inputs as inp
 
 from district_energy_model.techs.dem_tech_core import TechCore
 
@@ -39,7 +40,6 @@ class ElectricHeater(TechCore):
         # Accounting:
         self._u_e = [] # electric heater input (electricity)
         self._v_h = [] # electric heater output (heat)
-        self._v_co2 = []
         
     def update_tech_properties(self, tech_dict):
         
@@ -58,7 +58,6 @@ class ElectricHeater(TechCore):
         self._v_max = tech_dict['kW_max'] # Max electric and thermal capacity
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._capex = tech_dict['capex']
         self._fixed_demand_share = tech_dict['fixed_demand_share']
         self._fixed_demand_share_val = tech_dict['fixed_demand_share_val']
@@ -73,7 +72,6 @@ class ElectricHeater(TechCore):
         
         df['u_e_eh'] = self.get_u_e()
         df['v_h_eh'] = self.get_v_h()
-        df['v_co2_eh'] = self.get_v_co2()
         
         return df
     
@@ -95,7 +93,6 @@ class ElectricHeater(TechCore):
         
         self._u_e = self._u_e[:n_hours]
         self._v_h = self._v_h[:n_hours]
-        self._v_co2 = self._v_co2[:n_hours]
 
     def compute_v_h(self, src_h_yr, d_h_profile):
 
@@ -106,7 +103,6 @@ class ElectricHeater(TechCore):
         self._v_h = np.array(tmp_df['v_h'])
         self._u_e = self._v_h # Conversion efficiency = 1.0
         
-        self.__compute_v_co2()
         
     def update_v_h(
             self,
@@ -118,11 +114,6 @@ class ElectricHeater(TechCore):
             
         self._v_h = np.array(v_h_updated)
         self._u_e = self._v_h # Conversion efficiency = 1.0
-
-        self.__compute_v_co2()
-        
-    def __compute_v_co2(self):        
-        self._v_co2 = self._v_h*self.__tech_dict['co2_intensity']
         
     def create_tech_groups_dict(self, tech_groups_dict):
         
@@ -141,9 +132,6 @@ class ElectricHeater(TechCore):
                     'om_con':0.0, # reflected in the cost of electricity
                     'interest_rate':self._interest_rate,
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity,
-                    }
                 }
             }
         
@@ -155,7 +143,8 @@ class ElectricHeater(TechCore):
                           name, 
                           color, 
                           energy_cap,
-                          capex_0=False
+                          capex_0=False,
+                          energy_scaling_factor = 1.0
                           ):
         
         if capex_0==False:
@@ -170,50 +159,17 @@ class ElectricHeater(TechCore):
                 'color': color
                 },
             'constraints':{
-                'energy_cap_max': energy_cap
+                'energy_cap_max': energy_cap / energy_scaling_factor
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': capex,
-                    'om_annual': self._maintenance_cost
+                    'energy_cap': capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     }
                 }
             }
         return techs_dict
-    
-    def create_techs_dict_clustering(
-            techs_dict,
-            tech_dict,
-            name = 'Electric Heater', 
-            color = '#F27D52',
-            capex = 0
-            ):
         
-        techs_dict['electric_heater'] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent':'conversion',
-                'carrier_in':'electricity',
-                'carrier_out':'heat'
-                },
-            'constraints':{
-                'energy_eff':1,
-                'lifetime':tech_dict['lifetime']
-                },
-            'costs':{
-                'monetary':{
-                    'om_con':0.0, # reflected in the cost of electricity
-                    'interest_rate':tech_dict['interest_rate'],
-                    'energy_cap': capex
-                    },
-                'emissions_co2':{
-                    'om_prod':tech_dict['co2_intensity']
-                    }
-                }
-            }
-        return techs_dict
-    
     def get_u_e(self):
         self.len_test(self._u_e)
         return self._u_e
@@ -221,29 +177,20 @@ class ElectricHeater(TechCore):
     def get_v_h(self):
         self.len_test(self._v_h)
         return self._v_h
-    
-    def get_v_co2(self):
-        self.len_test(self._v_co2)
-        return self._v_co2
-    
+        
     def get_fixed_demand_share(self):
         return self._fixed_demand_share
     
     def get_fixed_demand_share_val(self):
         self.num_test(self._fixed_demand_share_val)
         return self._fixed_demand_share_val
-    
-    def get_replacement_factor(self):
-        return self._replacement_factor
-    
-    def set_replacement_factor(self, value):
-        self._replacement_factor = value
-
+        
     def get_power_up_for_replacement(self):
         return self._power_up_for_replacement
     
     def set_power_up_for_replacement(self, value):
         self._power_up_for_replacement = value
+
 
     
     

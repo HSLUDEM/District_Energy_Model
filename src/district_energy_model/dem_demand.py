@@ -18,14 +18,14 @@ To do:
 """
 
 import sys
-import os
+# import os
 import numpy as np
 import pandas as pd
-import meteostat
+# import meteostat
 from datetime import datetime
 
-from district_energy_model import dem_constants as C
 from district_energy_model import dem_helper
+from district_energy_model import dem_constants as C
 
 """----------------------------------------------------------------------------
 ELECTRICITY DEMAND:
@@ -69,20 +69,30 @@ ELECTRICITY DEMAND:
 
 class EnergyDemand:
     
-    def __init__(self, paths, com_nr):
+    def __init__(self, paths, com_nr, com_nr_majority):
         
         self.paths = paths
                 
         # Properties:
         self.com_nr = com_nr
+        self.com_nr_majority = com_nr_majority
         
         # Carrier types:
         ...
         
         # Hourly values:
-        self._d_e = []
+        self._d_e = []          # d_e = d_e_baseline + d_e_h + d_e_ev
+        self._d_e_baseline = []       # d_e_baseline = d_e_res + d_e_ind + d_e_ser + d_e_loss + d_e_pump
+        self._d_e_h = []
         self._d_e_ev = []
-        
+        self._d_e_sfh = []
+        self._d_e_mfh = []
+        self._d_e_res = []      # d_e_res = d_e_sfh + d_e_mfh
+        self._d_e_ind = []
+        self._d_e_ser = []
+        self._d_e_loss = []
+        self._d_e_pump = []
+
         self._d_e_ev_cp = [] # [kWh] hourly EV charging load (base profile)
         self._d_e_ev_pd = [] # [kWh] hourly EV lower charging bound
         self._d_e_ev_pu = [] # [kWh] hourly EV upper charging bound
@@ -90,14 +100,19 @@ class EnergyDemand:
         self._d_e_ev_cp_dev_pos = [] # [kWh] Hourly positive deviation from base profile due to flexibility
         self._d_e_ev_cp_dev_neg = [] # [kWh] Hourly negative deviation from base profile due to flexibility
         
-        self._d_e_hh = []
-        self._d_e_h = []
         self._d_h = [] # [kWh] Total heat demand
         self._d_h_s = [] # [kWh] Heat demand for space heating
         self._d_h_hw = [] # [kWh] Heat demand for hot water
         self._d_e_unmet = []
         self._d_h_unmet = []
         self._d_h_unmet_dhn = [] # [kWh] Unmet heat demand in district heating network
+        self._d_h_flex = [] # [kWh] Flexible demand from building inertia (determined in optimisation)
+        self._d_h_flex_ll = [] # [kWh] Flexible demand from building inertia: lower limit (ll); considering all buildings
+        self._d_h_flex_ul = [] # [kWh] Flexible demand from building inertia: upper limit (ll); considering all buildings
+        self._d_h_s_flex_ll = [] # [kWh] d_h_flex_ll only for space heating
+        
+        self._flex_flag = [] # [-] bool; True where d_h_s_flex_ll > 0; False where d_h_s_flex_ll = 0
+        self._vs_drain_flag = [] # [-] bool; flag for filling or emptying the virtual storage drain. Options: 'idle', 'fill', 'empty'
         
         # Daily values:
         self._f_e_ev_pot_dy = [] # [kWh] Daily available flexible energy for EV charging (i.e. flexibility potential)
@@ -107,19 +122,35 @@ class EnergyDemand:
         # Annual values:
         self._d_e_yr = ...
         self._d_e_ev_yr = ...
-        self._d_e_hh_yr = ...
+        self._d_e_baseline_yr = ...
         self._d_e_h_yr = ...
         self._d_h_yr = ...
         self._d_h_s_yr = ...
+        self._d_h_s_old_yr = ...
+        self._d_h_s_new_yr = ...
         self._d_h_hw_yr = ...
+        self._d_h_flex_ll_yr = ...
+        self._d_h_flex_ul_yr = ...
+        self._d_h_s_flex_ll_yr = ...
         
         self._d_e_sfh_yr = ... # formerly: d_e_yr_sfh
         self._d_e_mfh_yr = ... # formerly: d_e_yr_mfh
         self._d_e_ind_yr = ... # formerly: d_e_yr_ind
         self._d_e_ser_yr = ... # formerly: d_e_yr_ser
+        self._d_e_loss_yr = ...
+        self._d_e_pump_yr = ...
+        
+        self._d_e_res_yr = ...
         
         # Other:
         self._d_h_profile = [] # [-] Hourly normed (normed to 1) heat demand profile
+        
+        # Read temperature profiles:
+        weather_data_dir = self.paths.weather_data_delta_method_dir
+        self.df_temperature_all_years = pd.read_feather(
+            weather_data_dir + str(self.com_nr_majority) + ".feather"
+            )
+        
         
     def update_df_results(self, df):
         
@@ -131,7 +162,12 @@ class EnergyDemand:
         df['d_e_ev_cp_dev'] = self.get_d_e_ev_cp_dev()
         df['d_e_ev_cp_dev_pos'] = self.get_d_e_ev_cp_dev_pos()
         df['d_e_ev_cp_dev_neg'] = self.get_d_e_ev_cp_dev_neg()        
-        df['d_e_hh'] = self.get_d_e_hh()
+        df['d_e_baseline'] = self.get_d_e_baseline()
+        df['d_e_res'] = self.get_d_e_res()
+        df['d_e_ind'] = self.get_d_e_ind()
+        df['d_e_ser'] = self.get_d_e_ser()
+        df['d_e_loss'] = self.get_d_e_loss()
+        df['d_e_pump'] = self.get_d_e_pump()
         df['d_e_h'] = self.get_d_e_h()
         df['d_h'] = self.get_d_h()
         df['d_h_s'] = self.get_d_h_s()
@@ -139,6 +175,10 @@ class EnergyDemand:
         df['d_e_unmet'] = self.get_d_e_unmet()
         df['d_h_unmet'] = self.get_d_h_unmet()
         df['d_h_unmet_dhn'] = self.get_d_h_unmet_dhn()
+        df['d_h_flex'] = self.get_d_h_flex()
+        df['d_h_flex_ll'] = self.get_d_h_flex_ll()
+        df['d_h_flex_ul'] = self.get_d_h_flex_ul()
+        df['d_h_s_flex_ll'] = self.get_d_h_s_flex_ll()
         
         return df
     
@@ -167,23 +207,32 @@ class EnergyDemand:
         self._d_e_ev_cp_dev = self._d_e_ev_cp_dev[:n_hours]
         self._d_e_ev_cp_dev_pos = self._d_e_ev_cp_dev_pos[:n_hours]
         self._d_e_ev_cp_dev_neg = self._d_e_ev_cp_dev_neg[:n_hours]
-        self._d_e_hh = self._d_e_hh[:n_hours]
-        self._d_e_h = self._d_e_h[:n_hours]
+        self._d_e_baseline = self._d_e_baseline[:n_hours]
+        self._d_e_res = self._d_e_res[:n_hours]
+        self._d_e_ind = self._d_e_ind[:n_hours]
+        self._d_e_ser = self._d_e_ser[:n_hours]
+        self._d_e_loss = self._d_e_loss[:n_hours]
+        self._d_e_pump = self._d_e_pump[:n_hours]
+        self._d_e_h = self._d_e_h[:n_hours]               
         self._d_h = self._d_h[:n_hours]
         self._d_h_s = self._d_h_s[:n_hours]
         self._d_h_hw = self._d_h_hw[:n_hours]
         self._d_e_unmet = self._d_e_unmet[:n_hours]
         self._d_h_unmet = self._d_h_unmet[:n_hours]
         self._d_h_unmet_dhn = self._d_h_unmet_dhn[:n_hours]
-        
+        self._d_h_flex = self._d_h_flex[:n_hours]
+        self._d_h_flex_ll = self._d_h_flex_ll[:n_hours]
+        self._d_h_flex_ul = self._d_h_flex_ul[:n_hours]
+        self._d_h_s_flex_ll = self._d_h_s_flex_ll[:n_hours]        
 
-    # def get_d_e_hh_yr(
-    def compute_d_e_hh_yr(
+    def compute_d_e_baseline_yr(
             self,
             df_meta,
-            com_nr):
+            com_nr
+            ):
     
-        """Returns the annual electricity demand (d_e_yr) of the selected community.
+        """
+        Compute the annual electricity demand (d_e_yr) of the selected community.
         
         Parameters
         ----------
@@ -196,8 +245,8 @@ class EnergyDemand:
         
         Returns
         -------
-        float
-            annual electricity demand [kWh]
+        N/A
+        
         """
         # f_hh = electricity_demand_file_household
         # f_ind = electricity_demand_file_industry
@@ -212,144 +261,88 @@ class EnergyDemand:
         # if df_data['Municipality'].str.contains(c).any(): # This function can't handle string with whitespaces
         if (df_meta['GGDENR'] == c).sum() == 1:
             # d_e_yr = df_meta.loc[df_meta['GGDENR']==c, ]
-            d_e_yr_sfh = df_meta.loc[df_meta['GGDENR']==c, 'kWh_household_sfh'].values[0]
-            d_e_yr_mfh = df_meta.loc[df_meta['GGDENR']==c, 'kWh_household_mfh'].values[0]
-            d_e_yr_ind = df_meta.loc[df_meta['GGDENR']==c, 'Electricity_Industry'].values[0]
-            d_e_yr_ser = df_meta.loc[df_meta['GGDENR']==c, 'Electricity_Service'].values[0]
+            self._d_e_sfh_yr = df_meta.loc[df_meta['GGDENR']==c, 'Electricity_demand_household_SFH_kWh'].values[0]
+            self._d_e_mfh_yr = df_meta.loc[df_meta['GGDENR']==c, 'Electricity_demand_household_MFH_kWh'].values[0]
+            self._d_e_ind_yr = df_meta.loc[df_meta['GGDENR']==c, 'Electricity_demand_industry_kWh'].values[0]
+            self._d_e_ser_yr = df_meta.loc[df_meta['GGDENR']==c, 'Electricity_demand_services_kWh'].values[0]
+            self._d_e_loss_yr = df_meta.loc[df_meta['GGDENR']==c, 'Electricity_demand_losses_kWh'].values[0]
+            self._d_e_pump_yr = df_meta.loc[df_meta['GGDENR']==c, 'Electricity_demand_hydro_pumping_kWh'].values[0]
         else:
             sys.exit(f"Error in get_d_e_yr(): {c} is not found in meta file.")
         
-        d_e_hh_yr = d_e_yr_sfh + d_e_yr_mfh + d_e_yr_ind + d_e_yr_ser
+        self._d_e_res_yr = self._d_e_sfh_yr + self._d_e_mfh_yr
         
-        self._d_e_sfh_yr = d_e_yr_sfh
-        self._d_e_mfh_yr = d_e_yr_mfh
-        self._d_e_ind_yr = d_e_yr_ind
-        self._d_e_ser_yr = d_e_yr_ser
-        self._d_e_hh_yr = d_e_hh_yr
-        
-        return d_e_yr_sfh, d_e_yr_mfh, d_e_yr_ind, d_e_yr_ser
-    
-    # def get_d_e_yr_clustering(
-    def compute_d_e_yr_clustering(
+        self._d_e_baseline_yr = (
+            self._d_e_res_yr
+            + self._d_e_ind_yr
+            + self._d_e_ser_yr
+            + self._d_e_loss_yr
+            + self._d_e_pump_yr
+            )
+
+    def compute_d_e_baseline_hr(
             self,
-            df_com_yr,
-            cluster_number
-            ):
-        
-        arg = df_com_yr['cluster_number'] == cluster_number
-        cluster_file = df_com_yr.loc[arg].reset_index(drop = True)
-        
-        d_e_yr_sfh = cluster_file['kWh_household_sfh'].sum()
-        d_e_yr_mfh = cluster_file['kWh_household_mfh'].sum()
-        
-        return d_e_yr_sfh, d_e_yr_mfh
-        
-    
-    # def d_e_hr(d_e_yr,
-    #            electricity_profile_dir,
-    #            electricity_profile_file
-    #            ):
-        
-    #     """Returns the hourly electricity demand (d_e_hr) of the selected community.
-        
-    #     Parameters
-    #     ----------
-    #     d_e_yr : float
-    #         Annual electricity demand of selected community [kWh].
-    #     electricity_profile_dir : str
-    #         Path to directory containing files of electricity load profiles.
-    #     electricity_profile_file : str
-    #         Name of csv file containing timeseries data of electricity load
-    #         profile. (e.g. 'Buildings_A_B_power_load_profile.csv')
-        
-    #     Returns
-    #     -------
-    #     list
-    #         hourly electricity demand [kWh]
-    #     """
-    #     file_path = electricity_profile_dir + electricity_profile_file
-    #     tmp_df = pd.read_csv(file_path) # [Wh] profile for one building:
-    #     tmp_df['P_avg'] = tmp_df['P_avg']/1000 # [kWh] convert unit from Wh to kWh:
-    #     tmp_df.reset_index(inplace=True)
-    #     tmp_sum = tmp_df['P_avg'].sum()
-    #     d_e_hr = d_e_yr/tmp_sum*tmp_df['P_avg']
-    #     tmp_df.drop(tmp_df.index, inplace=True) # Delete tmp_df content
-        
-    #     return d_e_hr
-    
-    # def get_d_e_hh_hr(
-    def compute_d_e_hh_hr(
-            self,
-            profiles_file,
+            df_profiles,
             com_kt
             ):
         
-        """Returns the hourly "household" electricity demand (d_e_hh_hr)
-        (excl. elect. demand for heating) of the selected community.
-        
-        Parameters
-        ----------
-        d_e_yr_sfh : float
-            Annual electricity demand of single family houses of selected community [kWh].
-        d_e_yr_mfh : float
-            Annual electricity demand of multi family houses of selected community [kWh].
-        electricity_profile_dir : str
-            Path to directory containing files of electricity load profiles.
-        electricity_profile_file : str
-            Name of csv file containing timeseries data of electricity load
-            profile. (e.g. 'Buildings_A_B_power_load_profile.csv')
-        
-        Returns
-        -------
-        list
-            hourly electricity demand [kWh]
         """
-        self.profiles = profiles_file
+        Coopmute the hourly baselind electricity demand (d_e_baseline_hr)
+        (excl. elect. demand for heating and transport) of the selected 
+        community.
         
-        # =========================================================================
-        # TEMPORARY FIX:
-        # Avoid negative values in the demand profile d_e_hh
-        # Replace negative values with 0:
-        
-        # =========================================================================
+        """
+        self.profiles = df_profiles
         
         # Check if annual values have been calculated:
-        self.num_test(self._d_e_sfh_yr)
-        self.num_test(self._d_e_mfh_yr)
-        self.num_test(self._d_e_ind_yr)
-        self.num_test(self._d_e_ser_yr)
+        annual_vals = [
+            self._d_e_res_yr,
+            self._d_e_sfh_yr,
+            self._d_e_mfh_yr,
+            self._d_e_ind_yr,
+            self._d_e_ser_yr,
+            self._d_e_loss_yr,
+            self._d_e_pump_yr,
+            ]
         
-        # cond = (
-        #     self._d_e_sfh_yr == 0,
-        #     self._d_e_mfh_yr == 0,
-        #     self._d_e_ind_yr == 0,
-        #     self._d_e_ser_yr == 0,
-        #     )
-        # # print(self._d_e_sfh_yr)
-        # # print(self._d_e_mfh_yr)
-        # # print(self._d_e_ind_yr)
-        # # print(self._d_e_ser_yr)
-        # if any(cond):
-        #     raise ValueError("Annual values must be computed first!")
+        for val in annual_vals:
+            self.num_test(val)       
         
-        # d_e_hr = (tmp_df['SFH'] * d_e_yr_sfh + 
-        #           tmp_df['MFH'] * d_e_yr_mfh +  
-        #           temp_df_industry[com_kt] * d_e_yr_ser + 
-        #           temp_df_industry[com_kt] * d_e_yr_ind)
-        
-        d_e_hh_hr = (
-            self.profiles['Electricity_Profile_SFH'] * self._d_e_sfh_yr + 
-            self.profiles['Electricity_Profile_MFH'] * self._d_e_mfh_yr +
-            self.profiles['Electricity_Profile_Industry_' + com_kt] * self._d_e_ser_yr + 
-            self.profiles['Electricity_Profile_Industry_' + com_kt] * self._d_e_ind_yr
+        self._d_e_sfh = np.array(
+            self.profiles['Electricity_profile_household_SFH']
+            * self._d_e_sfh_yr            
+            )
+        self._d_e_mfh = np.array(
+            self.profiles['Electricity_profile_household_MFH']
+            * self._d_e_mfh_yr
+            )
+        self._d_e_ind = np.array(
+            self.profiles['Electricity_profile_industry_and_services_' + com_kt]
+            * self._d_e_ind_yr
+            )
+        self._d_e_ser = np.array(
+            self.profiles['Electricity_profile_industry_and_services_' + com_kt]
+            * self._d_e_ser_yr
+            )
+        self._d_e_loss = np.array(
+            self.profiles['Electricity_profile_losses_' + com_kt]
+            * self._d_e_loss_yr
+            )
+        self._d_e_pump = np.array(
+            self.profiles['Electricity_profile_hydro_pumping_' + com_kt]
+            * self._d_e_pump_yr
             )
         
-        self._d_e_hh = np.array(d_e_hh_hr)
+        self._d_e_res = self._d_e_sfh + self._d_e_mfh
         
-        
-        return np.array(d_e_hh_hr)
-    
-    # def get_d_e_h(self, tech_instances):
+        self._d_e_baseline = (
+            self._d_e_res
+            + self._d_e_ind
+            + self._d_e_ser
+            + self._d_e_loss
+            + self._d_e_pump
+            )
+
     def compute_d_e_h(self, tech_instances):
         """
         Compute the electricity demand for heating (hourly and annual).
@@ -381,6 +374,10 @@ class EnergyDemand:
                 raise ValueError("u_e_hp must be computed first!")
             else:
                 u_e_hp = hp_inst.get_u_e()
+        else:
+            other_inst = tech_instances['other']
+            v_h_other = other_inst.get_v_h()
+            u_e_hp = np.zeros_like(v_h_other)
 
         # Electricity used for electric heater:
         if 'electric_heater' in tech_instances:
@@ -389,6 +386,8 @@ class EnergyDemand:
                 raise ValueError("u_e_eh must be computed first!")
             else:
                 u_e_eh = eh_inst.get_u_e()
+        else:
+            u_e_eh = np.zeros_like(u_e_hp)
                 
         d_e_h = np.array(u_e_hp) + np.array(u_e_eh)
         
@@ -425,23 +424,23 @@ class EnergyDemand:
     def compute_d_e(self):
         """
         Compute total hourly and annual electricity demand
-        (household, heating, transport)
+        (baseline + heating + transport)
 
         Returns
         -------
         None.
 
         """
-        cond = (len(self._d_e_hh)==0, sum(self._d_e_hh)==0, len(self._d_e_h)==0)
+        cond = (len(self._d_e_baseline)==0, sum(self._d_e_baseline)==0, len(self._d_e_h)==0)
         if any(cond):
-            raise ValueError("Household and heating electricity demand must be "
+            raise ValueError("Baseline and heating electricity demand must be "
                              "computed first!")
         
         if len(self._d_e_ev) == 0:
-            self._d_e = np.array(self._d_e_hh) + np.array(self._d_e_h)
+            self._d_e = np.array(self._d_e_baseline) + np.array(self._d_e_h)
         else:
             self._d_e = (
-                np.array(self._d_e_hh)
+                np.array(self._d_e_baseline)
                 + np.array(self._d_e_h) 
                 + np.array(self._d_e_ev)
                 )
@@ -455,7 +454,6 @@ class EnergyDemand:
     def compute_d_e_ev(
             self,
             ev_profiles_dir,
-            ev_munic_name_nr_file,
             ev_profile_cp_file,
             ev_profile_fe_file,
             ev_profile_pd_file,
@@ -466,18 +464,12 @@ class EnergyDemand:
             ev_flexibility,
             ):
         
-        # Read munic file:
-        munic_file_path = ev_profiles_dir + ev_munic_name_nr_file
-        df_munic_name_nr = pd.read_feather(munic_file_path)
-        
-        # print(df_munic_name_nr.head())
-        
+        # File paths:
         cp_file_dir = ev_profiles_dir + ev_profile_cp_file
         pd_file_dir = ev_profiles_dir + ev_profile_pd_file
         pu_file_dir = ev_profiles_dir + ev_profile_pu_file
         fe_file_dir = ev_profiles_dir + ev_profile_fe_file
         
-        # df_ev_profile = pd.read_feather(cp_file_dir)
         df_ev_cp_profile = pd.read_feather(cp_file_dir)
         df_ev_pd_profile = pd.read_feather(pd_file_dir)
         df_ev_pu_profile = pd.read_feather(pu_file_dir)
@@ -486,41 +478,33 @@ class EnergyDemand:
         ts_len = len(self.get_d_e())
         n_days = int(ts_len/24.0)
         
-        if len(com_percent) == 0:
-            munic_name = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr']==self.com_nr,'munic_name'
-                ]
-            
-            munic_name = munic_name.iloc[0]
-                
-            tmp_d_e_ev_cp = np.array(df_ev_cp_profile[munic_name])
-            tmp_d_e_ev_pd = np.array(df_ev_pd_profile[munic_name])
-            tmp_d_e_ev_pu = np.array(df_ev_pu_profile[munic_name])
-            tmp_f_e_ev_pot_dy = np.array(df_ev_fe_profile[munic_name])
+        if len(com_percent) == 0:           
+            tmp_d_e_ev_cp = np.array(df_ev_cp_profile[self.com_nr])
+            tmp_d_e_ev_pd = np.array(df_ev_pd_profile[self.com_nr])
+            tmp_d_e_ev_pu = np.array(df_ev_pu_profile[self.com_nr])
+            tmp_f_e_ev_pot_dy = np.array(df_ev_fe_profile[self.com_nr])
         
-        else:
-            df_munic_name_nr.sort_values(by='munic_nr')
-            munic_names = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr'].isin(com_percent.index),'munic_name'
-                ]
+        else:                       
+            profile_files = {
+                "CP": df_ev_cp_profile,
+                "PD": df_ev_pd_profile,
+                "PU": df_ev_pu_profile,
+                "FE": df_ev_fe_profile,
+            }
             
-            df_ev_cp_profile = df_ev_cp_profile[munic_names]
-            df_ev_pd_profile = df_ev_pd_profile[munic_names]
-            df_ev_pu_profile = df_ev_pu_profile[munic_names]
-            df_ev_fe_profile = df_ev_fe_profile[munic_names]
+            for profile_name, profile in profile_files.items():
+                missing = com_percent.index.difference(profile.columns)
             
-            df_ev_cp_profile.columns = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr'].isin(com_percent.index),'munic_nr'
-                ]
-            df_ev_pd_profile.columns = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr'].isin(com_percent.index),'munic_nr'
-                ]
-            df_ev_pu_profile.columns = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr'].isin(com_percent.index),'munic_nr'
-                ]
-            df_ev_fe_profile.columns = df_munic_name_nr.loc[
-                df_munic_name_nr['munic_nr'].isin(com_percent.index),'munic_nr'
-                ]
+                if not missing.empty:
+                    raise KeyError(
+                        f"Municipalities missing from {profile_name} profile: "
+                        f"{missing.tolist()}"
+                    )
+            
+            df_ev_cp_profile = df_ev_cp_profile.loc[:, com_percent.index]
+            df_ev_pd_profile = df_ev_pd_profile.loc[:, com_percent.index]
+            df_ev_pu_profile = df_ev_pu_profile.loc[:, com_percent.index]
+            df_ev_fe_profile = df_ev_fe_profile.loc[:, com_percent.index]            
             
             tmp_d_e_ev_cp = np.array(df_ev_cp_profile.mul(com_percent).sum(axis = 1))
             tmp_d_e_ev_pd = np.array(df_ev_pd_profile.mul(com_percent).sum(axis = 1))
@@ -544,6 +528,9 @@ class EnergyDemand:
             raise ValueError(msg)
         else:
             tmp_d_e_ev_cp = tmp_d_e_ev_cp*ev_integration_factor/100.0
+            tmp_d_e_ev_pd = tmp_d_e_ev_pd*ev_integration_factor/100.0
+            tmp_d_e_ev_pu = tmp_d_e_ev_pu*ev_integration_factor/100.0
+            tmp_f_e_ev_pot_dy = tmp_f_e_ev_pot_dy*ev_integration_factor/100.0
             
         self.update_d_e_ev_cp(tmp_d_e_ev_cp, n_days)
         self.update_d_e_ev_pd(tmp_d_e_ev_pd)
@@ -640,13 +627,13 @@ class EnergyDemand:
     def update_f_e_ev_pot_dy(self, f_e_ev_pot_dy_udpated):
         self._f_e_ev_pot_dy = np.array(f_e_ev_pot_dy_udpated)
         
-    def update_d_e_hh(self, d_e_hh_udpated):
+    def update_d_e_baseline(self, d_e_baseline_udpated):
         """
-        Electricity for household.
+        Total electricity excl. heating and transport.
 
         Parameters
         ----------
-        d_e_hh_udpated : TYPE
+        d_e_baseline_udpated : TYPE
             DESCRIPTION.
 
         Returns
@@ -655,7 +642,7 @@ class EnergyDemand:
 
         """
         
-        self._d_e_hh = np.array(d_e_hh_udpated)
+        self._d_e_baseline = np.array(d_e_baseline_udpated)
         
     def update_d_e_h(self, d_e_h_udpated):
         """
@@ -694,6 +681,9 @@ class EnergyDemand:
         """
         
         self._d_h = np.array(d_h_udpated)
+        
+    def update_d_h_flex(self, d_h_flex_udpated):
+        self._d_h_flex = np.array(d_h_flex_udpated)
 
     def update_d_e_unmet(self, d_e_unmet_updated):
         self._d_e_unmet = np.array(d_e_unmet_updated)
@@ -715,44 +705,7 @@ class EnergyDemand:
     def reset_d_h_unmet_dhn(self):
         null_array = np.array([0.0]*len(self._d_h))
         self._d_h_unmet_dhn = null_array
-    
-    def d_e_hr_clustering(
-            self,
-            d_e_yr_sfh, 
-            d_e_yr_mfh,
-            electricity_profile_dir,
-            electricity_profile_file
-            ):
         
-        """Returns the hourly electricity demand (d_e_hr) of the selected community.
-        
-        Parameters
-        ----------
-        d_e_yr_sfh : float
-            Annual electricity demand of single family houses of selected community [kWh].
-        d_e_yr_mfh : float
-            Annual electricity demand of multi family houses of selected community [kWh].
-        electricity_profile_dir : str
-            Path to directory containing files of electricity load profiles.
-        electricity_profile_file : str
-            Name of csv file containing timeseries data of electricity load
-            profile. (e.g. 'Buildings_A_B_power_load_profile.csv')
-        
-        Returns
-        -------
-        list
-            hourly electricity demand [kWh]
-        """
-        file_path = electricity_profile_dir + electricity_profile_file
-        tmp_df = pd.read_csv(file_path) # [Wh] profile for one building:
-        
-        d_e_hr = (
-            tmp_df['SFH'] * d_e_yr_sfh + 
-            tmp_df['MFH'] * d_e_yr_mfh
-            )
-        
-        return d_e_hr
-    
     # def d_e_hr_split(self, d_e_hr, d_h_e_hr):
         
     #     """
@@ -786,271 +739,273 @@ class EnergyDemand:
     HEAT DEMAND:
     """
     
-    def meteostat_weather_data(self, lat, lon, alt, tf_start, tf_end):
+    # def meteostat_weather_data(self, lat, lon, alt, tf_start, tf_end):
         
-        """
-        Accesses hourly meteostat weather data via API and saves it to dataframe.
-        Git: https://github.com/meteostat/meteostat-python
+    #     """
+    #     Accesses hourly meteostat weather data via API and saves it to dataframe.
+    #     Git: https://github.com/meteostat/meteostat-python
         
-        Parameters
-        ----------
-        lat: float
-            latitude of location as decimal number (e.g. 47.556)
-        lon: float
-            longitude of location as decimal number
-        tf_start: string
-            start of timeframe. Format: '%Y-%m-%d %H:%M' (e.g. 2023-04-26 04:00)
-        tf_end: string
-            end of timeframe. Format: '%Y-%m-%d %H:%M' (e.g. 2023-07-26 23:00)
+    #     Parameters
+    #     ----------
+    #     lat: float
+    #         latitude of location as decimal number (e.g. 47.556)
+    #     lon: float
+    #         longitude of location as decimal number
+    #     tf_start: string
+    #         start of timeframe. Format: '%Y-%m-%d %H:%M' (e.g. 2023-04-26 04:00)
+    #     tf_end: string
+    #         end of timeframe. Format: '%Y-%m-%d %H:%M' (e.g. 2023-07-26 23:00)
             
     
-        Returns
-        -------
-        dataframe
-            hourly weatherdata such as temeprature, humidity, ... (see Git link).
-        """
+    #     Returns
+    #     -------
+    #     dataframe
+    #         hourly weatherdata such as temeprature, humidity, ... (see Git link).
+    #     """
         
-        # Start date:
-        date_obj_s = datetime.strptime(tf_start, '%Y-%m-%d %H:%M')
-        year_s = date_obj_s.year
-        month_s = date_obj_s.month
-        day_s = date_obj_s.day
-        hour_s = date_obj_s.hour
+    #     # Start date:
+    #     date_obj_s = datetime.strptime(tf_start, '%Y-%m-%d %H:%M')
+    #     year_s = date_obj_s.year
+    #     month_s = date_obj_s.month
+    #     day_s = date_obj_s.day
+    #     hour_s = date_obj_s.hour
         
-        # End date:
-        date_obj_e = datetime.strptime(tf_end, '%Y-%m-%d %H:%M')
-        year_e = date_obj_e.year
-        month_e = date_obj_e.month
-        day_e = date_obj_e.day
-        hour_e = date_obj_e.hour
+    #     # End date:
+    #     date_obj_e = datetime.strptime(tf_end, '%Y-%m-%d %H:%M')
+    #     year_e = date_obj_e.year
+    #     month_e = date_obj_e.month
+    #     day_e = date_obj_e.day
+    #     hour_e = date_obj_e.hour
         
-        #start = datetime(2020, 1, 1, 0)
-        #end = datetime(2020, 12, 31, 23)
-        start = datetime(year_s, month_s, day_s, hour_s)
-        end = datetime(year_e, month_e, day_e, hour_e)
+    #     #start = datetime(2020, 1, 1, 0)
+    #     #end = datetime(2020, 12, 31, 23)
+    #     start = datetime(year_s, month_s, day_s, hour_s)
+    #     end = datetime(year_e, month_e, day_e, hour_e)
         
     
-        # Beispiel:
-        #lat = 47.03204
-        #lon = 9.43204
-        #alt = 509
+    #     # Beispiel:
+    #     #lat = 47.03204
+    #     #lon = 9.43204
+    #     #alt = 509
     
-        point = meteostat.Point(lat, lon, alt)
+    #     point = meteostat.Point(lat, lon, alt)
     
-        #(Dataframe definieren und mit .fetch() Abfrage machen)
-        df_ms = meteostat.Hourly(point, start, end)
-        df_ms = df_ms.fetch()
+    #     #(Dataframe definieren und mit .fetch() Abfrage machen)
+    #     df_ms = meteostat.Hourly(point, start, end)
+    #     df_ms = df_ms.fetch()
         
-        return df_ms
+    #     return df_ms
         
      
-    def weather_data_factory(self,
-                             com_name,
-                             com_lat,
-                             com_lon,
-                             com_alt,
-                             weather_data_dir,
-                             tf_start,
-                             tf_end):
+    # def weather_data_factory(self,
+    #                          com_name,
+    #                          com_lat,
+    #                          com_lon,
+    #                          com_alt,
+    #                          weather_data_dir,
+    #                          tf_start,
+    #                          tf_end):
         
-        """
-        Takes meteostat hourly weather data df of several years and creates a df of
-        one year with averaged hourly values across several years.
+    #     """
+    #     Takes meteostat hourly weather data df of several years and creates a df of
+    #     one year with averaged hourly values across several years.
         
-        Parameters
-        ----------
-        com_name : string
-            Name of community. Example: 'Allschwil'
-        com_lat : float
-            Latitude of selected community.
-        com_lon : float
-            Longitude of selected community.
-        com_alt : float
-            Altitude of selected community.
-        weather_data_dir: string
-            Location of meteostat files. Example: './heat_demand/weather_data/'
-        tf_start : string
-            Start date of measurement data time-series (e.g.'2020-01-01 00:00')
-        tf_end:
-            End date of measurement data time-series (e.g. '2021-12-21 23:00')
+    #     Parameters
+    #     ----------
+    #     com_name : string
+    #         Name of community. Example: 'Allschwil'
+    #     com_lat : float
+    #         Latitude of selected community.
+    #     com_lon : float
+    #         Longitude of selected community.
+    #     com_alt : float
+    #         Altitude of selected community.
+    #     weather_data_dir: string
+    #         Location of meteostat files. Example: './heat_demand/weather_data/'
+    #     tf_start : string
+    #         Start date of measurement data time-series (e.g.'2020-01-01 00:00')
+    #     tf_end:
+    #         End date of measurement data time-series (e.g. '2021-12-21 23:00')
         
-        Returns
-        -------
-        dataframe
-            averaged hourly values of weather data
-        """
+    #     Returns
+    #     -------
+    #     dataframe
+    #         averaged hourly values of weather data
+    #     """
         
-        # meteostat file location + name:
-        meteostat_file = weather_data_dir + f"meteostat/meteostat_{com_name}.csv"
-        # check if file exists:
-        file_exist = os.path.isfile(meteostat_file)
+    #     # meteostat file location + name:
+    #     meteostat_file = weather_data_dir + f"meteostat/meteostat_{com_name}.csv"
+    #     # check if file exists:
+    #     file_exist = os.path.isfile(meteostat_file)
         
-        if file_exist == True:
-            # df_data = pd.read_csv(meteostat_file,
-            #                       parse_dates=['time'],
-            #                       index_col='time')
+    #     if file_exist == True:
+    #         # df_data = pd.read_csv(meteostat_file,
+    #         #                       parse_dates=['time'],
+    #         #                       index_col='time')
             
-            # Reading the CSV without parsing dates and setting index initially
-            df_data = pd.read_csv(meteostat_file)
+    #         # Reading the CSV without parsing dates and setting index initially
+    #         df_data = pd.read_csv(meteostat_file)
             
-            # Check if the DataFrame contains data:
-            if df_data.shape[0] == 0:
+    #         # Check if the DataFrame contains data:
+    #         if df_data.shape[0] == 0:
                 
-                import warnings
+    #             import warnings
     
-                # Issue a warning
-                warnings.warn(f"The meteostat file for {com_name} does not contain any data! "
-                              "A new meteostat file will be generated.", UserWarning)
+    #             # Issue a warning
+    #             warnings.warn(f"The meteostat file for {com_name} does not contain any data! "
+    #                           "A new meteostat file will be generated.", UserWarning)
                 
-                # raise Warning(f"The meteostat file for {com_name} does not contain any data!")
-                # com_alt = com_alt - 100 # reduce altitude to account for meteostat bug
-                file_exist = False # reproduce the file
-                # raise ValueError(f"The meteostat file for {com_name} does not contain any data!")
+    #             # raise Warning(f"The meteostat file for {com_name} does not contain any data!")
+    #             # com_alt = com_alt - 100 # reduce altitude to account for meteostat bug
+    #             file_exist = False # reproduce the file
+    #             # raise ValueError(f"The meteostat file for {com_name} does not contain any data!")
                 
-            else:
-                # else:
-                #     print("The DataFrame has rows.")
+    #         else:
+    #             # else:
+    #             #     print("The DataFrame has rows.")
                 
-                # Manually parse the 'time' column as datetime
-                df_data['time'] = pd.to_datetime(df_data['time'])
+    #             # Manually parse the 'time' column as datetime
+    #             df_data['time'] = pd.to_datetime(df_data['time'])
                 
-                # Set 'time' column as the index
-                df_data.set_index('time', inplace=True)
+    #             # Set 'time' column as the index
+    #             df_data.set_index('time', inplace=True)
             
-        if file_exist == False:
-            # weather data will be retrieved from the meteostat API:
-            df_data = self.meteostat_weather_data(
-                com_lat,
-                com_lon,
-                com_alt,
-                tf_start,
-                tf_end
-                )
+    #     if file_exist == False:
+    #         # weather data will be retrieved from the meteostat API:
+    #         df_data = self.meteostat_weather_data(
+    #             com_lat,
+    #             com_lon,
+    #             com_alt,
+    #             tf_start,
+    #             tf_end
+    #             )
             
-            # Check meteostat data:
-            # len_ms = len(df_data)
-            # if len_ms < 365:
-            if df_data.shape[0] == 0:
-                df_data = self.__meteostat_bug_hack(
-                    com_name,
-                    com_lat,
-                    com_lon,
-                    com_alt,
-                    tf_start,
-                    tf_end
-                    )
-                # raise Exception("Meteostat data incomplete.")
+    #         # Check meteostat data:
+    #         # len_ms = len(df_data)
+    #         # if len_ms < 365:
+    #         if df_data.shape[0] == 0:
+    #             df_data = self.__meteostat_bug_hack(
+    #                 com_name,
+    #                 com_lat,
+    #                 com_lon,
+    #                 com_alt,
+    #                 tf_start,
+    #                 tf_end
+    #                 )
+    #             # raise Exception("Meteostat data incomplete.")
     
-            # the data will be saved to a csv file, so that it can be used
-            # later, if data for the same location is required (to avoid the
-            # number of API calls):
-            df_data.to_csv(meteostat_file)
+    #         # the data will be saved to a csv file, so that it can be used
+    #         # later, if data for the same location is required (to avoid the
+    #         # number of API calls):
+    #         df_data.to_csv(meteostat_file)
     
     
-        # remove 29.02. in leap year:
-        df_data = df_data[~((df_data.index.month == 2) & (df_data.index.day == 29))]
+    #     # remove 29.02. in leap year:
+    #     df_data = df_data[~((df_data.index.month == 2) & (df_data.index.day == 29))]
            
-        # group hourly data and calculate mean for every hour of the year:
-        df_grouped = df_data.groupby([df_data.index.month,
-                                      df_data.index.day,
-                                      df_data.index.hour])
-        df_mean = df_grouped.mean()
+    #     # group hourly data and calculate mean for every hour of the year:
+    #     df_grouped = df_data.groupby([df_data.index.month,
+    #                                   df_data.index.day,
+    #                                   df_data.index.hour])
+    #     df_mean = df_grouped.mean()
         
-        # create datetime column to be used as index:
-        start_date = pd.Timestamp('1900-01-01 00:00') # 1900 is no leap year
-        date_range = pd.date_range(start=start_date, periods=8760, freq='H')
-        df_mean['datetime'] = date_range
+    #     # create datetime column to be used as index:
+    #     start_date = pd.Timestamp('1900-01-01 00:00') # 1900 is no leap year
+    #     date_range = pd.date_range(start=start_date, periods=8760, freq='H')
+    #     df_mean['datetime'] = date_range
         
-        # format the datetime column to "YYYY-MM-DD hh:mm"
-        df_mean['datetime'] = df_mean['datetime'].dt.strftime('%Y-%m-%d %H:%M')
+    #     # format the datetime column to "YYYY-MM-DD hh:mm"
+    #     df_mean['datetime'] = df_mean['datetime'].dt.strftime('%Y-%m-%d %H:%M')
         
-        # replace index with datetime index:
-        df_mean = df_mean.set_index('datetime')
+    #     # replace index with datetime index:
+    #     df_mean = df_mean.set_index('datetime')
         
-        # convert index to DatetimeIndex:
-        df_mean.index = pd.to_datetime(df_mean.index)
+    #     # convert index to DatetimeIndex:
+    #     df_mean.index = pd.to_datetime(df_mean.index)
     
-        df_weather = df_mean
+    #     df_weather = df_mean
     
-        return df_weather
+    #     return df_weather
     
-    def __meteostat_bug_hack(
-            self,
-            com_name,
-            com_lat,
-            com_lon,
-            com_alt,
-            tf_start,
-            tf_end
-            ):
+    # def __meteostat_bug_hack(
+    #         self,
+    #         com_name,
+    #         com_lat,
+    #         com_lon,
+    #         com_alt,
+    #         tf_start,
+    #         tf_end
+    #         ):
         
-        """
-        For some locations, meteostat doesn't produce weather data. If the altitude
-        is adjusted, however, it produces data.
-        Example: Alto Malcantone
-                Coord_lat  Coord_long  altitude_median
-          1559  46.042663    8.885755            802.0
-        """
+    #     """
+    #     For some locations, meteostat doesn't produce weather data. If the altitude
+    #     is adjusted, however, it produces data.
+    #     Example: Alto Malcantone
+    #             Coord_lat  Coord_long  altitude_median
+    #       1559  46.042663    8.885755            802.0
+    #     """
         
-        import warnings
+    #     import warnings
 
-        # Issue a warning
-        warnings.warn(f"The meteostat file for {com_name} does not contain any data! "
-                      "com_alt is being adjusted to account for meteostat bug.", UserWarning)
+    #     # Issue a warning
+    #     warnings.warn(f"The meteostat file for {com_name} does not contain any data! "
+    #                   "com_alt is being adjusted to account for meteostat bug.", UserWarning)
         
-        count_max = 100
-        counter = 1
-        alt_incr = 10
-        com_alt_new = com_alt
+    #     count_max = 100
+    #     counter = 1
+    #     alt_incr = 10
+    #     com_alt_new = com_alt
         
-        while counter < count_max:
+    #     while counter < count_max:
             
-            # Increase:
-            com_alt_new = com_alt + counter*alt_incr            
-            df_data = self.meteostat_weather_data(
-                com_lat,
-                com_lon,
-                com_alt_new,
-                tf_start,
-                tf_end
-                )
-            if df_data.shape[0] > 0:
-                print(f"Original altitude: {com_alt}")
-                print(f"Adjusted altitude: {com_alt_new}")
-                break
+    #         # Increase:
+    #         com_alt_new = com_alt + counter*alt_incr            
+    #         df_data = self.meteostat_weather_data(
+    #             com_lat,
+    #             com_lon,
+    #             com_alt_new,
+    #             tf_start,
+    #             tf_end
+    #             )
+    #         if df_data.shape[0] > 0:
+    #             print(f"Original altitude: {com_alt}")
+    #             print(f"Adjusted altitude: {com_alt_new}")
+    #             break
             
-            # Decrease:
-            com_alt_new = com_alt - counter*alt_incr
-            if com_alt_new < 0:
-                pass
-            else:
-                df_data = self.meteostat_weather_data(
-                    com_lat,
-                    com_lon,
-                    com_alt_new,
-                    tf_start,
-                    tf_end
-                    )
-                if df_data.shape[0] > 0:
-                    print(f"Original altitude: {com_alt}")
-                    print(f"Adjusted altitude: {com_alt_new}")
-                    break
+    #         # Decrease:
+    #         com_alt_new = com_alt - counter*alt_incr
+    #         if com_alt_new < 0:
+    #             pass
+    #         else:
+    #             df_data = self.meteostat_weather_data(
+    #                 com_lat,
+    #                 com_lon,
+    #                 com_alt_new,
+    #                 tf_start,
+    #                 tf_end
+    #                 )
+    #             if df_data.shape[0] > 0:
+    #                 print(f"Original altitude: {com_alt}")
+    #                 print(f"Adjusted altitude: {com_alt_new}")
+    #                 break
 
-            counter += 1
+    #         counter += 1
         
-        # Check meteostat data:
-        # len_ms = len(df_data)
-        # if len_ms < 365:
-        if df_data.shape[0] == 0:
-            raise Exception("Meteostat data incomplete. "
-                            "A new file could not be generated.")
-        else:
-            return df_data
+    #     # Check meteostat data:
+    #     # len_ms = len(df_data)
+    #     # if len_ms < 365:
+    #     if df_data.shape[0] == 0:
+    #         raise Exception("Meteostat data incomplete. "
+    #                         "A new file could not be generated.")
+    #     else:
+    #         return df_data
     
     # def get_d_h_yr(
     def compute_d_h_yr(
             self,
-            df_meta
+            df_meta,
+            df_com,
+            spaceheating_column = 'space_heating_demand_estimation_kWh'
             ):
         
         """Returns the annual heat demand (d_e_yr) of the selected community.
@@ -1070,11 +1025,23 @@ class EnergyDemand:
         """
             
         # Annual total heat demand of community:
-        d_h_s_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'Total_Heating'].values[0] # [kWh]
-        d_h_hw_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'Total_Hot_Water'].values[0] # [kWh]
+        d_h_s_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'space_heating_demand_estimation_kWh'].values[0] # [kWh]
+        d_h_hw_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'DHW_demand_estimation_kWh'].values[0] # [kWh]
         d_h_yr = d_h_s_yr + d_h_hw_yr
         
         self._d_h_s_yr = d_h_s_yr
+        self._d_h_s_new_yr = df_com.loc[~(df_com['GBAUP'] <= 8015), spaceheating_column].sum()
+        self._d_h_s_old_yr = df_com.loc[df_com['GBAUP'] <= 8015, spaceheating_column].sum()
+
+        if 'total_renovation_flag' in df_com.columns:
+            self._d_h_s_new_yr = (df_com.loc[~(df_com['GBAUP'] <= 8015), spaceheating_column].sum() 
+                                  + (df_com.loc[df_com['GBAUP'] <= 8015, spaceheating_column]
+                                     *df_com.loc[df_com['GBAUP'] <= 8015, 'total_renovation_flag']).sum()
+                                  )
+            self._d_h_s_old_yr = (df_com.loc[df_com['GBAUP'] <= 8015, spaceheating_column]
+                                     *(1.0 - df_com.loc[df_com['GBAUP'] <= 8015, 'total_renovation_flag'])
+                                  ).sum()
+
         self._d_h_hw_yr = d_h_hw_yr
         self._d_h_yr = d_h_yr
         
@@ -1088,10 +1055,11 @@ class EnergyDemand:
             com_nrs,
             df_com_yr,
             df_meta,
-            year,
+            weather_year,
+            hist_data_year,
             rcp_scenario,
             ts_type,
-            yearly_heat_demand_col='heat_energy_demand_estimate_kWh_combined',
+            yearly_heat_demand_col='space_heating_demand_estimation_kWh',
             new_header = 'd_h_s_yr_future',
             writeToMeta = True,
             distinguishByConstructionYear = True
@@ -1104,7 +1072,8 @@ class EnergyDemand:
             scaling_factor_t12, scaling_factor_t15 =\
                 self.__get_d_h_s_scaling_factors(
                     com_nr = self.com_nr,
-                    year=year,
+                    weather_year=weather_year,
+                    hist_data_year=hist_data_year,
                     rcp_scenario=rcp_scenario,
                     ts_type=ts_type,
                     )
@@ -1133,7 +1102,8 @@ class EnergyDemand:
                 scaling_factor_t12, scaling_factor_t15 =\
                     self.__get_d_h_s_scaling_factors(
                         com_nr = com_nr,
-                        year=year,
+                        weather_year=weather_year,
+                        hist_data_year=hist_data_year,
                         rcp_scenario=rcp_scenario,
                         ts_type=ts_type,
                         )
@@ -1163,7 +1133,7 @@ class EnergyDemand:
             df_meta.loc[df_meta['GGDENR']==GGDENR, 'v_h_wb'] = df_com_yr.loc[df_com_yr['Heating_System'] == 'v_h_wb', 'd_h_s_yr_future'].sum()
             df_meta.loc[df_meta['GGDENR']==GGDENR, 'v_h_solar'] = df_com_yr.loc[df_com_yr['Heating_System'] == 'v_h_solar', 'd_h_s_yr_future'].sum()
             df_meta.loc[df_meta['GGDENR']==GGDENR, 'v_h_other'] = df_com_yr.loc[df_com_yr['Heating_System'] == 'v_h_other', 'd_h_s_yr_future'].sum()
-            df_meta.loc[df_meta['GGDENR']==GGDENR, 'Total_Heating'] = df_com_yr.loc[:, 'd_h_s_yr_future'].sum()
+            df_meta.loc[df_meta['GGDENR']==GGDENR, 'space_heating_demand_estimation_kWh'] = df_com_yr.loc[:, 'd_h_s_yr_future'].sum()
         
             
         return new_header, df_meta
@@ -1191,12 +1161,13 @@ class EnergyDemand:
                 heat_generator_renovation = True,
                 optimisation_enabled = True,
                 scen_techs = None,
-                data_year = 2023,
+                data_year = None,
                 new_header = 'd_h_s_yr_future_renov_adjusted'
                 ):
 
-
-        print("\nAdjustment of demand to renovation, marking of old heat generators as up for renewal")
+        
+        if total_renovation_activated or heat_generator_renovation:
+            print("\nAdjustment of demand to renovation, marking of old heat generators as up for renewal")
 
         df_com_yr['total_renovation_flag'] = False #Likelyhood of a specific building having been totally renovated
         #This can be a float between 0 and 1! 0=False, 1=True
@@ -1223,12 +1194,16 @@ class EnergyDemand:
                     ((1.0-accumulated_new_weight)*df_com_yr['d_h_s_yr_future']
                     +accumulated_new_weight*df_com_yr['d_h_s_yr_renov_future']) #adjust heat consumption
                 df_com_yr['total_renovation_flag'] = accumulated_new_weight #float between 0 and 1
+                df_com_yr['GBAUP'] = df_com_yr['GBAUP']*(1.0 - accumulated_new_weight) + accumulated_new_weight * 8023
+                df_com_yr['GBAUP'] = df_com_yr['GBAUP'].round().astype('Int64')
                 # 'd_h_s_yr_future'
 
             else: #use Streicher data
                 df_com_yr['total_renovation_flag'] = df_com_yr[renovation_scenario] <= year #if renovation year < simulation year--> mark for renovation
                 df_com_yr.loc[df_com_yr['total_renovation_flag'], new_header] =\
                     df_com_yr['d_h_s_yr_renov_future'] #adjust heat consumption
+                df_com_yr.loc[df_com_yr['total_renovation_flag'], "GBAUP"] =\
+                    8023 #adjust building period to get other profiles
 
 
             #In case of total renovation, the old heat and dhw generator is thrown out.
@@ -1266,17 +1241,17 @@ class EnergyDemand:
                           *(df_com_yr.loc[df_com_yr['Heating_System'] == k, 'total_renovation_flag'])
                           ).sum() for k in reassignment_dict_sh.keys()])
                     )
-            df_meta.loc[df_meta['GGDENR']==GGDENR, 'Total_Heating'] = df_com_yr.loc[:, new_header].sum()
+            df_meta.loc[df_meta['GGDENR']==GGDENR, 'space_heating_demand_estimation_kWh'] = df_com_yr.loc[:, new_header].sum()
 
             for systemtype in reassignment_dict_dhw.keys():        
                 df_meta.loc[
                     df_meta['GGDENR']==GGDENR, systemtype
                     ] = (
-                        df_com_yr.loc[df_com_yr['Hot_Water_System'] == systemtype, 'dhw_estimation_kWh_combined']
+                        df_com_yr.loc[df_com_yr['Hot_Water_System'] == systemtype, 'DHW_demand_estimation_kWh']
                         *(1.0-df_com_yr.loc[df_com_yr['Hot_Water_System'] == systemtype, 'total_renovation_flag'])
                         ).sum() + reassignment_dict_dhw[systemtype]*(
                     sum(
-                        [(df_com_yr.loc[df_com_yr['Hot_Water_System'] == k, 'dhw_estimation_kWh_combined']
+                        [(df_com_yr.loc[df_com_yr['Hot_Water_System'] == k, 'DHW_demand_estimation_kWh']
                           *(df_com_yr.loc[df_com_yr['Hot_Water_System'] == k, 'total_renovation_flag'])).sum() 
                           for k in reassignment_dict_dhw.keys()]
                         )
@@ -1302,7 +1277,7 @@ class EnergyDemand:
                 'v_h_gb': scen_techs['gas_boiler']['lifetime'],
                 'v_h_ob': scen_techs['oil_boiler']['lifetime'],
                 'v_h_wb': scen_techs['wood_boiler']['lifetime'],
-                'v_h_solar': scen_techs['solar_thermal']['lifetime'],
+                'v_h_solar': scen_techs['solarthermal_rooftop']['lifetime'],
                 'v_h_other': 1.0,
             }
 
@@ -1336,7 +1311,7 @@ class EnergyDemand:
                 heat_generators_total_power_up_for_renovation[k] = (
                     (df_com_yr.loc[df_com_yr['Heating_System'] == k, new_header]
                      *(df_com_yr.loc[df_com_yr['Heating_System'] == k, 'heat_generator_replacement_flag'])).sum() 
-                     + (df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'dhw_estimation_kWh_combined']
+                     + (df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'DHW_demand_estimation_kWh']
                         *(df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'heat_generator_replacement_flag'])).sum())
                 heat_generators_total_power[k] = (df_meta.loc[df_meta['GGDENR']==GGDENR, k]
                                                   + df_meta.loc[df_meta['GGDENR']==GGDENR, k.replace("_h_", "_hw_")])
@@ -1350,10 +1325,78 @@ class EnergyDemand:
         return df_meta
 
 
+    # def __get_d_h_s_scaling_factors(
+    #         self,
+    #         com_nr,
+    #         weather_year,
+    #         rcp_scenario='RCP26',
+    #         ts_type='tas_median'
+    #         ):
+    #     """
+    #     Obtain scaling factor for future space heating demand.
+    #     Based on heating degree days (HDD).
+
+    #     Parameters
+    #     ----------
+    #     year : TYPE
+    #         DESCRIPTION.
+
+    #     Returns
+    #     -------
+    #     None.
+
+    #     """
+        
+    #     valid_years = {2016,2017,2018,2019,2020,2021,2022,2023,2030,2040,2050}
+    #     if weather_year in valid_years:
+    #         pass
+    #     else:
+    #         msg = (
+    #             f"Value for selected year ({weather_year}) is invalid. "
+    #             "Options are 2023, 2030, 2040, or 2050.")
+    #         raise ValueError(msg)
+        
+    #     # Scaling factor for future demand:
+    #     hdd_munic_file_current = self.paths.master_data_dir + 'HDD_and_HDH_profiles/HDD_Municipality_2023.feather'
+    #     hdd_munic_file_future = self.paths.master_data_dir + f'HDD_and_HDH_profiles/HDD_Municipality_{str(weather_year)}.feather'
+        
+    #     df_hdd_current = pd.read_feather(hdd_munic_file_current)
+    #     df_hdd_future = pd.read_feather(hdd_munic_file_future)
+        
+    #     header_current_t12 = "HDD_12_2023"
+    #     header_current_t15 = "HDD_15_2023"
+        
+    #     if weather_year==2023:
+    #         header_future_t12 = "HDD_12_2023"
+    #         header_future_t15 = "HDD_15_2023"
+    #     else:        
+    #         header_future_t12 = f"HDD_12_{str(weather_year)}_{rcp_scenario}_{ts_type}"
+    #         header_future_t15 = f"HDD_15_{str(weather_year)}_{rcp_scenario}_{ts_type}"
+
+    #     hdd_current_t12 = df_hdd_current.loc[
+    #         df_hdd_current['GGDENR'] == com_nr, header_current_t12
+    #         ].values[0]
+    #     hdd_future_t12 = df_hdd_future.loc[
+    #         df_hdd_future['GGDENR'] == com_nr, header_future_t12
+    #         ].values[0]
+
+    #     hdd_current_t15 = df_hdd_current.loc[
+    #         df_hdd_current['GGDENR'] == com_nr, header_current_t15
+    #         ].values[0]
+    #     hdd_future_t15 = df_hdd_future.loc[
+    #         df_hdd_future['GGDENR'] == com_nr, header_future_t15
+    #         ].values[0]
+        
+    #     scaling_factor_t12 = hdd_future_t12/hdd_current_t12
+    #     scaling_factor_t15 = hdd_future_t15/hdd_current_t15
+        
+    #     return scaling_factor_t12, scaling_factor_t15
+
     def __get_d_h_s_scaling_factors(
             self,
             com_nr,
-            year,
+            weather_year,
+            hist_data_year,
             rcp_scenario='RCP26',
             ts_type='tas_median'
             ):
@@ -1363,7 +1406,7 @@ class EnergyDemand:
 
         Parameters
         ----------
-        year : TYPE
+        weather_year : int
             DESCRIPTION.
 
         Returns
@@ -1372,86 +1415,167 @@ class EnergyDemand:
 
         """
         
-        if year in {2023,2030,2040,2050}:
+        valid_years = {2016,2017,2018,2019,2020,2021,2022,2023,2030,2040,2050}
+        if weather_year in valid_years:
             pass
         else:
             msg = (
-                f"Value for selected year ({year}) is invalid. "
-                "Options are 2023, 2030, 2040, or 2050.")
+                f"Value for selected year ({weather_year}) is invalid. "
+                "Options are 2016-2023, 2030, 2040, or 2050.")
             raise ValueError(msg)
-        
-        # Scaling factor for future demand:
-        hdd_munic_file_current = self.paths.master_data_dir + 'HDD_and_HDH_profiles/HDD_Municipality_2023.feather'
-        hdd_munic_file_future = self.paths.master_data_dir + f'HDD_and_HDH_profiles/HDD_Municipality_{str(year)}.feather'
-        
-        df_hdd_current = pd.read_feather(hdd_munic_file_current)
-        df_hdd_future = pd.read_feather(hdd_munic_file_future)
-        
-        header_current_t12 = "HDD_12_2023"
-        header_current_t15 = "HDD_15_2023"
-        
-        if year==2023:
-            header_future_t12 = "HDD_12_2023"
-            header_future_t15 = "HDD_15_2023"
-        else:        
-            header_future_t12 = f"HDD_12_{str(year)}_{rcp_scenario}_{ts_type}"
-            header_future_t15 = f"HDD_15_{str(year)}_{rcp_scenario}_{ts_type}"
+            
+        if weather_year == hist_data_year:
+            scaling_factor_t12 = 1.0
+            scaling_factor_t15 = 1.0
+        else:
+            
+            dict_HDD_current = self._compute_HDD(
+                temperature_data_year = hist_data_year,
+                list_T_base_degC = [12,15],
+                )
+            dict_HDD_future = self._compute_HDD(
+                temperature_data_year = weather_year,
+                list_T_base_degC = [12,15],
+                )
 
-        hdd_current_t12 = df_hdd_current.loc[df_hdd_current['GGDENR'] == com_nr, header_current_t12].values[0]
-        hdd_future_t12 = df_hdd_future.loc[df_hdd_future['GGDENR'] == com_nr, header_future_t12].values[0]
-
-        hdd_current_t15 = df_hdd_current.loc[df_hdd_current['GGDENR'] == com_nr, header_current_t15].values[0]
-        hdd_future_t15 = df_hdd_future.loc[df_hdd_future['GGDENR'] == com_nr, header_future_t15].values[0]
-        
-        scaling_factor_t12 = hdd_future_t12/hdd_current_t12
-        scaling_factor_t15 = hdd_future_t15/hdd_current_t15
+            hdd_current_t12 = dict_HDD_current[12]
+            hdd_future_t12 = dict_HDD_future[12]
+            
+            hdd_current_t15 = dict_HDD_current[15]
+            hdd_future_t15 = dict_HDD_future[15]
+            
+            scaling_factor_t12 = hdd_future_t12/hdd_current_t12
+            scaling_factor_t15 = hdd_future_t15/hdd_current_t15
         
         return scaling_factor_t12, scaling_factor_t15
 
-    # def get_d_h_yr_clustering(
-    def compute_d_h_yr_clustering(
+    def _compute_HDD(
             self,
-            df_com_yr,
-            cluster_number,
-            yearly_heat_demand_col='yearly_heatdemand'):
-        
-        """Returns the annual heat demand (d_e_yr) of the selected community.
-        
+            temperature_data_year,
+            list_T_base_degC = None,
+            ):
+        """
+        Compute heating degree days (HDD) for a specific municipality and year.
+
         Parameters
         ----------
-        df_com_year : pandas dataframe
-            Dataframe containing information about the selected community.
-            (1 row per building)
-        yearly_heat_demand_col : string
-            Header of column containing annual heat demand values in df_com_year.
-        
+        historic_data_year : int
+            Year from which historic data is used (e.g., 2016). Not necessarily
+            equal to simulated year.
+        list_T_base_degC : list of floats, optional
+            A list of the base temperatures for which the HDD value will be
+            calculated. The default is [12, 15].
+
         Returns
         -------
-        float
-            annual electricity demand [kWh]
+        dict_HDD : dict
+            Dict containing the HDD value for the specific base temperatures.
+            Keys are the base temperatures.
+
         """
         
-        arg = df_com_yr['cluster_number'] == cluster_number
-        cluster_file = df_com_yr.loc[arg].reset_index(drop = True)
+        if list_T_base_degC is None:
+            list_T_base_degC = [12, 15]
+
+        df_temperature =\
+            self.df_temperature_all_years[[temperature_data_year]].copy()
+     
+        df_temperature.index = df_temperature.index.map(
+            lambda t: t.replace(year=1900)
+            )
+        df_temperature = df_temperature.rename(
+            columns={temperature_data_year: "T_mean_degC"}
+            )
+        df_temperature.index =\
+            df_temperature.index.set_names("datetime")
         
-        # Annual total heat demand of community:
-        d_h_yr = cluster_file[yearly_heat_demand_col].sum() # [kWh]
+        dict_HDD = {}
+        
+        for T_base in list_T_base_degC:
+            
+            df_hour = df_temperature.copy()
+
+            ds_day = df_hour['T_mean_degC'].resample("D").mean()
+            
+            ds_HDD = (T_base - ds_day).clip(lower=0)
+            
+            sum_HDD = ds_HDD.sum()
+            
+            dict_HDD[T_base] = sum_HDD
+            
+        return dict_HDD    
+
+    #Helper function to calculate space heating demand for specific base_temp
+    def _compute_d_h_hr_with_T_base(self, df_hour_, d_h_s_cat_yr, T_base):
+        df_hour = df_hour_.copy()
     
-        return d_h_yr
+        df_day = df_hour["T_degC"].resample("D").mean()
     
-    # def get_d_h_hr(
+        heating_days = df_day < T_base
+        df_hour["hdd"] = df_hour.index.normalize().isin(heating_days[heating_days].index)
+    
+        df_hour["hdh"] = df_hour["hdd"] & (df_hour["T_degC"] < T_base)
+    
+        df_hour["dT_degC"] = 0.0
+        df_hour.loc[df_hour["hdh"], "dT_degC"] = (
+            T_base - df_hour.loc[df_hour["hdh"], "T_degC"]
+        )
+    
+        sum_diffT = df_hour["dT_degC"].sum()
+    
+        df_hour["d_h_hr"] = 0.0
+    
+        if sum_diffT > 0:
+            df_hour.loc[df_hour["hdh"], "d_h_hr"] = (
+                d_h_s_cat_yr / sum_diffT
+            ) * df_hour.loc[df_hour["hdh"], "dT_degC"]
+    
+        df_hour = df_hour.drop(columns=["dT_degC"])
+    
+        return df_hour
+    
+    # def _compute_d_h_hr_with_T_base(
+    #         self, 
+    #         df_hour_, 
+    #         d_h_s_cat_yr, 
+    #         T_base,
+    #         ):
+        
+    #     df_hour = df_hour_.copy()
+
+    #     df_hour["hdd"] = pd.Series(False, index=df_hour.index, dtype="boolean")
+    #     df_hour["hdh"] = pd.Series(False, index=df_hour.index, dtype="boolean")
+    #     df_hour["dT_degC"] = np.nan
+    #     df_hour["d_h_hr"] = np.nan # [kWh] 
+    
+    #     df_day = df_hour['T_degC'].resample("D").mean()
+    
+    #     for index_day, tempAverDay in df_day.items() :
+    #         # on days where the avg temperature < base temperature, heat is required:
+    #         if tempAverDay<T_base :
+    #             df_hour.loc[str(pd.to_datetime(index_day).date()),'hdd'] = True
+      
+    #     # determine during which hours of the heating days heat is required:
+    #     df_hour.loc[ (df_hour['hdd']==True) & (df_hour['T_degC']<T_base), "hdh"] = True
+    
+    #     df_hour.loc[ (df_hour['hdh']==True), 'dT_degC'] = df_hour.loc[ (df_hour['hdh']==True),'T_degC']-T_base
+    
+    #     sum_diffT = df_hour.loc[(df_hour['hdh']==True),'dT_degC'].sum()
+    
+    #     df_hour.loc[ (df_hour['hdh']==True), 'd_h_hr'] = (d_h_s_cat_yr/sum_diffT)*df_hour.loc[(df_hour['hdh']==True),'dT_degC']
+                
+    #     df_hour.loc[ (df_hour['hdh']!=True), 'd_h_hr'] = 0
+    
+    #     df_hour = df_hour.drop(['dT_degC'], axis=1)
+
+    #     return df_hour
+
     def compute_d_h_hr(
             self,
             com_name,
             com_nr_original,
-            com_lat,
-            com_lon,
-            com_alt,
-            tf_start,
-            tf_end,
-            base_year = 2025):
-                # d_h_yr,
-                # d_hw_yr):
+            weather_year,
+            ):
         
         """
         Computes hourly heat demand profile based on annual heat demand using
@@ -1461,16 +1585,14 @@ class EnergyDemand:
         ----------
         com_name : string
             Name of community. Example: 'Allschwil'
+        com_nr_original : int
+            Munic BFS number. Example: 2762
         com_lat : float
             Latitude of selected community.
         com_lon : float
             Longitude of selected community.
         com_alt : float
             Altitude of selected community.
-        tf_start : string
-            Start date of measurement data time-series (e.g.'2020-01-01 00:00')
-        tf_end:
-            End date of measurement data time-series (e.g. '2021-12-21 23:00')
         d_h_yr : float
             Annual heating demand [kWh]. 
     
@@ -1482,79 +1604,37 @@ class EnergyDemand:
         """
         
         # Inputs:
-        temp_base = 12.0 # Basis Temperatur [°C]
-        # hwb =  d_h_yr # Heizwärmebedarf [kWh/y]
-        weather_data_dir = self.paths.weather_data_dir
-    
-        weather_data_dir_delta = self.paths.weather_data_delta_method_dir
+        T_base_new = C.T_base_new # Basis Temperatur (neue Gebäude) [°C]
+        T_base_old = C.T_base_old # Basis Temperatur (alte Gebäude) [°C]
 
-        df_hour_all = pd.read_feather(weather_data_dir_delta + str(com_nr_original) + ".feather")
+        df_hour_all =  self.df_temperature_all_years.copy()
 
-        # Output:
-        # Dataframe mit der Kolonne 'd_h_hr' welche die benötigte Energiemenge [kWh] pro Stunde angibt.
-
-        # create weather data:
-        # df_weather_data = self.weather_data_factory(
-        #     com_name,
-        #     com_lat,
-        #     com_lon,
-        #     com_alt,
-        #     weather_data_dir,
-        #     tf_start,
-        #     tf_end
-        #     )
-        
-
-        dhw_profile_dir = self.paths.dhw_profile_dir
+        dhw_profile_dir = self.paths.heat_dir
         dhw_profile_file = self.paths.dhw_profile_file
         
         dhw_profile = pd.read_feather(dhw_profile_dir + dhw_profile_file)
-    
-        #!!! TBD: how to determine the timeframe of weatherdata? Currently it
-        # is hard-coded with tf_start = '2020-01-01 00:00'  and
-        # tf_end = '2022-12-31 23:00'
-    
-        # df_hour = df_weather_data
         
-        df_hour = df_hour_all[[base_year]]
+        df_hour = df_hour_all[[weather_year]]
         df_hour.index = df_hour.index.map(lambda t: t.replace(year=1900))
-        df_hour = df_hour.rename(columns={base_year: "temp"})
+        df_hour = df_hour.rename(columns={weather_year: "T_degC"})
         df_hour.index = df_hour.index.set_names("datetime")
 
-        # df_hour["hdd"] = np.nan
-        # df_hour["hdh"] = np.nan
-        df_hour["hdd"] = pd.Series(False, index=df_hour.index, dtype="boolean")
-        df_hour["hdh"] = pd.Series(False, index=df_hour.index, dtype="boolean")
-    
-        df_hour["tmp_diffT"] = np.nan
-        df_hour["d_h_hr"] = np.nan # [kWh] 
-    
-        df_day = df_hour['temp'].resample("D").mean()
-    
-        for index_day, tempAverDay in df_day.items() :
-            # on days where the avg temperature < base temperature, heat is required:
-            if tempAverDay<temp_base :
-                df_hour.loc[str(pd.to_datetime(index_day).date()),'hdd'] = True
-      
-        # determine during which hours of the heating days heat is required:
-        df_hour.loc[ (df_hour['hdd']==True) & (df_hour['temp']<temp_base), "hdh"] = True
-    
-        df_hour.loc[ (df_hour['hdh']==True), 'tmp_diffT'] = df_hour.loc[ (df_hour['hdh']==True),'temp']-temp_base
-    
-        sum_diffT = df_hour.loc[(df_hour['hdh']==True),'tmp_diffT'].sum()
-    
-        df_hour.loc[ (df_hour['hdh']==True), 'd_h_hr'] = (self._d_h_s_yr/sum_diffT)*df_hour.loc[(df_hour['hdh']==True),'tmp_diffT']
-                
-        df_hour.loc[ (df_hour['hdh']!=True), 'd_h_hr'] = 0
-    
-        df_hour = df_hour.drop(['tmp_diffT'], axis=1)
-    
+        df_hour['d_h_s_new_hr'] = self._compute_d_h_hr_with_T_base(
+            df_hour, self._d_h_s_new_yr, T_base_new
+            )['d_h_hr']
+        df_hour['d_h_s_old_hr'] = self._compute_d_h_hr_with_T_base(
+            df_hour, self._d_h_s_old_yr, T_base_old
+            )['d_h_hr']
+
+        df_hour['d_h_hr'] = df_hour['d_h_s_new_hr'] + df_hour['d_h_s_old_hr']
+
         df_hour.reset_index(inplace=True)
         
         df_hour = df_hour.drop(['datetime'], axis=1)
         
-        dhw_hr = (self._d_h_hw_yr * dhw_profile['DHW_Profile']).reset_index(drop = True)
-        
+        dhw_hr = (
+            self._d_h_hw_yr * dhw_profile['DHW_Profile']
+            ).reset_index(drop = True)
         
         d_h_s = df_hour['d_h_hr'].tolist()
         d_h_hw = dhw_hr.tolist()
@@ -1562,13 +1642,158 @@ class EnergyDemand:
         df_hour['d_h_hr'] += dhw_hr
         
         self._d_h = np.array(df_hour['d_h_hr'])
+        self._d_h_s_new = np.array(df_hour['d_h_s_new_hr'])
+        self._d_h_s_old = np.array(df_hour['d_h_s_old_hr'])
         self._d_h_s = np.array(d_h_s)
         self._d_h_hw = np.array(d_h_hw)
+        
+        # Initialise flexible profile with base profile d_h:
+        # flex_label
+        self._d_h_flex = self._d_h.copy()
+        self._d_h_flex_ll = self._d_h.copy()
+        self._d_h_flex_ul = self._d_h.copy()
+        self._d_h_s_flex_ll = np.zeros(len(self._d_h_flex_ll))
+        self._flex_flag = np.zeros_like(self._d_h_flex_ll, dtype=bool)
 
-        # return df_hour['d_h_hr']
         return self._d_h, self._d_h_s, self._d_h_hw
     
+    def compute_d_h_flex_ll(self, delta_loss_tot):
+        """
+        Compute the lower limit (ll) of the flexible heat demand
+        profile.
+
+        Parameters
+        ----------
+        delta_loss_tot : float
+            Total additional loss due to overheating of building. Computed in
+            dem_flexibility.py.
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        self.len_test(self._d_h)
+        
+        self._d_h_flex_ll = self._d_h - delta_loss_tot
+        self._d_h_flex_ll[self._d_h_flex_ll < 0] = 0
+        self._d_h_flex_ll = np.maximum(self._d_h_flex_ll, self._d_h_hw)
+        self._d_h_flex_ll_yr = float(self._d_h_flex_ll.sum())
+        
+    def compute_d_h_flex_ul(self, delta_loss_max):
+        """
+        Compute the nupper limit (ul) of the flexible heat demand
+        profile.
+
+        Parameters
+        ----------
+        delta_loss_max : float
+            Max. additional loss due to overheating of building. Computed in
+            dem_flexibility.py.
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        self.len_test(self._d_h)
+        
+        self._d_h_flex_ul = self._d_h + delta_loss_max
+        self._d_h_flex_ul_yr = float(self._d_h_flex_ul.sum())       
+        
+    def compute_d_h_s_flex_ll(self, delta_loss_tot):
+        """
+        Compute the lower limit (ll) of the flexible heat demand
+        profile, only for space heating.
+
+        Parameters
+        ----------
+        delta_loss_tot : float
+            Total additional loss due to overheating of building. Computed in
+            dem_flexibility.py.
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        self.len_test(self._d_h_s)
+        
+        self._d_h_s_flex_ll = self._d_h_s - delta_loss_tot
+        self._d_h_s_flex_ll[self._d_h_s_flex_ll < 0] = 0
+        self._d_h_s_flex_ll_yr = float(self._d_h_s_flex_ll.sum())
+        
+    def generate_flex_flag(self):
+        """
+        True where d_h_s_flex_ll > 0.
+        False where d_h_s_flex_ll = 0.
+        Used for custom constraints on virtual storage level.
+        """
+        # self.len_test(self._d_h_s_flex_ll)
+        self.len_test(self._d_h_s)
+        
+        # self._flex_flag = self._d_h_s_flex_ll > 0
+        self._flex_flag = self._d_h_s > 0
+        
+    def generate_vs_drain_flag(self):
+        """
+        Each timestep contains a flag:
+        'fill'  : The drain must be filled.
+        'idle'  : No change.
+        'empty' : The drain must be emptied.
+        """
     
+        self.len_test(self._d_h_s)
+    
+        # Initialise 1D array with default value:
+        self._vs_drain_flag = np.full(len(self._d_h_s), 'idle', dtype=object)
+    
+        n = len(self._d_h_s)
+    
+        for i, val in enumerate(self._d_h_s):
+    
+            # Current timestep has no space-heating demand:
+            if val <= 0:
+                self._vs_drain_flag[i] = 'idle'
+                continue
+    
+            # First timestep:
+            if i == 0:
+    
+                # If next timestep becomes zero -> fill
+                if n > 1 and self._d_h_s[i + 1] <= 0:
+                    self._vs_drain_flag[i] = 'fill'
+                else:
+                    self._vs_drain_flag[i] = 'idle'
+    
+            # Last timestep:
+            elif i == n - 1:
+    
+                # If previous timestep was zero -> empty
+                if self._d_h_s[i - 1] <= 0:
+                    self._vs_drain_flag[i] = 'empty'
+                else:
+                    self._vs_drain_flag[i] = 'idle'
+    
+            # Middle timesteps:
+            else:
+    
+                prev_val = self._d_h_s[i - 1]
+                next_val = self._d_h_s[i + 1]
+    
+                if prev_val <= 0:
+                    self._vs_drain_flag[i] = 'empty'
+    
+                elif next_val <= 0:
+                    self._vs_drain_flag[i] = 'fill'
+    
+                else:
+                    self._vs_drain_flag[i] = 'idle'
+
+            
     def __compute_d_h_profile(self, n_days = 365):
         
         d_h_profile = np.array(self._d_h)/self._d_h_yr
@@ -1579,6 +1804,75 @@ class EnergyDemand:
     
     def compute_d_h_hr_mix(self, df_meta, tech_instances, n_days=365):
         
+        row = df_meta.loc[df_meta["GGDENR"] == self.com_nr].iloc[0]
+
+        heat_sources = {
+            "electric_heater": row["v_h_eh"] + row["v_hw_eh"],
+            "heat_pump": row["v_h_hp"] + row["v_hw_hp"],
+            "district_heating": row["v_h_dh"] + row["v_hw_dh"],
+            "gas_boiler": row["v_h_gb"] + row["v_hw_gb"],
+            "oil_boiler": row["v_h_ob"] + row["v_hw_ob"],
+            "wood_boiler": row["v_h_wb"] + row["v_hw_wb"],
+            "solarthermal_rooftop": row["v_h_solar"] + row["v_hw_solar"],
+            "other": row["v_h_other"] + row["v_hw_other"],
+        }
+    
+        heat_labels = []
+        heat_values = []
+        src_h_other_yr = heat_sources["other"]
+    
+        for heat_label, heat_value in heat_sources.items():
+            if heat_label == "other":
+                continue
+    
+            if heat_label in tech_instances:
+                heat_labels.append(heat_label)
+                heat_values.append(heat_value)
+            else:
+                src_h_other_yr += heat_value
+    
+        heat_labels.append("other")
+        heat_values.append(src_h_other_yr)
+    
+        self.__compute_d_h_hr_partial(
+            tech_instances,
+            heat_labels,
+            heat_values,
+            n_days,
+        )
+        
+        # src_h_elec_direct_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_eh'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_eh'].values[0]
+        # src_h_hp_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_hp'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_hp'].values[0]
+        # src_h_distr_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_dh'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_dh'].values[0]
+        # src_h_gas_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_gb'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_gb'].values[0]
+        # src_h_oil_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_ob'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_ob'].values[0]
+        # src_h_wood_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_wb'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_wb'].values[0]
+        # src_h_solar_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_solar'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_solar'].values[0]
+        # src_h_other_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_other'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_other'].values[0]
+        
+        # heat_labels = ['electric_heater',
+        #                'heat_pump',
+        #                'district_heating',
+        #                'gas_boiler',
+        #                'oil_boiler',
+        #                'wood_boiler',
+        #                'solarthermal_rooftop',
+        #                'other']
+        
+        # heat_values = [src_h_elec_direct_yr,
+        #                src_h_hp_yr,
+        #                src_h_distr_yr,
+        #                src_h_gas_yr,
+        #                src_h_oil_yr,
+        #                src_h_wood_yr,
+        #                src_h_solar_yr,
+        #                src_h_other_yr]
+                
+        # self.__compute_d_h_hr_partial(tech_instances, heat_labels, heat_values, n_days)
+
+    
+    def get_demand_values(self, df_meta):
+
         src_h_elec_direct_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_eh'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_eh'].values[0]
         src_h_hp_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_hp'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_hp'].values[0]
         src_h_distr_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_dh'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_dh'].values[0]
@@ -1589,24 +1883,24 @@ class EnergyDemand:
         src_h_other_yr = df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_h_other'].values[0] + df_meta.loc[df_meta['GGDENR'] == self.com_nr, 'v_hw_other'].values[0]
         
         heat_labels = ['electric_heater',
-                       'heat_pump',
-                       'district_heating',
-                       'gas_boiler',
-                       'oil_boiler',
-                       'wood_boiler',
-                       'solar_thermal',
-                       'other']
-        
+                        'heat_pump',
+                        'district_heating',
+                        'gas_boiler',
+                        'oil_boiler',
+                        'wood_boiler',
+                        'solarthermal_rooftop',
+                        'other']
+            
         heat_values = [src_h_elec_direct_yr,
-                       src_h_hp_yr,
-                       src_h_distr_yr,
-                       src_h_gas_yr,
-                       src_h_oil_yr,
-                       src_h_wood_yr,
-                       src_h_solar_yr,
-                       src_h_other_yr]
-                
-        self.__compute_d_h_hr_partial(tech_instances, heat_labels, heat_values, n_days)
+                        src_h_hp_yr,
+                        src_h_distr_yr,
+                        src_h_gas_yr,
+                        src_h_oil_yr,
+                        src_h_wood_yr,
+                        src_h_solar_yr,
+                        src_h_other_yr]
+        
+        return dict(zip(heat_labels, heat_values))
         
     
     # def d_h_hr_partial(self, df_base, heat_labels, heat_values):
@@ -1646,8 +1940,14 @@ class EnergyDemand:
             #     tech_inst.compute_cop_timeseries(self._d_h_profile)
 
             tech_inst = tech_instances[heating_type[0]]
-            tech_inst.compute_v_h(heating_type[1], self._d_h_profile)
-            tech_inst.reduce_timeframe(n_days)
+
+            if heating_type[0] != 'solarthermal_rooftop':
+                # print(heating_type)
+                tech_inst.compute_v_h(heating_type[1], self._d_h_profile)
+                tech_inst.reduce_timeframe(n_days)
+            else:
+                tech_inst.compute_v_h_const_share(heating_type[1], self._d_h_profile)
+                tech_inst.reduce_timeframe(n_days)
 
         
         # return df_base
@@ -1729,9 +2029,29 @@ class EnergyDemand:
     def get_f_e_ev_dy(self):
         return self._f_e_ev_dy
     
-    def get_d_e_hh(self):
-        self.len_test(self._d_e_hh)
-        return self._d_e_hh
+    def get_d_e_baseline(self):
+        self.len_test(self._d_e_baseline)
+        return self._d_e_baseline
+    
+    def get_d_e_res(self):
+        self.len_test(self._d_e_res)
+        return self._d_e_res
+    
+    def get_d_e_ind(self):
+        self.len_test(self._d_e_ind)
+        return self._d_e_ind
+    
+    def get_d_e_ser(self):
+        self.len_test(self._d_e_ser)
+        return self._d_e_ser
+    
+    def get_d_e_loss(self):
+        self.len_test(self._d_e_loss)
+        return self._d_e_loss
+    
+    def get_d_e_pump(self):
+        self.len_test(self._d_e_pump)
+        return self._d_e_pump
     
     def get_d_e_h(self):
         self.len_test(self._d_e_h)
@@ -1748,6 +2068,30 @@ class EnergyDemand:
     def get_d_h_hw(self):
         self.len_test(self._d_h_hw)
         return self._d_h_hw
+    
+    def get_d_h_flex(self):
+        self.len_test(self._d_h_flex)
+        return self._d_h_flex
+    
+    def get_d_h_flex_ll(self):
+        self.len_test(self._d_h_flex_ll)
+        return self._d_h_flex_ll
+    
+    def get_d_h_flex_ul(self):
+        self.len_test(self._d_h_flex_ul)
+        return self._d_h_flex_ul
+    
+    def get_d_h_s_flex_ll(self):
+        self.len_test(self._d_h_s_flex_ll)
+        return self._d_h_s_flex_ll
+    
+    def get_flex_flag(self):
+        self.len_test(self._flex_flag)
+        return self._flex_flag
+    
+    def get_vs_drain_flag(self):
+        self.len_test(self._vs_drain_flag)
+        return self._vs_drain_flag
 
     def get_d_e_yr(self):
         self.num_test(self._d_e_yr)
@@ -1757,9 +2101,9 @@ class EnergyDemand:
         self.num_test(self._d_e_ev_yr)
         return self._d_e_ev_yr
     
-    def get_d_e_hh_yr(self):
-        self.num_test(self._d_e_hh_yr)
-        return self._d_e_hh_yr
+    def get_d_e_baseline_yr(self):
+        self.num_test(self._d_e_baseline_yr)
+        return self._d_e_baseline_yr
     
     def get_d_e_h_yr(self):
         self.num_test(self._d_e_h_yr)

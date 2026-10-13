@@ -10,6 +10,7 @@ network, mostly to provide peak heat.
 
 import pandas as pd
 import numpy as np
+import input_files.inputs as inp
 
 from district_energy_model import dem_constants as C
 from district_energy_model.techs.dem_tech_core import TechCore
@@ -43,7 +44,6 @@ class OilBoilerCP(TechCore):
         self._u_oil = [] # oil input [kWh]
         self._u_oil_kg = [] # oil input [kg]
         self._v_h = [] # heat output [kWh]
-        self._v_co2 = []
         
         #----------------------------------------------------------------------
         # Tests:
@@ -76,7 +76,6 @@ class OilBoilerCP(TechCore):
         # self._replacement_factor = tech_dict['replacement_factor']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
-        self._co2_intensity = tech_dict['co2_intensity']
         self._capex = tech_dict['capex']
         self._maintenance_cost = tech_dict['maintenance_cost']
         # self._fixed_demand_share = tech_dict['fixed_demand_share']
@@ -91,7 +90,6 @@ class OilBoilerCP(TechCore):
         df['u_oil_obcp'] = self.get_u_oil()
         df['u_oil_obcp_kg'] = self.get_u_oil_kg()
         df['v_h_obcp'] = self.get_v_h()
-        df['v_co2_obcp'] = self.get_v_co2()
         
         return df
     
@@ -115,7 +113,6 @@ class OilBoilerCP(TechCore):
         self._u_oil = self._u_oil[:n_hours]
         self._u_oil_kg = self._u_oil_kg[:n_hours]
         self._v_h = self._v_h[:n_hours]
-        self._v_co2 = self._v_co2[:n_hours]
     
     def compute_v_h(self, src_h_yr, d_h_profile):
 
@@ -127,10 +124,7 @@ class OilBoilerCP(TechCore):
         
         # Compute respective oil input:
         self.__compute_u_oil()
-        
-        # Compute co2:
-        self.__compute_v_co2()
-        
+                
     def update_v_h(self, v_h_updated):
         
         if len(v_h_updated) != len(self._v_h):
@@ -139,9 +133,7 @@ class OilBoilerCP(TechCore):
         self._v_h = np.array(v_h_updated)
         
         self.__compute_u_oil()
-        
-        self.__compute_v_co2()
-        
+                
     def __compute_u_oil(self):
         """
         Compute the required oil input (kg) based on heat output (kWh).
@@ -151,11 +143,7 @@ class OilBoilerCP(TechCore):
         
         self._u_oil = np.array(self._v_h)/self._eta # [kWh]
         self._u_oil_kg = np.array(self._v_h)*3600/(self._eta*hv_oil_kJpkg) # [kg]
-        
-    def __compute_v_co2(self):        
-        self._v_co2 = self._v_h*self.__tech_dict['co2_intensity']
-        
-        
+                
     # @staticmethod
     # def get_u_oil(hv_oil_MJpkg, v_h_ob):
     #     """
@@ -259,9 +247,6 @@ class OilBoilerCP(TechCore):
                     'om_con':0.0, # costs are reflected in oil_supply
                     'interest_rate':self._interest_rate,
                     },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity,
-                    }
                 }
             }
         
@@ -273,6 +258,7 @@ class OilBoilerCP(TechCore):
             header,
             name,
             color,
+            energy_scaling_factor
             # energy_cap,
             # capex_0=False,
             ):
@@ -290,54 +276,18 @@ class OilBoilerCP(TechCore):
                 'parent': 'oil_boiler_cp'
                 },
             'constraints':{
-                'energy_cap_max': self._v_h_max,
+                'energy_cap_max': self._v_h_max / energy_scaling_factor if self._v_h_max != 'inf' else 'inf',
                 },
             'costs':{
                 'monetary':{
-                    'energy_cap': capex,
-                    'om_annual': self._maintenance_cost
+                    'energy_cap': capex * energy_scaling_factor,
+                    'om_annual': self._maintenance_cost * energy_scaling_factor
                     }
                 }
             }
         
         return techs_dict
     
-    def create_techs_dict_clustering(
-            self,
-            techs_dict,
-            # tech_dict,
-            name = 'Oil Boiler CP',
-            color = '#8E2999',
-            capex = 0
-            ):
-        
-        techs_dict['oil_boiler_cp'] = {
-            'essentials':{
-                'name': name,
-                'color': color,
-                'parent':'conversion',
-                'carrier_in':'oil',
-                'carrier_out':'heat_obcp',
-                },
-            'constraints':{
-                'energy_eff':self._eta,
-                'lifetime':self._lifetime,
-                },
-            'costs':{
-                'monetary':{
-                    'om_con':0.0, # costs are reflected in oil_supply
-                    'interest_rate':self._interest_rate,
-                    'energy_cap': capex
-                    },
-                'emissions_co2':{
-                    'om_prod':self._co2_intensity,
-                    }
-                }
-            }
-        
-        return techs_dict
-        
-
 
     def initialise_zero(self, n_days):
         n_hours = n_days*24
@@ -347,7 +297,6 @@ class OilBoilerCP(TechCore):
         self._u_oil = init_vals.copy()
         self._u_oil_kg = init_vals.copy()
         self._v_h = init_vals.copy()
-        self._v_co2 = init_vals.copy()
 
 
     # def create_oil_supply(
@@ -381,9 +330,6 @@ class OilBoilerCP(TechCore):
     #                 'om_con':price_CHFpkWh,
     #                 'interest_rate':0.0
     #                 },
-    #             'emissions_co2':{
-    #                 'om_prod':0.0 # this is reflected in the emissions of oil_boiler
-    #                 }
     #             }
     #         }
         
@@ -403,15 +349,7 @@ class OilBoilerCP(TechCore):
         if len(self._u_oil_kg)==0:
             raise ValueError("u_oil_obcp_kg has not yet been computed!")        
         return self._u_oil_kg
-    
-    def get_v_co2(self):
-        if len(self._v_co2)==0:
-            raise ValueError("v_co2_obcp has not yet been computed!")            
-        return self._v_co2
-    
-    def get_replacement_factor(self):
-        return self._replacement_factor
-    
+            
     def get_fixed_demand_share(self):
         return self._fixed_demand_share
     
@@ -419,10 +357,12 @@ class OilBoilerCP(TechCore):
         self.num_test(self._fixed_demand_share_val)
         return self._fixed_demand_share_val
     
-    def get_only_allow_existing(self):
-        return self._only_allow_existing
+    # def get_only_allow_existing(self):
+    #     return self._only_allow_existing
     
+
     
+
     
     
     

@@ -1,0 +1,14 @@
+# List of municipalities (BFS numbers) to be simulated with src/run_dem_local_parallel.py.
+# Same key as in config_files/simulation.yaml, but with a list of numbers.
+district_number:
+  - 2762 # Allschwil
+  - 351  # Bern
+  - 230  # Winterthur
+  # - 51   # Bachenbülach
+  # - 443  # Saint-Imier
+  # - 593  # Unterseen
+  # - 2920 # Thayngen
+  # - 1061 # Luzern
+  # - 5929 # Suchy
+  # - 2613 # Breitenbach
+  # - 6136 # Martigny

@@ -71,6 +71,9 @@ def add_emissions_CO2(scen_techs, df_scen):
     # GTES:
     df_scen['v_co2_gtes'] = df_scen['v_gas_gtes']*scen_techs['gtes']['co2_intensity']
 
+    # WS:
+    df_scen['v_co2_ws'] = df_scen['v_wd_ws']*scen_techs['ws']['co2_intensity']
+
     # HES:
     df_scen['v_co2_hes'] = df_scen['v_hyd_hes']*scen_techs['hes']['co2_intensity']
 

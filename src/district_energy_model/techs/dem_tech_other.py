@@ -61,7 +61,10 @@ class Other(TechCore):
         
         # Update tech dict:
         self.__tech_dict = tech_dict
-        
+        self._capex = 0
+        self._maintenance_cost = 0
+        self._existing = 0
+
         # Properties:
         # n/a       
         
