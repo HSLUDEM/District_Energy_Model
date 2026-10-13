@@ -950,7 +950,7 @@ class DistrictEnergyModel:
         """--------------------------------------------------------------------
         Apply scenarios:
         """
-        if scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage']['enabled'] == True:
+        if scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage'] == True:
             # Safety check before any scenario runs: the combined controller
             # cannot run together with either legacy storage scenario.
             # Validate once here so optional-storage warnings are not repeated.
@@ -1498,14 +1498,14 @@ class DistrictEnergyModel:
                     )
 
             
-        if scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage']['enabled'] == True:
+        if scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage'] == True:
             print('\n scenario_battery_plus_thermal_energy_storage')
             # Configuration was validated at the start of Apply scenarios.
             # Apply storage after demand changes and PV/wind integration.
             dem_scenarios.scenario_battery_plus_thermal_energy_storage(
                 energy_demand=self.energy_demand,
                 tech_instances=self.tech_instances,
-                config=scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage']
+                config=scen_techs['scenario_battery_plus_thermal_energy_storage']
                 )
 
             #------------------------------------------------------------------

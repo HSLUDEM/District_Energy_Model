@@ -755,16 +755,24 @@ scen_techs = {
         # 'battery_energy_storage': True,
 
         # New Scenario (not yet implemented in the model):
-        'scenario_battery_plus_thermal_energy_storage': {
-            'enabled': False,
-            'electricity_supply_order': [
-                'solar_pv', 'wind_power', 'biomass', 'hydro_power',
-            ],
-            'prioritize_tes_over_bes': False,
-            'tes_charge_heat_source_order': ['heat_pump'],
-        },
+        'scenario_battery_plus_thermal_energy_storage': False,
 
         },
+
+    # Settings for the combined battery and thermal energy storage scenario:
+    'scenario_battery_plus_thermal_energy_storage': {
+        'electricity_supply_order': [
+            'solar_pv', 'wind_power', 'biomass', 'hydro_power',
+        ],
+        'storage_priority': {
+            'charge': ['bes', 'tes_decentralised'],
+            'discharge': ['tes_decentralised', 'bes'], # tes will only provide heat and never electricity 
+        },
+        # Minimum electrical power for additional HP operation to charge TES.
+        # Provisional value; 0.0 disables the threshold. Not a space-heating limit.
+        'heat_pump_tes_min_electric_power_kW': 1.0,
+        'tes_charge_heat_source_order': ['heat_pump'],
+    },
                              
     'optimisation':{ # note: objective weights will be overriden in case of pareto front computation (i.e. toggle_create_pareto_monetary_vs_co2 = True)
         'enabled':False,

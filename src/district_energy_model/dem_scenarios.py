@@ -80,7 +80,6 @@ def scenario_heater_electric_to_hp(energy_demand, tech_instances):
     del tmp_v_h_shifted
     del tmp_u_e_additional
 
-
 def scenario_heater_oil_to_hp(energy_demand, tech_instances):    
     """
     Function to adjust energy system balance in case of oil boiler replacement
@@ -156,7 +155,6 @@ def scenario_heater_oil_to_hp(energy_demand, tech_instances):
     del tmp_v_h_shifted
     del tmp_u_e_additional
     
-
 def scenario_heater_gas_to_hp(energy_demand, tech_instances):    
     """
     Function to adjust energy system balance in case of gas boiler replacement
@@ -1230,6 +1228,19 @@ def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, 
 
     The caller validates config before invoking this function. No demand,
     technology state or configuration is changed yet.
+
+    Planned dispatch configuration:
+    - storage_priority['charge'] / ['discharge']: process deployed storage
+      units in the configured order. Default discharge supplies heat from TES
+      before BES serves remaining electricity demand. BES may serve heat via
+      conversion; TES never supplies electricity.
+    - heat_pump_tes_min_electric_power_kW: apply to the feasible additional
+      electrical power for HP-driven TES charging, AFTER surplus, storage and
+      converter limits. Below the threshold, skip this charging path. Equality
+      is allowed; 0 disables the threshold. Convert timestep energy to kW using
+      the timestep duration. This does not restrict direct heat-demand service.
+
+    These settings do not affect operation until dispatch is implemented.
     """
     pass
 

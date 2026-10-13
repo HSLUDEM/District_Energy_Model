@@ -2087,7 +2087,7 @@ class CalliopeOptimiser:
         
         if self.scen_techs['tes']['deployment'] == True:
             tmp_storage_initial = self.scen_techs['tes']['initial_charge_kWh']
-            tmp_cap_max = self.scen_techs['tes']['capacity_kWh']
+            tmp_cap_max = self.scen_techs['tes']['capacity_kWh_max']
         else:
             tmp_storage_initial = 0
             tmp_cap_max = 0

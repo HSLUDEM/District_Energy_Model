@@ -894,8 +894,10 @@ def check_tech_for_scenario(techs, scenario, scen_techs):
 def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
     """Validate the configuration of the combined manual storage scenario.
 
-    Settings belong to
+    The activation boolean belongs to
     ``scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage']``.
+    Settings belong to
+    ``scen_techs['scenario_battery_plus_thermal_energy_storage']``.
     A missing or disabled scenario is ignored. An enabled scenario requires
     at least one deployed storage unit. With only one storage unit, emit a
     UserWarning and continue. This function does not change the configuration.
@@ -903,7 +905,11 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
     ``electricity_supply_order`` must contain exactly the deployed local
     generators supported here: solar_pv, wind_power, biomass and hydro_power.
     Grid supply and storage units are not local generators in this list.
-    ``prioritize_tes_over_bes`` is optional and defaults to False.
+    ``storage_priority`` contains charge and discharge orders, each listing
+    bes and tes_decentralised exactly once. Disabled storage units remain in
+    the configured lists and are skipped by the future dispatch implementation.
+    ``heat_pump_tes_min_electric_power_kW`` is a finite nonnegative electrical
+    power threshold for additional HP-driven TES charging (0 disables it).
     ``tes_charge_heat_source_order`` is
     checked only when TES is deployed. It is an ordered, nonempty selection
     of deployed heat_pump and/or electric_heater technologies.
@@ -928,14 +934,14 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
         fail('scenarios must be a dictionary.')
     if scenario not in scenarios:
         return
-    config = scenarios[scenario]
-    if not isinstance(config, dict):
-        fail('scenario settings must be a dictionary with an enabled boolean.')
-    enabled = config.get('enabled', False)
+    enabled = scenarios[scenario]
     if not isinstance(enabled, bool):
-        fail('enabled must be a boolean.')
+        fail('scenario activation in scenarios must be a boolean.')
     if not enabled:
         return
+    config = scen_techs.get(scenario)
+    if not isinstance(config, dict):
+        fail('scenario settings must be a separate top-level dictionary.')
 
     def deployed(tech):
         settings = scen_techs.get(tech)
@@ -969,8 +975,30 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
             fail(f"Disable the legacy scenario '{old_scenario}' to avoid "
                  'running multiple storage controllers.')
 
-    if not isinstance(config.get('prioritize_tes_over_bes', False), bool):
-        fail('prioritize_tes_over_bes must be a boolean.')
+    if 'prioritize_tes_over_bes' in config:
+        fail('prioritize_tes_over_bes has been replaced by storage_priority: '
+             'use charge and discharge lists.')
+    priorities = config.get('storage_priority')
+    if not isinstance(priorities, dict):
+        fail('storage_priority must contain charge and discharge lists.')
+    if set(priorities) != {'charge', 'discharge'}:
+        fail('storage_priority must contain exactly charge and discharge.')
+    for direction in ('charge', 'discharge'):
+        order = priorities[direction]
+        if (not isinstance(order, list)
+                or any(not isinstance(tech, str) for tech in order)
+                or len(order) != 2
+                or set(order) != {'bes', 'tes_decentralised'}):
+            fail(f'storage_priority.{direction} must list bes and '
+                 'tes_decentralised exactly once.')
+
+    threshold = config.get('heat_pump_tes_min_electric_power_kW')
+    if (isinstance(threshold, bool)
+            or not isinstance(threshold, (int, float))
+            or not math.isfinite(threshold)
+            or threshold < 0):
+        fail('heat_pump_tes_min_electric_power_kW must be a finite '
+             'nonnegative number in kW (0 disables the threshold).')
 
     generators = ('solar_pv', 'wind_power', 'biomass', 'hydro_power')
     order = ordered_sources('electricity_supply_order', generators)
