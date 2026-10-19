@@ -12,6 +12,7 @@ from district_energy_model import dem_helper
 
 def create_district(paths, scen_techs):
     
+    scaling_factors = scen_techs['meta_data']['custom_district']['scaling_factors']
 
     meta_file_general_path = paths.simulation_data_dir + paths.meta_file_general
     df_meta_general = pd.read_feather(meta_file_general_path)
@@ -50,7 +51,15 @@ def create_district(paths, scen_techs):
         com_name = df_meta.loc[arg, 'Municipality']
         com_kt = df_meta.loc[arg, 'Canton']
         df_com_yr = df_master.loc[arg_master]
-        
+
+        for x in df_meta.columns:
+            if x in scaling_factors.keys():
+                df_meta.loc[arg, x] = scaling_factors[x] * df_meta.loc[arg, x]
+
+        for x in df_com_yr.columns:
+            if x in scaling_factors.keys():
+                df_com_yr.loc[arg_master, x] = scaling_factors[x] * df_com_yr.loc[arg_master, x]
+
         return com_nr, com_nr, com_name, com_kt, df_meta, df_com_yr
     
     else:
@@ -72,6 +81,11 @@ def create_district(paths, scen_techs):
                 .drop_duplicates(subset="EGID", keep="last")
                 .reset_index(drop=True)
             )
+
+        for x in scaling_factors.keys():
+            if x in df_com_yr.columns:
+                df_com_yr[x] = scaling_factors[x] * df_com_yr[x]
+
 
         scen_techs['meta_data']['custom_district']['EGID_List'] = list(df_com_yr['EGID'].unique())
 
