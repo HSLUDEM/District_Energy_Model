@@ -833,7 +833,7 @@ scen_techs = {
         },
     
     'simulation':{
-        'number_of_days':365, # Simulation timeframe, starting on 1 Jan
+        'number_of_days':20, # Simulation timeframe, starting on 1 Jan
         'district_number':com_nr,
         # 'data_year':2016, # Options: 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023
         'generate_plots':toggle_plot,
