@@ -97,6 +97,7 @@ scen_techs = {
             'implemented': False,
             # 'EGID_List': EGID_List,
             'EGID_List': [],
+            'scaling_factors': {}, #scaling factors for demand columns, e.g. 'space_heating_demand_estimation_kWh': 1.5, to increase space heating demand by 50%,
             'custom_district_name':'Test_Scenario',
             'manual_district': False,  #Are manual data added to the district?
             'manual_district_df_com_path': '', #Location of the file with the dataframe for the manual district
