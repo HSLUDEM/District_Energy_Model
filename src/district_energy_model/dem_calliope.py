@@ -216,9 +216,14 @@ class CalliopeOptimiser:
         
         if 'waste_to_energy' in self.tech_list:
             self.tech_waste_to_energy = tech_instances['waste_to_energy']
-            
-        if 'heat_pump_cp' in self.tech_list:
-            self.tech_heat_pump_cp = tech_instances['heat_pump_cp']
+
+        self.heat_pump_cp_deployed = False
+        for x in self.tech_list:
+            if x.startswith('heat_pump_cp_instance_'):
+                if not self.heat_pump_cp_deployed:
+                    self.tech_heat_pump_cp = {}
+                    self.heat_pump_cp_deployed = True
+                self.tech_heat_pump_cp[x] = tech_instances[x]
 
         if 'heat_pump_cp_lt' in self.tech_list:
             self.tech_heat_pump_cp_lt = tech_instances['heat_pump_cp_lt']
@@ -472,10 +477,13 @@ class CalliopeOptimiser:
         else:
             waste_heat_low_temperature_resource = np.zeros(shape=(1, n_hours))
 
-        if 'heat_pump_cp' in self.tech_list:
-            heat_pump_cp_cops = self.tech_heat_pump_cp.get_cop()
+        if self.heat_pump_cp_deployed:
+            heat_pump_cp_cops = {}
+            for k in self.tech_heat_pump_cp.keys():
+                t = self.tech_heat_pump_cp[k]
+                heat_pump_cp_cops[k] = t.get_cop()
         else:
-            heat_pump_cp_cops = null_array.copy()
+            heat_pump_cp_cops = {'null': null_array.copy()}
 
         if 'heat_pump' in self.tech_list:
 
@@ -532,7 +540,7 @@ class CalliopeOptimiser:
         grid_export_resource_co2_intensity_timeseries = pd.Series(grid_export_resource_co2_intensity_timeseries, index=date_index)
 
 
-        heat_pump_cp_cops = pd.Series(heat_pump_cp_cops, index=date_index)
+        heat_pump_cp_cops = {k: pd.Series(heat_pump_cp_cops[k], index=date_index) for k in heat_pump_cp_cops.keys()}
 
         heat_pump_cops_existing = pd.Series(heat_pump_cops_existing, index=date_index)
         heat_pump_cops_one_to_one_replacement = pd.Series(heat_pump_cops_one_to_one_replacement, index=date_index)
@@ -585,7 +593,7 @@ class CalliopeOptimiser:
                                 })
 
 
-        df_heat_pump_cp_cops = heat_pump_cp_cops.to_frame('cop')
+        df_heat_pump_cp_cops = {k : heat_pump_cp_cops[k].to_frame("cop") for k in heat_pump_cp_cops.keys()}
 
         df_heat_pump_cops_existing = heat_pump_cops_existing.to_frame('heat_pump_cops_existing')
         df_heat_pump_cops_new = heat_pump_cops_new.to_frame('heat_pump_cops_new')
@@ -625,12 +633,13 @@ class CalliopeOptimiser:
             'waste_heat_low_temperature': df_waste_heat_low_temperature_resource / self.energy_scaling_factor,
             'grid_supply': df_grid_supply_timeseries,
             'grid_export': df_grid_export_timeseries,
-            'heat_pump_cp': df_heat_pump_cp_cops,
             'heat_pump_cops_existing': df_heat_pump_cops_existing,
             'heat_pump_cops_new': df_heat_pump_cops_new,
             'heat_pump_cops_one_to_one_replacement': df_heat_pump_cops_one_to_one_replacement,
 
             }
+        for k in df_heat_pump_cp_cops.keys():
+            timeseries_dataframes[k] = df_heat_pump_cp_cops[k]
         
         
         # dftpv = timeseries_dataframes['pvrooftop_resource']
@@ -1485,11 +1494,15 @@ class CalliopeOptimiser:
 
         # -------------------
         # Heat pump (central plant):
-        if 'heat_pump_cp' in self.tech_list:
-            v_h_hpcp = opt_results['carrier_prod'].loc['X1::heat_pump_cp_exist::heat_hpcp'].values*self.energy_scaling_factor
-            self.tech_heat_pump_cp.update_v_h(v_h_hpcp)
-            u_e_hpcp = self.tech_heat_pump_cp.get_u_e()
-        
+        if self.heat_pump_cp_deployed:
+            u_e_hpcp = null_array.copy()
+            v_h_hpcp = null_array.copy()
+            for k in self.tech_heat_pump_cp.keys():
+                v_h_hpcp_loc = opt_results['carrier_prod'].loc['X1::'+k+'_exist::heat_hpcp'].values*self.energy_scaling_factor
+                self.tech_heat_pump_cp[k].update_v_h(v_h_hpcp_loc)
+                v_h_hpcp += v_h_hpcp_loc
+                u_e_hpcp += self.tech_heat_pump_cp[k].get_u_e()
+
         else:            
             u_e_hpcp = null_array.copy()
 
@@ -2134,11 +2147,13 @@ class CalliopeOptimiser:
                     tech_groups_dict
                     )
                 
-        if 'heat_pump_cp' in self.tech_list:
-            tech_groups_dict =\
-                self.tech_heat_pump_cp.create_tech_groups_dict(
-                    tech_groups_dict
-                    )
+
+        if self.heat_pump_cp_deployed:
+            for k in self.tech_heat_pump_cp.keys():
+                tech_groups_dict =\
+                    self.tech_heat_pump_cp[k].create_tech_groups_dict(
+                        tech_groups_dict
+                        )
 
         if 'heat_pump_cp_lt' in self.tech_list:
             tech_groups_dict =\
@@ -2881,18 +2896,19 @@ class CalliopeOptimiser:
             
             self.tech_list_old.append('waste_to_energy_exist')
             
-        if 'heat_pump_cp' in self.tech_list:
-            techs_dict = self.tech_heat_pump_cp.create_techs_dict(
-                techs_dict=techs_dict,
-                header='heat_pump_cp_exist',
-                name='Heat pump (central plant)',
-                color=colors['heat_pump_cp'],
-                energy_scaling_factor = self.energy_scaling_factor
-                )
-            
-            self.tech_list_old.append('heat_pump_cp_exist')
+        if self.heat_pump_cp_deployed:
+            for k in self.tech_heat_pump_cp.keys():
+                techs_dict = self.tech_heat_pump_cp[k].create_techs_dict(
+                    techs_dict=techs_dict,
+                    header=k+'_exist',
+                    name='Heat pump (central plant)',
+                    color=colors['heat_pump_cp'],
+                    energy_scaling_factor = self.energy_scaling_factor
+                    )
+                
+                self.tech_list_old.append(k+'_exist')
 
-            
+        
         if 'heat_pump_cp_lt' in self.tech_list:
             techs_dict = self.tech_heat_pump_cp_lt.create_techs_dict(
                 techs_dict=techs_dict,

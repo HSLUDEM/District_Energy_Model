@@ -766,7 +766,7 @@ scen_techs = {
         'interest_rate':interest_rate,   
         },
 
-    'heat_pump_cp':{ # hpcp
+    'heat_pump_cp': {'instance_1': { # hpcp, instance names _have_ to start with instance_
         # 'deployment':True,
         'deployment':False,
         'kW_th_max': 'inf',#tech_cap_default,
@@ -776,7 +776,6 @@ scen_techs = {
         'capital_cost':1230.0, # [CHF/kW_th] # Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW Water-Water heat pump
         'maintenance_cost': 5.025, # [CHF/kW/year] # Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW Water-Water heat pump
         'interest_rate':interest_rate,
-
         'cop_mode': 'temperature_based', #option 'temperature_based', 'constant', 'from_file', 'from_file_adjusted_to_spf'
         'cop_timeseries_file_path': coptest,
         'cop_constant_value': 3.0,
@@ -786,6 +785,7 @@ scen_techs = {
         'cop_hot_temperature': 'constant_temperature',
         'cop_hot_temperature_constant_temperature_value': 70,
         'quality_factor': 0.5
+        }, 
         },
 
     'other':{ # other

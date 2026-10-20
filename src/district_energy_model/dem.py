@@ -966,26 +966,29 @@ class DistrictEnergyModel:
             self.tech_instances['waste_to_energy'] = self.tech_waste_to_energy
                     
         # Heat pump (central plant):
-        if scen_techs['heat_pump_cp']['deployment']:
-            weather_year_ = (
-                self.simulation_year
-                if (
-                    scen_techs['scenarios']['demand_side']
-                    and scen_techs['demand_side']['simulation_year']['type'] == 'future'
+        for scen_tech_hpcp_key in scen_techs['heat_pump_cp'].keys():
+            scen_tech_hpcp = scen_techs['heat_pump_cp'][scen_tech_hpcp_key]
+            if scen_tech_hpcp['deployment']:
+                weather_year_ = (
+                    self.simulation_year
+                    if (
+                        scen_techs['scenarios']['demand_side']
+                        and scen_techs['demand_side']['simulation_year']['type'] == 'future'
+                    )
+                    else self.hist_data_year
                 )
-                else self.hist_data_year
-            )
-            self.tech_heat_pump_cp =\
-                dem_techs.HeatPumpCP(scen_techs['heat_pump_cp'])
-            self.tech_heat_pump_cp.set_temperature_based_cop(dem_hp_cop_calculation.calculateHPCP_COP(
-                self.paths,
-                self.tech_heat_pump_cp,
-                weather_year_,
-                self.com_nr_majority
-            ))
-            self.tech_heat_pump_cp.compute_cop_timeseries(self.energy_demand._d_h_profile)
-            self.tech_heat_pump_cp.initialise_zero(n_days)
-            self.tech_instances['heat_pump_cp'] = self.tech_heat_pump_cp
+                 
+                tech_heat_pump_cp_instance = dem_techs.HeatPumpCP(scen_tech_hpcp, instance_key = scen_tech_hpcp_key)
+                
+                tech_heat_pump_cp_instance.set_temperature_based_cop(dem_hp_cop_calculation.calculateHPCP_COP(
+                    self.paths,
+                    tech_heat_pump_cp_instance,
+                    weather_year_,
+                    self.com_nr_majority
+                ))
+                tech_heat_pump_cp_instance.compute_cop_timeseries(self.energy_demand._d_h_profile)
+                tech_heat_pump_cp_instance.initialise_zero(n_days)
+                self.tech_instances['heat_pump_cp_'+scen_tech_hpcp_key] = tech_heat_pump_cp_instance
 
         # Heat pump (central plant, from low temperature heat):
         if scen_techs['heat_pump_cp_lt']['deployment']:
