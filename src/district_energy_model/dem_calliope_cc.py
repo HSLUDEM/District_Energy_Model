@@ -142,6 +142,7 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list, energy_scaling
 
         constraint_name_max = 'tes_sites_size_constraint_tes_site_'+constraint_dict['sitestr']+'_max'
         constraint_name_min = 'tes_sites_size_constraint_tes_site_'+constraint_dict['sitestr']+'_min'
+        constraint_name_forced_deployment = 'tes_sites_size_constraint_tes_site_'+constraint_dict['sitestr']+'_forced_deployment'
         varname_binary = 'tes_sites_size_constraint_tes_site_'+constraint_dict['sitestr']+'_binaryvar'
         constraint_sets = ['loc_techs_store']
 
@@ -187,7 +188,7 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list, energy_scaling
                 return 1 == binary_var[loc_tech] 
 
             model.backend.add_constraint(
-                constraint_name_min,
+                constraint_name_forced_deployment,
                 constraint_sets,
                 tes_sites_forced_deployment_rule
                 )
