@@ -380,7 +380,7 @@ class DistrictHeating(TechCore):
                     'carrier_out':'heat',
                     },
                 'constraints':{
-                    'energy_cap_max':self._kW_th_max_grid_categories[i] / energy_scaling_factor,
+                    'energy_cap_max':self._kW_th_max_grid_categories[i] / energy_scaling_factor if self._kW_th_max_grid_categories[i] != 'inf' else 'inf',
                     'energy_eff':1.0, # Here we could account for grid losses
                     'lifetime':self._lifetime,
                     # 'export_carrier': 'heat',
