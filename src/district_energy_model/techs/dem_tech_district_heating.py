@@ -388,9 +388,9 @@ class DistrictHeating(TechCore):
                 'costs':{
                     'monetary':{
                         'om_con':0.0, # costs are reflected in supply techs
-                        'interest_rate':self._interest_rate if self._kW_th_max_grid_categories[i]>0 else 0,
-                        'energy_cap': self._investment_cost_grid_categories[i]*energy_scaling_factor if self._kW_th_max_grid_categories[i]>0 else 0,
-                        'om_annual': self._maintenance_cost_grid_categories[i]*energy_scaling_factor if self._kW_th_max_grid_categories[i]>0 else 0,
+                        'interest_rate':self._interest_rate if (self._kW_th_max_grid_categories[i] == 'inf' or self._kW_th_max_grid_categories[i]>0) else 0,
+                        'energy_cap': self._investment_cost_grid_categories[i]*energy_scaling_factor if (self._kW_th_max_grid_categories[i] == 'inf' or self._kW_th_max_grid_categories[i]>0) else 0,
+                        'om_annual': self._maintenance_cost_grid_categories[i]*energy_scaling_factor if (self._kW_th_max_grid_categories[i] == 'inf' or self._kW_th_max_grid_categories[i]>0) else 0,
                         # 'export': -1e-5,
                         },
                     } 
