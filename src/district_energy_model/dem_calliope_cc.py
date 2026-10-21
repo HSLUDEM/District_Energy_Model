@@ -314,7 +314,7 @@ def tes_sites_minimum_size_cost(model, monetary_weight, ts_len, sites_list, ener
 
 
         interest_rate = value_dict['interest_rate']
-        lifetime=  site_entry['lifetime']
+        lifetime=  value_dict['lifetime']
 
         annuity_factor = ((((1+interest_rate)**lifetime) * interest_rate)/(((1+interest_rate)**lifetime) - 1) 
                           if interest_rate > 0 
