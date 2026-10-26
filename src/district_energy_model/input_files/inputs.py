@@ -78,9 +78,6 @@ force_asynchronous_storage = True
 no_force_asynchronous_storage_export_subsidy = 1e-5
 
 
-coptest = np.zeros((24*365))+30.0
-coptest[20] = 1.0
-
 # master_path = paths.simulation_data_dir + paths.master_file
 # master_file = pd.read_feather(master_path)
 
@@ -777,7 +774,7 @@ scen_techs = {
         'maintenance_cost': 5.025, # [CHF/kW/year] # Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW Water-Water heat pump
         'interest_rate':interest_rate,
         'cop_mode': 'temperature_based', #option 'temperature_based', 'constant', 'from_file', 'from_file_adjusted_to_spf'
-        'cop_timeseries_file_path': coptest,
+        'cop_timeseries_file_path': "",
         'cop_constant_value': 3.0,
         'spf_to_target': 3.5,
         'cop_source_temperature': 'air_temperature', #choices: 'constant_temperature', 'air temperature'

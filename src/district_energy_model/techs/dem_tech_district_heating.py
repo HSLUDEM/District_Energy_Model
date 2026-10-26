@@ -376,7 +376,6 @@ class DistrictHeating(TechCore):
                     'name': 'District Heating Hub',
                     'parent':'conversion',
                     'carrier_in':'heat_dh',
-
                     'carrier_out':'heat',
                     },
                 'constraints':{
