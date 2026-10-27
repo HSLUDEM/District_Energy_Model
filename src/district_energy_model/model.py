@@ -17,6 +17,7 @@ Created on Mon Apr  3 11:43:49 2023
 # import dem
 # import paths
 # import dem_helper
+import copy
 import importlib
 import importlib.util
 import sys
@@ -87,17 +88,21 @@ def launch(root_dir=None,
     
     # Read input files and update scen_techs:
     paths.input_files_dir
-    
+
+    # Work on a copy so that the defaults in inp.scen_techs are not modified
+    # (otherwise settings leak into subsequent launch() calls):
+    scen_techs_default = copy.deepcopy(inp.scen_techs)
+
     if config_files == True:
         # Read configurations from YAML files:
         scen_techs = dem_helper.update_scen_techs_from_yaml(
             paths.input_files_dir,
-            inp.scen_techs
+            scen_techs_default
             )
     elif config_files == False:
         # Read configurations within Python API:
         scen_techs = dem_helper.update_scen_techs_from_config(
-            inp.scen_techs,
+            scen_techs_default,
             config_dict
             )
     
