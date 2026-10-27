@@ -1640,28 +1640,7 @@ class DistrictEnergyModel:
             self.energy_demand.reset_d_h_unmet()
             
             # If activated, compute flexibility metrics:
-            # flex_label
-            if (
-                scen_techs['scenarios']['demand_side']
-                and scen_techs['demand_side']['dr_flexibility_building_inertia']
-                ):            
-                
-                self.building_inertia_flex =\
-                    dem_flexibility.BuildingInertiaFlexibility(
-                        df_com_yr=self.df_com_yr,
-                        yearly_heat_demand_col=self.yearly_heat_demand_col,
-                        tech_dict = scen_techs['demand_side'],
-                        )
-
-                delta_loss_tot = self.building_inertia_flex.get_delta_loss_tot() 
-                self.energy_demand.compute_d_h_flex_ll(delta_loss_tot)
-                self.energy_demand.compute_d_h_flex_ul(delta_loss_tot)
-                self.energy_demand.compute_d_h_s_flex_ll(delta_loss_tot)
-                self.energy_demand.generate_flex_flag()
-                self.energy_demand.generate_vs_drain_flag()
-     
-            else:
-                self.building_inertia_flex = None
+            self.__setup_building_inertia_flex(scen_techs)
                         
             from district_energy_model import dem_calliope
             optimiser = dem_calliope.CalliopeOptimiser(
@@ -1805,6 +1784,34 @@ class DistrictEnergyModel:
         print('\nDone')
        
     
+    def __setup_building_inertia_flex(self, scen_techs):
+        """
+        Create the building inertia flexibility (if activated) and the
+        corresponding flexible heat demand limits for the optimisation.
+        """
+        # flex_label
+        if (
+            scen_techs['scenarios']['demand_side']
+            and scen_techs['demand_side']['dr_flexibility_building_inertia']
+            ):            
+            
+            self.building_inertia_flex =\
+                dem_flexibility.BuildingInertiaFlexibility(
+                    df_com_yr=self.df_com_yr,
+                    yearly_heat_demand_col=self.yearly_heat_demand_col,
+                    tech_dict = scen_techs['demand_side'],
+                    )
+
+            delta_loss_tot = self.building_inertia_flex.get_delta_loss_tot() 
+            self.energy_demand.compute_d_h_flex_ll(delta_loss_tot)
+            self.energy_demand.compute_d_h_flex_ul(delta_loss_tot)
+            self.energy_demand.compute_d_h_s_flex_ll(delta_loss_tot)
+            self.energy_demand.generate_flex_flag()
+            self.energy_demand.generate_vs_drain_flag()
+ 
+        else:
+            self.building_inertia_flex = None
+
     def generate_pareto_monetary_co2(self, scen_techs, N_pareto):
         """
         Return the results of multiple optimisations for generating a pareto
@@ -1858,6 +1865,10 @@ class DistrictEnergyModel:
             
             # Enable optimisation:
             scen_techs['optimisation']['enabled'] = True
+            
+            # Building inertia flexibility (not created by generate_scenario()
+            # without optimisation):
+            self.__setup_building_inertia_flex(scen_techs)
             
             # Create optimiser instance:        
             optimiser = dem_calliope.CalliopeOptimiser(
