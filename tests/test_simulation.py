@@ -67,11 +67,11 @@ def test_future_climate_without_total_renovation(run_dem):
     ds = {'scenarios': {'demand_side': True},
           'demand_side': {'simulation_year': {'type': 'future', 'future_year': 2050},
                           'heat_generator_renovation': True, 'ev_integration': False}}
+    today = run_dem({}, days=365)  # first: independent of launch() modifying the defaults
     no_renov = run_dem(ds | {'demand_side': ds['demand_side'] | {'total_renovation': False}}, days=365)
     rate0 = run_dem(ds | {'demand_side': ds['demand_side'] | {'total_renovation': True,
                                                               'use_constant_total_renovation_rate': True,
                                                               'constant_total_renovation_rate': 0.0}}, days=365)
-    today = run_dem({}, days=365)
     assert no_renov.annual_results()['d_h_yr'] == pytest.approx(rate0.annual_results()['d_h_yr'], rel=1e-9)
     assert no_renov.annual_results()['d_h_yr'] != pytest.approx(today.annual_results()['d_h_yr'], rel=1e-3)
 
