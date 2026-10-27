@@ -324,8 +324,10 @@ def tes_sites_minimum_size_cost(model, monetary_weight, ts_len, sites_list, ener
         binary_var = bm.component(varname_binary)
 
 
-        obj.expr = obj.expr + value_dict['capex_base'] * annuity_factor * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor * monetary_weight
-        obj.expr = obj.expr + value_dict['maintenance_cost_base'] * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor * monetary_weight
+        # Fixed costs per site [CHF], independent of the (scaled) capacity,
+        # i.e. not multiplied with the energy scaling factor:
+        obj.expr = obj.expr + value_dict['capex_base'] * annuity_factor * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * monetary_weight
+        obj.expr = obj.expr + value_dict['maintenance_cost_base'] * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * monetary_weight
         
     active_objs[0] = obj
 
