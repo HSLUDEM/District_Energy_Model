@@ -402,7 +402,7 @@ def calculate_CO2_emissions(supply, tech_instances, debug=False):
                 * tech_instances["grid_supply"]._co2_intensity_timeseries)
             )
         if tech == "grid_export":
-            co2_emissions["emissions_grid_export"] = (
+            co2_emissions["emissions_grid_export"] = - ( # exported electricity yields negative emissions (as in the optimisation)
                 np.sum(np.array(tech_instances["grid_export"]._f_e)
                 * tech_instances["grid_export"]._co2_intensity_timeseries)
             )
