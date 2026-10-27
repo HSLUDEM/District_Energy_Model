@@ -134,3 +134,35 @@ def test_storage_scenario_has_no_free_initial_energy(run_dem):
     stored_at_start = df['q_h_tesdc'].iloc[0] - df['u_h_tesdc'].iloc[0] + df['v_h_tesdc'].iloc[0]
     assert df['v_h_tesdc'].sum() <= df['u_h_tesdc'].sum() + stored_at_start + 1e-6
     assert stored_at_start == pytest.approx(0, abs=1)
+
+
+def _egids(*municipalities):
+    com = pd.read_feather(ROOT / 'data/master_data/master_data_general.feather', columns=['EGID', 'GGDENR'])
+    return [int(e) for e in com.loc[com['GGDENR'].isin(municipalities), 'EGID']]
+
+
+@requires_data
+def test_custom_district_of_whole_municipality_reproduces_it(run_dem):
+    munic = run_dem({'simulation': {'district_number': 448}}).annual_results()  # Villeret
+    custom = run_dem({'meta_data': {'custom_district': {
+        'implemented': True, 'EGID_List': _egids(448), 'custom_district_name': 'all_448'}}}).annual_results()
+    for key in ['d_e_yr', 'd_e_ind_yr', 'd_e_ser_yr', 'd_e_loss_yr', 'd_e_pump_yr', 's_wet_bm_yr',
+                'd_h_yr', 'v_e_wp_yr', 'v_e_wp_pot_yr']:
+        assert custom[key] == pytest.approx(munic[key], rel=1e-6, abs=1e-3), key
+
+
+@requires_data
+def test_custom_district_of_two_municipalities_wind(run_dem):
+    a = run_dem({'simulation': {'district_number': 448}}).annual_results()
+    b = run_dem({'simulation': {'district_number': 434}}).annual_results()
+    ab = run_dem({'meta_data': {'custom_district': {
+        'implemented': True, 'EGID_List': _egids(448, 434), 'custom_district_name': 'pair'}}}).annual_results()
+    for key in ['v_e_wp_yr', 'v_e_wp_pot_yr']:
+        assert ab[key] == pytest.approx(a[key] + b[key], rel=1e-6), key
+
+
+@requires_data
+def test_act_on_fossil_heater_retrofit_without_generator_renovation(run_dem):
+    model = run_dem({'scenarios': {'demand_side': True},
+                     'demand_side': {'act_on_fossil_heater_retrofit': True, 'heat_generator_renovation': False}}, days=2)
+    assert model.annual_results()['d_h_yr'] > 0
