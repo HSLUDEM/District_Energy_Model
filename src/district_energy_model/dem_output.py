@@ -4489,13 +4489,13 @@ def plot_tes_and_bes_cumsum_hourly(df_scen,
     colorindex = 0
     for keyword in keywords:
         if keyword in df_scen.columns:
-            dt_loc = df_scen[keyword].diff()[1:]/1000
-            dt_loc = ((dt_loc + np.abs(dt_loc))/2.0).cumsum()
-            data[keyword + " charged"] = dt_loc + df_scen[keyword].iloc[0]/1000
-
-            dt_loc = df_scen[keyword].diff()[1:]/1000
-            dt_loc = ((-dt_loc + np.abs(-dt_loc))/2.0).cumsum()
-            data[keyword + " discharged"] = dt_loc
+            # Cumulative charging (u_*) and discharging (v_*) flows. The
+            # changes of the storage level (q_*) differ from them by the
+            # charging/discharging and standing losses.
+            u_col = 'u_' + keyword[2:]
+            v_col = 'v_' + keyword[2:]
+            data[keyword + " charged"] = (df_scen[u_col]/1000).cumsum()[1:]
+            data[keyword + " discharged"] = (df_scen[v_col]/1000).cumsum()[1:]
 
             y.append(keyword+ " charged")
             y.append(keyword+ " discharged")
