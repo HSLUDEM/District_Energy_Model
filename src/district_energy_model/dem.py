@@ -2212,6 +2212,9 @@ class DistrictEnergyModel:
         # Record the starting time
         start_time = time.time()
         
+        # Needed by plot() also if results are loaded from file:
+        self.scen_techs = scen_techs
+        
         # Get optimisation inputs:
         opt_active = scen_techs['optimisation']['enabled']
         pareto_active = scen_techs['optimisation']['pareto_monetary_co2']
