@@ -43,6 +43,10 @@ class Supply(TechCore):
         self._s_wet_bm_rem = []
         self._s_wd_rem = []
         
+        # After an optimisation, _s_wet_bm and _s_wd contain the consumed
+        # (instead of the available) local resources:
+        self._s_is_consumption = False
+        
         # self._s_wd_import = []
         
         self._s_hydro = []
@@ -69,7 +73,27 @@ class Supply(TechCore):
         df['m_gas'] = self.get_m_gas()
         df['m_wd'] = self.get_m_wd()        
         
+        # CO2 emissions of fuels (included in v_co2_tot):
+        u_wd_local, u_wet_bm = self.get_local_biomass_consumption()
+        df['m_co2_oil'] = self.get_m_oil()*self.supply_tech_dict['co2_content_oil']
+        df['m_co2_gas'] = self.get_m_gas()*self.supply_tech_dict['co2_content_gas']
+        df['m_co2_wd'] = self.get_m_wd()*self.supply_tech_dict['co2_content_imported_wood']
+        df['v_co2_wd_local'] = u_wd_local*self.supply_tech_dict['co2_content_local_wood']
+        df['v_co2_wet_bm'] = u_wet_bm*self.supply_tech_dict['co2_content_wet_biomass']
+        
         return df
+    
+    def get_local_biomass_consumption(self):
+        """
+        Return the consumed local wood and wet biomass (hourly, kWh).
+        """
+        s_wd = np.array(self.get_s_wd(), dtype=float)
+        s_wet_bm = np.array(self.get_s_wet_bm(), dtype=float)
+        if self._s_is_consumption:
+            return s_wd, s_wet_bm
+        u_wd_local = s_wd - np.array(self.get_s_wd_rem(), dtype=float)
+        u_wet_bm = s_wet_bm - np.array(self.get_s_wet_bm_rem(), dtype=float)
+        return u_wd_local, u_wet_bm
         
     def reduce_timeframe(self, n_days):
         """

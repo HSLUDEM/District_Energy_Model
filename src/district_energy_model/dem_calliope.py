@@ -1403,6 +1403,7 @@ class CalliopeOptimiser:
         self.supply.update_s_wd(s_wd)
         self.supply.update_s_wet_bm_rem(s_wet_bm_rem)
         self.supply.update_s_wd_rem(s_wd_rem)
+        self.supply._s_is_consumption = True
         
         # ------------------- 
         # Hydro Power (local):
