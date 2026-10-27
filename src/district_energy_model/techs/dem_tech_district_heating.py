@@ -760,7 +760,7 @@ class DistrictHeating(TechCore):
         self._power_up_for_replacement = value
 
     def get_energy_costs(self):
-        return sum(self._m_h*inp.dh_tariff)
+        return sum(self._m_h*self._tariff_CHFpkWh)
     
     def get_total_capex(self):
         capex = 0
