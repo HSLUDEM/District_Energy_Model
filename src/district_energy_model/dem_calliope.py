@@ -27,6 +27,28 @@ import numpy as np
 from district_energy_model import dem_calliope_cc
 from district_energy_model import dem_constants as C
 
+def translate_solver_options(solver, gurobi_options):
+    """
+    Translate solver options given with Gurobi's parameter names to the
+    selected solver. Options without an equivalent are dropped (other
+    solvers reject unknown options or ignore them silently).
+    """
+    if solver == 'gurobi':
+        return gurobi_options
+    if solver == 'cbc':
+        # 'threads' is not passed: only available in CBC builds with thread support
+        names = {'MIPGap':'ratioGap', 'TimeLimit':'seconds',
+                 'FeasibilityTol':'primalTolerance'}
+    else:
+        names = {}
+    options = {names[k]:v for k, v in gurobi_options.items() if k in names}
+    ignored = sorted(set(gurobi_options) - set(names))
+    if ignored:
+        print(f"\nNote: solver options not available for solver '{solver}' "
+              f"are ignored: {ignored}")
+    return options
+
+
 class CalliopeOptimiser:
     
     # def __init__(self, tech_list, tech_instances, energy_demand, supply, com_name, opt_metrics, files_path):
@@ -3554,6 +3576,11 @@ class CalliopeOptimiser:
                 'Threads':self.opt_metrics.get('solver_option_Threads', 0), # .get(): input files without this key use the solver default (0)
                 }
             }
+        
+        # The options above use Gurobi's names:
+        run_dict['solver_options'] = translate_solver_options(
+            self.opt_metrics['solver'], run_dict['solver_options']
+            )
         
         return run_dict
     
