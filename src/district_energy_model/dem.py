@@ -2120,8 +2120,12 @@ class DistrictEnergyModel:
         self.pareto_results_loaded = False
             
     def load_pareto_monetary_co2(self, filename):
+        # Load from the configured output directory (self.results_path is a
+        # newly created, empty directory for the current run):
+        from pathlib import Path
+        load_dir = Path(self.paths.root_dir) / self.paths.output_dir_name
         self.pareto_results = dem_helper.load_from_pickle(
-            dir_path=self.results_path,
+            dir_path=str(load_dir),
             filename=filename
             )
         self.pareto_results_loaded = True
