@@ -755,12 +755,14 @@ class DistrictEnergyModel:
         # Update techs from base scenario:     
 
 
+        techs_not_deployed = []
         for tech_name, tech_instance in list(self.tech_instances.items()): # iterate over a copy()
             if scen_techs[tech_name]['deployment']:
                 tech_instance.update_tech_properties(scen_techs[tech_name])
             elif scen_techs['optimisation']['enabled']:
-                del self.tech_instances[tech_name]
-                # print(f"{tech_name} was removed from scenario.\n")
+                # Removed before the optimisation, i.e. after the manual
+                # scenarios (which rely on the existing techs):
+                techs_not_deployed.append(tech_name)
             else:
                 # Removing a tech would drop its existing generation without
                 # reallocating it, violating the energy balances.
@@ -1620,6 +1622,12 @@ class DistrictEnergyModel:
                 df_scen
                 )
         
+        # Remove techs that are not deployed (optimisation only):
+        for tech_name in techs_not_deployed:
+            del self.tech_instances[tech_name]
+            # print(f"{tech_name} was removed from scenario.\n")
+        self.tech_list = list(self.tech_instances.keys())
+
         # Prepare cost calculation by calculating the capacities that need to be replaced based on scenarios
         dem_costs.get_replacement_capacities(self.tech_instances)
 
