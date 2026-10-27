@@ -917,13 +917,17 @@ def building_inertia_flex_constraints(
                     for t in ts
                     )*energy_scaling_factor
             elif key=='district_heating':
+                # The number of district heating hubs depends on the grid cost
+                # categories; without district heating there are none:
+                dh_hubs = [
+                    loc_tech_carrier
+                    for loc_tech_carrier in backend_model.loc_tech_carriers_prod
+                    if loc_tech_carrier.startswith('X1::district_heating_hub')
+                    and loc_tech_carrier.endswith('::heat')
+                    ]
                 v_h_sum = sum(
-                    (                    
-                        backend_model.carrier_prod['X1::district_heating_hub_0::heat', t]
-                        + backend_model.carrier_prod['X1::district_heating_hub_1::heat', t]
-                        + backend_model.carrier_prod['X1::district_heating_hub_2::heat', t]
-                        + backend_model.carrier_prod['X1::district_heating_hub_3::heat', t]
-                        )
+                    backend_model.carrier_prod[loc_tech_carrier, t]
+                    for loc_tech_carrier in dh_hubs
                     for t in ts
                     )*energy_scaling_factor
             else:
