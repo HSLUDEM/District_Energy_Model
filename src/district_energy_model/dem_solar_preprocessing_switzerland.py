@@ -103,7 +103,7 @@ def obtain_com_roof_profile(com_nr, efficiency_overall, paths):
 
         peakpower_profile = efficiency * np.max(sumprofile)
 
-        capex_opex_increase_factor = peakpower / peakpower_profile
+        capex_opex_increase_factor = peakpower / peakpower_profile if peakpower_profile > 0 else 100.0 # roof group without potential (as for custom districts)
 
         pv_profile = sumprofile * efficiency
 
