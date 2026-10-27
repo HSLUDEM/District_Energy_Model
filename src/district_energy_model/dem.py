@@ -125,6 +125,11 @@ class DistrictEnergyModel:
             print(f"\nCustom district: {custom_district_name} (part of {self.com_name_})")
         
         else:
+            # Check before loading data (the data does not contain these):
+            if self.com_nr in C.munics_omit:
+                raise ValueError(
+                    f"Municipality number {self.com_nr} is on the list of "
+                    "municipalities to omit (see dem_constants.py).")
             (
                 self.com_name_, self.com_kt, self.df_meta, self.df_com_yr
                 ) = dem_helper.get_com_files(

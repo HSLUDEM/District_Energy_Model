@@ -1050,6 +1050,10 @@ def get_com_files(com_nr,
         how="left"
     )
     
+    if not (df_meta['GGDENR'] == com_nr).any():
+        raise ValueError(
+            f"district_number {com_nr} not found in {meta_file_general}. "
+            "For Swiss municipalities, use the BFS commune number.")
     com_name = df_meta.loc[df_meta['GGDENR']==com_nr,'Municipality'].iloc[0]
     com_kt = df_meta.loc[df_meta['GGDENR']==com_nr,'Canton'].iloc[0]
     
