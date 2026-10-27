@@ -5,6 +5,7 @@ Created on Mon Mar 20 11:46:14 2023
 @author: UeliSchilt
 """
 
+import copy
 import pandas as pd
 import numpy as np
 # import sys
@@ -18,6 +19,50 @@ from typing import List, Dict, Any
 
 # from district_energy_model import dem_constants as C
 
+def _add_new_config_key(dst, tmpl, key):
+    """
+    Check whether a key that does not exist in scen_techs may be added.
+
+    Allowed are any keys in a dict that is empty by default (e.g.
+    meta_data.custom_district.scaling_factors) and new instances of techs
+    with several instances (e.g. heat_pump_cp.instance_2). New instances
+    are initialised with the default values of instance_1 and added to dst.
+
+    Parameters
+    ----------
+    dst : dict
+        Node of scen_techs to be updated.
+    tmpl : dict
+        Corresponding node of the default scen_techs (before any update).
+    key : str
+        Key to be added.
+
+    Returns
+    -------
+    bool
+        True if the key may be added.
+    """
+    if isinstance(tmpl, dict) and len(tmpl) == 0:
+        return True
+    if (
+            str(key).startswith('instance_')
+            and isinstance(tmpl, dict)
+            and 'instance_1' in tmpl
+            ):
+        dst[key] = copy.deepcopy(tmpl['instance_1'])
+        return True
+    return False
+
+def _config_template_child(tmpl, key):
+    """Return the default node for key (see _add_new_config_key)."""
+    if not isinstance(tmpl, dict):
+        return {}
+    if key in tmpl:
+        return tmpl[key]
+    if str(key).startswith('instance_') and 'instance_1' in tmpl:
+        return tmpl['instance_1']
+    return {}
+
 def update_scen_techs_from_config(scen_techs: Dict[str, Any],
                                   config_dict: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -28,6 +73,8 @@ def update_scen_techs_from_config(scen_techs: Dict[str, Any],
       a KeyError is raised (same as for YAML configuration files).
     - If an upstream key exists, only the specified downstream keys are updated;
       other downstream keys in scen_techs are kept as-is.
+    - Exceptions: keys in dicts that are empty by default and new tech
+      instances (see _add_new_config_key).
 
     Parameters
     ----------
@@ -42,12 +89,21 @@ def update_scen_techs_from_config(scen_techs: Dict[str, Any],
         The updated scen_techs (same object, for convenience).
     """
 
+    templates = copy.deepcopy(scen_techs)
+
     def _update_recursive(scen_node: Dict[str, Any],
                           cfg_node: Dict[str, Any],
-                          path: List[str]) -> None:
+                          path: List[str],
+                          tmpl_node: Dict[str, Any]) -> None:
         for key, cfg_value in cfg_node.items():
             new_path = path + [str(key)]
             path_str = " -> ".join(new_path)
+
+            if key not in scen_node and _add_new_config_key(scen_node, tmpl_node, key):
+                if key not in scen_node:
+                    # Key in a dict that is empty by default:
+                    scen_node[key] = copy.deepcopy(cfg_value)
+                    continue
 
             if key not in scen_node:
                 raise KeyError(
@@ -63,12 +119,13 @@ def update_scen_techs_from_config(scen_techs: Dict[str, Any],
                         f"cannot apply nested overrides from config_dict"
                     )
 
-                _update_recursive(scen_node[key], cfg_value, new_path)
+                _update_recursive(scen_node[key], cfg_value, new_path,
+                                  _config_template_child(tmpl_node, key))
 
             else:
                 scen_node[key] = cfg_value
 
-    _update_recursive(scen_techs, config_dict, [])
+    _update_recursive(scen_techs, config_dict, [], templates)
     return scen_techs
 
 
@@ -105,17 +162,23 @@ def update_scen_techs_from_yaml(input_files_dir, scen_techs):
             else:
                 dst[k] = v
 
+    templates = copy.deepcopy(scen_techs)
+
     # helper to validate that all keys in src already exist in dst
-    def _validate_keys_exist(dst, src, *, context):
+    # (exceptions: see _add_new_config_key)
+    def _validate_keys_exist(dst, src, tmpl, *, context):
         if not isinstance(src, dict):
             return
         for k, v in src.items():
+            if k not in dst and _add_new_config_key(dst, tmpl, k):
+                if k not in dst:
+                    continue # key in a dict that is empty by default
             if k not in dst:
                 raise KeyError(f"{context}: unknown key '{k}'. Allowed keys: {sorted(dst.keys())}")
             if isinstance(v, dict):
                 if not isinstance(dst.get(k), dict):
                     raise KeyError(f"{context}: key '{k}' is not a dict in scen_techs, cannot have subkeys.")
-                _validate_keys_exist(dst[k], v, context=f"{context}.{k}")
+                _validate_keys_exist(dst[k], v, _config_template_child(tmpl, k), context=f"{context}.{k}")
 
     input_dir = Path(input_files_dir)
     if not input_dir.exists():
@@ -153,6 +216,7 @@ def update_scen_techs_from_yaml(input_files_dir, scen_techs):
                 _validate_keys_exist(
                     scen_techs[top_key],
                     subcontent,
+                    templates[top_key],
                     context=f"{techs_path.name}:{top_key}",
                 )
                 
@@ -191,6 +255,7 @@ def update_scen_techs_from_yaml(input_files_dir, scen_techs):
         _validate_keys_exist(
             scen_techs[top_key],
             content,
+            templates[top_key],
             context=f"{file.name}:{top_key}",
         )
 
