@@ -1213,6 +1213,19 @@ class CalliopeOptimiser:
             self.tech_wind_power.update_v_e_exp(v_e_wp_exp)
             self.tech_wind_power.update_v_e_cons(v_e_wp_cons)
             
+            # Installed capacities (used by the cost module):
+            wp_cap = {
+                tech: sum(
+                    float(opt_results['energy_cap'].loc[f'{loc}::{tech}'])*self.energy_scaling_factor
+                    for loc in ['loc_wp_annual', 'loc_wp_winter']
+                    )
+                for tech in ['wind_power_old', 'wind_power_new']
+                }
+            self.tech_wind_power.set_capacities_from_optimisation(
+                cap_total_kW=wp_cap['wind_power_old'] + wp_cap['wind_power_new'],
+                cap_new_kW=wp_cap['wind_power_new'],
+                )
+            
             # ----------------------------------------------
             # Check for solver violations in wind conversion:
             # ----------------------------------------------

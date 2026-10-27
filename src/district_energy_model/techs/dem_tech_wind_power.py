@@ -73,6 +73,7 @@ class WindPower(TechCore):
         self.p_max_annual = ...
         self.p_max_winter = ...
         self.p_e_wp = ... # currently installed capacity
+        self._cap_opt = None # [kW] capacities (total, new) from optimisation, if available
         
         # Initialize properties:
         self.update_tech_properties(tech_dict)
@@ -1170,7 +1171,17 @@ class WindPower(TechCore):
         # print(f"Existing capacity wind power: {self.p_e_wp}")
         return self.p_e_wp 
 
+    def set_capacities_from_optimisation(self, cap_total_kW, cap_new_kW):
+        """
+        Set the installed capacities resulting from an optimisation. The
+        capacity cannot be derived from the generation profile, as new wind
+        power can be installed at locations with annual or winter profiles.
+        """
+        self._cap_opt = (cap_total_kW, cap_new_kW)
+
     def get_total_capex(self):
+        if self._cap_opt is not None:
+            return self._cap_opt[1]*self._capex
         cap = [x/y for x, y in zip(self._v_e, self._v_e_pot_annual_kWhpkW) if y != 0] 
         if cap == []:
             return 0.0
@@ -1181,6 +1192,8 @@ class WindPower(TechCore):
         return 0.0
     
     def get_total_maintenance(self):
+        if self._cap_opt is not None:
+            return self._maintenance_cost*self._cap_opt[0]
         cap = [x/y for x, y in zip(self._v_e, self._v_e_pot_annual_kWhpkW) if y != 0] 
         if cap == []:
             return 0.0
