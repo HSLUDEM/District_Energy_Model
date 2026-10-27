@@ -101,6 +101,14 @@ def launch(root_dir=None,
             config_dict
             )
     
+    # Input data covers one year (8760 h):
+    n_days = scen_techs['simulation']['number_of_days']
+    if isinstance(n_days, bool) or not isinstance(n_days, int) or not 1 <= n_days <= 365:
+        raise ValueError(
+            "simulation.number_of_days must be an integer between 1 and 365. "
+            f"Selected value: {n_days!r}."
+            )
+
     # Create instance of district energy model (dem):
     dem_inst = dem.DistrictEnergyModel(
         paths = paths,
