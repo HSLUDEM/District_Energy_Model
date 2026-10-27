@@ -56,3 +56,5 @@ packages = ["src/district_energy_model"]
   # "README.md",
   # "LICENSE",
 # ]
+[tool.pytest.ini_options]
+testpaths = ["tests"]
