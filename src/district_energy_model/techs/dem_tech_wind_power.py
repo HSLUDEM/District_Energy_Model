@@ -412,9 +412,16 @@ class WindPower(TechCore):
                 
             return df_v_e
         else:
-            for i in range(len(self.com_percent)):
+            # Custom district spanning several municipalities: generation of the
+            # installed capacity and potentials are weighted with the share of
+            # each municipality (com_percent_2, by municipality number).
+            com_nr_district = self.com_nr
+            p_e_wp_tot = 0.0
+            for i in range(len(self.com_percent_2)):
                 # self.com_name = self.com_percent.index[i]
                 self.com_nr_ = self.com_percent_2.index[i]
+                share = self.com_percent_2.iloc[i]
+                self.com_nr = self.com_nr_ # installed capacity of this municipality
                 # self.wind_power_profile_file_annual = f"{self.com_name}.csv" # csv-file containing generation profiles of wind power
                 # self.wind_power_profile_file_winter = f"{self.com_name}_winter.csv"
                 self.wind_power_profile_file_annual = f"windtopo_{self.com_nr_}.feather" # feather-file containing generation profiles of wind power
@@ -469,21 +476,37 @@ class WindPower(TechCore):
                     raise ValueError('Incorrect allocation of installed wind power. '
                                       'Must either be \'national\' or \'local\'.')
                 
+                p_e_wp_tot += self.p_e_wp*share
+                
+                # Profile tables: row 0 = capacity [W] of each bin, following
+                # rows = capacity factors. Capacities are added, capacity
+                # factors are weighted with the capacity (i.e. energies added).
+                cap_a = df_profiles_a.iloc[0]*share
+                cap_w = df_profiles_w.iloc[0]*share
+                energy_a = df_profiles_a.iloc[1:].mul(cap_a, axis=1)
+                energy_w = df_profiles_w.iloc[1:].mul(cap_w, axis=1)
+                
                 if i == 0:
-                    self._v_e = np.array(df_v_e)*self.com_percent.iloc[i]
-                    self._v_e_ch = np.array(df_v_e_ch)*self.com_percent.iloc[i]
+                    self._v_e = np.array(df_v_e)*share
+                    self._v_e_ch = np.array(df_v_e_ch)*share
                     
-                    df_profiles_a_tot = df_profiles_a*self.com_percent.iloc[i]
-                    df_profiles_w_tot = df_profiles_w*self.com_percent.iloc[i]
+                    cap_a_tot, energy_a_tot = cap_a, energy_a
+                    cap_w_tot, energy_w_tot = cap_w, energy_w
                 else:
-                    self._v_e += np.array(df_v_e)*self.com_percent.iloc[i]
-                    self._v_e_ch += np.array(df_v_e_ch)*self.com_percent.iloc[i]
+                    self._v_e += np.array(df_v_e)*share
+                    self._v_e_ch += np.array(df_v_e_ch)*share
                     
-                    df_profiles_a_tot += df_profiles_a*self.com_percent.iloc[i]
-                    df_profiles_w_tot += df_profiles_w*self.com_percent.iloc[i]
+                    cap_a_tot, energy_a_tot = cap_a_tot.add(cap_a, fill_value=0), energy_a_tot.add(energy_a, fill_value=0)
+                    cap_w_tot, energy_w_tot = cap_w_tot.add(cap_w, fill_value=0), energy_w_tot.add(energy_w, fill_value=0)
             
-            self.df_profiles_annual = df_profiles_a_tot
-            self.df_profiles_winter = df_profiles_w_tot
+            def to_profiles(cap_tot, energy_tot):
+                cf = energy_tot.div(cap_tot.where(cap_tot > 0), axis=1).fillna(0.0)
+                return pd.concat([cap_tot.to_frame().T, cf]).reset_index(drop=True)
+            
+            self.df_profiles_annual = to_profiles(cap_a_tot, energy_a_tot)
+            self.df_profiles_winter = to_profiles(cap_w_tot, energy_w_tot)
+            self.com_nr = com_nr_district
+            self.p_e_wp = p_e_wp_tot
                         
             return df_v_e
                 
