@@ -2200,21 +2200,14 @@ class DistrictEnergyModel:
             self.plot()
         
     def get_hourly_results(self):
-        if self.generate_scenario == False:
+        """Return the scenario results summed per day (one row per day)."""
+        if not self.scenario_generated:
             raise(Exception('No Scenario Results Exist!'))
         else:
-            df_scen_d = pd.DataFrame(index = range(365))
-            
-            for column in self.df_scen.columns:
-                df_scen_d[column] = 0.0
-                result_temp = np.zeros(365)
-                
-                for i in range(24):
-                    arg = self.df_scen.index%24 == i
-                    result_temp += np.array(self.df_scen.loc[arg, column])
-                    
-                df_scen_d[column] += result_temp
-            
+            n_days = len(self.df_scen)//24
+            hours = np.arange(n_days*24)
+            df_scen_d = self.df_scen.iloc[hours].groupby(hours//24).sum()
+
             return df_scen_d
         
     def hourly_results(self):
