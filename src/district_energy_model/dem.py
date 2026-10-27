@@ -1308,7 +1308,13 @@ class DistrictEnergyModel:
         #This is only done if the optimization is not activation. If the optimization is activated, the replacement of heat generators is subject to optimization.
         techstoacton = {'ob': 'oil_boiler', 'gb': 'gas_boiler', 'eh': 'electric_heater'}
         techstoacton_fhrp_keys = {'ob': 'oil_boiler_replacement_factor', 'gb': 'gas_boiler_replacement_factor', 'eh': 'electric_boiler_replacement_factor'}
-        if scen_techs['demand_side']['act_on_fossil_heater_retrofit']:
+        # The replacement rates are only computed with heat generator renovation:
+        if (scen_techs['demand_side']['act_on_fossil_heater_retrofit']
+                and scen_techs['scenarios']['demand_side']
+                and not scen_techs['demand_side']['heat_generator_renovation']):
+            print("\nNote: act_on_fossil_heater_retrofit has no effect without "
+                  "demand_side.heat_generator_renovation.")
+        elif scen_techs['demand_side']['act_on_fossil_heater_retrofit']:
             if scen_techs['scenarios']['fossil_heater_retrofit'] == True:
                 if scen_techs['scenarios']['demand_side'] == True:
                     if scen_techs['optimisation']['enabled'] == False:
