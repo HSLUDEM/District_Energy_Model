@@ -216,6 +216,18 @@ class CalliopeOptimiser:
         
         if 'waste_to_energy' in self.tech_list:
             self.tech_waste_to_energy = tech_instances['waste_to_energy']
+            supply_dict = self.supply.supply_tech_dict
+            if (
+                    supply_dict['msw_price_CHFpkg'] < 0
+                    and supply_dict['annual_msw_supply'] == 'inf'
+                    and self.tech_waste_to_energy._kW_el_max == 'inf'
+                    ):
+                raise ValueError(
+                    "waste_to_energy: a negative msw_price_CHFpkg (revenue) "
+                    "with annual_msw_supply = 'inf' and kW_el_max = 'inf' "
+                    "makes the optimisation unbounded. Set a finite "
+                    "annual_msw_supply (supply.yaml) or kW_el_max."
+                    )
 
         self.heat_pump_cp_deployed = False
         for x in self.tech_list:
@@ -768,6 +780,22 @@ class CalliopeOptimiser:
         
         else:
             opt_results = model.results
+
+        termination = opt_results.attrs.get('termination_condition')
+        if termination not in ['optimal', 'feasible']:
+            hints = {
+                'maxTimeLimit': "Increase solver_option_TimeLimit or solver_option_MIPGap.",
+                'unbounded': "Check for negative costs of unlimited resources.",
+                'infeasibleOrUnbounded': "Check for negative costs of unlimited resources and for conflicting constraints.",
+                'infeasible': "Check for conflicting constraints (e.g. fixed demand shares, force_cap_max).",
+                }
+            raise RuntimeError(
+                f"Optimisation failed (solver termination condition: {termination}). "
+                "No results are available. " + hints.get(str(termination), "")
+                )
+        if termination == 'feasible':
+            print("\nWARNING: The solver did not prove optimality (e.g. time "
+                  "limit reached). Results are feasible but may not be optimal.")
 
         # ==========================================================
         # FOR TESTING ONLY!
