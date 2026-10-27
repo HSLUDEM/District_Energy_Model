@@ -628,32 +628,8 @@ class DistrictEnergyModel:
         """--------------------------------------------------------------------
         Allocate fuel consumption:
         """
-        
-        # Oil:
-        # ---
-        m_oil = np.array([0.0]*8760)
-        m_oil += self.tech_oil_boiler.get_u_oil()
-        
-        # Gas:
-        # ---
-        m_gas = np.array([0.0]*8760)
-        m_gas += self.tech_gas_boiler.get_u_gas()
-        
-        # Wood:
-        # ----
-        s_wd = self.supply.get_s_wd()        
-        m_wd = np.zeros_like(s_wd, dtype=float)
-        u_wd_wb = self.tech_wood_boiler.get_u_wd()
-        m_wd = np.maximum(u_wd_wb - s_wd, 0.0) # Imported wood is required wherever demand exceeds the local supply.
-        s_wd_remain = np.maximum(s_wd - u_wd_wb, 0.0) # Remaining local wood after supplying the wood boiler.
-        
-        # Assign fuels to supply tech:
-        # ---------------------------
-        self.supply.update_m_oil(m_oil)
-        self.supply.update_m_gas(m_gas)
-        self.supply.update_m_wd(m_wd)
-        self.supply.update_s_wd_rem(s_wd_remain)
-        
+        self.__allocate_fuel_imports()
+
 
 
         """--------------------------------------------------------------------
@@ -695,7 +671,43 @@ class DistrictEnergyModel:
         dict_yr = dem_helper.create_dict_yr(df_base)
         del df_interim
         return df_base, dict_yr
-        
+
+    def __allocate_fuel_imports(self):
+        """
+        Allocate fuel imports (oil, gas, wood) to the supply instance based on
+        the current fuel consumption of the decentralised boilers. Must be
+        called again whenever boiler outputs change in a simulation (i.e.
+        non-optimisation) run, e.g. after applying scenarios.
+        """
+        s_wd = self.supply.get_s_wd()
+        zeros = np.zeros(len(s_wd))
+
+        # Techs that are not deployed are not in tech_instances:
+        tech_ob = self.tech_instances.get('oil_boiler')
+        tech_gb = self.tech_instances.get('gas_boiler')
+        tech_wb = self.tech_instances.get('wood_boiler')
+
+        # Oil:
+        # ---
+        m_oil = zeros + (tech_ob.get_u_oil() if tech_ob else 0.0)
+
+        # Gas:
+        # ---
+        m_gas = zeros + (tech_gb.get_u_gas() if tech_gb else 0.0)
+
+        # Wood:
+        # ----
+        u_wd_wb = zeros + (tech_wb.get_u_wd() if tech_wb else 0.0)
+        m_wd = np.maximum(u_wd_wb - s_wd, 0.0) # Imported wood is required wherever demand exceeds the local supply.
+        s_wd_remain = np.maximum(s_wd - u_wd_wb, 0.0) # Remaining local wood after supplying the wood boiler.
+
+        # Assign fuels to supply tech:
+        # ---------------------------
+        self.supply.update_m_oil(m_oil)
+        self.supply.update_m_gas(m_gas)
+        self.supply.update_m_wd(m_wd)
+        self.supply.update_s_wd_rem(s_wd_remain)
+
     def generate_scenario(self, scen_techs):
         
         """
@@ -1690,9 +1702,12 @@ class DistrictEnergyModel:
             
         else:
             
+            # Update fuel imports to boiler outputs after scenarios:
+            self.__allocate_fuel_imports()
+
             # Compute costs in case no optimisation is applied:
             dict_total_costs = {}
-            
+
             dict_total_costs = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"], debug=False)
             model = 0
 
