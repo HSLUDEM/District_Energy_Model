@@ -72,7 +72,24 @@ def get_replacement_capacities(tech_instances, debug=False):
     return 0
 
 
-def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=False):
+def get_local_biomass_consumption(supply, optimisation):
+    """
+    Return the consumed local wood and wet biomass (hourly, kWh).
+
+    In simulation runs, supply._s_wd and supply._s_wet_bm contain the
+    available local resource and supply._s_wd_rem / supply._s_wet_bm_rem the
+    remaining (unused) part. After an optimisation, supply._s_wd and
+    supply._s_wet_bm contain the consumed amounts.
+    """
+    s_wd = np.array(supply._s_wd, dtype=float)
+    s_wet_bm = np.array(supply._s_wet_bm, dtype=float)
+    if optimisation:
+        return s_wd, s_wet_bm
+    u_wd_local = s_wd - np.array(supply._s_wd_rem, dtype=float)
+    u_wet_bm = s_wet_bm - np.array(supply._s_wet_bm_rem, dtype=float)
+    return u_wd_local, u_wet_bm
+
+def calculate_total_annual_costs(tech_instances, number_of_days, supply, optimisation=False, debug=False):
     """
     Calculate total annualized monetary costs for all modeled technologies.
 
@@ -149,7 +166,8 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
     hv_wood_MJpkg=supply.supply_tech_dict['hv_wood_MJpkg']
     hv_wood_kWhpkg=hv_wood_MJpkg*C.CONV_MJ_to_kWh
     price_CHFpkWh = price_CHFpkg/hv_wood_kWhpkg
-    energy_costs = sum(supply._s_wd) * price_CHFpkWh
+    u_wd_local, u_wet_bm = get_local_biomass_consumption(supply, optimisation)
+    energy_costs = sum(u_wd_local) * price_CHFpkWh
     total_annual_costs += energy_costs
     cost_breakdown["wood_local"] = energy_costs
 
@@ -161,7 +179,7 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
     total_annual_costs += energy_costs
     cost_breakdown["wood_import"] = energy_costs
         
-    energy_costs = sum(supply._s_wet_bm) * 0.001  # currently minimum miniscule cost to favor truly free resources (e.g. PV)
+    energy_costs = sum(u_wet_bm) * 0.001  # currently minimum miniscule cost to favor truly free resources (e.g. PV)
     total_annual_costs += energy_costs
     cost_breakdown["wet_biomass"] = energy_costs
     
@@ -279,7 +297,7 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
 #     return None
 
 
-def get_total_costs(tech_instances, supply, number_of_days, debug=False):
+def get_total_costs(tech_instances, supply, number_of_days, optimisation=False, debug=False):
     """
     Return combined monetary and CO2 cost indicators for the current system.
 
@@ -294,6 +312,9 @@ def get_total_costs(tech_instances, supply, number_of_days, debug=False):
         Supply object containing imported resource flows and CO2 intensity data.
     number_of_days : int or float
         Length of the modeled period in days.
+    optimisation : bool
+        True if the results stem from an optimisation (see
+        get_local_biomass_consumption).
 
     Returns
     -------
@@ -307,8 +328,8 @@ def get_total_costs(tech_instances, supply, number_of_days, debug=False):
         The "monetary" entry is produced by `calculate_total_anual_costs(...)`
         and the "co2" entry by `calculate_CO2_emissions(...)`.
     """
-    monetary_costs, monetary_breakdown = calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=debug)
-    co2_emissions, co2_emissions_breakdown = calculate_CO2_emissions(supply, tech_instances, debug=debug)
+    monetary_costs, monetary_breakdown = calculate_total_annual_costs(tech_instances, number_of_days, supply, optimisation=optimisation, debug=debug)
+    co2_emissions, co2_emissions_breakdown = calculate_CO2_emissions(supply, tech_instances, optimisation=optimisation, debug=debug)
     cost_overview = {
         "monetary": monetary_costs,
         "co2": co2_emissions,
@@ -317,7 +338,7 @@ def get_total_costs(tech_instances, supply, number_of_days, debug=False):
     # return {"TAC": calculate_total_annual_costs(tech_instances), "LCOE": calculate_levelized_cost_of_energy(tech_instances, number_of_days)}
 
 
-def calculate_CO2_emissions(supply, tech_instances, debug=False):
+def calculate_CO2_emissions(supply, tech_instances, optimisation=False, debug=False):
     """
     Calculate total direct CO2 emissions and normalized emission indicators.
 
@@ -382,11 +403,12 @@ def calculate_CO2_emissions(supply, tech_instances, debug=False):
     co2_emissions["emissions_wood_import"] = (
         sum(supply._m_wd) * supply.supply_tech_dict["co2_content_imported_wood"]
     )
+    u_wd_local, u_wet_bm = get_local_biomass_consumption(supply, optimisation)
     co2_emissions["emissions_wood_local"] = (
-        sum(supply._s_wd) * supply.supply_tech_dict["co2_content_local_wood"]
+        sum(u_wd_local) * supply.supply_tech_dict["co2_content_local_wood"]
     )
     co2_emissions["emissions_wet_bm"] = (
-        sum(supply._s_wet_bm) * supply.supply_tech_dict["co2_content_wet_biomass"]
+        sum(u_wet_bm) * supply.supply_tech_dict["co2_content_wet_biomass"]
     )
     #co2_emissions["emissions_msw"] = sum(supply.supply_tech_dict['annual_msw_supply'])*supply.supply_tech_dict['co2_content_msw']*supply.supply_tech_dict['msw_share_fossile']
     for tech in tech_instances:
