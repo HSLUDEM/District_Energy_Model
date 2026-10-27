@@ -828,7 +828,9 @@ class WindPower(TechCore):
             'constraints':{
                 'units_max': 1,
                 'units_max_systemwide': 2,
-                'energy_cap_max_systemwide': self._kWp_max_systemwide / energy_scaling_factor if self._kWp_max_systemwide != 'inf' else 'inf',
+                # kWp_max_systemwide is implemented as group constraint on the
+                # wind power capacity (see dem_calliope), as the capacity of
+                # this unit is fixed to the full potential of its location.
                 # 'energy_cap_per_unit': tmp_cap_max, # was added in loc_dict()
                 'energy_eff': 1.0,
                 'lifetime': 100.0
@@ -875,6 +877,9 @@ class WindPower(TechCore):
     #     return techs_dict
     
     # def get_v_e_pot_tot(self):
+    def get_kWp_max_systemwide(self):
+        return self._kWp_max_systemwide
+
     def compute_v_e_pot(self):
         
         self.__compute_v_e_pot_annual()

@@ -3622,6 +3622,16 @@ class CalliopeOptimiser:
                         }
                     }
 
+        # Max. total wind power capacity (existing and new, all locations):
+        if 'wind_power' in self.tech_list:
+            wp_cap_max = self.tech_wind_power.get_kWp_max_systemwide()
+            if wp_cap_max != 'inf':
+                group_constraints_dict['wind_power_cap_max'] = {
+                    'techs':['wind_power_old', 'wind_power_new'],
+                    'locs':['loc_wp_annual', 'loc_wp_winter'],
+                    'energy_cap_max':wp_cap_max / self.energy_scaling_factor,
+                    }
+
         # Constraint in regard to what share of the heat demand shall be supplied by district heating:
         if self.dhn_share_type == 'fixed':
             group_constraints_dict['dhn_demand_share'] = None
