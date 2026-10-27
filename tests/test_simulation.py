@@ -124,3 +124,13 @@ def test_custom_district_numeric_name(run_dem):
     model = run_dem({'meta_data': {'custom_district': {'implemented': True, 'EGID_List': egids,
                                                        'custom_district_name': 5}}}, days=1)
     assert model.annual_results()['d_h_yr'] > 0
+
+
+@requires_data
+def test_storage_scenario_has_no_free_initial_energy(run_dem):
+    df = run_dem({'scenarios': {'thermal_energy_storage': True, 'pv_integration': True},
+                  'tes_decentralised': {'deployment': True},
+                  'thermal_energy_storage_scenario': {'capacity_kWh': 2e7}}).hourly_results()
+    stored_at_start = df['q_h_tesdc'].iloc[0] - df['u_h_tesdc'].iloc[0] + df['v_h_tesdc'].iloc[0]
+    assert df['v_h_tesdc'].sum() <= df['u_h_tesdc'].sum() + stored_at_start + 1e-6
+    assert stored_at_start == pytest.approx(0, abs=1)
