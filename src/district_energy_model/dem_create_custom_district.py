@@ -10,6 +10,30 @@ import numpy as np
 
 from district_energy_model import dem_helper
 
+def municipal_share(df_com_yr, df_master, df_meta, meta_col, bld_cols):
+    """
+    Allocate the municipal totals in df_meta[meta_col] to the buildings in
+    df_com_yr: for each municipality, its total is multiplied with the
+    district's share of the building-level values (bld_cols). Buildings of
+    municipalities not in df_meta (e.g. manual districts) contribute their
+    building-level values directly.
+    """
+    total = 0.0
+    for ggdenr, df_bld in df_com_yr.groupby('GGDENR'):
+        bld_value = df_bld[bld_cols].sum().sum()
+        arg_meta = df_meta['GGDENR'] == ggdenr
+        if not arg_meta.any():
+            total += bld_value
+            continue
+        df_munic = df_master.loc[df_master['GGDENR'] == ggdenr]
+        munic_value = df_munic[bld_cols].sum().sum()
+        if munic_value > 0:
+            share = bld_value / munic_value
+        else:
+            share = len(df_bld) / len(df_munic)
+        total += share * float(df_meta.loc[arg_meta, meta_col].iloc[0])
+    return total
+
 def create_district(paths, scen_techs):
     
     scaling_factors = scen_techs['meta_data']['custom_district']['scaling_factors']
@@ -114,12 +138,20 @@ def create_district(paths, scen_techs):
     
     PV_Pot = df_com_yr['PV_Pot'].sum()
     PV_TotalEnergy = df_com_yr['PV_TotalEnergy'].sum()
-    Electricity_demand_household_SFH_kWh = df_com_yr['Electricity_demand_household_SFH_kWh'].sum()
-    Electricity_demand_household_MFH_kWh = df_com_yr['Electricity_demand_household_MFH_kWh'].sum()
-    s_wd_bm = df_com_yr['s_wd_bm'].sum()
-    s_wet_bm = df_com_yr['s_wet_bm'].sum()
-    Electricity_demand_industry_kWh = df_com_yr['Electricity_Industry'].sum()
-    Electricity_demand_services_kWh = df_com_yr['Electricity_Service'].sum()
+    # Municipal totals (meta data) are allocated to the district with its
+    # share of the building-level values, so that a district made of complete
+    # municipalities reproduces them:
+    el_bld_cols = ['Electricity_demand_household_SFH_kWh', 'Electricity_demand_household_MFH_kWh',
+                   'Electricity_Industry', 'Electricity_Service']
+    share_of = lambda meta_col, bld_cols: municipal_share(df_com_yr, df_master, df_meta, meta_col, bld_cols)
+    Electricity_demand_household_SFH_kWh = share_of('Electricity_demand_household_SFH_kWh', ['Electricity_demand_household_SFH_kWh'])
+    Electricity_demand_household_MFH_kWh = share_of('Electricity_demand_household_MFH_kWh', ['Electricity_demand_household_MFH_kWh'])
+    s_wd_bm = share_of('s_wd_bm', ['s_wd_bm'])
+    s_wet_bm = share_of('s_wet_bm', ['s_wet_bm'])
+    Electricity_demand_industry_kWh = share_of('Electricity_demand_industry_kWh', ['Electricity_Industry'])
+    Electricity_demand_services_kWh = share_of('Electricity_demand_services_kWh', ['Electricity_Service'])
+    Electricity_demand_losses_kWh = share_of('Electricity_demand_losses_kWh', el_bld_cols)
+    Electricity_demand_hydro_pumping_kWh = share_of('Electricity_demand_hydro_pumping_kWh', el_bld_cols)
     
     # Solar PV data:
     com_nr_majority = df_com_yr.groupby('GGDENR').size().sort_values(ascending = False).index[0]
@@ -194,7 +226,7 @@ def create_district(paths, scen_techs):
         m_per_kWh_class_1, m_per_kWh_class_2, m_per_kWh_class_3,
         Electricity_demand_household_SFH_kWh, Electricity_demand_household_MFH_kWh, 
         Electricity_demand_industry_kWh, Electricity_demand_services_kWh,
-        0.0, 0.0
+        Electricity_demand_losses_kWh, Electricity_demand_hydro_pumping_kWh
         ])
     
     df_meta.loc[len(df_meta)] = new_district
