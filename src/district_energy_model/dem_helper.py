@@ -274,7 +274,15 @@ def update_df_results(
     # Update tech data:
     for tech_name, tech_instance in tech_instances.items():
         df_results = tech_instance.update_df_results(df_results)
-        
+
+    # CO2 emissions of the fossil share of municipal solid waste:
+    if 'waste_to_energy' in tech_instances:
+        df_results['m_co2_msw'] = (
+            np.array(tech_instances['waste_to_energy'].get_u_msw())
+            * supply.supply_tech_dict['co2_content_msw']
+            * supply.supply_tech_dict['msw_share_fossile']
+            )
+
     # Compute total CO2 emissions and add column (v_CO2_tot):
     co2_columns = [col for col in df_results.columns if col.startswith('v_co2') or col.startswith('m_co2')]
     df_results['v_co2_tot'] = df_results[co2_columns].sum(axis=1)
