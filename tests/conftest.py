@@ -41,6 +41,20 @@ def deep_update(base, extra):
     return out
 
 
+@pytest.fixture(autouse=True)
+def restore_default_inputs():
+    """
+    Restore the default inputs after each test, so that tests are
+    independent of each other also with versions of DEM in which launch()
+    modifies them (see test_launch_does_not_modify_defaults).
+    """
+    from district_energy_model.input_files import inputs as inp
+    saved = copy.deepcopy(inp.scen_techs)
+    yield
+    inp.scen_techs.clear()
+    inp.scen_techs.update(saved)
+
+
 @pytest.fixture
 def run_dem(tmp_path):
     """Run DEM with a config_dict (7 days, Allschwil, no output files by default)."""
