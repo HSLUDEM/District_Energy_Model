@@ -93,3 +93,9 @@ def test_cbc_receives_its_own_option_names(run_dem, capfd):
     assert 'No match for' not in out
     assert '-seconds 600' in out
     assert model.annual_results()['d_h_unmet_yr'] == pytest.approx(0, abs=1)
+
+
+def test_pareto_front_with_building_inertia_flexibility(run_dem):
+    model = run_dem({'scenarios': {'demand_side': True}, 'demand_side': {'dr_flexibility_building_inertia': True},
+                     'optimisation': OPT | {'pareto_monetary_co2': True, 'N_pareto': 3}}, days=2)
+    assert len(model.pareto_results) == 3
