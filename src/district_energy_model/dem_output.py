@@ -6149,6 +6149,10 @@ def plot_annual_heat_and_electricity(
         dict_yr['v_e_gtcp_total_yr'] = dict_yr['v_e_gtcp_yr']
     elif 'v_e_st_gtcp_yr' in dict_yr:
         dict_yr['v_e_gtcp_total_yr'] = dict_yr['v_e_st_gtcp_yr']
+    
+    # Solar PV consumed locally (rooftop and alpine; v_e_pv is no longer used):
+    dict_yr['v_e_pv_cons_total_yr'] = sum(
+        dict_yr.get(k, 0) for k in ['v_e_pv_cons_yr', 'v_e_pvrooftop_cons_yr', 'v_e_pvalpine_cons_yr'])
     heat_keys = [
         'v_h_hp_yr',
         'v_h_eh_yr',
@@ -6164,12 +6168,13 @@ def plot_annual_heat_and_electricity(
         'v_h_wte_con_yr',
         'v_h_hpcp_yr',
         'v_h_hpcplt_yr',
+        'v_h_other_yr',
         'd_h_unmet_yr',
         'd_h_unmet_dhn_yr',
         ]
     
     electricity_keys = [
-        'v_e_pv_cons_yr',
+        'v_e_pv_cons_total_yr',
         'v_e_wp_cons_yr',
         'v_e_bm_cons_yr',
         'v_e_hydro_cons_yr',
@@ -6180,7 +6185,7 @@ def plot_annual_heat_and_electricity(
         'v_e_st_wbsg_yr',
         'v_e_wte_yr',
         'm_e_yr',
-        'd_e_unmet',
+        'd_e_unmet_yr',
         ]
     
     heat_names = [
@@ -6201,6 +6206,7 @@ def plot_annual_heat_and_electricity(
         'WtE CHP',
         'Heat pump (large scale)',
         'Heat pump (large scale, from low temperature heat)',
+        'Other',
         'Unmet demand',
         'Unmet demand DHN',
         ]
@@ -6257,6 +6263,7 @@ def plot_annual_heat_and_electricity(
         col_wte_con,
         col_heat_pump_cp,
         col_heat_pump_cp_lt,
+        col_other,
         col_demand_unmet,
         col_demand_unmet_dhn,
         ]
