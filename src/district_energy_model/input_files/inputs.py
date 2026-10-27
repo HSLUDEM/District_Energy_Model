@@ -907,12 +907,12 @@ scen_techs = {
 
     'thermal_energy_storage_scenario': {
         'capacity_kWh': 0,
-        'initial_charge': 0.5,
+        'initial_charge': 0.0, # [-] energy stored initially is not paid for (no cyclic condition in manual scenarios)
     },
 
     'battery_energy_storage_scenario': {
         'capacity_kWh': 1e4,
-        'initial_charge': 0.5,
+        'initial_charge': 0.0, # [-] energy stored initially is not paid for (no cyclic condition in manual scenarios)
     },
     
     'supply':{
