@@ -25,7 +25,7 @@ def update_scen_techs_from_config(scen_techs: Dict[str, Any],
 
     - Only replaces values where the full key path exists in scen_techs.
     - If a key or downstream key in config_dict does not exist in scen_techs,
-      prints a warning.
+      a KeyError is raised (same as for YAML configuration files).
     - If an upstream key exists, only the specified downstream keys are updated;
       other downstream keys in scen_techs are kept as-is.
 
@@ -49,26 +49,24 @@ def update_scen_techs_from_config(scen_techs: Dict[str, Any],
             new_path = path + [str(key)]
             path_str = " -> ".join(new_path)
 
+            if key not in scen_node:
+                raise KeyError(
+                    f"config_dict: unknown key path '{path_str}'. "
+                    f"Allowed keys: {sorted(scen_node.keys())}"
+                )
+
             if isinstance(cfg_value, dict):
                 # Expect a nested dict in scen_node at the same key
-                if key not in scen_node:
-                    print(f"Warning: key path '{path_str}' from config_dict not found in scen_techs")
-                    continue
                 if not isinstance(scen_node[key], dict):
-                    print(
-                        f"Warning: key path '{path_str}' in scen_techs is not a dict; "
+                    raise KeyError(
+                        f"config_dict: key path '{path_str}' in scen_techs is not a dict; "
                         f"cannot apply nested overrides from config_dict"
                     )
-                    continue
 
                 _update_recursive(scen_node[key], cfg_value, new_path)
 
             else:
-                # Leaf value: only update if the key exists in scen_node
-                if key not in scen_node:
-                    print(f"Warning: key path '{path_str}' from config_dict not found in scen_techs")
-                else:
-                    scen_node[key] = cfg_value
+                scen_node[key] = cfg_value
 
     _update_recursive(scen_techs, config_dict, [])
     return scen_techs
