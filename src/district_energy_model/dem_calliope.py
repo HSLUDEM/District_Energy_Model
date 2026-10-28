@@ -1229,13 +1229,14 @@ class CalliopeOptimiser:
             difference_2 = wind_power_unit_con - wind_power_unit_prod
             max_violation_1 = np.max(np.abs(difference_1))
             max_violation_2 = np.max(np.abs(difference_2))
-            max_violation = np.max([max_violation_1, max_violation_2])
-            max_violation_kWh = max_violation / self.energy_scaling_factor
-            
+            # Values above are already rescaled to kWh:
+            max_violation_kWh = np.max([max_violation_1, max_violation_2])
+            max_violation_scaled = max_violation_kWh / self.energy_scaling_factor
+
             if max_violation_kWh > C.MAX_VIOLATION_kWh:
                 msg = (
                     f"Maximum constraint violation is {max_violation_kWh:.6f} kWh "
-                    f"({max_violation:.6f} in scaled units). "
+                    f"({max_violation_scaled:.6f} in scaled units). "
                     "This may be reduced by increasing bigM_value in optimisation.yaml. "
                     f"Currently allowed max. violation is {C.MAX_VIOLATION_kWh} kWh."
                 )
@@ -1403,6 +1404,7 @@ class CalliopeOptimiser:
         self.supply.update_s_wd(s_wd)
         self.supply.update_s_wet_bm_rem(s_wet_bm_rem)
         self.supply.update_s_wd_rem(s_wd_rem)
+        self.supply._s_is_consumption = True
         
         # ------------------- 
         # Hydro Power (local):

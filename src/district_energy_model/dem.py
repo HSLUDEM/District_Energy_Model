@@ -628,32 +628,8 @@ class DistrictEnergyModel:
         """--------------------------------------------------------------------
         Allocate fuel consumption:
         """
-        
-        # Oil:
-        # ---
-        m_oil = np.array([0.0]*8760)
-        m_oil += self.tech_oil_boiler.get_u_oil()
-        
-        # Gas:
-        # ---
-        m_gas = np.array([0.0]*8760)
-        m_gas += self.tech_gas_boiler.get_u_gas()
-        
-        # Wood:
-        # ----
-        s_wd = self.supply.get_s_wd()        
-        m_wd = np.zeros_like(s_wd, dtype=float)
-        u_wd_wb = self.tech_wood_boiler.get_u_wd()
-        m_wd = np.maximum(u_wd_wb - s_wd, 0.0) # Imported wood is required wherever demand exceeds the local supply.
-        s_wd_remain = np.maximum(s_wd - u_wd_wb, 0.0) # Remaining local wood after supplying the wood boiler.
-        
-        # Assign fuels to supply tech:
-        # ---------------------------
-        self.supply.update_m_oil(m_oil)
-        self.supply.update_m_gas(m_gas)
-        self.supply.update_m_wd(m_wd)
-        self.supply.update_s_wd_rem(s_wd_remain)
-        
+        self.__allocate_fuel_imports()
+
 
 
         """--------------------------------------------------------------------
@@ -695,7 +671,43 @@ class DistrictEnergyModel:
         dict_yr = dem_helper.create_dict_yr(df_base)
         del df_interim
         return df_base, dict_yr
-        
+
+    def __allocate_fuel_imports(self):
+        """
+        Allocate fuel imports (oil, gas, wood) to the supply instance based on
+        the current fuel consumption of the decentralised boilers. Must be
+        called again whenever boiler outputs change in a simulation (i.e.
+        non-optimisation) run, e.g. after applying scenarios.
+        """
+        s_wd = self.supply.get_s_wd()
+        zeros = np.zeros(len(s_wd))
+
+        # Techs that are not deployed are not in tech_instances:
+        tech_ob = self.tech_instances.get('oil_boiler')
+        tech_gb = self.tech_instances.get('gas_boiler')
+        tech_wb = self.tech_instances.get('wood_boiler')
+
+        # Oil:
+        # ---
+        m_oil = zeros + (tech_ob.get_u_oil() if tech_ob else 0.0)
+
+        # Gas:
+        # ---
+        m_gas = zeros + (tech_gb.get_u_gas() if tech_gb else 0.0)
+
+        # Wood:
+        # ----
+        u_wd_wb = zeros + (tech_wb.get_u_wd() if tech_wb else 0.0)
+        m_wd = np.maximum(u_wd_wb - s_wd, 0.0) # Imported wood is required wherever demand exceeds the local supply.
+        s_wd_remain = np.maximum(s_wd - u_wd_wb, 0.0) # Remaining local wood after supplying the wood boiler.
+
+        # Assign fuels to supply tech:
+        # ---------------------------
+        self.supply.update_m_oil(m_oil)
+        self.supply.update_m_gas(m_gas)
+        self.supply.update_m_wd(m_wd)
+        self.supply.update_s_wd_rem(s_wd_remain)
+
     def generate_scenario(self, scen_techs):
         
         """
@@ -744,9 +756,15 @@ class DistrictEnergyModel:
         for tech_name, tech_instance in list(self.tech_instances.items()): # iterate over a copy()
             if scen_techs[tech_name]['deployment']:
                 tech_instance.update_tech_properties(scen_techs[tech_name])
-            else:
+            elif scen_techs['optimisation']['enabled']:
                 del self.tech_instances[tech_name]
                 # print(f"{tech_name} was removed from scenario.\n")
+            else:
+                # Removing a tech would drop its existing generation without
+                # reallocating it, violating the energy balances.
+                print(f"\nNote: {tech_name} is kept in the simulation despite "
+                      "deployment = False (deployment is only relevant "
+                      "for optimisation).")
 
         #----------------------------------------------------------------------
         # Add additional techs for new scenario:
@@ -1666,7 +1684,20 @@ class DistrictEnergyModel:
                 tech_instances=self.tech_instances,
                 df_results=df_scen
                 )
-  
+
+            # Unmet demand is only penalised (bigM_value) by the optimiser,
+            # so it must be reported explicitly:
+            for col in ['d_h_unmet', 'd_h_unmet_dhn', 'd_e_unmet']:
+                unmet_kWh = df_scen[col].sum() if col in df_scen.columns else 0.0
+                if unmet_kWh > C.DIFF_SUM_ACC:
+                    print(
+                        f"\nWARNING: Optimisation result contains unmet demand "
+                        f"({col}: {unmet_kWh:.1f} kWh). The demand could not "
+                        "be met with the selected technologies and constraints, "
+                        "or the solver returned an inaccurate solution "
+                        "(check solver options, e.g. solver_option_FeasibilityTol)."
+                        )
+
             if self.toggle_energy_balance_tests:
                 dem_eb.electricity_balance_test(
                     scen_techs=scen_techs,
@@ -1690,9 +1721,12 @@ class DistrictEnergyModel:
             
         else:
             
+            # Update fuel imports to boiler outputs after scenarios:
+            self.__allocate_fuel_imports()
+
             # Compute costs in case no optimisation is applied:
             dict_total_costs = {}
-            
+
             dict_total_costs = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"], debug=False)
             model = 0
 
@@ -1705,7 +1739,25 @@ class DistrictEnergyModel:
             self.tech_instances,
             df_scen
             )
-            
+
+        # Check energy balances of the final results (simulation runs without
+        # scenarios are otherwise only checked before df_scen is updated):
+        if self.toggle_energy_balance_tests and not scen_techs['optimisation']['enabled']:
+            dem_eb.electricity_balance_test(
+                scen_techs=scen_techs,
+                df_scen=df_scen,
+                diff_accepted = C.DIFF_ACC,
+                diff_sum_accepted = C.DIFF_SUM_ACC
+                )
+            dem_eb.heat_balance_test(
+                scen_techs=scen_techs,
+                df_scen=df_scen,
+                optimisation=False,
+                diff_accepted = C.DIFF_ACC,
+                diff_sum_accepted = C.DIFF_SUM_ACC,
+                tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
+                )
+
         #----------------------------------------------------------------------
         # CO2 emissions:
         # df_scen = dem_emissions.add_emissions_CO2(scen_techs, df_scen)          
@@ -1803,18 +1855,19 @@ class DistrictEnergyModel:
                 tech_instances=self.tech_instances,
                 energy_demand=self.energy_demand,
                 supply=self.supply,
+                building_inertia_flex=self.building_inertia_flex,
                 com_name=self.com_name_,
                 scen_techs=scen_techs,
                 files_path=self.results_path
                 )
-            
+
             return df_scen, optimiser
         
         # Set all objective-weights to 0:
         scen_techs['optimisation']['objective_monetary'] = 0.0
         scen_techs['optimisation']['objective_co2'] = 0.0
         scen_techs['optimisation']['objective_ess'] = 0.0
-        scen_techs['optimisation']['tss'] = 0.0
+        scen_techs['optimisation']['objective_tss'] = 0.0
         
         
         df_scen, optimiser = reset_optimiser()
