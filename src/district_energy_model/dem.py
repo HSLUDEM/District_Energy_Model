@@ -756,9 +756,15 @@ class DistrictEnergyModel:
         for tech_name, tech_instance in list(self.tech_instances.items()): # iterate over a copy()
             if scen_techs[tech_name]['deployment']:
                 tech_instance.update_tech_properties(scen_techs[tech_name])
-            else:
+            elif scen_techs['optimisation']['enabled']:
                 del self.tech_instances[tech_name]
                 # print(f"{tech_name} was removed from scenario.\n")
+            else:
+                # Removing a tech would drop its existing generation without
+                # reallocating it, violating the energy balances.
+                print(f"\nNote: {tech_name} is kept in the simulation despite "
+                      "deployment = False (deployment is only relevant "
+                      "for optimisation).")
 
         #----------------------------------------------------------------------
         # Add additional techs for new scenario:
@@ -1720,7 +1726,25 @@ class DistrictEnergyModel:
             self.tech_instances,
             df_scen
             )
-            
+
+        # Check energy balances of the final results (simulation runs without
+        # scenarios are otherwise only checked before df_scen is updated):
+        if self.toggle_energy_balance_tests and not scen_techs['optimisation']['enabled']:
+            dem_eb.electricity_balance_test(
+                scen_techs=scen_techs,
+                df_scen=df_scen,
+                diff_accepted = C.DIFF_ACC,
+                diff_sum_accepted = C.DIFF_SUM_ACC
+                )
+            dem_eb.heat_balance_test(
+                scen_techs=scen_techs,
+                df_scen=df_scen,
+                optimisation=False,
+                diff_accepted = C.DIFF_ACC,
+                diff_sum_accepted = C.DIFF_SUM_ACC,
+                tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
+                )
+
         #----------------------------------------------------------------------
         # CO2 emissions:
         # df_scen = dem_emissions.add_emissions_CO2(scen_techs, df_scen)          
