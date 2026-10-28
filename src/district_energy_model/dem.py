@@ -564,7 +564,7 @@ class DistrictEnergyModel:
         
         # Wood supply:
         self.supply.compute_s_h_wood()        
-        self.supply.compute_s_h_wood_remaining(self.tech_wood_boiler.get_u_wd())
+        self.supply.compute_s_h_wood_consumption(self.tech_wood_boiler.get_u_wd())
         
         # Biomass tech (overall):
         tmp_n = len(df_base)
@@ -679,8 +679,7 @@ class DistrictEnergyModel:
         called again whenever boiler outputs change in a simulation (i.e.
         non-optimisation) run, e.g. after applying scenarios.
         """
-        s_wd = self.supply.get_s_wd()
-        zeros = np.zeros(len(s_wd))
+        zeros = np.zeros(len(self.supply.get_s_wd_pot()))
 
         # Techs that are not deployed are not in tech_instances:
         tech_ob = self.tech_instances.get('oil_boiler')
@@ -698,15 +697,13 @@ class DistrictEnergyModel:
         # Wood:
         # ----
         u_wd_wb = zeros + (tech_wb.get_u_wd() if tech_wb else 0.0)
-        m_wd = np.maximum(u_wd_wb - s_wd, 0.0) # Imported wood is required wherever demand exceeds the local supply.
-        s_wd_remain = np.maximum(s_wd - u_wd_wb, 0.0) # Remaining local wood after supplying the wood boiler.
+        m_wd = self.supply.compute_s_h_wood_consumption(u_wd_wb) # Also updates consumed and remaining local wood.
 
         # Assign fuels to supply tech:
         # ---------------------------
         self.supply.update_m_oil(m_oil)
         self.supply.update_m_gas(m_gas)
         self.supply.update_m_wd(m_wd)
-        self.supply.update_s_wd_rem(s_wd_remain)
 
     def generate_scenario(self, scen_techs):
         
@@ -1673,7 +1670,7 @@ class DistrictEnergyModel:
                 opt_results=opt_results
                 )
                 
-            dict_total_costs["Kostenmodul"] = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"], optimisation=True, debug=False)
+            dict_total_costs["Kostenmodul"] = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"], debug=False)
                 
             # -------------------------------------------------------------
             # Update df_scen:

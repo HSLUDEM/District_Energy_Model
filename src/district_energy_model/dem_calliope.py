@@ -431,8 +431,8 @@ class CalliopeOptimiser:
         #     yaml.dump({"array": pv_resource_old.tolist()}, file, default_flow_style=False)
         # ---------------------------------------------------------------------
 
-        supply_wet_biomass = self.supply.get_s_wet_bm()
-        supply_wood = self.supply.get_s_wd()
+        supply_wet_biomass = self.supply.get_s_wet_bm_pot()
+        supply_wood = self.supply.get_s_wd_pot()
                 
         if 'wind_power' in self.tech_list:
             wp_resource_annual = self.tech_wind_power.get_v_e_pot_annual_kWhpkW() # [kWh/kW] Generation profile type 'annual' (geared towards all year production)
@@ -1385,26 +1385,12 @@ class CalliopeOptimiser:
 
         #------------------
         # Biomass Supply
-        s_wet_bm_prev = self.supply.get_s_wet_bm()
-        s_wd_prev = self.supply.get_s_wd()
-
-        s_wet_bm_rem = (
-            s_wet_bm_prev
-            - opt_results['carrier_prod'].loc['Limited_Supplies::wet_biomass_supply::wet_biomass'].values*self.energy_scaling_factor
-            )
-
-        s_wd_rem = (
-            s_wd_prev
-            - opt_results['carrier_prod'].loc['Limited_Supplies::wood_supply::wood'].values*self.energy_scaling_factor
-            )
-
         s_wet_bm = opt_results['carrier_prod'].loc['Limited_Supplies::wet_biomass_supply::wet_biomass'].values*self.energy_scaling_factor
         s_wd = opt_results['carrier_prod'].loc['Limited_Supplies::wood_supply::wood'].values*self.energy_scaling_factor        
         self.supply.update_s_wet_bm(s_wet_bm)
         self.supply.update_s_wd(s_wd)
-        self.supply.update_s_wet_bm_rem(s_wet_bm_rem)
-        self.supply.update_s_wd_rem(s_wd_rem)
-        self.supply._s_is_consumption = True
+        self.supply.update_s_wet_bm_rem(self.supply.get_s_wet_bm_pot() - s_wet_bm)
+        self.supply.update_s_wd_rem(self.supply.get_s_wd_pot() - s_wd)
         
         # ------------------- 
         # Hydro Power (local):
