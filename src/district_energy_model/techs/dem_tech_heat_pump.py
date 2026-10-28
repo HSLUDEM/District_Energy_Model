@@ -230,8 +230,16 @@ class HeatPump(HeatPumpCore):
                     hps_new_cops*0+cop_constant_value, 
                     hps_one_to_one_replacement_cops*0+cop_constant_value)
         elif scen_techs['heat_pump']['cop_mode'] == "from_file":
-            cops = pd.read_feather(scen_techs['heat_pump']['cop_timeseries_file_path'])
-            return cops, cops, cops
+            # First column of the file contains the hourly COP values:
+            cops = pd.read_feather(
+                scen_techs['heat_pump']['cop_timeseries_file_path']
+                ).to_numpy(dtype=float)[:len(hps_existings_cops), 0]
+            if len(cops) != len(hps_existings_cops):
+                raise ValueError(
+                    f"COP timeseries file must contain {len(hps_existings_cops)} "
+                    f"hourly values, but contains {len(cops)}."
+                    )
+            return cops.copy(), cops.copy(), cops.copy()
         else:
             raise NotImplementedError("The COP mode selected isn't implemented.")
         
