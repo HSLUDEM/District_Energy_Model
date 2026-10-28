@@ -1172,9 +1172,16 @@ class EnergyDemand:
         df_com_yr['total_renovation_flag'] = False #Likelyhood of a specific building having been totally renovated
         #This can be a float between 0 and 1! 0=False, 1=True
         
+        GGDENR = self.com_nr
         
         #Total renovation of buildings. 
         #This happens according to a rate either given by Streicher's paper or according to a constant rate
+        if not total_renovation_activated:
+            # No renovation, but the space heating demand is still adjusted
+            # to the weather of the simulated year (the totals in df_meta
+            # were already updated by add_future_demand_col()):
+            df_com_yr[new_header] = df_com_yr['d_h_s_yr_future'].copy()
+
         if total_renovation_activated: 
 
             df_com_yr[new_header] = df_com_yr['d_h_s_yr_future'].copy()
@@ -1226,8 +1233,6 @@ class EnergyDemand:
                                 'v_hw_wb' : 0.0,
                                 'v_hw_solar' : 0.0,
                                 'v_hw_other' : 1.0 } if optimisation_enabled else total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios
-
-            GGDENR = self.com_nr
 
 
             #replacement of technologies while calculating the total generated heat from different heat sources. 
