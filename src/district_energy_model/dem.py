@@ -1818,18 +1818,19 @@ class DistrictEnergyModel:
                 tech_instances=self.tech_instances,
                 energy_demand=self.energy_demand,
                 supply=self.supply,
+                building_inertia_flex=self.building_inertia_flex,
                 com_name=self.com_name_,
                 scen_techs=scen_techs,
                 files_path=self.results_path
                 )
-            
+
             return df_scen, optimiser
         
         # Set all objective-weights to 0:
         scen_techs['optimisation']['objective_monetary'] = 0.0
         scen_techs['optimisation']['objective_co2'] = 0.0
         scen_techs['optimisation']['objective_ess'] = 0.0
-        scen_techs['optimisation']['tss'] = 0.0
+        scen_techs['optimisation']['objective_tss'] = 0.0
         
         
         df_scen, optimiser = reset_optimiser()
