@@ -1684,7 +1684,20 @@ class DistrictEnergyModel:
                 tech_instances=self.tech_instances,
                 df_results=df_scen
                 )
-  
+
+            # Unmet demand is only penalised (bigM_value) by the optimiser,
+            # so it must be reported explicitly:
+            for col in ['d_h_unmet', 'd_h_unmet_dhn', 'd_e_unmet']:
+                unmet_kWh = df_scen[col].sum() if col in df_scen.columns else 0.0
+                if unmet_kWh > C.DIFF_SUM_ACC:
+                    print(
+                        f"\nWARNING: Optimisation result contains unmet demand "
+                        f"({col}: {unmet_kWh:.1f} kWh). The demand could not "
+                        "be met with the selected technologies and constraints, "
+                        "or the solver returned an inaccurate solution "
+                        "(check solver options, e.g. solver_option_FeasibilityTol)."
+                        )
+
             if self.toggle_energy_balance_tests:
                 dem_eb.electricity_balance_test(
                     scen_techs=scen_techs,
