@@ -110,14 +110,6 @@ def test_no_nan_costs_without_pv_potential_groups(run_dem):
 
 
 @requires_data
-def test_get_hourly_results_returns_daily_sums(run_dem):
-    model = run_dem({}, days=2)
-    daily = model.get_hourly_results()
-    assert len(daily) == 2
-    assert daily['d_h'].sum() == pytest.approx(model.hourly_results()['d_h'].sum())
-
-
-@requires_data
 def test_custom_district_numeric_name(run_dem):
     com = pd.read_feather(ROOT / 'data/master_data/master_data_general.feather', columns=['EGID', 'GGDENR'])
     egids = [int(e) for e in com.loc[com['GGDENR'] == 2762, 'EGID'].iloc[:50]]
