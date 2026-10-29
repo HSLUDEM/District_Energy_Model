@@ -604,17 +604,17 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
     at least one deployed storage unit. With only one storage unit, emit a
     UserWarning and continue. This function does not change the configuration.
 
-    ``electricity_supply_order`` must contain exactly the deployed local
-    generators supported here: solar_pvrooftop, solar_pvalpine, wind_power, biomass and hydro_power.
+    ``electricity_supply_order`` must include all deployed supported local
+    generators; absent supported names may remain in the list and are skipped.
     Grid supply and storage units are not local generators in this list.
     ``storage_priority`` contains charge and discharge orders, each listing
     bes and tes_decentralised exactly once. Disabled storage units remain in
-    the configured lists and are skipped by the future dispatch implementation.
+    the configured lists and are skipped during dispatch.
     ``heat_pump_tes_min_electric_power_kW`` is a finite nonnegative electrical
     power threshold for additional HP-driven TES charging (0 disables it).
     ``tes_charge_heat_source_order`` is
-    checked only when TES is deployed. It is an ordered, nonempty selection
-    of deployed heat_pump and/or electric_heater technologies.
+    checked only when TES is deployed. It selects heat_pump and/or
+    direct_electric (an internal tank resistance element, independent of EH).
 
     This validates configuration only; conversion paths, capacity limits and
     energy balances must also be enforced by the scenario implementation.
@@ -641,6 +641,11 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
         fail('scenario activation in scenarios must be a boolean.')
     if not enabled:
         return
+    # A manual priority controller must not pre-dispatch storage for Gurobi;
+    # the optimiser determines its own storage operation and conversion paths.
+    if scen_techs.get('optimisation', {}).get('enabled', False):
+        fail('This is a manual scenario. Disable optimisation, or disable '
+             'the combined scenario when running the optimiser.')
     config = scen_techs.get(scenario)
     if not isinstance(config, dict):
         fail('scenario settings must be a separate top-level dictionary.')
@@ -668,9 +673,32 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
 
     bes_active = deployed('bes')
     tes_active = deployed('tes_decentralised')
+    # Grid supply accounts for residual electricity and its import mix.
+    if not deployed('grid_supply'):
+        fail('grid_supply.deployment must be true for residual electricity.')
     if not bes_active and not tes_active:
         fail('Both bes and tes_decentralised are disabled. Enable at least '
              'one storage technology using deployment=true.')
+
+    # Manual dispatch needs finite sizes and explicit initial energy. Optimised
+    # initial-charge settings apply only to the separate optimisation pathway.
+    for tech in ('bes', 'tes_decentralised'):
+        if not deployed(tech):
+            continue
+        settings = scen_techs[tech]
+        for key in ('capacity_kWh_max', 'chg_dchg_per_cap_max', 'initial_charge',
+                    'eta_chg_dchg', 'bes_gamma' if tech == 'bes' else 'tes_gamma'):
+            value = settings[key]
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not math.isfinite(value) or value < 0):
+                fail(f'{tech}.{key} must be a finite nonnegative number.')
+        if not 0 < settings['eta_chg_dchg'] <= 1:
+            fail(f'{tech}.eta_chg_dchg must be in (0, 1].')
+        if settings['initial_charge'] > 1:
+            fail(f'{tech}.initial_charge must be in [0, 1].')
+        loss_key = 'bes_gamma' if tech == 'bes' else 'tes_gamma'
+        if settings[loss_key] > 1:
+            fail(f'{tech}.{loss_key} must be in [0, 1].')
 
     for old_scenario in ('battery_energy_storage', 'thermal_energy_storage'):
         if scenarios.get(old_scenario, False):
@@ -707,19 +735,34 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
     order = ordered_sources('electricity_supply_order', generators)
     active_generators = {tech for tech in generators if deployed(tech)}
     missing = sorted(active_generators - set(order))
-    disabled = sorted(set(order) - active_generators)
-    if missing or disabled:
-        fail('electricity_supply_order does not match deployed local '
-             f'generators. Missing: {missing}. Listed but disabled: {disabled}.')
+    # Keep disabled/absent supported names in the order so deployment changes
+    # do not require rewriting it; the mix function skips absent objects.
+    if missing:
+        fail(f'electricity_supply_order omits deployed generators: {missing}.')
 
     if tes_active:
         key = 'tes_charge_heat_source_order'
-        heat_sources = ordered_sources(key, ('heat_pump', 'electric_heater'))
+        heat_sources = ordered_sources(key, ('heat_pump', 'direct_electric'))
         if not heat_sources:
             fail(f'{key} must not be empty when TES is deployed.')
-        disabled_heat = [tech for tech in heat_sources if not deployed(tech)]
-        if disabled_heat:
-            fail(f'{key} lists disabled technologies: {disabled_heat}.')
+        # HP charging requires an actual connected HP; direct electric charging
+        # has no deployment requirement for any building electric heater.
+        if 'heat_pump' in heat_sources and not deployed('heat_pump'):
+            fail('HP charging requires heat_pump.deployment=true.')
+        # As in the TES-only scenario, discharge always replaces HP heat;
+        # no separate list of eligible building heating technologies is needed.
+        if not deployed('heat_pump'):
+            fail('TES discharge requires heat_pump.deployment=true.')
+        if not scen_techs['tes_decentralised']['connections']['heat_pump']:
+            fail('TES discharge requires the TES heat_pump connection.')
+        # Zero means no extra HP power; infinity means no configured power cap.
+        hp_limit = scen_techs['heat_pump']['kW_th_max']
+        try:
+            hp_limit = float(hp_limit)
+        except (ValueError, TypeError):
+            fail('heat_pump.kW_th_max must be nonnegative or inf.')
+        if math.isnan(hp_limit) or hp_limit < 0:
+            fail('heat_pump.kW_th_max must be nonnegative or inf.')
 
     if not bes_active or not tes_active:
         inactive = 'bes' if not bes_active else 'tes_decentralised'

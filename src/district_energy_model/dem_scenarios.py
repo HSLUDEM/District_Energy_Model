@@ -1017,26 +1017,223 @@ def scenario_thermal_energy_storage_via_pv_hp(
     __test_import_balance(tech_grid_supply) 
 
     
-def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, config):
-    """Placeholder for combined battery and thermal storage operation.
+def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, scen_techs):
+    """Dispatch each store once per priority pass; all timestep energies are kWh.
 
-    The caller validates config before invoking this function. No demand,
-    technology state or configuration is changed yet.
-
-    Planned dispatch configuration:
-    - storage_priority['charge'] / ['discharge']: process deployed storage
-      units in the configured order. Default discharge supplies heat from TES
-      before BES serves remaining electricity demand. BES may serve heat via
-      conversion; TES never supplies electricity.
-    - heat_pump_tes_min_electric_power_kW: apply to the feasible additional
-      electrical power for HP-driven TES charging, AFTER surplus, storage and
-      converter limits. Below the threshold, skip this charging path. Equality
-      is allowed; 0 disables the threshold. Convert timestep energy to kW using
-      the timestep duration. This does not restrict direct heat-demand service.
-
-    These settings do not affect operation until dispatch is implemented.
+    TES-first replaces HP-supplied building heat before using the BES. BES-first
+    supplies the electrical deficit first; TES then replaces only heating that
+    still needs imported electricity. The grid supplies the final deficit.
     """
-    pass
+    # Read the scenario settings without changing the caller's configuration.
+    config = scen_techs['scenario_battery_plus_thermal_energy_storage']
+    order = config['electricity_supply_order']
+    # Check the mix contract before changing any technology state. Some model
+    # generator objects exist even when their deployment or production is zero.
+    supported = {'solar_pvrooftop', 'solar_pvalpine', 'wind_power', 'biomass', 'hydro_power'}
+    omitted = supported.intersection(tech_instances) - set(order)
+    if omitted:
+        raise ValueError(f'electricity_supply_order omits present generators: {sorted(omitted)}.')
+    demand = np.array(energy_demand.get_d_e(), dtype=float, copy=True)
+    heating_electricity = np.array(energy_demand.get_d_e_h(), dtype=float, copy=True)
+    count = len(demand)
+
+    # Reject invalid series before dispatch so NaNs cannot silently become flows.
+    def series(values, name):
+        values = np.array(values, dtype=float, copy=True)
+        if values.shape != (count,) or not np.isfinite(values).all() or (values < 0).any():
+            raise ValueError(f'{name} must contain {count} finite nonnegative hourly values.')
+        return values
+
+    demand = series(demand, 'electricity demand')
+    heating_electricity = series(heating_electricity, 'heating electricity')
+    if count == 0:
+        raise ValueError('The combined storage scenario needs at least one timestep.')
+
+    # Sum actual local generation; the electricity-mix function allocates its
+    # consumption and exports by source after storage operation is known.
+    renewable = np.zeros(count)
+    for key in order:
+        if key in tech_instances:
+            renewable += series(tech_instances[key].get_v_e(), key)
+
+    # Read the fixed storage properties once. Hourly flows, state and losses
+    # are written through the same per-hour setters as the BES-only scenario.
+    stores = {}
+    for key in ('bes', 'tes_decentralised'):
+        if not scen_techs[key]['deployment']:
+            continue
+        tech = tech_instances[key]
+        cap = float(tech.get_cap())
+        stores[key] = {
+            'tech': tech, 'cap': cap, 'eta': tech.get_eta_chg_dchg(),
+            'gamma': tech.get_gamma(),
+            'limit': cap * scen_techs[key]['chg_dchg_per_cap_max'],
+            'initial': cap * tech.get_ic(),
+        }
+
+    # Prepare the effective COP once, as in the existing TES-only scenario;
+    # update_v_h_i then uses that same conversion ratio throughout dispatch.
+    hp = tech_instances.get('heat_pump')
+    hp_heat = series(hp.get_v_h(), 'HP heat') if hp is not None else np.zeros(count)
+    cops = np.ones(count)
+    if hp is not None:
+        hp.calculate_effective_cops()
+        cops = np.array([hp.heat_output(1.0, i) for i in range(count)])
+        if not np.isfinite(cops).all() or (cops < 1).any():
+            raise ValueError('TES heat-pump operation requires finite COP values >= 1.')
+    hp_limit = float(scen_techs['heat_pump']['kW_th_max'])
+
+    # Walk forward in time; standing losses occur between consecutive hours,
+    # while the first hour starts at the explicitly configured initial charge.
+    for i in range(count):
+        # Keep this hour's tank charging separate from building EH operation.
+        hp_charging = 0.0
+        direct_charging = 0.0
+        for key, store in stores.items():
+            tech = store['tech']
+            previous = ((tech.get_q_e() if key == 'bes' else tech.get_q_h())[i - 1]
+                        if i else store['initial'])
+            loss = previous * store['gamma'] if i else 0.0
+            store.update(previous=previous, loss=loss, level=previous - loss,
+                         charge=0.0, discharge=0.0)
+            # As in BES-only, write the transition loss to the preceding hour;
+            # the final loss entry remains zero because no next hour is run.
+            if key == 'bes':
+                tech.update_q_e_i(i, store['level'])
+                tech.update_l_q_e_i(i, 0.0)
+                if i:
+                    tech.update_l_q_e_i(i - 1, loss)
+            else:
+                tech.update_q_h_i(i, store['level'])
+                tech.update_l_q_h_i(i, 0.0)
+                if i:
+                    tech.update_l_q_h_i(i - 1, loss)
+
+        # Visit each discharging technology once in the requested priority.
+        # Once BES has supplied electricity, TES may not make it surplus.
+        bes_output = 0.0
+        bes_visited = False
+        for key in config['storage_priority']['discharge']:
+            if key not in stores:
+                continue
+            store = stores[key]
+            available = min(store['limit'], store['level'] * store['eta'])
+            if key == 'bes':
+                bes_visited = True
+                bes_output = min(max(demand[i] - renewable[i], 0.0), available)
+                store['discharge'] = bes_output
+                store['level'] -= bes_output / store['eta']
+                continue
+
+            # TES supplies heat directly to replace HP output; it does not run
+            # the HP on discharge or replace any building electric-heater heat.
+            replaced = min(hp_heat[i], available)
+            if bes_visited:
+                remaining_import = max(demand[i] - renewable[i] - bes_output, 0.0)
+                replaced = min(replaced, remaining_import * cops[i])
+            hp_heat[i] -= replaced
+            saved_electricity = replaced / cops[i]
+            demand[i] -= saved_electricity
+            heating_electricity[i] -= saved_electricity
+            store['discharge'] = replaced
+            store['level'] -= replaced / store['eta']
+
+        # Charge from remaining local surplus only. Each storage is visited once;
+        # a store that discharged this hour is never charged in the same hour.
+        surplus = max(renewable[i] - demand[i], 0.0)
+        for key in config['storage_priority']['charge']:
+            if key not in stores or surplus <= 0:
+                continue
+            store = stores[key]
+            if store['discharge'] > 0:
+                continue
+            headroom = max(store['cap'] - store['level'], 0.0) / store['eta']
+            feasible = min(store['limit'], headroom)
+            if key == 'bes':
+                charged = min(surplus, feasible)
+                store['charge'] = charged
+                store['level'] += charged * store['eta']
+                surplus -= charged
+                continue
+
+            # Try each TES conversion path once. HP charging respects remaining
+            # thermal HP power and the optional threshold on feasible input kW.
+            # DEM timesteps are one hour, so kWh per timestep equals average kW.
+            for source in config['tes_charge_heat_source_order']:
+                heat_room = max(feasible - store['charge'], 0.0)
+                # Stop this bounded conversion pass when either resource is
+                # exhausted, including tiny floating-point remainders at zero.
+                if surplus <= 0 or heat_room <= 0:
+                    break
+                if source == 'heat_pump':
+                    electric_input = min(surplus, heat_room / cops[i],
+                                         max(hp_limit - hp_heat[i], 0.0) / cops[i])
+                    if electric_input < config['heat_pump_tes_min_electric_power_kW']:
+                        continue
+                    heat_input = electric_input * cops[i]
+                    hp_heat[i] += heat_input
+                    hp_charging += electric_input
+                else:
+                    # A TES resistance element converts electricity to heat at
+                    # 100%; it has no dependency on the building EH technology.
+                    electric_input = min(surplus, heat_room)
+                    heat_input = electric_input
+                    direct_charging += electric_input
+                store['charge'] += heat_input
+                store['level'] += heat_input * store['eta']
+                demand[i] += electric_input
+                heating_electricity[i] += electric_input
+                surplus = max(surplus - electric_input, 0.0)
+
+        # Check this hour's ledger before writing the final flows and state.
+        # Losses and efficiencies are unchanged; only their recording now uses
+        # the established per-hour interface instead of a separate bulk writer.
+        for key, store in stores.items():
+            charged = store['charge']
+            discharged = store['discharge']
+            level = store['level']
+            eta = store['eta']
+            expected = store['previous'] - store['loss'] + charged * eta - discharged / eta
+            if (not np.isclose(expected, level, atol=1e-8, rtol=1e-10)
+                    or level < -1e-8 or level > store['cap'] + 1e-8):
+                raise ValueError('Combined storage dispatch violates a storage energy balance.')
+
+            # Use the BES-only update sequence: input, output, stored energy,
+            # charging/discharging losses, then fractional state of charge.
+            tech = store['tech']
+            if key == 'bes':
+                tech.update_u_e_i(i, charged)
+                tech.update_v_e_i(i, discharged)
+                tech.update_q_e_i(i, level)
+                tech.update_l_u_e_i(i, charged * (1.0 - eta))
+                tech.update_l_v_e_i(i, discharged * (1.0 / eta - 1.0))
+            else:
+                tech.update_u_h_i(i, charged)
+                tech.update_v_h_i(i, discharged)
+                tech.update_q_h_i(i, level)
+                tech.update_l_u_h_i(i, charged * (1.0 - eta))
+                tech.update_l_v_h_i(i, discharged * (1.0 / eta - 1.0))
+                tech.update_charging_electricity_i(i, hp_charging, direct_charging)
+            tech.update_sos_i(i, level / store['cap'] if store['cap'] > 0 else 0.0)
+
+        # Update HP and demand in the same hour, as in TES-only. The HP setter
+        # also updates its electrical input and environmental heat contribution.
+        if demand[i] < -1e-8 or heating_electricity[i] < -1e-8:
+            raise ValueError('Combined storage dispatch produced negative demand.')
+        if hp is not None:
+            hp.update_v_h_i(i, hp_heat[i])
+        energy_demand.update_d_e_i(i, max(demand[i], 0.0))
+        energy_demand.update_d_e_h_i(i, max(heating_electricity[i], 0.0))
+
+    # Refresh annual totals after the hourly demand updates. BES charging is
+    # added separately by the mix function, preserving its existing contract.
+    energy_demand.update_d_e(np.maximum(demand, 0.0))
+    energy_demand.update_d_e_h(np.maximum(heating_electricity, 0.0))
+    dem_eb.get_local_electricity_mix(
+        energy_demand, tech_instances, with_bes='bes' in stores,
+        electricity_supply_order=order)
+    grid = tech_instances['grid_supply']
+    grid.update_m_e(grid.get_m_e())
 
 def __test_import_balance(tech_grid_supply):
     

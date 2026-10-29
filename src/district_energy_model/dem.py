@@ -1587,7 +1587,7 @@ class DistrictEnergyModel:
             dem_scenarios.scenario_battery_plus_thermal_energy_storage(
                 energy_demand=self.energy_demand,
                 tech_instances=self.tech_instances,
-                config=scen_techs['scenario_battery_plus_thermal_energy_storage']
+                scen_techs=scen_techs
                 )
 
             #------------------------------------------------------------------
@@ -1600,8 +1600,8 @@ class DistrictEnergyModel:
                 df_scen
                 )
 
-            print('\nDone (placeholder only; combined storage operation '
-                  'is not implemented yet).')
+            # Report completion only after dispatch and result accounting finish.
+            print('\nCombined BES/TES dispatch completed.')
 
             #------------------------------------------------------------------
             # Check overall energy balance.

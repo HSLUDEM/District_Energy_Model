@@ -283,6 +283,11 @@ class HeatPump(HeatPumpCore):
     
     def calculate_effective_cops(self):
         v_h_existing_yr, v_h_one_to_one_yr, v_h_new_yr, tot_v_h = self.getRelativeSharesOfHPCategories()
+        # An idle HP has no annual category weights yet. Use its configured
+        # new-HP COPs so surplus-driven TES charging still has a finite COP.
+        if tot_v_h == 0:
+            self._cops_eff = np.array(self._cops_new, dtype=float, copy=True)
+            return
         cops_eff_inv = np.zeros(len(self._cops_existing))
         if v_h_existing_yr > 0:
             cops_eff_inv += ((v_h_existing_yr/tot_v_h)/self._cops_existing)
@@ -409,10 +414,3 @@ class HeatPump(HeatPumpCore):
         u_e_i = v_h_i/self._cops_eff[i]
         
         return u_e_i
-    
-
-    
-   
-
-        
-    

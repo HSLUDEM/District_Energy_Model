@@ -415,6 +415,11 @@ class EnergyDemand:
         d_e_h_yr = sum(d_e_h)
         
         
+        # Add direct tank resistance charging without attributing it to the
+        # building electric heater; HP tank electricity is already in u_e_hp.
+        if 'tes_decentralised' in tech_instances:
+            d_e_h += np.array(tech_instances['tes_decentralised'].get_u_e_direct())
+            d_e_h_yr = d_e_h.sum()
         self._d_e_h = d_e_h
         self._d_e_h_yr = d_e_h_yr
         
@@ -557,6 +562,8 @@ class EnergyDemand:
             raise ValueError("d_e_updated must have the same length as d_e!")
             
         self._d_e = np.array(d_e_updated)
+        # Keep annual demand consistent when manual storage changes the series.
+        self._d_e_yr = self._d_e.sum()
         
     def update_d_e_i(self, i, val):   
         self.num_test(val)         
@@ -660,6 +667,8 @@ class EnergyDemand:
         """
         
         self._d_e_h = np.array(d_e_h_udpated)
+        # TES discharge/charging changes annual heating electricity as well.
+        self._d_e_h_yr = self._d_e_h.sum()
         
     def update_d_e_h_i(self, i, val):
         self.num_test(val)

@@ -807,7 +807,7 @@ scen_techs = {
         'battery_energy_storage': False,
         # 'battery_energy_storage': True,
 
-        # New Scenario (not yet implemented in the model):
+        # Manual surplus-driven controller for the combined storage system:
         'scenario_battery_plus_thermal_energy_storage': False,
 
         },
@@ -824,7 +824,8 @@ scen_techs = {
         # Minimum electrical power for additional HP operation to charge TES.
         # Provisional value; 0.0 disables the threshold. Not a space-heating limit.
         'heat_pump_tes_min_electric_power_kW': 1.0,
-        'tes_charge_heat_source_order': ['heat_pump'],
+        # Direct electric charging belongs to TES, not the building EH.
+        'tes_charge_heat_source_order': ['heat_pump', 'direct_electric'],
     },
                              
     'optimisation':{ # note: objective weights will be overriden in case of pareto front computation (i.e. toggle_create_pareto_monetary_vs_co2 = True)
