@@ -99,3 +99,18 @@ def test_pareto_front_with_building_inertia_flexibility(run_dem):
     model = run_dem({'scenarios': {'demand_side': True}, 'demand_side': {'dr_flexibility_building_inertia': True},
                      'optimisation': OPT | {'pareto_monetary_co2': True, 'N_pareto': 3}}, days=2)
     assert len(model.pareto_results) == 3
+
+
+def test_building_inertia_flexibility_independent_of_energy_scaling(run_dem):
+    cfg = {'scenarios': {'demand_side': True}, 'demand_side': {'dr_flexibility_building_inertia': True}}
+    obj = [run_dem(cfg | {'optimisation': OPT | {'solver_option_FeasibilityTol': 1e-6,
+                                                 'calliope_energy_scaling_factor': s}}, days=2).total_cost()['objective']['total']
+           for s in [1, 0.5]]
+    assert obj[1] == pytest.approx(obj[0], rel=1e-4)
+
+
+def test_direct_wind_export_is_not_a_constraint_violation(run_dem):
+    model = run_dem({'wind_power': {'export_subsidy': 0.1}, 'optimisation': OPT}, days=3)
+    yr = model.annual_results()
+    assert yr['v_e_wp_exp_yr'] > 0
+    assert yr['v_e_wp_cons_yr'] + yr['v_e_wp_exp_yr'] == pytest.approx(yr['v_e_wp_yr'])
