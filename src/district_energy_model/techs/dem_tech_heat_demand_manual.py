@@ -86,7 +86,7 @@ class HeatDemandManual(TechCore):
             if self._timeseries_filepath.endswith(".feather"):
                 self._timeseries = pd.read_feather(self._timeseries_filepath).to_numpy()[:, 0]
             elif self._timeseries_filepath.endswith(".npy"):
-                self._timeseries = 1e5*np.load(self._timeseries_filepath)
+                self._timeseries = np.load(self._timeseries_filepath)
             else:
                 raise ValueError("Unknown file format for timeseries for manual heat demand. Use feather or npy.")
         else:
