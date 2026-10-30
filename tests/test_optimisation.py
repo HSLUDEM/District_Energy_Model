@@ -242,3 +242,15 @@ def test_cost_module_includes_hydrogen_production_capex(run_dem):
     expected = 4090 * cap * r * (1 + r)**n / ((1 + r)**n - 1) * 2 / 365
     costs = model.total_cost()['Kostenmodul']['monetary_breakdown']['hydrogen_production']
     assert costs['annualized_capex'] == pytest.approx(expected, rel=1e-6)
+
+
+def test_biomass_heat_without_sink_is_curtailed_with_warning(run_dem, capfd):
+    # Gas demand forces wood gasification; its heat by-product has no sink (biomass is no district heating source)
+    cfg = {'supply': {'gas_import': False}, 'gas_boiler': {'fixed_demand_share': True, 'fixed_demand_share_val': 0.005},
+           'wood_gasification_upgrade': {'deployment': True}, 'optimisation': OPT}
+    model = run_dem(cfg, days=2, quiet=False)
+    h = model.hourly_results()
+    assert h['v_h_wgu'].sum() > 100
+    assert h['v_h_bm_curt'].sum() == pytest.approx(h['v_h_wgu'].sum(), rel=1e-6)
+    assert h['v_h_bm'].sum() == pytest.approx(0, abs=1e-3)
+    assert 'curtailed' in capfd.readouterr().out
