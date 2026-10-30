@@ -1376,7 +1376,8 @@ class CalliopeOptimiser:
                 + opt_results['carrier_prod'].loc['loc_wp_annual::wind_power_unit::electricity'].values*self.energy_scaling_factor
                 )
             
-            difference_1 = wind_power_unit_con - v_e_wp
+            # Wind power exported directly (v_e_wp_exp) does not pass the unit:
+            difference_1 = wind_power_unit_con - v_e_wp_cons
             difference_2 = wind_power_unit_con - wind_power_unit_prod
             max_violation_1 = np.max(np.abs(difference_1))
             max_violation_2 = np.max(np.abs(difference_2))
