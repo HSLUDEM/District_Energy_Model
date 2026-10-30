@@ -114,3 +114,13 @@ def test_direct_wind_export_is_not_a_constraint_violation(run_dem):
     yr = model.annual_results()
     assert yr['v_e_wp_exp_yr'] > 0
     assert yr['v_e_wp_cons_yr'] + yr['v_e_wp_exp_yr'] == pytest.approx(yr['v_e_wp_yr'])
+
+
+@pytest.mark.parametrize('scaling', [0.1, 10])
+def test_hydro_power_independent_of_energy_scaling(run_dem, scaling):
+    # Muotathal (1367): hydro power
+    model = run_dem({'simulation': {'district_number': 1367},
+                     'optimisation': OPT | {'solver_option_FeasibilityTol': 1e-6,
+                                            'calliope_energy_scaling_factor': scaling}}, days=2)
+    objective = model.total_cost()['objective']['total']
+    assert cost_overview(model)['monetary']['total'] == pytest.approx(objective, rel=1e-4, abs=10)
