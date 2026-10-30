@@ -2475,7 +2475,8 @@ class CalliopeOptimiser:
         if self.building_inertia_flex_flag:
             techs_dict = self.building_inertia_flex.create_techs_dict(
                 techs_dict=techs_dict,
-                color=colors['flexibility_vs']
+                color=colors['flexibility_vs'],
+                energy_scaling_factor=self.energy_scaling_factor
                 )
         
         # Add user-selected techologies:
