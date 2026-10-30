@@ -332,3 +332,16 @@ def test_rooftop_solar_capacity_limit(run_dem, key, limit, col):
     limited = run_dem({key: cheap | {limit: 0}, 'optimisation': OPT}, days=2).hourly_results()[col]
     existing = run_dem({key: cheap | {'only_use_installed': True}, 'optimisation': OPT}, days=2).hourly_results()[col]
     assert limited.sum() == pytest.approx(existing.sum(), rel=1e-6, abs=1e-3)
+
+
+def test_cost_module_co2_includes_deep_geothermal(run_dem):
+    model = run_dem(_dh_only('deep_geothermal', deep_geothermal={'co2_intensity': 0.05}), days=2)
+    assert model.annual_results()['v_co2_dgt_yr'] > 0
+    co2 = cost_overview(model)['co2']
+    assert co2 == pytest.approx(model.annual_results()['v_co2_tot_yr'], rel=1e-6)
+    assert co2 == pytest.approx(model.total_cost()['co2']['total'], rel=1e-6)
+
+
+def test_grid_supply_kw_max_float_inf(run_dem):
+    model = run_dem({'grid_supply': {'kW_max': float('inf')}, 'optimisation': OPT}, days=1)
+    assert model.annual_results()['m_e_yr'] > 0
