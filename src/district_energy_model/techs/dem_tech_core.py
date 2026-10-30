@@ -11,6 +11,33 @@ import warnings
 
 class TechCore():
     
+    @staticmethod
+    def check_hourly_timeseries(values, n_hours, description):
+        """
+        Check an hourly input time series: it must cover the simulated
+        period (n_hours) and contain no missing or negative values.
+        """
+        values = np.asarray(values, dtype=float)
+        if len(values) < n_hours:
+            raise ValueError(
+                f"{description}: the time series has {len(values)} values, "
+                f"but the simulated period has {n_hours} hours."
+                )
+        values = values[:n_hours]
+        if not np.all(np.isfinite(values)):
+            i = int(np.argmax(~np.isfinite(values)))
+            raise ValueError(
+                f"{description}: the time series contains missing or "
+                f"non-finite values (first in hour {i})."
+                )
+        if np.any(values < 0.0):
+            i = int(np.argmax(values < 0.0))
+            raise ValueError(
+                f"{description}: the time series contains negative values "
+                f"(first in hour {i}: {values[i]})."
+                )
+        return values
+    
     def __init__(self, tech_dict):
         
         """

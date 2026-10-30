@@ -84,7 +84,7 @@ class HeatDemandManual(TechCore):
             self._timeseries = self._timeseries + self._constant_value
         elif self._demand_mode == 'file':
             if self._timeseries_filepath.endswith(".feather"):
-                self._timeseries = pd.read_feather(self._timeseries_filepath).to_numpy()[:n_hours, 0]
+                self._timeseries = pd.read_feather(self._timeseries_filepath).to_numpy()[:, 0]
             elif self._timeseries_filepath.endswith(".npy"):
                 self._timeseries = 1e5*np.load(self._timeseries_filepath)
             else:
@@ -97,7 +97,12 @@ class HeatDemandManual(TechCore):
         zero_vals = np.zeros(n_hours)            
 
         self._d_h = zero_vals.copy()
-        self._timeseries = self._timeseries[:n_hours]
+        self._timeseries = self.check_hourly_timeseries(
+            self._timeseries,
+            n_hours,
+            "heat_demand_manual (constant_value)" if self._demand_mode == 'const'
+            else f"heat_demand_manual.timeseries_file_path '{self._timeseries_filepath}'"
+            )
         
         
     def update_df_results(self, df):
@@ -122,7 +127,7 @@ class HeatDemandManual(TechCore):
         
         n_hours = n_days*24
         
-        self._d_h = self.d_h[:n_hours]
+        self._d_h = self._d_h[:n_hours]
 
         self._timeseries = self._timeseries[:n_hours]
             
