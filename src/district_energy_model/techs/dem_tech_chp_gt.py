@@ -225,7 +225,7 @@ class CHPGasTurbine(TechCore):
 
         if self._force_cap_max:
             techs_dict[header]['constraints']['energy_cap_equals']\
-                = self._kW_el_max
+                = self._kW_el_max / energy_scaling_factor
     
 
 
