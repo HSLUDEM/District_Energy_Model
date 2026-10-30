@@ -78,9 +78,6 @@ force_asynchronous_storage = True
 no_force_asynchronous_storage_export_subsidy = 1e-5
 
 
-coptest = np.zeros((24*365))+30.0
-coptest[20] = 1.0
-
 # master_path = paths.simulation_data_dir + paths.master_file
 # master_file = pd.read_feather(master_path)
 
@@ -97,6 +94,7 @@ scen_techs = {
             'implemented': False,
             # 'EGID_List': EGID_List,
             'EGID_List': [],
+            'scaling_factors': {}, #scaling factors for demand columns, e.g. 'space_heating_demand_estimation_kWh': 1.5, to increase space heating demand by 50%,
             'custom_district_name':'Test_Scenario',
             'manual_district': False,  #Are manual data added to the district?
             'manual_district_df_com_path': '', #Location of the file with the dataframe for the manual district
@@ -765,7 +763,7 @@ scen_techs = {
         'interest_rate':interest_rate,   
         },
 
-    'heat_pump_cp':{ # hpcp
+    'heat_pump_cp': {'instance_1': { # hpcp, instance names _have_ to start with instance_
         # 'deployment':True,
         'deployment':False,
         'kW_th_max': 'inf',#tech_cap_default,
@@ -775,9 +773,8 @@ scen_techs = {
         'capital_cost':1230.0, # [CHF/kW_th] # Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW Water-Water heat pump
         'maintenance_cost': 5.025, # [CHF/kW/year] # Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW Water-Water heat pump
         'interest_rate':interest_rate,
-
         'cop_mode': 'temperature_based', #option 'temperature_based', 'constant', 'from_file', 'from_file_adjusted_to_spf'
-        'cop_timeseries_file_path': coptest,
+        'cop_timeseries_file_path': "",
         'cop_constant_value': 3.0,
         'spf_to_target': 3.5,
         'cop_source_temperature': 'air_temperature', #choices: 'constant_temperature', 'air temperature'
@@ -785,6 +782,7 @@ scen_techs = {
         'cop_hot_temperature': 'constant_temperature',
         'cop_hot_temperature_constant_temperature_value': 70,
         'quality_factor': 0.5
+        }, 
         },
 
     'other':{ # other
@@ -843,7 +841,7 @@ scen_techs = {
         'solver_option_TimeLimit':36000, # [s] 'Infinity', # Default: 'Infinity'; https://docs.gurobi.com/projects/optimizer/en/current/reference/parameters.html#timelimit
         'solver_option_Presolve':-1, # Default: -1; https://docs.gurobi.com/projects/optimizer/en/current/reference/parameters.html#presolve
         'solver_option_Aggregate':1, # Default: 1; https://docs.gurobi.com/projects/optimizer/en/current/reference/parameters.html#aggregate
-        'solver_option_FeasibilityTol':1e-2, # Default: 1e-6; https://docs.gurobi.com/projects/optimizer/en/current/reference/parameters.html#feasibilitytol
+        'solver_option_FeasibilityTol':1e-2, # Default: 1e-2; such large values (e.g. 1e-2) can result in wrong solutions (e.g. heat demand covered by unmet demand); https://docs.gurobi.com/projects/optimizer/en/current/reference/parameters.html#feasibilitytol ; reduce to e.g. 1e-6 if necessary
         'solver_option_MIPGap':1e-4, # [-] Default: 1e-4; https://docs.gurobi.com/projects/optimizer/en/current/reference/parameters.html#mipgap
         'solver_option_Threads':0, # [-] Number of solver threads; Default: 0 (automatic, i.e. all cores); https://docs.gurobi.com/projects/optimizer/en/current/reference/parameters.html#threads
         'MIPGap_increase':False, # [-] If set to True, MIPGap will be increased to 0.01 if a storage technology is activated in order to avoid numerical problems.
@@ -929,12 +927,12 @@ scen_techs = {
 
     'thermal_energy_storage_scenario': {
         'capacity_kWh': 0,
-        'initial_charge': 0.5,
+        'initial_charge': 0.0, # [-] energy stored initially is not paid for (no cyclic condition in manual scenarios)
     },
 
     'battery_energy_storage_scenario': {
         'capacity_kWh': 1e4,
-        'initial_charge': 0.5,
+        'initial_charge': 0.0, # [-] energy stored initially is not paid for (no cyclic condition in manual scenarios)
     },
     
     'supply':{

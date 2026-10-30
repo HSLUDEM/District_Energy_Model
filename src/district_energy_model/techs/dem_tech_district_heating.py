@@ -376,11 +376,10 @@ class DistrictHeating(TechCore):
                     'name': 'District Heating Hub',
                     'parent':'conversion',
                     'carrier_in':'heat_dh',
-
                     'carrier_out':'heat',
                     },
                 'constraints':{
-                    'energy_cap_max':self._kW_th_max_grid_categories[i] / energy_scaling_factor,
+                    'energy_cap_max':self._kW_th_max_grid_categories[i] / energy_scaling_factor if self._kW_th_max_grid_categories[i] != 'inf' else 'inf',
                     'energy_eff':1.0, # Here we could account for grid losses
                     'lifetime':self._lifetime,
                     # 'export_carrier': 'heat',
@@ -388,9 +387,9 @@ class DistrictHeating(TechCore):
                 'costs':{
                     'monetary':{
                         'om_con':0.0, # costs are reflected in supply techs
-                        'interest_rate':self._interest_rate if self._kW_th_max_grid_categories[i]>0 else 0,
-                        'energy_cap': self._investment_cost_grid_categories[i]*energy_scaling_factor if self._kW_th_max_grid_categories[i]>0 else 0,
-                        'om_annual': self._maintenance_cost_grid_categories[i]*energy_scaling_factor if self._kW_th_max_grid_categories[i]>0 else 0,
+                        'interest_rate':self._interest_rate if (self._kW_th_max_grid_categories[i] == 'inf' or self._kW_th_max_grid_categories[i]>0) else 0,
+                        'energy_cap': self._investment_cost_grid_categories[i]*energy_scaling_factor if (self._kW_th_max_grid_categories[i] == 'inf' or self._kW_th_max_grid_categories[i]>0) else 0,
+                        'om_annual': self._maintenance_cost_grid_categories[i]*energy_scaling_factor if (self._kW_th_max_grid_categories[i] == 'inf' or self._kW_th_max_grid_categories[i]>0) else 0,
                         # 'export': -1e-5,
                         },
                     } 
@@ -761,7 +760,7 @@ class DistrictHeating(TechCore):
         self._power_up_for_replacement = value
 
     def get_energy_costs(self):
-        return sum(self._m_h*inp.dh_tariff)
+        return sum(self._m_h*self._tariff_CHFpkWh)
     
     def get_total_capex(self):
         capex = 0

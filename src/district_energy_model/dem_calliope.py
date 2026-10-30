@@ -27,6 +27,28 @@ import numpy as np
 from district_energy_model import dem_calliope_cc
 from district_energy_model import dem_constants as C
 
+def translate_solver_options(solver, gurobi_options):
+    """
+    Translate solver options given with Gurobi's parameter names to the
+    selected solver. Options without an equivalent are dropped (other
+    solvers reject unknown options or ignore them silently).
+    """
+    if solver == 'gurobi':
+        return gurobi_options
+    if solver == 'cbc':
+        # 'threads' is not passed: only available in CBC builds with thread support
+        names = {'MIPGap':'ratioGap', 'TimeLimit':'seconds',
+                 'FeasibilityTol':'primalTolerance'}
+    else:
+        names = {}
+    options = {names[k]:v for k, v in gurobi_options.items() if k in names}
+    ignored = sorted(set(gurobi_options) - set(names))
+    if ignored:
+        print(f"\nNote: solver options not available for solver '{solver}' "
+              f"are ignored: {ignored}")
+    return options
+
+
 class CalliopeOptimiser:
     
     # def __init__(self, tech_list, tech_instances, energy_demand, supply, com_name, opt_metrics, files_path):
@@ -216,9 +238,26 @@ class CalliopeOptimiser:
         
         if 'waste_to_energy' in self.tech_list:
             self.tech_waste_to_energy = tech_instances['waste_to_energy']
-            
-        if 'heat_pump_cp' in self.tech_list:
-            self.tech_heat_pump_cp = tech_instances['heat_pump_cp']
+            supply_dict = self.supply.supply_tech_dict
+            if (
+                    supply_dict['msw_price_CHFpkg'] < 0
+                    and supply_dict['annual_msw_supply'] == 'inf'
+                    and self.tech_waste_to_energy._kW_el_max == 'inf'
+                    ):
+                raise ValueError(
+                    "waste_to_energy: a negative msw_price_CHFpkg (revenue) "
+                    "with annual_msw_supply = 'inf' and kW_el_max = 'inf' "
+                    "makes the optimisation unbounded. Set a finite "
+                    "annual_msw_supply (supply.yaml) or kW_el_max."
+                    )
+
+        self.heat_pump_cp_deployed = False
+        for x in self.tech_list:
+            if x.startswith('heat_pump_cp_instance_'):
+                if not self.heat_pump_cp_deployed:
+                    self.tech_heat_pump_cp = {}
+                    self.heat_pump_cp_deployed = True
+                self.tech_heat_pump_cp[x] = tech_instances[x]
 
         if 'heat_pump_cp_lt' in self.tech_list:
             self.tech_heat_pump_cp_lt = tech_instances['heat_pump_cp_lt']
@@ -426,8 +465,8 @@ class CalliopeOptimiser:
         #     yaml.dump({"array": pv_resource_old.tolist()}, file, default_flow_style=False)
         # ---------------------------------------------------------------------
 
-        supply_wet_biomass = self.supply.get_s_wet_bm()
-        supply_wood = self.supply.get_s_wd()
+        supply_wet_biomass = self.supply.get_s_wet_bm_pot()
+        supply_wood = self.supply.get_s_wd_pot()
                 
         if 'wind_power' in self.tech_list:
             wp_resource_annual = self.tech_wind_power.get_v_e_pot_annual_kWhpkW() # [kWh/kW] Generation profile type 'annual' (geared towards all year production)
@@ -472,10 +511,13 @@ class CalliopeOptimiser:
         else:
             waste_heat_low_temperature_resource = np.zeros(shape=(1, n_hours))
 
-        if 'heat_pump_cp' in self.tech_list:
-            heat_pump_cp_cops = self.tech_heat_pump_cp.get_cop()
+        if self.heat_pump_cp_deployed:
+            heat_pump_cp_cops = {}
+            for k in self.tech_heat_pump_cp.keys():
+                t = self.tech_heat_pump_cp[k]
+                heat_pump_cp_cops[k] = t.get_cop()
         else:
-            heat_pump_cp_cops = null_array.copy()
+            heat_pump_cp_cops = {'null': null_array.copy()}
 
         if 'heat_pump' in self.tech_list:
 
@@ -532,7 +574,7 @@ class CalliopeOptimiser:
         grid_export_resource_co2_intensity_timeseries = pd.Series(grid_export_resource_co2_intensity_timeseries, index=date_index)
 
 
-        heat_pump_cp_cops = pd.Series(heat_pump_cp_cops, index=date_index)
+        heat_pump_cp_cops = {k: pd.Series(heat_pump_cp_cops[k], index=date_index) for k in heat_pump_cp_cops.keys()}
 
         heat_pump_cops_existing = pd.Series(heat_pump_cops_existing, index=date_index)
         heat_pump_cops_one_to_one_replacement = pd.Series(heat_pump_cops_one_to_one_replacement, index=date_index)
@@ -585,7 +627,7 @@ class CalliopeOptimiser:
                                 })
 
 
-        df_heat_pump_cp_cops = heat_pump_cp_cops.to_frame('cop')
+        df_heat_pump_cp_cops = {k : heat_pump_cp_cops[k].to_frame("cop") for k in heat_pump_cp_cops.keys()}
 
         df_heat_pump_cops_existing = heat_pump_cops_existing.to_frame('heat_pump_cops_existing')
         df_heat_pump_cops_new = heat_pump_cops_new.to_frame('heat_pump_cops_new')
@@ -625,12 +667,13 @@ class CalliopeOptimiser:
             'waste_heat_low_temperature': df_waste_heat_low_temperature_resource / self.energy_scaling_factor,
             'grid_supply': df_grid_supply_timeseries,
             'grid_export': df_grid_export_timeseries,
-            'heat_pump_cp': df_heat_pump_cp_cops,
             'heat_pump_cops_existing': df_heat_pump_cops_existing,
             'heat_pump_cops_new': df_heat_pump_cops_new,
             'heat_pump_cops_one_to_one_replacement': df_heat_pump_cops_one_to_one_replacement,
 
             }
+        for k in df_heat_pump_cp_cops.keys():
+            timeseries_dataframes[k] = df_heat_pump_cp_cops[k]
         
         
         # dftpv = timeseries_dataframes['pvrooftop_resource']
@@ -759,6 +802,22 @@ class CalliopeOptimiser:
         
         else:
             opt_results = model.results
+
+        termination = opt_results.attrs.get('termination_condition')
+        if termination not in ['optimal', 'feasible']:
+            hints = {
+                'maxTimeLimit': "Increase solver_option_TimeLimit or solver_option_MIPGap.",
+                'unbounded': "Check for negative costs of unlimited resources.",
+                'infeasibleOrUnbounded': "Check for negative costs of unlimited resources and for conflicting constraints.",
+                'infeasible': "Check for conflicting constraints (e.g. fixed demand shares, force_cap_max).",
+                }
+            raise RuntimeError(
+                f"Optimisation failed (solver termination condition: {termination}). "
+                "No results are available. " + hints.get(str(termination), "")
+                )
+        if termination == 'feasible':
+            print("\nWARNING: The solver did not prove optimality (e.g. time "
+                  "limit reached). Results are feasible but may not be optimal.")
 
         # ==========================================================
         # FOR TESTING ONLY!
@@ -1204,6 +1263,19 @@ class CalliopeOptimiser:
             self.tech_wind_power.update_v_e_exp(v_e_wp_exp)
             self.tech_wind_power.update_v_e_cons(v_e_wp_cons)
             
+            # Installed capacities (used by the cost module):
+            wp_cap = {
+                tech: sum(
+                    float(opt_results['energy_cap'].loc[f'{loc}::{tech}'])*self.energy_scaling_factor
+                    for loc in ['loc_wp_annual', 'loc_wp_winter']
+                    )
+                for tech in ['wind_power_old', 'wind_power_new']
+                }
+            self.tech_wind_power.set_capacities_from_optimisation(
+                cap_total_kW=wp_cap['wind_power_old'] + wp_cap['wind_power_new'],
+                cap_new_kW=wp_cap['wind_power_new'],
+                )
+            
             # ----------------------------------------------
             # Check for solver violations in wind conversion:
             # ----------------------------------------------
@@ -1220,13 +1292,14 @@ class CalliopeOptimiser:
             difference_2 = wind_power_unit_con - wind_power_unit_prod
             max_violation_1 = np.max(np.abs(difference_1))
             max_violation_2 = np.max(np.abs(difference_2))
-            max_violation = np.max([max_violation_1, max_violation_2])
-            max_violation_kWh = max_violation / self.energy_scaling_factor
-            
+            # Values above are already rescaled to kWh:
+            max_violation_kWh = np.max([max_violation_1, max_violation_2])
+            max_violation_scaled = max_violation_kWh / self.energy_scaling_factor
+
             if max_violation_kWh > C.MAX_VIOLATION_kWh:
                 msg = (
                     f"Maximum constraint violation is {max_violation_kWh:.6f} kWh "
-                    f"({max_violation:.6f} in scaled units). "
+                    f"({max_violation_scaled:.6f} in scaled units). "
                     "This may be reduced by increasing bigM_value in optimisation.yaml. "
                     f"Currently allowed max. violation is {C.MAX_VIOLATION_kWh} kWh."
                 )
@@ -1375,25 +1448,12 @@ class CalliopeOptimiser:
 
         #------------------
         # Biomass Supply
-        s_wet_bm_prev = self.supply.get_s_wet_bm()
-        s_wd_prev = self.supply.get_s_wd()
-
-        s_wet_bm_rem = (
-            s_wet_bm_prev
-            - opt_results['carrier_prod'].loc['Limited_Supplies::wet_biomass_supply::wet_biomass'].values*self.energy_scaling_factor
-            )
-
-        s_wd_rem = (
-            s_wd_prev
-            - opt_results['carrier_prod'].loc['Limited_Supplies::wood_supply::wood'].values*self.energy_scaling_factor
-            )
-
         s_wet_bm = opt_results['carrier_prod'].loc['Limited_Supplies::wet_biomass_supply::wet_biomass'].values*self.energy_scaling_factor
         s_wd = opt_results['carrier_prod'].loc['Limited_Supplies::wood_supply::wood'].values*self.energy_scaling_factor        
         self.supply.update_s_wet_bm(s_wet_bm)
         self.supply.update_s_wd(s_wd)
-        self.supply.update_s_wet_bm_rem(s_wet_bm_rem)
-        self.supply.update_s_wd_rem(s_wd_rem)
+        self.supply.update_s_wet_bm_rem(self.supply.get_s_wet_bm_pot() - s_wet_bm)
+        self.supply.update_s_wd_rem(self.supply.get_s_wd_pot() - s_wd)
         
         # ------------------- 
         # Hydro Power (local):
@@ -1485,11 +1545,15 @@ class CalliopeOptimiser:
 
         # -------------------
         # Heat pump (central plant):
-        if 'heat_pump_cp' in self.tech_list:
-            v_h_hpcp = opt_results['carrier_prod'].loc['X1::heat_pump_cp_exist::heat_hpcp'].values*self.energy_scaling_factor
-            self.tech_heat_pump_cp.update_v_h(v_h_hpcp)
-            u_e_hpcp = self.tech_heat_pump_cp.get_u_e()
-        
+        if self.heat_pump_cp_deployed:
+            u_e_hpcp = null_array.copy()
+            v_h_hpcp = null_array.copy()
+            for k in self.tech_heat_pump_cp.keys():
+                v_h_hpcp_loc = opt_results['carrier_prod'].loc['X1::'+k+'_exist::heat_hpcp'].values*self.energy_scaling_factor
+                self.tech_heat_pump_cp[k].update_v_h(v_h_hpcp_loc)
+                v_h_hpcp += v_h_hpcp_loc
+                u_e_hpcp += self.tech_heat_pump_cp[k].get_u_e()
+
         else:            
             u_e_hpcp = null_array.copy()
 
@@ -2134,11 +2198,13 @@ class CalliopeOptimiser:
                     tech_groups_dict
                     )
                 
-        if 'heat_pump_cp' in self.tech_list:
-            tech_groups_dict =\
-                self.tech_heat_pump_cp.create_tech_groups_dict(
-                    tech_groups_dict
-                    )
+
+        if self.heat_pump_cp_deployed:
+            for k in self.tech_heat_pump_cp.keys():
+                tech_groups_dict =\
+                    self.tech_heat_pump_cp[k].create_tech_groups_dict(
+                        tech_groups_dict
+                        )
 
         if 'heat_pump_cp_lt' in self.tech_list:
             tech_groups_dict =\
@@ -2881,18 +2947,19 @@ class CalliopeOptimiser:
             
             self.tech_list_old.append('waste_to_energy_exist')
             
-        if 'heat_pump_cp' in self.tech_list:
-            techs_dict = self.tech_heat_pump_cp.create_techs_dict(
-                techs_dict=techs_dict,
-                header='heat_pump_cp_exist',
-                name='Heat pump (central plant)',
-                color=colors['heat_pump_cp'],
-                energy_scaling_factor = self.energy_scaling_factor
-                )
-            
-            self.tech_list_old.append('heat_pump_cp_exist')
+        if self.heat_pump_cp_deployed:
+            for k in self.tech_heat_pump_cp.keys():
+                techs_dict = self.tech_heat_pump_cp[k].create_techs_dict(
+                    techs_dict=techs_dict,
+                    header=k+'_exist',
+                    name='Heat pump (central plant)',
+                    color=colors['heat_pump_cp'],
+                    energy_scaling_factor = self.energy_scaling_factor
+                    )
+                
+                self.tech_list_old.append(k+'_exist')
 
-            
+        
         if 'heat_pump_cp_lt' in self.tech_list:
             techs_dict = self.tech_heat_pump_cp_lt.create_techs_dict(
                 techs_dict=techs_dict,
@@ -3510,6 +3577,11 @@ class CalliopeOptimiser:
                 }
             }
         
+        # The options above use Gurobi's names:
+        run_dict['solver_options'] = translate_solver_options(
+            self.opt_metrics['solver'], run_dict['solver_options']
+            )
+        
         return run_dict
     
     # def __create_group_constraints_dict(self, rerun_eps=False, eps_n='inf'):
@@ -3575,6 +3647,16 @@ class CalliopeOptimiser:
                     'cost_max':{
                         'emissions_co2':self.eps_n,
                         }
+                    }
+
+        # Max. total wind power capacity (existing and new, all locations):
+        if 'wind_power' in self.tech_list:
+            wp_cap_max = self.tech_wind_power.get_kWp_max_systemwide()
+            if wp_cap_max != 'inf':
+                group_constraints_dict['wind_power_cap_max'] = {
+                    'techs':['wind_power_old', 'wind_power_new'],
+                    'locs':['loc_wp_annual', 'loc_wp_winter'],
+                    'energy_cap_max':wp_cap_max / self.energy_scaling_factor,
                     }
 
         # Constraint in regard to what share of the heat demand shall be supplied by district heating:
