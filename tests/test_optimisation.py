@@ -116,7 +116,8 @@ def test_tes_site_base_costs_only_with_minimum_size(run_dem, tmp_path):
     ([_tes_site(capacity_kWh_min=60000, capacity_kWh_max=20000)], 'capacity_kWh_min'),
     ([_tes_site(rel_size_t_levels={'ltlt': 0.0, 'htlt': 0.0, 'htht': 0.0})], 'rel_size_t_levels'),
     ([_tes_site(rel_size_t_levels={'ltlt': 1.2, 'htlt': -0.2, 'htht': 0.0})], 'rel_size_t_levels'),
-], ids=['duplicate-names', 'min-above-max', 'no-level', 'negative-level'])
+    ([_tes_site(rel_size_t_levels={'ltlt': 0.6, 'htlt': 0.6, 'htht': 0.6})], 'add up to 1'),
+], ids=['duplicate-names', 'min-above-max', 'no-level', 'negative-level', 'shares-not-adding-up-to-1'])
 def test_invalid_tes_site_definitions_raise(run_dem, sites, match):
     with pytest.raises(ValueError, match=match):
         run_dem(_tes_cfg(*sites) | {'optimisation': OPT}, days=2)
