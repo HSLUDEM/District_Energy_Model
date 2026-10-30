@@ -1798,7 +1798,8 @@ class DistrictEnergyModel:
                 df_values = df_scen,
                 description = 'df_scen',
                 error_accepted=C.NEG_ACC,
-                exempted_columns=exempted_columns_
+                exempted_columns=exempted_columns_,
+                relative_error_accepted=C.NEG_ACC_REL
                 )
         
         #----------------------------------------------------------------------            

@@ -430,6 +430,7 @@ def positive_values_test_df(
         description,
         error_accepted=-0.1,
         exempted_columns=[],
+        relative_error_accepted=0.0,
         ):
     
     """
@@ -448,6 +449,10 @@ def positive_values_test_df(
     exempted_columns : list of strings
         List containing the column header that are exempted from the test (i.e.
         they can contain negative values.)
+    relative_error_accepted : float
+        Additional accepted error relative to the largest absolute value of
+        the tested columns (e.g. 1e-6 for the accuracy of an optimisation
+        solver, whose tolerances are relative).
 
     Returns
     -------
@@ -456,6 +461,12 @@ def positive_values_test_df(
     
     # Initialize an empty list to store column headers with negative values
     negative_columns = []
+
+    if relative_error_accepted > 0.0:
+        tested = df_values[[c for c in df_values.columns if c not in exempted_columns]]
+        max_abs = tested.select_dtypes('number').abs().max().max()
+        if np.isfinite(max_abs):
+            error_accepted -= relative_error_accepted*max_abs
     
     # Iterate through each column in the DataFrame
     for column in df_values.columns:

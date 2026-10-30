@@ -82,6 +82,7 @@ DIFF_SUM_ACC = 1.0 # 5.0 # 1.0 # 0.15
 
 # Accepted negative values:
 NEG_ACC =  -0.1 # -100000000000 #
+NEG_ACC_REL = 1e-6 # accepted negative values relative to the largest absolute value (solver accuracy)
 
 # Accepted share of unmet demand in optimisation (annual unmet demand / annual demand):
 UNMET_SHARE_ACC = 1e-3
