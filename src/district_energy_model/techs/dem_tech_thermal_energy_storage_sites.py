@@ -117,9 +117,9 @@ class ThermalEnergyStorageSites(TechCore):
 
         for site_entry in self._sites_list:
             rel = site_entry['rel_size_t_levels']
-            if any(rel[k] < 0 for k in rel) or not any(rel[k] > 0 for k in rel):
+            if any(rel[k] < 0 for k in rel) or abs(sum(rel.values()) - 1.0) > 1e-6:
                 printout = ('Error in tes site ('+site_entry['name']+') input: '
-                            'rel_size_t_levels must not be negative and at least one level must be larger than 0: '
+                            'rel_size_t_levels must not be negative and must add up to 1: '
                             + str(rel)
                             )
                 raise ValueError(printout)
