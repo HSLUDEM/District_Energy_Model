@@ -330,6 +330,10 @@ class HydrothermalGasification(TechCore): # hg
     def get_v_gas(self):
         self.len_test(self._v_gas)
         return self._v_gas        
+
+    def get_energy_costs(self):
+        # om_cost [CHF/kWh] per kWh of the primary input, as om_con in the optimisation
+        return self.__tech_dict['om_cost'] * np.sum(self.get_u_wet_bm())
     
 
 class AnaerobicDigestionUpgrade(TechCore): # agu
@@ -501,6 +505,10 @@ class AnaerobicDigestionUpgrade(TechCore): # agu
     def get_v_gas(self):
         self.len_test(self._v_gas)
         return self._v_gas
+
+    def get_energy_costs(self):
+        # om_cost [CHF/kWh] per kWh of the primary input, as om_con in the optimisation
+        return self.__tech_dict['om_cost'] * np.sum(self.get_u_wet_bm())
     
         
 class AnaerobicDigestionUpgradeHydrogen(TechCore): # aguh

@@ -185,3 +185,7 @@ class HydrogenProduction(TechCore):
     def get_v_hyd(self):
         self.len_test(self._v_hyd)
         return self._v_hyd
+
+    def get_energy_costs(self):
+        # om_cost [CHF/kWh] per kWh of electricity input, as om_con in the optimisation
+        return self.__tech_dict['om_cost'] * np.sum(self.get_u_e())
