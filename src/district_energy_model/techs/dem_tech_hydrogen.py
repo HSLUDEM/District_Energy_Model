@@ -65,6 +65,10 @@ class HydrogenProduction(TechCore):
         #Properties:
         self._eta = tech_dict['efficiency']
         self._maintenance_cost = tech_dict['maintenance_cost']
+        # Capex, lifetime and interest rate as in the optimisation (used by the cost module):
+        self._capex = tech_dict['capital_cost']
+        self._lifetime = tech_dict['lifetime']
+        self._interest_rate = tech_dict['interest_rate']
 
         
         # Update input dict:
