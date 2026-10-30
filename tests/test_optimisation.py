@@ -254,3 +254,64 @@ def test_biomass_heat_without_sink_is_curtailed_with_warning(run_dem, capfd):
     assert h['v_h_bm_curt'].sum() == pytest.approx(h['v_h_wgu'].sum(), rel=1e-6)
     assert h['v_h_bm'].sum() == pytest.approx(0, abs=1e-3)
     assert 'curtailed' in capfd.readouterr().out
+
+
+def _dh_only(*techs, share=0.1, **kw):
+    """District heating supplies a fixed share of the heat demand with the given central plants as only source."""
+    cfg = {t: {'deployment': True} for t in techs}
+    dh_sources = [t for t in techs if t not in ('gas_turbine_cp', 'wood_boiler_sg')]
+    cfg['district_heating'] = {'demand_share_type': 'fixed', 'demand_share_val': share,
+                               'heat_sources': {'import': False} | {t: True for t in dh_sources}}
+    for k, v in kw.items():
+        cfg[k] = cfg.get(k, {}) | v
+    return cfg | {'optimisation': OPT}
+
+
+@pytest.mark.parametrize('techs, key, waste', [(('chp_gt',), 'chp_gt', 'v_h_chpgt_waste'),
+                                               (('wood_boiler_sg', 'steam_turbine'), 'steam_turbine', 'v_h_st_waste')])
+def test_central_plant_without_heat_export(run_dem, techs, key, waste):
+    model = run_dem(_dh_only(*techs, **{key: {'allow_heat_export': False}}), days=2)
+    assert model.hourly_results()[waste].sum() == pytest.approx(0, abs=1e-6)
+    assert model.annual_results()['d_h_unmet_yr'] == pytest.approx(0, abs=1)
+
+
+def test_deep_geothermal_capacity_limit_is_kw_th_max_not_capex(run_dem):
+    h = run_dem(_dh_only('deep_geothermal', 'gas_boiler_cp', share=0.5, deep_geothermal={'kW_th_max': 1000}), days=2).hourly_results()
+    assert h['v_h_dgt'].max() == pytest.approx(1000, rel=1e-6)
+    # A low capex must not limit the capacity (it was used as energy_cap_max):
+    h = run_dem(_dh_only('deep_geothermal', 'gas_boiler_cp', share=0.5, deep_geothermal={'capex': 500.0}), days=2).hourly_results()
+    assert h['v_h_dgt'].max() > 1000
+
+
+def test_optimisation_with_all_central_plants_runs(run_dem):
+    # Gurobi returns -0.05 kWh grid import in one hour (default FeasibilityTol), which failed with 'Not all values are >= 0 in m_e'
+    techs = ('oil_boiler_cp', 'gas_boiler_cp', 'wood_boiler_cp', 'electric_heater_cp', 'chp_gt', 'gas_turbine_cp',
+             'steam_turbine', 'wood_boiler_sg', 'waste_to_energy', 'deep_geothermal')
+    model = run_dem(_dh_only(*techs, share=0.3, supply={'annual_msw_supply': 1e7}), days=7)
+    assert model.hourly_results()['m_e'].min() >= 0
+
+
+@pytest.mark.parametrize('scaling', [0.1, 10])
+def test_chp_forced_capacity_independent_of_energy_scaling(run_dem, scaling):
+    cfg = _dh_only('chp_gt', 'gas_boiler_cp', chp_gt={'kW_el_max': 100, 'force_cap_max': True})
+    ref = run_dem(cfg, days=2)
+    cfg['optimisation'] = OPT | {'calliope_energy_scaling_factor': scaling, 'solver_option_FeasibilityTol': 1e-6}
+    model = run_dem(cfg, days=2)
+    assert model.hourly_results()['v_e_chpgt'].max() <= 100 + 1e-3
+    assert model.total_cost()['objective']['total'] == pytest.approx(ref.total_cost()['objective']['total'], rel=1e-4)
+
+
+def test_cost_module_uses_forced_capacity_of_central_plants(run_dem):
+    # Steam turbine forced to 300 kW, running at 240 kW (cap_min_use 0.8)
+    cfg = _dh_only('wood_boiler_sg', 'steam_turbine', 'gas_boiler_cp',
+                   steam_turbine={'kW_el_max': 300, 'force_cap_max': True, 'cap_min_use': 0.8})
+    model = run_dem(cfg, days=2)
+    assert model.hourly_results()['v_e_st'].max() < 300
+    assert cost_overview(model)['monetary']['total'] == pytest.approx(model.total_cost()['objective']['total'], rel=1e-6, abs=1)
+
+
+@pytest.mark.parametrize('tech', ['chp_gt', 'gas_turbine_cp', 'steam_turbine', 'waste_to_energy', 'wood_boiler_sg'])
+def test_force_cap_max_requires_finite_capacity(run_dem, tech):
+    techs = (tech, 'steam_turbine') if tech in ('gas_turbine_cp', 'wood_boiler_sg') else (tech,)
+    with pytest.raises(ValueError, match='force_cap_max requires'):
+        run_dem(_dh_only(*techs, **{tech: {'force_cap_max': True}}), days=2)
