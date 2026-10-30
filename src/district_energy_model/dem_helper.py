@@ -453,7 +453,7 @@ def create_results_directory(arg_path, arg_results_dir_name):
         full_path = base_path / dirname
 
         if not full_path.exists():
-            full_path.mkdir()
+            full_path.mkdir(parents=True)
             return str(full_path)
 
     raise RuntimeError("Could not create unique directory")
