@@ -69,6 +69,9 @@ class SteamTurbine(TechCore):
         self._htp_ratio = tech_dict['htp_ratio']
         self._kW_el_max = tech_dict['kW_el_max'] # [kW_el] Max. electric power output
         self._force_cap_max = tech_dict['force_cap_max']
+        if self._force_cap_max and tech_dict['kW_el_max'] == 'inf':
+            raise ValueError("steam_turbine.force_cap_max requires a finite steam_turbine.kW_el_max "
+                             "(the capacity is fixed to this value).")
         self._cap_min_use = tech_dict['cap_min_use']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']

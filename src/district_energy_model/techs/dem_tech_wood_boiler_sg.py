@@ -80,6 +80,9 @@ class WoodBoilerSG(TechCore):
         self._eta = tech_dict['eta']
         self._v_steam_max = tech_dict['kW_h_max']
         self._force_cap_max = tech_dict['force_cap_max']
+        if self._force_cap_max and tech_dict['kW_h_max'] == 'inf':
+            raise ValueError("wood_boiler_sg.force_cap_max requires a finite wood_boiler_sg.kW_h_max "
+                             "(the capacity is fixed to this value).")
         self._wood_input_cap_type = tech_dict['wood_input_cap_type']
         self._wood_input_cap_kg = tech_dict['wood_input_cap_kg']
         self._cap_min_use = tech_dict['cap_min_use']
