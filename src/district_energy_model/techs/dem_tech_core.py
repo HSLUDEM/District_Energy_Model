@@ -142,7 +142,7 @@ class TechCore():
                 replacement_capex = self._capex_one_to_one_replacement*self.needs_replacement
                 return replacement_capex + new_capex
         else: 
-            new_capex = self._capex*(self.get_output().max() - self.existing)
+            new_capex = self._capex*(self.get_installed_cap() - self.existing)
             if new_capex < 0:
                 new_capex = 0
             total_capex = new_capex
@@ -154,7 +154,7 @@ class TechCore():
         if hasattr(self, '_cap') and self._cap != 'inf':
             return self._maintenance_cost*self.get_cap()
         if hasattr(self, '_maintenance_cost'):
-            return self._maintenance_cost*self.get_output().max()
+            return self._maintenance_cost*self.get_installed_cap()
         elif hasattr(self, 'maintenance_cost'):
             return self.maintenance_cost*self.get_output().max()
 
@@ -170,6 +170,11 @@ class TechCore():
     #     variable = np.array([0]*n_hours)
 
  
+    def get_installed_cap(self):
+        # Capacity for the cost module: the peak output (the optimiser builds the capacity it uses),
+        # unless a technology forces a larger capacity (overridden there).
+        return self.get_output().max()
+
     def get_output(self):
         # First check for storage variables, then for flow variables:
         for attr in ["_q_h", "_q_gas", "_q_wd", "_q_hyd", "_q_e"]:

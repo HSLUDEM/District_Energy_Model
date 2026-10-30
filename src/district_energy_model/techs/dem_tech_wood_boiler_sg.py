@@ -246,6 +246,16 @@ class WoodBoilerSG(TechCore):
          
         return techs_dict
         
+    def get_installed_cap(self):
+        # Capacity built by the optimiser (energy_cap_equals) with force_cap_max or a fixed wood input,
+        # even if it is not fully used:
+        cap = self.get_output().max()
+        if self._force_cap_max and self._v_steam_max != 'inf':
+            cap = max(cap, self._v_steam_max)
+        if self._wood_input_cap_type == 'fixed':
+            cap = max(cap, self._wood_input_cap_kg*self._hv_wood*C.CONV_MJ_to_kWh/8760*self._eta)
+        return cap
+
     def get_v_steam(self):
         self.len_test(self._v_steam)
         return self._v_steam
