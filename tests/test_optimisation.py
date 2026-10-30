@@ -206,3 +206,39 @@ def test_tes_site_ltlt_can_be_charged_via_the_htlt_carrier(run_dem, tmp_path, mo
     monkeypatch.setattr(dem_calliope_cc, 'tes_sites_charge_constraints', charge_constraints)
     assert open_path > 10000
     assert ltlt_charging() > 0.8 * open_path
+
+
+# Biomass gas: gas import off and a small fixed share of decentral gas boilers force local gas production;
+# biomass heat (by-product of some techs) goes to district heating.
+_BIOMASS_GAS = {'supply': {'gas_import': False}, 'gas_boiler': {'fixed_demand_share': True, 'fixed_demand_share_val': 0.005},
+                'district_heating': {'heat_sources': {'biomass': True}}}
+
+
+@pytest.mark.parametrize('tech', ['wood_gasification_upgrade', 'anaerobic_digestion_upgrade_hydrogen'])
+def test_cost_module_sizes_gas_upgrading_on_gas_output(run_dem, tech):
+    cfg = _BIOMASS_GAS | {tech: {'deployment': True}, 'optimisation': OPT}
+    if 'hydrogen' in tech:
+        cfg['hydrogen_production'] = {'deployment': True}
+    model = run_dem(cfg, days=2)
+    assert model.annual_results()['m_gas_yr'] == pytest.approx(0, abs=1e-3)
+    assert cost_overview(model)['monetary']['total'] == pytest.approx(model.total_cost()['objective']['total'], rel=1e-6, abs=1)
+
+
+def test_cost_module_includes_om_cost_of_gasification(run_dem):
+    cfg = _BIOMASS_GAS | {'hydrothermal_gasification': {'deployment': True, 'om_cost': 0.05}, 'optimisation': OPT}
+    model = run_dem(cfg, days=2)
+    assert model.annual_results()['u_wet_bm_hg_yr'] > 1000
+    assert cost_overview(model)['monetary']['total'] == pytest.approx(model.total_cost()['objective']['total'], rel=1e-6, abs=1)
+
+
+def test_cost_module_includes_hydrogen_production_capex(run_dem):
+    cfg = _BIOMASS_GAS | {'anaerobic_digestion_upgrade_hydrogen': {'deployment': True},
+                          'hydrogen_production': {'deployment': True}, 'optimisation': OPT}
+    model = run_dem(cfg, days=2)
+    hydp = model.tech_instances['hydrogen_production']
+    cap = hydp.get_v_hyd().max()
+    assert cap > 10
+    r, n = hydp._interest_rate, hydp._lifetime
+    expected = 4090 * cap * r * (1 + r)**n / ((1 + r)**n - 1) * 2 / 365
+    costs = model.total_cost()['Kostenmodul']['monetary_breakdown']['hydrogen_production']
+    assert costs['annualized_capex'] == pytest.approx(expected, rel=1e-6)
