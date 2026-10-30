@@ -109,6 +109,27 @@ class ThermalEnergyStorageSites(TechCore):
                                 )
                     raise Exception(printout)
         
+        names = [site_entry['name'] for site_entry in self._sites_list]
+        duplicates = sorted(set(n for n in names if names.count(n) > 1))
+        if duplicates:
+            raise ValueError("TES site names must be unique (the Calliope technologies are named after them): "
+                             + ", ".join(str(n) for n in duplicates))
+
+        for site_entry in self._sites_list:
+            rel = site_entry['rel_size_t_levels']
+            if any(rel[k] < 0 for k in rel) or not any(rel[k] > 0 for k in rel):
+                printout = ('Error in tes site ('+site_entry['name']+') input: '
+                            'rel_size_t_levels must not be negative and at least one level must be larger than 0: '
+                            + str(rel)
+                            )
+                raise ValueError(printout)
+            if not 0 <= site_entry['capacity_kWh_min'] <= site_entry['capacity_kWh_max']:
+                printout = ('Error in tes site ('+site_entry['name']+') input: '
+                            'capacity_kWh_min ('+str(site_entry['capacity_kWh_min'])+') must be between 0 and '
+                            'capacity_kWh_max ('+str(site_entry['capacity_kWh_max'])+')'
+                            )
+                raise ValueError(printout)
+
         for site_entry in self._sites_list:
             if site_entry['capacity_kWh_min'] == 0 and site_entry['force_deployment'] == True:
                 printout = "Forced deployment cannot be activated if capacity_kWh_min isn't defined: TES_Site = " + site_entry['name']

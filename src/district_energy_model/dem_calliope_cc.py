@@ -38,10 +38,12 @@ def tes_sites_lt_no_conversion_without_charging_constraint(model, ts_len, sites_
                 charging_current = backend_model.carrier_con['X1::tes_site_'
                                                                 +site_entry['name']+'_ltlt::heat_tes_site_'
                                                                 +site_entry['name']+'_ltlt', timestep]
-                av_current_for_charging = (backend_model.carrier_prod['X1::conv_'
-                                                                        +site_entry['name']+'_heatlt_to_heat_tes_site_'
-                                                                        +site_entry['name']+'_ltlt::heat_tes_site_'
-                                                                        +site_entry['name']+'_ltlt', timestep])
+                av_current_for_charging = 0
+                if site_entry['connected_techs']['lt']: # the conversion from heatlt only exists with connected lt techs
+                    av_current_for_charging += backend_model.carrier_prod['X1::conv_'
+                                                                            +site_entry['name']+'_heatlt_to_heat_tes_site_'
+                                                                            +site_entry['name']+'_ltlt::heat_tes_site_'
+                                                                            +site_entry['name']+'_ltlt', timestep]
                 av_current_for_charging += backend_model.carrier_prod['X1::conv_'
                                                                         +site_entry['name']+'_htht_to_'
                                                                         +site_entry['name']+'_ltlt::heat_tes_site_'
