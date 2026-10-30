@@ -81,6 +81,10 @@ class DistrictEnergyModel:
         Prepare input:
         """
         self.paths = paths
+
+        # Configuration as given by the user (saved to scen_techs.yaml); the
+        # run adds derived values to scen_techs and changes some settings:
+        self.scen_techs_input = copy.deepcopy(scen_techs)
         
         # Selected community/ custom scenario:
         self.com_nr = arg_com_nr
@@ -2187,7 +2191,7 @@ class DistrictEnergyModel:
             if self.scenario_generated == True:
                 dem_output.input_to_file(self.results_path, self.list_input_data)
                 dem_output.hourly_results_to_file(self.results_path, self.df_scen)
-                dem_output.scen_techs_to_file(self.results_path, self.scen_techs)
+                dem_output.scen_techs_to_file(self.results_path, self.scen_techs_input)
                 dem_output.annual_results_to_file(self.results_path, self.dict_yr_scen)
                 dem_output.total_costs_to_file(self.results_path, self.dict_total_costs)
                 dem_output.flexibility_metrics_to_file(
@@ -2212,7 +2216,7 @@ class DistrictEnergyModel:
         elif self.scenario_generated == True:
             dem_output.input_to_file(self.results_path, self.list_input_data)
             dem_output.hourly_results_to_file(self.results_path, self.df_scen)
-            dem_output.scen_techs_to_file(self.results_path, self.scen_techs)
+            dem_output.scen_techs_to_file(self.results_path, self.scen_techs_input)
             dem_output.annual_results_to_file(self.results_path, self.dict_yr_scen)
             dem_output.total_costs_to_file(self.results_path, self.dict_total_costs)
             dem_output.flexibility_metrics_to_file(
