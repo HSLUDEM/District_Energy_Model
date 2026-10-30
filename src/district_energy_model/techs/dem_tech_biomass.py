@@ -746,6 +746,11 @@ class AnaerobicDigestionUpgradeHydrogen(TechCore): # aguh
     def get_v_gas(self):
         self.len_test(self._v_gas)
         return self._v_gas
+
+    def get_output(self):
+        # The capacity (energy_cap) is sized on the primary output gas, not on the heat by-product
+        # (TechCore.get_output() would return _v_h first):
+        return self.get_v_gas()
         
         
 class AnaerobicDigestionCHP(TechCore): # aguc
@@ -1200,6 +1205,11 @@ class WoodGasificationUpgrade(TechCore): # wgu
     def get_v_gas(self):
         self.len_test(self._v_gas)
         return self._v_gas
+
+    def get_output(self):
+        # The capacity (energy_cap) is sized on the primary output gas, not on the heat by-product
+        # (TechCore.get_output() would return _v_h first):
+        return self.get_v_gas()
             
 
 class WoodGasificationUpgradeHydrogen(TechCore): # wguh
@@ -1444,6 +1454,11 @@ class WoodGasificationUpgradeHydrogen(TechCore): # wguh
     def get_v_gas(self):
         self.len_test(self._v_gas)
         return self._v_gas
+
+    def get_output(self):
+        # The capacity (energy_cap) is sized on the primary output gas, not on the heat by-product
+        # (TechCore.get_output() would return _v_h first):
+        return self.get_v_gas()
             
             
 class WoodGasificationCHP(TechCore): # wguc
