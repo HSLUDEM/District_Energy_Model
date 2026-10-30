@@ -1842,6 +1842,9 @@ class CalliopeOptimiser:
         if 'grid_supply' in self.tech_list:
             m_e =\
                 opt_results['carrier_prod'].loc['Grid_Connection_Node::grid_supply::electricity'].values*self.energy_scaling_factor
+            # Solver tolerances can give slightly negative values; accept them as in the
+            # negative value check of the results (C.NEG_ACC):
+            m_e = np.where((m_e < 0) & (m_e >= C.NEG_ACC), 0.0, m_e)
                 
             # Recalculate electricity mix:
             self.tech_grid_supply.update_m_e(m_e)
