@@ -791,6 +791,16 @@ class DistrictEnergyModel:
 
         # Heat demand manual flow
         if scen_techs['heat_demand_manual']['deployment']:                
+            if not (scen_techs['optimisation']['enabled']
+                    or scen_techs['optimisation']['pareto_monetary_co2']):
+                # The manual heat demand is only supplied in the optimisation;
+                # a simulation would silently ignore it. (The pareto front
+                # sets 'enabled' to False while it generates the scenario.)
+                raise ValueError(
+                    "heat_demand_manual is only supported in optimisations "
+                    "(optimisation.enabled = True). In a simulation the manual "
+                    "heat demand would be ignored."
+                    )
             self.tech_heat_demand_manual = dem_techs.HeatDemandManual(scen_techs['heat_demand_manual'])
             self.tech_heat_demand_manual.initialise_zero(n_days)
             self.tech_instances['heat_demand_manual'] = self.tech_heat_demand_manual
