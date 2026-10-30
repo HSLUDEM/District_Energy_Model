@@ -1234,6 +1234,18 @@ class EnergyDemand:
                                 'v_hw_solar' : 0.0,
                                 'v_hw_other' : 1.0 } if optimisation_enabled else total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios
 
+            for name_, rates_ in [
+                    ('space_heating', reassignment_dict_sh),
+                    ('dhw', reassignment_dict_dhw),
+                    ]:
+                if (any(r_ < 0.0 or r_ > 1.0 for r_ in rates_.values())
+                        or abs(sum(rates_.values()) - 1.0) > 1e-6):
+                    raise ValueError(
+                        f"demand_side.total_renovation_heat_generator_reassignment_rates_{name_}_for_manual_scenarios: "
+                        f"the rates must be between 0 and 1 and add up to 1. Selected values: {rates_} "
+                        f"(sum: {sum(rates_.values()):.6g})."
+                        )
+
 
             #replacement of technologies while calculating the total generated heat from different heat sources. 
             # This is also applied to the dhw
