@@ -234,6 +234,9 @@ class CHPGasTurbine(TechCore):
     def get_deploy_existing(self):
         return self._deploy_existing
     
+    def get_allow_heat_export(self):
+        return self._allow_heat_export
+    
     def get_eta_el(self):
         self.num_test(self._eta_el)
         return self._eta_el

@@ -1571,7 +1571,10 @@ class CalliopeOptimiser:
         if 'chp_gt' in self.tech_list:
             v_e_chp_gt = opt_results['carrier_prod'].loc['X1::chp_gt_new::electricity'].values*self.energy_scaling_factor
             v_h_chp_gt = opt_results['carrier_prod'].loc['X1::chp_gt_new::heat_chpgt'].values*self.energy_scaling_factor
-            v_h_chp_gt_waste = opt_results['carrier_export'].loc['X1::chp_gt_new::heat_chpgt'].values*self.energy_scaling_factor
+            if self.tech_chp_gt.get_allow_heat_export(): # carrier_export only exists with heat export
+                v_h_chp_gt_waste = opt_results['carrier_export'].loc['X1::chp_gt_new::heat_chpgt'].values*self.energy_scaling_factor
+            else:
+                v_h_chp_gt_waste = 0.0*v_h_chp_gt
             v_h_chp_gt_con = v_h_chp_gt - v_h_chp_gt_waste
             
             self.tech_chp_gt.update_v_e(v_e_chp_gt)
@@ -1606,7 +1609,10 @@ class CalliopeOptimiser:
         if 'steam_turbine' in self.tech_list:
             v_e_st = opt_results['carrier_prod'].loc['X1::steam_turbine_exist::electricity'].values*self.energy_scaling_factor
             v_h_st = opt_results['carrier_prod'].loc['X1::steam_turbine_exist::heat_st'].values*self.energy_scaling_factor
-            v_h_st_waste = opt_results['carrier_export'].loc['X1::steam_turbine_exist::heat_st'].values*self.energy_scaling_factor
+            if self.tech_steam_turbine.get_allow_heat_export(): # carrier_export only exists with heat export
+                v_h_st_waste = opt_results['carrier_export'].loc['X1::steam_turbine_exist::heat_st'].values*self.energy_scaling_factor
+            else:
+                v_h_st_waste = 0.0*v_h_st
             v_h_st_con = v_h_st - v_h_st_waste
 
             self.tech_steam_turbine.update_v_e(v_e_st)
