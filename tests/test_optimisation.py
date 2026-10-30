@@ -169,3 +169,40 @@ def test_hydro_power_independent_of_energy_scaling(run_dem, scaling):
                                             'calliope_energy_scaling_factor': scaling}}, days=2)
     objective = model.total_cost()['objective']['total']
     assert cost_overview(model)['monetary']['total'] == pytest.approx(objective, rel=1e-4, abs=10)
+
+
+def test_tes_site_ltlt_can_be_charged_via_the_htlt_carrier(run_dem, tmp_path, monkeypatch):
+    # Close the alternative path ht techs -> htht carrier -> ltlt, so that ht heat can only reach the ltlt level
+    # through the htlt carrier (conversion htlt -> ltlt).
+    import numpy as np
+    import pandas as pd
+    from district_energy_model import dem_calliope_cc
+    hours = np.arange(8760)
+    pd.DataFrame({'v': 0.15 + 0.25*((hours % 24 >= 8) & (hours % 24 < 20))}).to_feather(tmp_path / 'tariff.feather')
+    site = _tes_site(name='S1', rel_size_t_levels={'ltlt': 0.5, 'htlt': 0.5, 'htht': 0.0},
+                     capacity_kWh_max=20000, capex_base=0, capex_per_kWh=0.0, maintenance_cost_base=0,
+                     maintenance_cost_per_kWh=0, eta_chg_dchg={'ltlt': 0.95, 'htlt': 0.95, 'htht': 0.95},
+                     chg_dchg_per_cap_max=0.2, connected_techs={'lt': ['heatlt'], 'ht': ['obcp', 'hpcp']})
+    cfg = _tes_cfg(site)
+    cfg['heat_pump_cp_lt'] = {'deployment': True}
+    cfg['heat_pump_cp'] = {'instance_1': {'deployment': True}}
+    cfg['district_heating']['heat_sources'] |= {'heat_pump_cp': True, 'heat_pump_cp_lt': True}
+    cfg['grid_supply'] = {'tariff_mode': 'file', 'tariff_timeseries_filepath': str(tmp_path / 'tariff.feather')}
+    cfg['optimisation'] = OPT
+
+    def ltlt_charging():
+        return run_dem(cfg, days=7).hourly_results()['u_hltlt_tes_site_S1'].sum()
+
+    open_path = ltlt_charging()
+    orig = dem_calliope_cc.tes_sites_charge_constraints
+
+    def charge_constraints(model, ts_len, sites_list):
+        model = orig(model, ts_len, sites_list)
+        def close_rule(backend_model, timestep):
+            return backend_model.carrier_prod['X1::conv_S1_htht_to_S1_ltlt::heat_tes_site_S1_ltlt', timestep] == 0
+        model.backend.add_constraint('test_close_htht_to_ltlt', ['timesteps'], close_rule)
+        return model
+
+    monkeypatch.setattr(dem_calliope_cc, 'tes_sites_charge_constraints', charge_constraints)
+    assert open_path > 10000
+    assert ltlt_charging() > 0.8 * open_path
