@@ -1087,7 +1087,6 @@ def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, 
     # while the first hour starts at the explicitly configured initial charge.
     for i in range(count):
         # Keep this hour's tank charging separate from building EH operation.
-        hp_charging = 0.0
         direct_charging = 0.0
         for key, store in stores.items():
             tech = store['tech']
@@ -1172,7 +1171,6 @@ def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, 
                         continue
                     heat_input = electric_input * cops[i]
                     hp_heat[i] += heat_input
-                    hp_charging += electric_input
                 else:
                     # A TES resistance element converts electricity to heat at
                     # 100%; it has no dependency on the building EH technology.
@@ -1213,7 +1211,7 @@ def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, 
                 tech.update_q_h_i(i, level)
                 tech.update_l_u_h_i(i, charged * (1.0 - eta))
                 tech.update_l_v_h_i(i, discharged * (1.0 / eta - 1.0))
-                tech.update_charging_electricity_i(i, hp_charging, direct_charging)
+                tech.update_u_e_direct_i(i, direct_charging)
             tech.update_sos_i(i, level / store['cap'] if store['cap'] > 0 else 0.0)
 
         # Update HP and demand in the same hour, as in TES-only. The HP setter

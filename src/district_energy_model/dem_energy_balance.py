@@ -732,9 +732,10 @@ def heat_balance_test(scen_techs,
                        # + df_scen['v_h_hpcp'] # INCLUDED IN DISTRICT HEATING
                        + df_scen['d_h_unmet']
                        )
-    # Direct tank charging supplies heat at unity efficiency; HP charging heat
-    # is already contained in v_h_hp and must not be counted a second time.
-    heat_generation += df_scen.get('v_h_tesdc_direct', 0.0)
+    # Direct electricity becomes heat at the TES inlet at unity efficiency.
+    # Count this conversion once against total TES heat input; HP charging
+    # heat is already contained in v_h_hp and must not be added again.
+    heat_generation += df_scen.get('u_h_tesdc_direct', 0.0)
     
     # ------------------------------------------------
     # TES for district heating:

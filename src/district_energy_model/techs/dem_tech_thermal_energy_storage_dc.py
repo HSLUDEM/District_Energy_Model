@@ -42,8 +42,6 @@ class ThermalEnergyStorageDC(TechCore):
         self._l_v_h = [] # discharging losses [kWh]
         self._l_q_h = [] # storage losses [kWh]
         self._sos = [] # state of charge [-]
-        # Separate tank charging electricity from the building EH technology.
-        self._u_e_hp_charging = []
         self._u_e_direct = []
         
         
@@ -127,11 +125,10 @@ class ThermalEnergyStorageDC(TechCore):
         df['l_v_h_tesdc'] = self.get_l_v_h() # discharging losses [kWh]
         df['l_q_h_tesdc'] = self.get_l_q_h() # storage losses [kWh]
         df['sos_tesdc'] = self.get_sos() # state of charge [-]
-        # HP charging is already included in u_e_hp/v_h_hp; only direct electric
-        # heat is an additional heat-generation term in the building balance.
-        df['u_e_tesdc_hp'] = self._u_e_hp_charging
+        # Track only the direct conversion at the TES inlet; HP charging is
+        # already recorded by the HP and the total thermal input u_h_tesdc.
         df['u_e_tesdc_direct'] = self._u_e_direct
-        df['v_h_tesdc_direct'] = self._u_e_direct
+        df['u_h_tesdc_direct'] = self._u_e_direct
         
         return df
     
@@ -160,7 +157,6 @@ class ThermalEnergyStorageDC(TechCore):
         self._l_q_h = self._l_q_h[:n_hours]
         self._sos = self._sos[:n_hours]
         # Match the charging diagnostics to the selected simulation horizon.
-        self._u_e_hp_charging = self._u_e_hp_charging[:n_hours]
         self._u_e_direct = self._u_e_direct[:n_hours]
         
     def initialise_zero(self, n_days):
@@ -176,7 +172,6 @@ class ThermalEnergyStorageDC(TechCore):
         self._l_q_h = init_vals.copy() # storage losses [kWh]
         self._sos = init_vals.copy() # state of charge [-]
         # Other scenarios and optimisation retain zero direct tank electricity.
-        self._u_e_hp_charging = init_vals.copy()
         self._u_e_direct = init_vals.copy()
         
     def initialise_q_h_0(self):
@@ -214,12 +209,10 @@ class ThermalEnergyStorageDC(TechCore):
         self.num_test(val)
         self._l_q_h[i] = float(val)
 
-    def update_charging_electricity_i(self, i, heat_pump_input, direct_input):
-        """Record one hour of tank charging without changing building EH."""
-        # Direct input equals heat output at 100% conversion efficiency.
-        self.num_test(heat_pump_input)
+    def update_u_e_direct_i(self, i, direct_input):
+        """Record direct tank charging electricity without changing building EH."""
+        # This input equals the thermal input before TES charging losses.
         self.num_test(direct_input)
-        self._u_e_hp_charging[i] = float(heat_pump_input)
         self._u_e_direct[i] = float(direct_input)
 
     def get_u_e_direct(self):
