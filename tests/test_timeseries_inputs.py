@@ -51,6 +51,19 @@ def test_manual_heat_demand_follows_its_time_series(run_dem, hdm_file):
     assert model.annual_results()['d_h_unmet_yr'] == pytest.approx(0, abs=1)
 
 
+@requires_solver
+def test_manual_heat_demand_from_npy_file_is_in_kwh(run_dem, tmp_path, hdm_file):
+    # .npy files hold kWh per hour, like .feather files (no extra factor)
+    values = pd.read_feather(hdm_file).to_numpy()[:, 0]
+    np.save(tmp_path / 'hdm.npy', values)
+    model = run_dem({'heat_demand_manual': {'deployment': True, 'demand_mode': 'file',
+                                            'timeseries_file_path': str(tmp_path / 'hdm.npy')},
+                     'optimisation': OPT}, days=3)
+    df = model.hourly_results()
+    np.testing.assert_allclose(df['d_h_m'], values[:72], rtol=1e-6)
+    assert model.annual_results()['d_h_unmet_yr'] == pytest.approx(0, abs=1)
+
+
 def test_manual_heat_demand_in_simulation_raises(run_dem, hdm_file):
     with pytest.raises(ValueError, match='only supported in optimisations'):
         run_dem({'heat_demand_manual': {'deployment': True, 'demand_mode': 'file', 'timeseries_file_path': hdm_file}}, days=2)
