@@ -85,3 +85,11 @@ NEG_ACC =  -0.1 # -100000000000 #
 
 # Accepted constraint violation (one timestep) by solver:
 MAX_VIOLATION_kWh = 0.05 # 1e-6
+# Biomass technologies that co-produce heat (heat_biomass) in a fixed ratio:
+BIOMASS_HEAT_TECHS = [
+    'anaerobic_digestion_upgrade_hydrogen',
+    'anaerobic_digestion_chp',
+    'wood_gasification_upgrade',
+    'wood_gasification_upgrade_hydrogen',
+    'wood_gasification_chp',
+    ]

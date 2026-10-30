@@ -578,6 +578,7 @@ class DistrictEnergyModel:
         self.tech_biomass.update_v_e_cons(tmp_null_arr)
         self.tech_biomass.update_v_e_exp(tmp_null_arr)
         self.tech_biomass.update_v_h(tmp_null_arr)
+        self.tech_biomass.update_v_h_curt(tmp_null_arr)
 
         """--------------------------------------------------------------------
         Hydro Potentials and Current Consumption:
@@ -1702,6 +1703,16 @@ class DistrictEnergyModel:
                         "or the solver returned an inaccurate solution "
                         "(check solver options, e.g. solver_option_FeasibilityTol)."
                         )
+
+            # Heat co-produced by biomass technologies that district heating cannot take is curtailed:
+            curt_kWh = df_scen['v_h_bm_curt'].sum() if 'v_h_bm_curt' in df_scen.columns else 0.0
+            if curt_kWh > C.DIFF_SUM_ACC:
+                print(
+                    f"\nWARNING: {curt_kWh:.1f} kWh of heat co-produced by biomass "
+                    "technologies were curtailed (v_h_bm_curt): district heating did "
+                    "not take all of it (district_heating.heat_sources.biomass is False, "
+                    "or district heating needs less heat than the biomass technologies produce)."
+                    )
 
             if self.toggle_energy_balance_tests:
                 dem_eb.electricity_balance_test(

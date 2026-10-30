@@ -1529,10 +1529,16 @@ class CalliopeOptimiser:
             v_e_bm_exp = v_e_aguc_exp + v_e_wguc_exp
             v_e_bm_cons = v_e_bm - v_e_bm_exp
             v_h_bm = v_h_aguh + v_h_aguc + v_h_wgu + v_h_wguh + v_h_wguc
+            if 'heat_biomass_curtailment' in self.tech_list_new:
+                v_h_bm_curt = -opt_results['carrier_con'].loc['New_Techs::heat_biomass_curtailment::heat_biomass'].values*self.energy_scaling_factor
+            else:
+                v_h_bm_curt = null_array.copy()
+            v_h_bm = v_h_bm - v_h_bm_curt # delivered to district heating
             self.tech_biomass.update_v_e(v_e_bm)
             self.tech_biomass.update_v_e_exp(v_e_bm_exp)
             self.tech_biomass.update_v_e_cons(v_e_bm_cons)
             self.tech_biomass.update_v_h(v_h_bm)
+            self.tech_biomass.update_v_h_curt(v_h_bm_curt)
 
         #------------------
         # Biomass Supply
@@ -2914,6 +2920,33 @@ class CalliopeOptimiser:
             techs_dict = self.tech_hydrogen_production.generate_tech_dict(techs_dict, energy_scaling_factor = self.energy_scaling_factor)
             
             self.tech_list_new.append('hydrogen_production')
+
+        if any(t in self.tech_list for t in C.BIOMASS_HEAT_TECHS):
+            # Heat co-produced by biomass technologies (fixed carrier ratio) that
+            # district heating cannot take is curtailed (exported out of the system):
+            techs_dict['heat_biomass_curtailment'] = {
+                'essentials':{
+                    'name':'Curtailment of biomass heat',
+                    'color':colors['demand_heat'],
+                    'parent':'conversion',
+                    'carrier_in':'heat_biomass',
+                    'carrier_out':'heat_biomass_curtailed',
+                    },
+                'constraints':{
+                    'energy_cap_max':'inf',
+                    'energy_eff':1.0,
+                    'export_carrier':'heat_biomass_curtailed',
+                    'lifetime':1,
+                    },
+                'costs':{
+                    'monetary':{
+                        'om_con':0.0,
+                        'interest_rate':0.0,
+                        },
+                    }
+                }
+
+            self.tech_list_new.append('heat_biomass_curtailment')
             
         if 'chp_gt' in self.tech_list:            
             techs_dict = self.tech_chp_gt.create_techs_dict(
