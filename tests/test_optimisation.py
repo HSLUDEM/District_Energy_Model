@@ -315,3 +315,20 @@ def test_force_cap_max_requires_finite_capacity(run_dem, tech):
     techs = (tech, 'steam_turbine') if tech in ('gas_turbine_cp', 'wood_boiler_sg') else (tech,)
     with pytest.raises(ValueError, match='force_cap_max requires'):
         run_dem(_dh_only(*techs, **{tech: {'force_cap_max': True}}), days=2)
+
+
+def test_alpine_pv_respects_kwp_max(run_dem):
+    # Davos has a large alpine PV potential; with low capex the whole potential would be built
+    model = run_dem({'simulation': {'district_number': 3851}, 'solar_pvalpine': {'base_capex': 100, 'kWp_max': 1000},
+                     'optimisation': OPT}, days=2)
+    assert 0 < model.hourly_results()['v_e_pvalpine'].max() <= 1000 + 1e-3
+
+
+@pytest.mark.parametrize('key, limit, col', [('solar_pvrooftop', 'kWp_max', 'v_e_pvrooftop'),
+                                             ('solarthermal_rooftop', 'kW_th_max', 'v_h_solarthermalrooftop')])
+def test_rooftop_solar_capacity_limit(run_dem, key, limit, col):
+    # A limit of 0 allows no new capacity: only the existing installations produce
+    cheap = {'base_capex': 10}
+    limited = run_dem({key: cheap | {limit: 0}, 'optimisation': OPT}, days=2).hourly_results()[col]
+    existing = run_dem({key: cheap | {'only_use_installed': True}, 'optimisation': OPT}, days=2).hourly_results()[col]
+    assert limited.sum() == pytest.approx(existing.sum(), rel=1e-6, abs=1e-3)
