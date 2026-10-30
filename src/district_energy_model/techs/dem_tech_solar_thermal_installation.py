@@ -235,6 +235,10 @@ class SolarThermalInstallation(TechCore):
             p_max_unocc = 0
         if self._only_use_installed:
             p_max_unocc = 0
+        if self._v_max != 'inf':
+            # kW_th_max (distributed to the installations as kW_max) limits the total capacity;
+            # existing (occupied) installations are kept:
+            p_max_unocc = max(0.0, min(p_max_unocc, self._v_max - p_max_occ))
         
         # print("VALUES = ", p_max_occ, p_max_unocc)
 
