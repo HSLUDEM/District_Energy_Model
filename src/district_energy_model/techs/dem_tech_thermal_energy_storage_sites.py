@@ -779,12 +779,18 @@ class ThermalEnergyStorageSites(TechCore):
         return res
 
 
+    def _base_cost_applies(self, i):
+        # As in the optimisation (dem_calliope_cc.tes_sites_minimum_size_cost):
+        # capex_base and maintenance_cost_base are only applied if capacity_kWh_min > 0.
+        return self._sites_list[i]['capacity_kWh_min'] > 0
+
     def get_total_capex(self):
         capex = 0.0
         for i in range(len(self._sites_list)):
             cap = self._cap_htht[i] + self._cap_htlt[i] + self._cap_ltlt[i]
             if cap > 0:
-                capex += (self._sites_list[i]['capex_per_kWh'] * cap + self._sites_list[i]['capex_base'])*self.calculate_annuity_factor()[i]
+                capex_base = self._sites_list[i]['capex_base'] if self._base_cost_applies(i) else 0.0
+                capex += (self._sites_list[i]['capex_per_kWh'] * cap + capex_base)*self.calculate_annuity_factor()[i]
             else:
                 capex += 0.0
         return capex
@@ -794,7 +800,8 @@ class ThermalEnergyStorageSites(TechCore):
         for i in range(len(self._sites_list)):
             cap = self._cap_htht[i] + self._cap_htlt[i] + self._cap_ltlt[i]
             if cap > 0:
-                maintenance_cost += self._sites_list[i]['maintenance_cost_per_kWh'] * cap + self._sites_list[i]['maintenance_cost_base']
+                maintenance_cost_base = self._sites_list[i]['maintenance_cost_base'] if self._base_cost_applies(i) else 0.0
+                maintenance_cost += self._sites_list[i]['maintenance_cost_per_kWh'] * cap + maintenance_cost_base
             else:
                 maintenance_cost += 0.0
         return maintenance_cost
