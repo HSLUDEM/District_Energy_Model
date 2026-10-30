@@ -2760,7 +2760,7 @@ class CalliopeOptimiser:
             
             # Force deployment of currently installed systems:
             techs_dict['hydro_power']['constraints.energy_cap_equals'] =\
-                energy_cap
+                energy_cap / self.energy_scaling_factor
             
             self.tech_list_old.append('hydro_power')
             
