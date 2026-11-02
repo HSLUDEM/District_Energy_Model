@@ -3636,7 +3636,9 @@ class CalliopeOptimiser:
                 'TimeLimit':self.opt_metrics['solver_option_TimeLimit'],
                 'Presolve':self.opt_metrics['solver_option_Presolve'],
                 'Aggregate':self.opt_metrics['solver_option_Aggregate'],
-                'FeasibilityTol':self.opt_metrics['solver_option_FeasibilityTol'] / self.energy_scaling_factor,
+                # Scaled with the energy values, kept within Gurobi's range [1e-9, 1e-2]
+                # (e.g. 1e-6 with scaling 1000 would be 1e-9 minus rounding):
+                'FeasibilityTol':min(max(self.opt_metrics['solver_option_FeasibilityTol'] / self.energy_scaling_factor, 1e-9), 1e-2),
                 'MIPGap':mipgap_,
                 'Threads':self.opt_metrics.get('solver_option_Threads', 0), # .get(): input files without this key use the solver default (0)
                 }
