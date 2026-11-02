@@ -18,6 +18,7 @@ src/tmp*
 src/postprocess_df_scen.py
 src/run_dem_local_OREES.py
 src/run_dem_local_newData.py
+src/delete_parallel_run_results.py
 doc/documentation.md
 tests/tmp*
 data/
