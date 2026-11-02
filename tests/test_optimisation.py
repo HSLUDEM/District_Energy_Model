@@ -345,3 +345,24 @@ def test_cost_module_co2_includes_deep_geothermal(run_dem):
 def test_grid_supply_kw_max_float_inf(run_dem):
     model = run_dem({'grid_supply': {'kW_max': float('inf')}, 'optimisation': OPT}, days=1)
     assert model.annual_results()['m_e_yr'] > 0
+
+
+def test_storage_cumsum_plot_shows_flows(run_dem, tmp_path):
+    # Storage with losses: the cumulative charged/discharged curves are the flows, not the level changes
+    from test_simulation import _plot_traces
+    model = run_dem({'simulation': {'generate_plots': True, 'save_results': True},
+                     'tes_decentralised': {'deployment': True}, 'bes': {'deployment': True},
+                     'optimisation': OPT}, days=2)
+    cum = {t['name']: t['y'][-1] for t in _plot_traces(f'{model.results_path}/tes_and_bes_cumsum_hourly.html')}
+    df = model.hourly_results()
+    for q, u, v in [('q_h_tesdc', 'u_h_tesdc', 'v_h_tesdc'), ('q_e_bes', 'u_e_bes', 'v_e_bes')]:
+        assert df[u].sum() > 1000 and df[v].sum() > 1000
+        assert cum[f'{q} charged'] == pytest.approx(df[u].sum() / 1000, rel=1e-6)
+        assert cum[f'{q} discharged'] == pytest.approx(df[v].sum() / 1000, rel=1e-6)
+
+
+@pytest.mark.parametrize('scaling', [1000, 10000])
+def test_feasibility_tol_with_large_energy_scaling(run_dem, scaling):
+    # Default FeasibilityTol 1e-6 / scaling must stay within Gurobi's range (minimum 1e-9)
+    model = run_dem({'optimisation': OPT | {'calliope_energy_scaling_factor': scaling}}, days=1)
+    assert model.annual_results()['m_e_yr'] > 0
