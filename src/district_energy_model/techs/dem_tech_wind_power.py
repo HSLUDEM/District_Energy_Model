@@ -1023,8 +1023,21 @@ class WindPower(TechCore):
     def __compute_v_e_pot_remain(self):        
         self._v_e_pot_remain = (self._v_e_pot - self._v_e - self._v_e_ch)
         
+    def remove_existing_generation(self):
+        """
+        Remove the currently installed wind power (capacity and generation,
+        incl. the share allocated to national generation v_e_ch). Used if the
+        installed wind power is part of a national generation profile.
+        """
+        self.p_e_wp = 0.0
+        self._v_e = np.zeros(len(self._v_e))
+        self._v_e_ch = np.zeros(len(self._v_e_ch))
+
+        # Recompute potentials (aligned with installed generation):
+        self.compute_v_e_pot()
+
     def update_v_e(self, v_e_updated):
-        
+
         if len(v_e_updated) != len(self._v_e):
             raise ValueError("v_e_updated must have the same length as v_e!")
             

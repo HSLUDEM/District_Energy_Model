@@ -34,6 +34,8 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes=False,
     then exist. Grid supply is always required, even if there are no sources.
 
     PV sources are allocated and updated per installation.
+    If national generation is deployed, it covers the demand remaining after
+    local generation (proportional dispatch) before the grid supplies the rest.
     Updates present generators' consumption/export and grid import in place.
     Returns None. Does not decide storage operation or change demand.
     """
@@ -135,7 +137,13 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes=False,
 
     # Required import:
     m_e = d_e_remain
-    
+
+    # National generation (if deployed) covers the required import as far as
+    # available; the grid supplies the rest:
+    if 'national_generation' in tech_instances:
+        v_e_nat = tech_instances['national_generation'].dispatch(m_e)
+        m_e = np.maximum(np.array(m_e) - v_e_nat, 0.0)
+
     #--------------------------------------------------------------------------
     # Update local renewable tech objects:
     
@@ -442,6 +450,7 @@ def electricity_balance_test(scen_techs,
                               + df_scen['v_e_st']
                               + df_scen['v_e_wte']
                               + df_scen['v_e_bes']
+                              + df_scen['v_e_nat']
                               + df_scen['m_e']
                               + df_scen['d_e_unmet']
                               )
@@ -592,7 +601,17 @@ def electricity_balance_test(scen_techs,
         electricity_baseline_demand - electricity_baseline_demand_split
         ).max()
     # max_diff_11 = diff_11.max()
-    
+
+    # National generation cannot exceed the available (allocated) generation:
+    dict_diff_max[12] = (df_scen['v_e_nat'] - df_scen['v_e_nat_pot']).clip(lower=0).max()
+
+    # National generation is used before cross-border import (no grid import
+    # while national generation is curtailed):
+    dict_diff_max[13] = np.minimum(
+        df_scen['m_e'],
+        (df_scen['v_e_nat_pot'] - df_scen['v_e_nat']).clip(lower=0)
+        ).max()
+
     for nr, diff_max in dict_diff_max.items():
         if diff_max > diff_accepted:
             # print(f"Electricity balance ({nr}) is not fulfilled!")

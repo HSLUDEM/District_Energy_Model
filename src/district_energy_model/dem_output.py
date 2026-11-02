@@ -589,6 +589,18 @@ col_CH_wind =  f'rgba(140,20,252,{opac*opac_red_factor})'
 col_CH_biomass = f'rgba(50,205,50,{opac})' # 'limegreen'
 col_CH_other = f'rgba(162,205,90,{opac})' # 'darkolivegreen3'
 
+# National generators (national_generation tech; one colour per generator, cycled):
+col_national_generation = [
+    f'rgba(141,111,184,{opac})',
+    f'rgba(0,128,128,{opac})',
+    f'rgba(218,165,32,{opac})',
+    f'rgba(70,130,180,{opac})',
+    f'rgba(188,143,143,{opac})',
+    f'rgba(85,107,47,{opac})',
+    f'rgba(199,21,133,{opac})',
+    f'rgba(112,128,144,{opac})',
+    ]
+
 col_heat_pump = f'rgba(134, 7, 32,{opac})' # '#860720'
 col_heat_pump_cp = f'rgba(134, 7, 100,{opac})' # '#860720'
 col_heat_pump_cp_lt = f'rgba(94, 7, 134,{opac})' # '#860720'
@@ -867,6 +879,28 @@ electricity_balance_colors_mpl = [
     col_mpl_demand_unmet,
     col_mpl_grid_export        
     ]
+
+def get_electricity_balance_series(df_plot):
+    """
+    Return the series (columns, legend labels, colors) of the electricity
+    balance plots. The national generators (columns 'v_e_nat_<generator>') are
+    added before the cross-border import if present in df_plot.
+    """
+    gens = [
+        c[len('v_e_nat_pot_'):] for c in df_plot.columns
+        if c.startswith('v_e_nat_pot_')
+        ]
+    i = electricity_balance_y.index('m_e_cbimport')
+    y = (electricity_balance_y[:i]
+         + [f'v_e_nat_{g}' for g in gens]
+         + electricity_balance_y[i:])
+    labels = (electricity_balance_legend_labels[:i]
+              + [f'National {g}' for g in gens]
+              + electricity_balance_legend_labels[i:])
+    colors = (electricity_balance_colors[:i]
+              + [col_national_generation[k % len(col_national_generation)] for k in range(len(gens))]
+              + electricity_balance_colors[i:])
+    return y, labels, colors
 
 heat_balance_y=[
     'v_h_hp',
@@ -1244,12 +1278,13 @@ def plot_electricity_balance_hourly(df_scen,
     df_plot = df_plot/1000
     
     # Identify available columns
-    valid_columns = df_plot.columns.intersection(electricity_balance_y).tolist()
+    electricity_balance_y_all, electricity_balance_labels_all, electricity_balance_colors_all = get_electricity_balance_series(df_plot)
+    valid_columns = df_plot.columns.intersection(electricity_balance_y_all).tolist()
         
     # Use zip to filter the lists based on valid_columns
     filtered_data = [
         (col, label, color) 
-        for col, label, color in zip(electricity_balance_y, electricity_balance_legend_labels, electricity_balance_colors) 
+        for col, label, color in zip(electricity_balance_y_all, electricity_balance_labels_all, electricity_balance_colors_all) 
         if col in valid_columns
     ]
     
@@ -1753,13 +1788,14 @@ def plot_electricity_balance_daily(
     # Create plot:
     
     # Identify available columns
-    valid_columns = df_plot.columns.intersection(electricity_balance_y).tolist()
+    electricity_balance_y_all, electricity_balance_labels_all, electricity_balance_colors_all = get_electricity_balance_series(df_plot)
+    valid_columns = df_plot.columns.intersection(electricity_balance_y_all).tolist()
     
     
     # Use zip to filter the lists based on valid_columns
     filtered_data = [
         (col, label, color) 
-        for col, label, color in zip(electricity_balance_y, electricity_balance_legend_labels, electricity_balance_colors) 
+        for col, label, color in zip(electricity_balance_y_all, electricity_balance_labels_all, electricity_balance_colors_all) 
         if col in valid_columns
     ]
     
@@ -1954,13 +1990,14 @@ def plot_electricity_balance_weekly(df_scen,
     # Create plot:
         
     # Identify available columns
-    valid_columns = df_plot.columns.intersection(electricity_balance_y).tolist()
+    electricity_balance_y_all, electricity_balance_labels_all, electricity_balance_colors_all = get_electricity_balance_series(df_plot)
+    valid_columns = df_plot.columns.intersection(electricity_balance_y_all).tolist()
     
     
     # Use zip to filter the lists based on valid_columns
     filtered_data = [
         (col, label, color) 
-        for col, label, color in zip(electricity_balance_y, electricity_balance_legend_labels, electricity_balance_colors) 
+        for col, label, color in zip(electricity_balance_y_all, electricity_balance_labels_all, electricity_balance_colors_all) 
         if col in valid_columns
     ]
     
@@ -5318,6 +5355,13 @@ def plot_sankey_total(df_scen,
     # input streams (import)
     inputs = ['m_e_cbimport', 
               'm_gas', 'm_h_dh']+['m_e_ch_biomass','m_e_ch_hydro','m_e_ch_nuclear','m_e_ch_other','m_e_ch_wind'] + ['m_wd', 's_wd']
+    
+    # National generators (used generation, columns 'v_e_nat_<generator>'):
+    national_inputs = [
+        'v_e_nat_' + c[len('v_e_nat_pot_'):] for c in df_plot.index
+        if c.startswith('v_e_nat_pot_')
+        ]
+    inputs = inputs + national_inputs
 
     #output streams
     outputs = ['d_e_ev', 'd_e_baseline', 'd_h_hw', 'd_h_s']
@@ -5389,6 +5433,9 @@ def plot_sankey_total(df_scen,
     
     for sitename in distinct_tes_sites:
         nodeNames[sitename]  = sitename
+    
+    for keyword in national_inputs:
+        nodeNames[keyword] = 'National ' + keyword[len('v_e_nat_'):]
 
     specialColornames = {'d_e_baseline': carriercolors[carriers.index('e')], 'd_e_ev': carriercolors[carriers.index('e')],
                          'd_h_s': carriercolors[carriers.index('h')], 'd_h_hw': carriercolors[carriers.index('h')], 

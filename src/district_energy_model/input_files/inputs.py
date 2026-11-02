@@ -310,6 +310,22 @@ scen_techs = {
         'interest_rate':interest_rate
         },
 
+    'national_generation':{ # nat (national generators allocated to the municipality, e.g. from a national model)
+        'deployment':False,
+        'data_dir':'', # directory with one profile file per generator; '' = <root_dir>/data/national_generation/; relative paths are relative to root_dir
+        'export_big_M_kWh':'auto', # [kWh] upper bound of hourly export used in the no-re-export constraint (optimisation); 'auto' or a number
+        'import_big_M_kWh':'auto', # [kWh] upper bound of hourly grid import used in the national-before-import constraint (optimisation); 'auto' or a number; grid_supply kW_max is used if finite
+        'generators':{
+            # One entry per generator (empty by default), e.g.:
+            # 'nuclear':{
+            #     'file':'nuclear.feather', # rows: 8760 h; columns: municipality numbers (BFS); values: allocated generation [kWh]
+            #     'cost_CHFpkWh':0.0, # [CHF/kWh] cost of used national generation
+            #     'co2_intensity':0.0, # [kgCO2/kWh]
+            #     'local_counterparts':[], # local techs contained in this profile (e.g. ['hydro_power']); must be switched off
+            #     },
+            },
+        },
+
     'grid_export':{ # grid
         'deployment':True,
         'kW_max': None, #Defined in grid_supply

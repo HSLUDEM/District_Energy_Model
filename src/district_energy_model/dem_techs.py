@@ -17,6 +17,7 @@ from district_energy_model import dem_constants as C
 # Generation
 from district_energy_model.techs.dem_tech_grid_supply import GridSupply
 from district_energy_model.techs.dem_tech_grid_export import GridExport
+from district_energy_model.techs.dem_tech_national_generation import NationalGeneration
   
 #------------------------------------------------------------------------------
 # Conversion

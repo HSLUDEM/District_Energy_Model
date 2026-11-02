@@ -663,7 +663,7 @@ def distance_between_coord(lat1, lon1, lat2, lon2):
     return dist
 
 
-def check_tech_for_scenario(techs, scenario, scen_techs):
+def check_tech_for_scenario(techs, scenario, scen_techs, replaced_techs=()):
     """
     Raise a ValueError if a specific technology required for a scenario is not
     deployed.
@@ -678,6 +678,10 @@ def check_tech_for_scenario(techs, scenario, scen_techs):
     scen_techs : dictionary
         Dictionary containing info about technologies. Input to
         dem.DistrictEnergyModel.generate_scenario().
+    replaced_techs : list of str
+        Technologies that are switched off because they are replaced by
+        national generators. They are kept in the simulation with zero
+        generation and are therefore not required to be deployed.
 
     Raises
     ------
@@ -691,9 +695,9 @@ def check_tech_for_scenario(techs, scenario, scen_techs):
     """
     
     for tech in techs:
-    
-        if scen_techs[tech]['deployment'] == False:
-            
+
+        if scen_techs[tech]['deployment'] == False and tech not in replaced_techs:
+
             printout = (
                 f"'{scenario}' scenario could not be computed "
                 f"because scen_techs['{tech}']['deployment'] = False. "
@@ -1843,8 +1847,10 @@ def add_missing_keys(df_scen, tes_sites_plotting_inf = {}):
         'u_e_wgu',
         'u_e_wguh',
         'u_e_hydp',
+        'v_e_nat',
+        'v_e_nat_pot',
         ]
-    
+
     for k in tes_sites_plotting_inf.keys():
         for k2 in tes_sites_plotting_inf[k].keys():
             if k2 != 'color':

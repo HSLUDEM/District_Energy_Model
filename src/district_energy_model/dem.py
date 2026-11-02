@@ -26,6 +26,7 @@ from district_energy_model import dem_constants as C
 from district_energy_model import dem_create_custom_district
 from district_energy_model import dem_flexibility
 from district_energy_model import dem_solar_preprocessing_switzerland
+from district_energy_model.techs import dem_tech_national_generation as dem_nat
 
 from district_energy_model import dem_district_tes_availability_switzerland
 
@@ -102,6 +103,11 @@ class DistrictEnergyModel:
 
         # Switch energy balance tests ON/OFF:
         self.toggle_energy_balance_tests = toggle_energy_balance_tests
+
+        # National generation: check configuration (e.g. conflicts with local
+        # techs) and get local techs replaced by national generators:
+        dem_nat.check_national_generation_config(scen_techs)
+        self.national_counterparts = dem_nat.get_local_counterparts(scen_techs)
 
         self.com_nr_majority = copy.deepcopy(self.com_nr)
 
@@ -495,6 +501,19 @@ class DistrictEnergyModel:
         self.tech_grid_export.initialise_zero(365)
         self.tech_instances['grid_export'] = self.tech_grid_export
 
+        if dem_nat.is_deployed(scen_techs):
+            self.tech_national_generation = dem_techs.NationalGeneration(
+                data_dir = dem_nat.resolve_data_dir(
+                    scen_techs['national_generation']['data_dir'],
+                    self.paths.root_dir,
+                    self.paths.national_generation_dir
+                    ),
+                com_nr = self.com_nr,
+                com_percent_2 = self.com_percent_2,
+                tech_dict = scen_techs['national_generation']
+                )
+            self.tech_instances['national_generation'] = self.tech_national_generation
+
         self.tech_other = dem_techs.Other(0)
         self.tech_instances['other'] = self.tech_other
 
@@ -586,7 +605,19 @@ class DistrictEnergyModel:
             
         self.tech_hydro_power.update_v_e_pot(self.supply.get_s_hydro())
         self.tech_hydro_power.update_v_e(self.supply.get_s_hydro())
-        
+
+        """--------------------------------------------------------------------
+        Local generation replaced by national generators:
+        """
+        # The existing generation of local techs that are part of a national
+        # generation profile is removed (otherwise counted twice):
+        if 'hydro_power' in self.national_counterparts:
+            self.tech_hydro_power.update_v_e(
+                np.zeros(len(self.tech_hydro_power.get_v_e()))
+                )
+        if 'wind_power' in self.national_counterparts:
+            self.tech_wind_power.remove_existing_generation()
+
         """--------------------------------------------------------------------
         Electricity mix: self-consumption (cons), export (exp), import (m):
         """
@@ -611,7 +642,12 @@ class DistrictEnergyModel:
         """--------------------------------------------------------------------
         Grid Import:
         """
-        self.tech_grid_supply.compute_base_grid_import()
+        if 'national_generation' in self.tech_instances:
+            # National generation is modelled explicitly; the remaining
+            # import is not split by the national electricity mix:
+            self.tech_grid_supply.compute_base_grid_import_without_split()
+        else:
+            self.tech_grid_supply.compute_base_grid_import()
         
         if self.toggle_energy_balance_tests:
             sum_a = dem_helper.get_m_e_ch_sum(self.tech_grid_supply)
@@ -763,6 +799,9 @@ class DistrictEnergyModel:
                 # Removed before the optimisation, i.e. after the manual
                 # scenarios (which rely on the existing techs):
                 techs_not_deployed.append(tech_name)
+            elif tech_name in self.national_counterparts:
+                print(f"\nNote: {tech_name} is replaced by national generation "
+                      "(kept in the simulation with zero generation).")
             else:
                 # Removing a tech would drop its existing generation without
                 # reallocating it, violating the energy balances.
@@ -1347,7 +1386,8 @@ class DistrictEnergyModel:
             dem_helper.check_tech_for_scenario(
                 techs=required_techs,
                 scenario='fossil_heater_retrofit',
-                scen_techs=scen_techs
+                scen_techs=scen_techs,
+                replaced_techs=self.national_counterparts
                 )
 
             # Apply scenario:
@@ -1402,7 +1442,8 @@ class DistrictEnergyModel:
             dem_helper.check_tech_for_scenario(
                 techs=required_techs,
                 scenario='pv_integration',
-                scen_techs=scen_techs
+                scen_techs=scen_techs,
+                replaced_techs=self.national_counterparts
                 )
             
             # Apply scenario:
@@ -1447,7 +1488,8 @@ class DistrictEnergyModel:
             dem_helper.check_tech_for_scenario(
                 techs=required_techs,
                 scenario='wind_integration',
-                scen_techs=scen_techs
+                scen_techs=scen_techs,
+                replaced_techs=self.national_counterparts
                 )
             
             # Apply scenario:
@@ -1507,7 +1549,8 @@ class DistrictEnergyModel:
             dem_helper.check_tech_for_scenario(
                 techs=required_techs,
                 scenario='battery_energy_storage',
-                scen_techs=scen_techs
+                scen_techs=scen_techs,
+                replaced_techs=self.national_counterparts
                 )
             
             # Apply scenario:
@@ -1566,7 +1609,8 @@ class DistrictEnergyModel:
             dem_helper.check_tech_for_scenario(
                 techs=required_techs,
                 scenario='thermal_energy_storage',
-                scen_techs=scen_techs
+                scen_techs=scen_techs,
+                replaced_techs=self.national_counterparts
                 )
             
             # Apply scenario:

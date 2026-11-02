@@ -1,0 +1,50 @@
+# National generation: hourly profiles of national generators allocated to the
+# municipality (e.g. from the national model OREES). See
+# doc/national_generation.pdf for the method and the input format.
+#
+# Each profile file: 8760 rows (hours), one column per municipality
+# (BFS number as column name), values = allocated generation [kWh] per hour.
+# Supported formats: .feather, .csv
+#
+# Local technologies listed in 'local_counterparts' are part of the national
+# profile and must be switched off (deployment: false), otherwise an error is
+# raised. In this example: hydro_power, wind_power and solar_pvalpine.
+#
+# National generation is used before cross-border import: electricity is only
+# imported from the grid if all available national generation is used.
+
+# deployment: true
+# data_dir: data/national_generation/OREES_2050/ # relative to root_dir; '' = data/national_generation/
+# export_big_M_kWh: auto # upper bound of hourly export in the no-export constraint (optimisation)
+# import_big_M_kWh: auto # upper bound of hourly grid import in the national-before-import constraint (optimisation); grid_supply kW_max is used if finite
+# generators:
+  # nuclear:
+    # file: nuclear.feather
+    # cost_CHFpkWh: 0.0
+    # co2_intensity: 0.0
+    # local_counterparts: []
+  # hydro:
+    # file: hydro.feather
+    # cost_CHFpkWh: 0.0
+    # co2_intensity: 0.0
+    # local_counterparts: [hydro_power]
+  # wind:
+    # file: wind.feather
+    # cost_CHFpkWh: 0.0
+    # co2_intensity: 0.0
+    # local_counterparts: [wind_power]
+  # alpine_pv:
+    # file: alpine_pv.feather
+    # cost_CHFpkWh: 0.0
+    # co2_intensity: 0.0
+    # local_counterparts: [solar_pvalpine]
+  # agri_pv:
+    # file: agri_pv.feather
+    # cost_CHFpkWh: 0.0
+    # co2_intensity: 0.0
+    # local_counterparts: []
+  # gas:
+    # file: gas.feather
+    # cost_CHFpkWh: 0.0
+    # co2_intensity: 0.0
+    # local_counterparts: []

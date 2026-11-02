@@ -1057,3 +1057,214 @@ def building_inertia_flex_constraints(
                 )
     
     return model
+
+
+# Carriers of electricity that can leave the system via carrier_export:
+ELECTRICITY_EXPORT_CARRIERS = ('electricity', 'wp_electricity')
+
+def get_electricity_export_flows(backend_model):
+    """
+    Return the electricity export flows of the Calliope backend model.
+
+    Returns
+    -------
+    export_ltcs : list of str
+        loc::tech::carrier entries of carrier_export (tech-level export).
+    grid_export_ltc : str or None
+        loc::tech::carrier entry of the grid export tech (carrier_con), if
+        present.
+    """
+    export_ltcs = []
+    if hasattr(backend_model, 'loc_tech_carriers_export'):
+        export_ltcs = [
+            ltc for ltc in backend_model.loc_tech_carriers_export
+            if ltc.split('::')[-1] in ELECTRICITY_EXPORT_CARRIERS
+            ]
+    
+    grid_export_ltc = 'Grid_Connection_Node::grid_export::electricity'
+    if grid_export_ltc not in backend_model.loc_tech_carriers_con:
+        grid_export_ltc = None
+    
+    return export_ltcs, grid_export_ltc
+
+
+def national_generation_no_export_constraints(
+        model,
+        national_techs,
+        v_e_nat_pot,
+        big_M_export,
+        energy_scaling_factor
+        ):
+    """
+    Prevent the export of national generation. In each timestep in which
+    national generation is available, a binary variable decides whether
+    national generation is used (1) or electricity is exported (0); both at the
+    same time is not possible. Without this constraint, national generation
+    could cover the local demand while local generation is exported, which
+    is an export of national generation (e.g. if its cost or emissions are
+    lower than the export revenue or export credit).
+
+        sum_g P_nat,g(t) <= A(t) * b(t)
+        E(t) <= M * (1 - b(t))
+
+    P_nat,g: national generation used; A: available national generation;
+    E: total electricity export (tech-level export and grid export);
+    M: upper bound of the hourly export (big-M); b: binary variable.
+
+    Parameters
+    ----------
+    model : Calliope model
+        Calliope model instance (built with build_only = True).
+    national_techs : list of str
+        Names of the Calliope techs of the national generators.
+    v_e_nat_pot : array
+        Total available national generation per timestep [kWh].
+    big_M_export : float
+        Upper bound of the total electricity export per timestep [kWh].
+    energy_scaling_factor : float
+        Scaling factor of energy values in the Calliope model.
+
+    Returns
+    -------
+    Calliope model
+        Calliope model instance.
+    """
+    backend_model = model._backend_model
+    
+    export_ltcs, grid_export_ltc = get_electricity_export_flows(backend_model)
+    
+    if len(export_ltcs) == 0 and grid_export_ltc is None:
+        # No export possible; no constraint required.
+        return model
+    
+    national_ltcs = [
+        f'Grid_Connection_Node::{tech}::electricity' for tech in national_techs
+        ]
+    
+    # Timesteps with available national generation:
+    ts_active = [i for i, val in enumerate(v_e_nat_pot) if val > 0]
+    
+    varname_binary = 'national_generation_use_binary'
+    backend_model.add_component(varname_binary, Var(ts_active, within=Binary))
+    binary = getattr(backend_model, varname_binary)
+    
+    big_M = big_M_export / energy_scaling_factor
+    
+    def make_national_use_constraint_rule(ts_i):
+        def national_use_constraint_rule(backend_model):
+            ts = backend_model.timesteps.at(ts_i + 1) # Pyomo Sets are 1-indexed
+            p_nat = sum(backend_model.carrier_prod[ltc, ts] for ltc in national_ltcs)
+            avail = v_e_nat_pot[ts_i] / energy_scaling_factor
+            return p_nat <= avail * binary[ts_i]
+        return national_use_constraint_rule
+    
+    def make_no_export_constraint_rule(ts_i):
+        def no_export_constraint_rule(backend_model):
+            ts = backend_model.timesteps.at(ts_i + 1) # Pyomo Sets are 1-indexed
+            export = sum(backend_model.carrier_export[ltc, ts] for ltc in export_ltcs)
+            if grid_export_ltc is not None:
+                export += -backend_model.carrier_con[grid_export_ltc, ts] # carrier_con is negative
+            return export <= big_M * (1 - binary[ts_i])
+        return no_export_constraint_rule
+    
+    for ts_i in ts_active:
+        model.backend.add_constraint(
+            f'national_generation_use_ts_{ts_i}_constraint',
+            [],
+            make_national_use_constraint_rule(ts_i)
+            )
+        model.backend.add_constraint(
+            f'national_generation_no_export_ts_{ts_i}_constraint',
+            [],
+            make_no_export_constraint_rule(ts_i)
+            )
+    
+    return model
+
+
+def national_generation_before_import_constraints(
+        model,
+        national_techs,
+        v_e_nat_pot,
+        big_M_import,
+        energy_scaling_factor
+        ):
+    """
+    Use national generation before cross-border import: in each timestep in
+    which national generation is available, electricity can only be imported
+    from the grid (grid_supply) if all available national generation is used.
+    A binary variable decides whether grid import is allowed (1) or not (0):
+
+        sum_g P_nat,g(t) >= A(t) * z(t)
+        M(t) <= M_G * z(t)
+
+    P_nat,g: national generation used (P_nat,g <= A_g, i.e. the first
+    constraint implies P_nat,g = A_g for all generators if z = 1);
+    A: available national generation; M: grid import; M_G: upper bound of the
+    hourly grid import (big-M); z: binary variable.
+
+    Parameters
+    ----------
+    model : Calliope model
+        Calliope model instance (built with build_only = True).
+    national_techs : list of str
+        Names of the Calliope techs of the national generators.
+    v_e_nat_pot : array
+        Total available national generation per timestep [kWh].
+    big_M_import : float
+        Upper bound of the grid import per timestep [kWh].
+    energy_scaling_factor : float
+        Scaling factor of energy values in the Calliope model.
+
+    Returns
+    -------
+    Calliope model
+        Calliope model instance.
+    """
+    backend_model = model._backend_model
+    
+    grid_supply_ltc = 'Grid_Connection_Node::grid_supply::electricity'
+    if grid_supply_ltc not in backend_model.loc_tech_carriers_prod:
+        # No grid import possible; no constraint required.
+        return model
+    
+    national_ltcs = [
+        f'Grid_Connection_Node::{tech}::electricity' for tech in national_techs
+        ]
+    
+    # Timesteps with available national generation:
+    ts_active = [i for i, val in enumerate(v_e_nat_pot) if val > 0]
+    
+    varname_binary = 'national_generation_import_binary'
+    backend_model.add_component(varname_binary, Var(ts_active, within=Binary))
+    binary = getattr(backend_model, varname_binary)
+    
+    big_M = big_M_import / energy_scaling_factor
+    
+    def make_national_full_use_constraint_rule(ts_i):
+        def national_full_use_constraint_rule(backend_model):
+            ts = backend_model.timesteps.at(ts_i + 1) # Pyomo Sets are 1-indexed
+            p_nat = sum(backend_model.carrier_prod[ltc, ts] for ltc in national_ltcs)
+            avail = v_e_nat_pot[ts_i] / energy_scaling_factor
+            return p_nat >= avail * binary[ts_i]
+        return national_full_use_constraint_rule
+    
+    def make_import_constraint_rule(ts_i):
+        def import_constraint_rule(backend_model):
+            ts = backend_model.timesteps.at(ts_i + 1) # Pyomo Sets are 1-indexed
+            return backend_model.carrier_prod[grid_supply_ltc, ts] <= big_M * binary[ts_i]
+        return import_constraint_rule
+    
+    for ts_i in ts_active:
+        model.backend.add_constraint(
+            f'national_generation_full_use_ts_{ts_i}_constraint',
+            [],
+            make_national_full_use_constraint_rule(ts_i)
+            )
+        model.backend.add_constraint(
+            f'national_generation_before_import_ts_{ts_i}_constraint',
+            [],
+            make_import_constraint_rule(ts_i)
+            )
+    
+    return model
