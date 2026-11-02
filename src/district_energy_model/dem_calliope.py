@@ -127,8 +127,9 @@ class CalliopeOptimiser:
         self.tech_list_new = []
         self.tech_list_old = []
         self.tech_list_grid_connection = []
-        self.tech_list_pv = []
-        self.tech_list_solarthermal = [] #Always same length as pv!
+        self.solar_locs = [] # Locations of the solar installations, in groups (rooftop, alpine)
+        self.tech_list_pv = [] # PV techs per group (None: no PV in this group); same length as solar_locs
+        self.tech_list_solarthermal = [] # Solar thermal techs per group (None: no solar thermal); same length as solar_locs
         
         # Unpack tech instances:
         if 'heat_pump' in self.tech_list:
@@ -859,14 +860,9 @@ class CalliopeOptimiser:
             }
 
         if 'heat_pump' in self.tech_list:
-            keys['d_h_unmet'] += [
-                'X1::heat_hp',
-                'New_Techs::heat_hp',
-                'solar_pvrooftop_installation_0::heat_hp',
-                'solar_pvrooftop_installation_1::heat_hp',
-                'solar_pvrooftop_installation_2::heat_hp',
-                'solar_pvrooftop_installation_3::heat_hp',
-                ]
+            keys['d_h_unmet'] += ['X1::heat_hp', 'New_Techs::heat_hp']
+            # The solar locations are linked with hp_heat_line:
+            keys['d_h_unmet'] += [loc+'::heat_hp' for locs in self.solar_locs for loc in locs]
             if 'wind_power' in self.tech_list:
                 keys['d_h_unmet'] += ['loc_wp_annual::heat_hp', 'loc_wp_winter::heat_hp']
 
@@ -2719,7 +2715,9 @@ class CalliopeOptimiser:
                                                                               energy_scaling_factor = self.energy_scaling_factor
                                                                               )
             
-            self.tech_list_pv.append(headers)
+            pvrooftop_headers = headers
+        else:
+            pvrooftop_headers = None
 
         if 'solarthermal_rooftop' in self.tech_list:
             
@@ -2733,9 +2731,17 @@ class CalliopeOptimiser:
                                                                                   energy_scaling_factor = self.energy_scaling_factor
                                                                               )
             
-            self.tech_list_solarthermal.append(headers)
+            solarthermal_rooftop_headers = headers
         else:
-            self.tech_list_solarthermal.append(None)
+            solarthermal_rooftop_headers = None
+
+        # Rooftop PV and solar thermal share the roof (available_area) of the
+        # locations 'solar_pvrooftop_installation_<i>', also if only one of them is deployed:
+        if pvrooftop_headers is not None or solarthermal_rooftop_headers is not None:
+            num_rooftop_locs = len(pvrooftop_headers if pvrooftop_headers is not None else solarthermal_rooftop_headers)
+            self.solar_locs.append(['solar_pvrooftop_installation_'+str(i) for i in range(num_rooftop_locs)])
+            self.tech_list_pv.append(pvrooftop_headers)
+            self.tech_list_solarthermal.append(solarthermal_rooftop_headers)
 
         if 'solar_pvalpine' in self.tech_list:
             
@@ -2749,6 +2755,7 @@ class CalliopeOptimiser:
                                                                               energy_scaling_factor = self.energy_scaling_factor
                                                                               )
             
+            self.solar_locs.append(headers)
             self.tech_list_pv.append(headers)
             self.tech_list_solarthermal.append(None)
 
@@ -3212,10 +3219,10 @@ class CalliopeOptimiser:
                 loc_dict['X1']['techs'][f'virtual_storage_drain_{acr}'] = {}
                 loc_dict['X1']['techs'][f'conv_{acr}_vs'] = {}
                 
-        if len(self.tech_list_pv) > 0:
-            for i in range(len(self.tech_list_pv)):
-                for j in range(len(self.tech_list_pv[i])):
-                    loc_dict[self.tech_list_pv[i][j]] = {
+        if len(self.solar_locs) > 0:
+            for i in range(len(self.solar_locs)):
+                for j in range(len(self.solar_locs[i])):
+                    loc_dict[self.solar_locs[i][j]] = {
                         'techs': {},
                         'available_area': self.available_area_scaling,
                         'coordinates':{
@@ -3246,21 +3253,23 @@ class CalliopeOptimiser:
             else:
                 loc_dict['New_Techs']['techs'][tech] = None
 
-        for i in range(len(self.tech_list_pv)):
+        for i in range(len(self.solar_locs)):
 
-            techs = self.tech_list_pv[i]
+            locs = self.solar_locs[i]
 
-            for j in range(len(techs)):
+            for j in range(len(locs)):
 
-                tech = techs[j]
+                loc = locs[j]
 
-                loc_dict[tech]['techs'][tech+"_occupied"] = None
-                loc_dict[tech]['techs'][tech+"_unoccupied"] = None
+                if self.tech_list_pv[i] != None:
+                    tech = self.tech_list_pv[i][j]
+                    loc_dict[loc]['techs'][tech+"_occupied"] = None
+                    loc_dict[loc]['techs'][tech+"_unoccupied"] = None
 
                 if self.tech_list_solarthermal[i] != None:
                     tech_thermal = self.tech_list_solarthermal[i][j]
-                    loc_dict[tech]['techs'][tech_thermal+"_occupied"] = None
-                    loc_dict[tech]['techs'][tech_thermal+"_unoccupied"] = None
+                    loc_dict[loc]['techs'][tech_thermal+"_occupied"] = None
+                    loc_dict[loc]['techs'][tech_thermal+"_unoccupied"] = None
 
 
 
@@ -3462,10 +3471,10 @@ class CalliopeOptimiser:
             link_locs_power.append('loc_wp_winter')
             link_locs_power.append('loc_wp_annual')
         
-        if len(self.tech_list_pv) > 0:
-            for i in range(len(self.tech_list_pv)):
-                for j in range(len(self.tech_list_pv[i])):
-                    link_locs_power.append(self.tech_list_pv[i][j])
+        if len(self.solar_locs) > 0:
+            for i in range(len(self.solar_locs)):
+                for j in range(len(self.solar_locs[i])):
+                    link_locs_power.append(self.solar_locs[i][j])
 
         # Initialise dict:
         links_dict = {}
