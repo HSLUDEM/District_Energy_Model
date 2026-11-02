@@ -847,6 +847,92 @@ class CalliopeOptimiser:
         else:
             return opt_results, model        
 
+    def __get_unmet_demand_keys(self):
+        """
+        Return the locations::carriers whose unmet demand is reported as
+        d_e_unmet, d_h_unmet and d_h_unmet_dhn.
+        """
+        keys = {
+            'd_e_unmet': ['X1::electricity', 'New_Techs::electricity'],
+            'd_h_unmet': ['X1::heat', 'New_Techs::heat'],
+            'd_h_unmet_dhn': [],
+            }
+
+        if 'heat_pump' in self.tech_list:
+            keys['d_h_unmet'] += [
+                'X1::heat_hp',
+                'New_Techs::heat_hp',
+                'solar_pvrooftop_installation_0::heat_hp',
+                'solar_pvrooftop_installation_1::heat_hp',
+                'solar_pvrooftop_installation_2::heat_hp',
+                'solar_pvrooftop_installation_3::heat_hp',
+                ]
+            if 'wind_power' in self.tech_list:
+                keys['d_h_unmet'] += ['loc_wp_annual::heat_hp', 'loc_wp_winter::heat_hp']
+
+        if 'district_heating' in self.tech_list:
+            keys['d_h_unmet_dhn'] += ['X1::heat_dh', 'X1::heat_dhimp']
+
+        if 'tes_sites' in self.tech_list:
+            for loc in self.tech_tes_sites.get_list_of_sitekeys():
+                for x in loc:
+                    if x.endswith("ht"):
+                        keys['d_h_unmet_dhn'].append('X1::heat_'+x)
+
+        # Heat carriers of central plants connected to district heating:
+        dhn_carriers = {
+            'steam_turbine': 'heat_st',
+            'tes': 'heat_tes',
+            'waste_to_energy': 'heat_wte',
+            'heat_pump_cp': 'heat_hpcp',
+            'heat_pump_cp_lt': 'heat_hpcplt',
+            'oil_boiler_cp': 'heat_obcp',
+            'electric_heater_cp': 'heat_ehcp',
+            'wood_boiler_cp': 'heat_wbcp',
+            'waste_heat': 'heat_wh',
+            'deep_geothermal': 'heat_dgt',
+            'gas_boiler_cp': 'heat_gbcp',
+            }
+        for tech, carrier in dhn_carriers.items():
+            if tech in self.tech_list:
+                keys['d_h_unmet_dhn'].append('X1::'+carrier)
+
+        return keys
+
+    def __check_unmet_demand_on_internal_carriers(self, opt_results):
+        """
+        Raise an error if the optimiser used unmet demand on carriers that
+        are not reported as unmet demand (e.g. wind power or building
+        inertia carriers). This only happens if the demand cannot be met;
+        the results would then not be consistent.
+        """
+        unmet = (
+            opt_results['unmet_demand'].to_series()*self.energy_scaling_factor
+            ).groupby(level=0).sum()
+        reported = {
+            key: col for col, keys in self.__get_unmet_demand_keys().items()
+            for key in keys
+            }
+        internal = unmet[[k not in reported for k in unmet.index]]
+        internal = internal[internal.abs() > C.MAX_VIOLATION_kWh]
+
+        if len(internal) > 0:
+            totals = {}
+            for key, col in reported.items():
+                if key in unmet.index:
+                    totals[col] = totals.get(col, 0.0) + unmet[key]
+            msg = (
+                "The optimisation could not meet all demands: the solver used "
+                "unmet demand on internal energy carriers ("
+                + ", ".join(f"{k}: {v:.1f} kWh" for k, v in internal.items())
+                + "). Unmet demand of the reported carriers: "
+                + ", ".join(f"{k}: {v:.1f} kWh" for k, v in totals.items())
+                + ". Check whether the selected technologies and constraints "
+                "can cover the demand (e.g. grid_supply.kW_max, "
+                "only_allow_existing, deployment)."
+                )
+            raise RuntimeError(msg)
+
     def get_optimal_output_df(self,opt_results):
         """
         Write the results of the Calliope optimisation to a dataframe of the same
@@ -874,6 +960,8 @@ class CalliopeOptimiser:
         # ---------------------------------------------------------------------       
         n_hours = len(self.energy_demand.get_d_e())
         null_array = np.array([0.0]*n_hours)
+
+        self.__check_unmet_demand_on_internal_carriers(opt_results)
 
         # -------------------------------------------------------------------------
         # Virtual storage for flexibility:
@@ -1720,83 +1808,18 @@ class CalliopeOptimiser:
         self.energy_demand.update_d_h_flex(d_h_flex)
         
         # Unmet demand:
-
-        d_e_unmet = (
-            opt_results['unmet_demand'].loc['X1::electricity'].values*self.energy_scaling_factor
-            + opt_results['unmet_demand'].loc['New_Techs::electricity'].values*self.energy_scaling_factor
-            )
-            
-        d_h_unmet = (
-            opt_results['unmet_demand'].loc['X1::heat'].values*self.energy_scaling_factor
-            # + opt_results['unmet_demand'].loc['X1::heat_tes'].values
-            + opt_results['unmet_demand'].loc['New_Techs::heat'].values*self.energy_scaling_factor
-            )
-        
-        if 'heat_pump' in self.tech_list:
-            d_h_unmet += (
-                opt_results['unmet_demand'].loc['X1::heat_hp'].values*self.energy_scaling_factor
-                + opt_results['unmet_demand'].loc['New_Techs::heat_hp'].values*self.energy_scaling_factor
-                # + opt_results['unmet_demand'].loc['loc_wp_annual::heat_hp'].values*self.energy_scaling_factor
-                # + opt_results['unmet_demand'].loc['loc_wp_winter::heat_hp'].values*self.energy_scaling_factor
-                + opt_results['unmet_demand'].loc['solar_pvrooftop_installation_0::heat_hp'].values*self.energy_scaling_factor
-                + opt_results['unmet_demand'].loc['solar_pvrooftop_installation_1::heat_hp'].values*self.energy_scaling_factor
-                + opt_results['unmet_demand'].loc['solar_pvrooftop_installation_2::heat_hp'].values*self.energy_scaling_factor
-                + opt_results['unmet_demand'].loc['solar_pvrooftop_installation_3::heat_hp'].values*self.energy_scaling_factor
+        unmet_keys = self.__get_unmet_demand_keys()
+        unmet = {
+            col: sum(
+                (opt_results['unmet_demand'].loc[key].values*self.energy_scaling_factor
+                 for key in keys),
+                np.array([0.0]*n_hours)
                 )
-        
-            if 'wind_power' in self.tech_list:
-                d_h_unmet += (
-                    + opt_results['unmet_demand'].loc['loc_wp_annual::heat_hp'].values*self.energy_scaling_factor
-                    + opt_results['unmet_demand'].loc['loc_wp_winter::heat_hp'].values*self.energy_scaling_factor
-                    )
-        
-        d_h_unmet_dhn = np.array([0.0]*len(d_h_unmet))
-        
-        if 'district_heating' in self.tech_list:
-            d_h_unmet_dhn += (
-                opt_results['unmet_demand'].loc['X1::heat_dh'].values*self.energy_scaling_factor
-                + opt_results['unmet_demand'].loc['X1::heat_dhimp'].values*self.energy_scaling_factor
-                )
-        
-        if 'steam_turbine' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_st'].values*self.energy_scaling_factor
-            
-        if 'tes' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_tes'].values*self.energy_scaling_factor
-
-        if 'tes_sites' in self.tech_list:
-
-            for loc in self.tech_tes_sites.get_list_of_sitekeys():
-                for x in loc:
-                    if x.endswith("ht"):
-                        d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_'+x].values*self.energy_scaling_factor
-
-        if 'waste_to_energy' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_wte'].values*self.energy_scaling_factor
-            
-        if 'heat_pump_cp' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_hpcp'].values*self.energy_scaling_factor
-
-        if 'heat_pump_cp_lt' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_hpcplt'].values*self.energy_scaling_factor
-
-        if 'oil_boiler_cp' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_obcp'].values*self.energy_scaling_factor
-
-        if 'electric_heater_cp' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_ehcp'].values*self.energy_scaling_factor
-
-        if 'wood_boiler_cp' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_wbcp'].values*self.energy_scaling_factor
-
-        if 'waste_heat' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_wh'].values*self.energy_scaling_factor
-
-        if 'deep_geothermal' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_dgt'].values*self.energy_scaling_factor
-
-        if 'gas_boiler_cp' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_gbcp'].values*self.energy_scaling_factor
+            for col, keys in unmet_keys.items()
+            }
+        d_e_unmet = unmet['d_e_unmet']
+        d_h_unmet = unmet['d_h_unmet']
+        d_h_unmet_dhn = unmet['d_h_unmet_dhn']
 
         self.energy_demand.update_d_e_unmet(d_e_unmet)
         self.energy_demand.update_d_h_unmet(d_h_unmet)
