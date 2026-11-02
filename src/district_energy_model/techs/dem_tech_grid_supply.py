@@ -8,6 +8,7 @@ Created on Wed Apr 10 16:00:15 2024
 import numpy as np
 import pandas as pd
 
+from district_energy_model import dem_constants as C
 from district_energy_model.techs.dem_tech_core import TechCore
 
 class GridSupply(TechCore):
@@ -272,8 +273,11 @@ class GridSupply(TechCore):
 
 
     def update_m_e(self, m_e_updated):
-        self._m_e = np.array(m_e_updated)
-        
+        self._m_e = np.array(m_e_updated, dtype=float)
+
+        # Set small negative values (numerical inaccuracies of the solver) to 0:
+        self._m_e[(self._m_e < 0) & (self._m_e >= C.NEG_ACC)] = 0.0
+
         df = pd.DataFrame()
 
         df['m_e'] = self._m_e
@@ -323,7 +327,7 @@ class GridSupply(TechCore):
         if np.all(self._m_e >= 0):
             pass
         else:
-            msg = "Not all values are >= 0 in m_e."
+            msg = f"Not all values are >= 0 in m_e (min. value: {self._m_e.min()})."
             raise ValueError(msg)
         
         # Update cross-border (cb) import:

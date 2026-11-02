@@ -18,133 +18,77 @@ from district_energy_model import dem_helper
 # from datetime import datetime
 
 # def get_local_electricity_mix(d_e, v_e_pv, v_e_wp, v_e_bm, v_e_hydro):
-def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
+def get_local_electricity_mix(energy_demand, tech_instances, with_bes=False,
+                              electricity_supply_order=None):
+    """Allocate local generation to demand in source-priority order.
+
+    ``electricity_supply_order`` uses technology keys (solar_pvrooftop, solar_pvalpine,
+    wind_power, biomass, hydro_power). If omitted, their historical order is retained.
+    Absent source objects are skipped, including sources named in an explicit
+    order. An explicit order must include every present supported generator
+    exactly once; unknown names and duplicates raise ValueError. Deployment
+    consistency is checked separately by scenario validation.
+
+    With ``with_bes=True``, battery charging is added to demand and battery
+    output is used after all local generators, as before. A BES object must
+    then exist. Grid supply is always required, even if there are no sources.
+
+    PV sources are allocated and updated per installation.
+    Updates present generators' consumption/export and grid import in place.
+    Returns None. Does not decide storage operation or change demand.
     """
-    Vectorised calculation of electricity mix. A hierarchy of which tech is
-    used for local supply is applied (e.g. PV first, then wind, etc...).
+    default_order = ('solar_pvrooftop', 'solar_pvalpine', 'wind_power',
+                     'biomass', 'hydro_power')
+    if electricity_supply_order is None:
+        source_order = list(default_order)
+    else:
+        if (not isinstance(electricity_supply_order, (list, tuple))
+                or any(not isinstance(key, str) for key in electricity_supply_order)):
+            raise ValueError('electricity_supply_order must be a list or tuple '
+                             'of technology names.')
+        source_order = list(electricity_supply_order)
+        if len(source_order) != len(set(source_order)):
+            raise ValueError('electricity_supply_order contains duplicate sources.')
+        unknown = sorted(set(source_order) - set(default_order))
+        if unknown:
+            raise ValueError(f'Unknown electricity supply sources: {unknown}.')
+        omitted = sorted(set(default_order).intersection(tech_instances)
+                         - set(source_order))
+        if omitted:
+            raise ValueError('electricity_supply_order omits present sources: '
+                             f'{omitted}.')
 
-    Parameters
-    ----------
-    d_e : list or dataseries
-        Timeseries of electricity demand (total).
-    v_e_pv : list or dataseries
-        Timeseries of solar pv generation.
-    v_e_wp : list or dataseries
-        Timeseries of wind power generation.
-    v_e_bm : list or dataseries
-        Timeseries of biomass generation.
-    v_e_hydro : list or dataseries
-        Timeseries of hydro power generation.
-
-    Returns
-    -------
-    dict_v_e_cons : dict
-        Dict containing timeseries of consumed energy for each tech [kWh]. Keys
-        are according to tech names (e.g. 'pv', 'wp', 'bm', ...)
-    dict_v_e_exp : dict
-        Dict containing timeseries of exported energy for each tech [kWh]. Keys
-        are according to tech names (e.g. 'pv', 'wp', 'bm', ...).
-    m_e : pandas dataseries
-        Timeseries of imported energy [kWh].
-
-    """
-    # tech_solar_pv = tech_instances['solar_pv']
-    tech_solar_pvrooftop = tech_instances['solar_pvrooftop']
-
-    with_pvalpine = False
-
-    if 'solar_pvalpine' in tech_instances:
-        tech_solar_pvalpine = tech_instances['solar_pvalpine']
-        # v_e_pvalpine = tech_solar_pvalpine.get_v_e_from_installations()[0]
-        v_e_pvalpine = tech_solar_pvalpine.get_v_e_from_installations()
-        with_pvalpine = True
-    tech_wind_power = tech_instances['wind_power']
-    tech_biomass = tech_instances['biomass']
-    tech_hydro_power = tech_instances['hydro_power']
-    
+    source_order = [key for key in source_order if key in tech_instances]
     tech_grid_supply = tech_instances['grid_supply']
-    
     d_e = energy_demand.get_d_e()
-    # v_e_pv = tech_solar_pv.get_v_e()
-    v_e_pvrooftop = tech_solar_pvrooftop.get_v_e_from_installations()
-    v_e_wp = tech_wind_power.get_v_e()
-    v_e_bm = tech_biomass.get_v_e()
-    v_e_hydro = tech_hydro_power.get_v_e()
-
+    # Allocate PV production per installation, as required by SolarPVType.
+    # Expanding each source in-place preserves its configured priority.
+    solar_sources = {'solar_pvrooftop', 'solar_pvalpine'}
+    dict_v_e = {}
+    source_members = {}
+    for key in source_order:
+        tech = tech_instances[key]
+        if key in solar_sources:
+            members = []
+            for index, generation in enumerate(tech.get_v_e_from_installations()):
+                member = f'{key}_{index}'
+                members.append(member)
+                dict_v_e[member] = pd.Series(generation)
+            source_members[key] = members
+        else:
+            source_members[key] = [key]
+            dict_v_e[key] = pd.Series(tech.get_v_e())
+    tech_hierarchy = list(dict_v_e)
+    series_to_check = [d_e, *dict_v_e.values()]
     if with_bes:
         tech_bes = tech_instances['bes']
-        v_e_bes = tech_bes.get_v_e()
+        dict_v_e['bes'] = pd.Series(tech_bes.get_v_e())
         u_e_bes = tech_bes.get_u_e()
+        tech_hierarchy.append('bes')
+        series_to_check.extend([dict_v_e['bes'], u_e_bes])
+    dem_helper.check_dataseries_lengths(*series_to_check)
+    ds_n = len(d_e)
 
-    if not with_bes and not with_pvalpine:
-        dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro)
-    elif with_bes:
-        dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_bes, u_e_bes)
-    elif with_pvalpine:
-        # dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_pvalpine)
-        dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, *v_e_pvalpine)
-    else:
-        # dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_bes, u_e_bes, v_e_pvalpine)
-        dem_helper.check_dataseries_lengths(d_e, *v_e_pvrooftop, v_e_wp, v_e_bm, v_e_hydro, v_e_bes, u_e_bes, *v_e_pvalpine)
-
-    # Get dataseries length:
-    ds_n = len(d_e)    
-    
-    # Create hierarchy of technologies, acc. to what is used first:
-    # if with_bes:
-    #     tech_hierarchy = ['pv', 'wp', 'bm', 'hydro', 'bes']
-    # else:
-    #     tech_hierarchy = ['pv', 'wp', 'bm', 'hydro']
-    
-    tech_hierarchy_pvrooftop_section = ['pvrooftop_'+str(_) for _ in range(len(v_e_pvrooftop))]
-    tech_hierarchy_pv_section = tech_hierarchy_pvrooftop_section
-    if with_pvalpine:
-        tech_hierarchy_pvalpine_section = ['pvalpine_'+str(_) for _ in range(len(v_e_pvalpine))]
-        tech_hierarchy_pv_section = tech_hierarchy_pvrooftop_section + tech_hierarchy_pvalpine_section
-
-
-    if with_bes:
-        tech_hierarchy = tech_hierarchy_pv_section+['wp', 'bm', 'hydro', 'bes']
-    else:
-        tech_hierarchy = tech_hierarchy_pv_section+['wp', 'bm', 'hydro']
-
-    
-    # dict_v_e = {
-    #     'pv':pd.Series(v_e_pv),
-    #     'wp':pd.Series(v_e_wp),
-    #     'bm':pd.Series(v_e_bm),
-    #     'hydro':pd.Series(v_e_hydro),
-    #     'bes':pd.Series(v_e_bes),
-    #     } if with_bes else {
-    #     'pv':pd.Series(v_e_pv),
-    #     'wp':pd.Series(v_e_wp),
-    #     'bm':pd.Series(v_e_bm),
-    #     'hydro':pd.Series(v_e_hydro),
-    #     }
-    dict_v_e = {
-        'pvrooftop_'+str(i): pd.Series(v_e_pvrooftop[i]) for i in range(len(v_e_pvrooftop))
-        }
-        
-    if with_pvalpine:
-         for i in range(len(v_e_pvalpine)):
-             dict_v_e['pvalpine_'+str(i)] = pd.Series(v_e_pvalpine[i])
-
-    tmp_d_to_add = {
-        'wp':pd.Series(v_e_wp),
-        'bm':pd.Series(v_e_bm),
-        'hydro':pd.Series(v_e_hydro)
-        }
-    for k in tmp_d_to_add.keys():
-        dict_v_e[k] = tmp_d_to_add[k]
-
-    # dict_v_e |= {
-    #     'wp':pd.Series(v_e_wp),
-    #     'bm':pd.Series(v_e_bm),
-    #     'hydro':pd.Series(v_e_hydro)
-    #     }
-    if with_bes:
-        dict_v_e['bes'] =pd.Series(v_e_bes)
-    
     # Initialise dicts for self-consumption (con) and export (exp)
     dict_v_e_cons = {}
     dict_v_e_exp = {}
@@ -152,7 +96,8 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     # Initialise the remaining electricity demand
     
     d_e_remain = pd.Series(d_e + u_e_bes) if with_bes else pd.Series(d_e)
-    # d_e_remain = pd.Series(d_e)
+
+    # print(dict_v_e['wp'])
     
     for tech_key in tech_hierarchy:
         # Electricity production timeseries for specific tech:
@@ -194,39 +139,20 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes = False):
     #--------------------------------------------------------------------------
     # Update local renewable tech objects:
     
-    # Solar PV:
-    # ---------
+    for tech_key in source_order:
+        tech = tech_instances[tech_key]
+        members = source_members[tech_key]
+        if tech_key in solar_sources:
+            tech.update_v_e_cons([dict_v_e_cons[member] for member in members])
+            tech.update_v_e_exp([dict_v_e_exp[member] for member in members])
+        else:
+            tech.update_v_e_cons(dict_v_e_cons[tech_key])
+            tech.update_v_e_exp(dict_v_e_exp[tech_key])
 
-    tech_solar_pvrooftop.update_v_e_cons([dict_v_e_cons[x] for x in tech_hierarchy_pvrooftop_section])
-    tech_solar_pvrooftop.update_v_e_exp([dict_v_e_exp[x] for x in tech_hierarchy_pvrooftop_section])
-    
-    # Solar Alpine:
-    # ---------
-
-    if with_pvalpine:
-        tech_solar_pvalpine.update_v_e_cons([dict_v_e_cons[x] for x in tech_hierarchy_pvalpine_section])
-        tech_solar_pvalpine.update_v_e_exp([dict_v_e_exp[x] for x in tech_hierarchy_pvalpine_section])
-        
-
-    # Wind power:
-    # -----------
-    tech_wind_power.update_v_e_cons(dict_v_e_cons['wp'])
-    tech_wind_power.update_v_e_exp(dict_v_e_exp['wp'])
-    
-    # Biomass:
-    # -----------
-    tech_biomass.update_v_e_cons(dict_v_e_cons['bm'])
-    tech_biomass.update_v_e_exp(dict_v_e_exp['bm'])
-    
-    # Hydro:
-    # -----------
-    tech_hydro_power.update_v_e_cons(dict_v_e_cons['hydro'])
-    tech_hydro_power.update_v_e_exp(dict_v_e_exp['hydro'])
-    
     #--------------------------------------------------------------------------
     # Update import:
     tech_grid_supply.add_m_e(np.array(m_e))
-    
+
 def update_m_e(m_e_updated, tech_grid_supply):
     """
     Update the import m_e including the splits (e.g. m_e_ch_hydro,

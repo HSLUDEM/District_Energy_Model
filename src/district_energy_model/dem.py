@@ -626,7 +626,7 @@ class DistrictEnergyModel:
                 )        
             dem_eb.energy_balance_test(
                 sum(self.tech_grid_supply.get_m_e_ch()), 
-                sum_a, 
+                sum_a,
                 'electricity mix'
                 )        
             dem_eb.energy_balance_test(
@@ -1734,11 +1734,15 @@ class DistrictEnergyModel:
                     tes_sites_plotting_inf = (
                         self
                         .tech_tes_sites
-                        .get_plotting_information() 
+                        .get_plotting_information()
                         if scen_techs['tes_sites']['deployment'] else {}
                         )
                     )
-            
+                dem_helper.unmet_demand_test(
+                    df_scen=df_scen,
+                    share_accepted=C.UNMET_SHARE_ACC
+                    )
+
         else:
             
             # Update fuel imports to boiler outputs after scenarios:
