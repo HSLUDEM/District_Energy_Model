@@ -91,6 +91,7 @@ class DEMPaths:
         self.wind_power_data_dir = path_strt1 + '/data/tech_wind_power/' # location of wind power data (e.g. installed capacities per municipality)
         self.wind_power_profiles_dir = path_strt1 + f'/data/tech_wind_power/profiles/{hist_data_year}/' # location of wind power hourly profile files
         self.ev_profiles_dir = path_strt1 + '/data/electricity/ev_profiles/' # location of electric vehicle (ev) charging profiles
+        self.national_generation_dir = path_strt1 + '/data/national_generation/' # default location of national generation profiles (one file per generator)
         
         # Input data files:
         # ----------------

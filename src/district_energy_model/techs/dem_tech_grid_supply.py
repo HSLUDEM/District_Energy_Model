@@ -236,10 +236,32 @@ class GridSupply(TechCore):
         self._m_e_cbimport = np.array(m_e_mix['m_e_cbimport'])
         
         self._m_e_ch = self._m_e - self._m_e_cbimport
-        
+
         self.__compute_m_co2()
-        
+
         # return m_e_mix
+
+    def compute_base_grid_import_without_split(self):
+        """
+        Set the grid import without splitting it by the national electricity
+        mix. Used if national generation is modelled explicitly (national
+        generation tech): the import m_e is then the remaining import that is
+        not covered by national generation and is accounted as cross-border
+        import (m_e_cbimport).
+        """
+        self.len_test(self._m_e)
+
+        zeros = np.zeros(len(self._m_e))
+
+        self._m_e_ch = zeros.copy()
+        self._m_e_ch_hydro = zeros.copy()
+        self._m_e_ch_nuclear = zeros.copy()
+        self._m_e_ch_wind = zeros.copy()
+        self._m_e_ch_biomass = zeros.copy()
+        self._m_e_ch_other = zeros.copy()
+        self._m_e_cbimport = np.array(self._m_e, dtype=float)
+
+        self.__compute_m_co2()
     
     def __compute_m_co2(self):        
         self._m_co2 = self._m_e*self._co2_intensity_timeseries
