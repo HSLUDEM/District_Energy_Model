@@ -37,10 +37,19 @@ class DEMPaths:
                  output_dir = '',
                  hist_data_year = 2016,
                  current_year = 2026,
+                 master_data_suffix = '',
                  ):
+        """
+        master_data_suffix: str
+            Suffix of the year-specific master, meta and simulation profiles
+            files, e.g. '_gwr2024_munic2026' reads meta_data_2016_gwr2024_munic2026.feather
+            instead of meta_data_2016.feather. The general files are not
+            affected. Community files are cached in a separate directory.
+        """
 
         h_y = hist_data_year
         c_y = current_year
+        sfx = master_data_suffix
 
         path_strt1 = root_dir
         self.root_dir = root_dir
@@ -50,17 +59,20 @@ class DEMPaths:
         self.master_file_general = 'master_data_general.feather'
         self.meta_file_general = 'meta_data_general.feather'
         
-        self.master_file_year = f"master_data_{h_y}.feather"
-        self.meta_file_year = f"meta_data_{h_y}.feather"
+        self.master_file_year = f"master_data_{h_y}{sfx}.feather"
+        self.meta_file_year = f"meta_data_{h_y}{sfx}.feather"
         
         self.profiles_file_general = "simulation_profiles_general.feather"
-        self.profiles_file_year = f"simulation_profiles_{h_y}.feather"
+        self.profiles_file_year = f"simulation_profiles_{h_y}{sfx}.feather"
         
         # -----------------------------------------------------------------------------
         # run_dem.py:
         # -----------        
         self.master_data_dir = path_strt1 + '/data/master_data/'
-        self.com_data_dir = path_strt1 + f"/data/community_data/{h_y}_mapped_to_{c_y}/"
+        if sfx == '':
+            self.com_data_dir = path_strt1 + f"/data/community_data/{h_y}_mapped_to_{c_y}/"
+        else:
+            self.com_data_dir = path_strt1 + f"/data/community_data/{h_y}{sfx}/"
         
         # -----------------------------------------------------------------------------
         # dem.py:

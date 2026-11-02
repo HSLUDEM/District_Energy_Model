@@ -366,7 +366,49 @@ def positive_values_test_df(
     if len(negative_columns) > 0:
         print(f"Positive value test for {description} not successful!")
         raise Exception(f"{description} contains negative values in the following columns: {negative_columns}")
-        
+
+def unmet_demand_test(df_scen, share_accepted=1e-3):
+
+    """
+    Checks if the annual unmet demand of the optimisation exceeds the accepted
+    share of the annual demand. Unmet demand is penalised with bigM and should
+    therefore not occur; large values indicate that the solver returned an
+    invalid solution (e.g. due to numerical issues).
+
+    Parameters
+    ----------
+    df_scen : pandas dataframe
+        Results dataframe containing the columns 'd_e', 'd_h', 'd_e_unmet',
+        'd_h_unmet' and 'd_h_unmet_dhn'.
+    share_accepted : float
+        Accepted share of annual unmet demand in annual demand [-].
+
+    Returns
+    -------
+    n/a
+    """
+
+    unmet = {
+        'electricity':(
+            df_scen['d_e_unmet'].clip(lower=0).sum(),
+            df_scen['d_e'].sum()
+            ),
+        'heat':(
+            df_scen['d_h_unmet'].clip(lower=0).sum()
+            + df_scen['d_h_unmet_dhn'].clip(lower=0).sum(),
+            df_scen['d_h'].sum()
+            ),
+        }
+
+    for carrier, (unmet_yr, demand_yr) in unmet.items():
+        if unmet_yr > share_accepted*demand_yr:
+            print(f"Unmet demand test for {carrier} not successful!")
+            raise Exception(
+                f"Unmet {carrier} demand of {unmet_yr:.0f} kWh exceeds "
+                f"{share_accepted:.1%} of annual {carrier} demand "
+                f"({demand_yr:.0f} kWh)."
+                )
+
 
 def create_results_directory(arg_path, arg_results_dir_name):
 
