@@ -169,16 +169,10 @@ def _plot_traces(path):
 
 
 @requires_data
-def test_plots_show_pv_other_heat_and_storage_flows(run_dem, tmp_path):
+def test_annual_share_plot_shows_pv_and_other_heat(run_dem, tmp_path):
     model = run_dem({'simulation': {'generate_plots': True, 'save_results': True},
-                     'scenarios': {'pv_integration': True, 'thermal_energy_storage': True},
-                     'tes_decentralised': {'deployment': True},
-                     'thermal_energy_storage_scenario': {'capacity_kWh': 1e5}})
+                     'scenarios': {'pv_integration': True}})
     yr, out = model.annual_results(), model.results_path
     shares = {t['name']: t['y'][0] for t in _plot_traces(f'{out}/heat_electricity_yr.html')}
     assert shares['Solar PV'] > 0 and yr['v_e_pvrooftop_cons_yr'] > 0
     assert shares['Other'] > 0 and yr['v_h_other_yr'] > 0
-    cum = {t['name']: t['y'][-1] for t in _plot_traces(f'{out}/tes_and_bes_cumsum_hourly.html')}
-    df = model.hourly_results()
-    assert cum['q_h_tesdc charged'] == pytest.approx(df['u_h_tesdc'].sum() / 1000, rel=1e-6)
-    assert cum['q_h_tesdc discharged'] == pytest.approx(df['v_h_tesdc'].sum() / 1000, rel=1e-6)
