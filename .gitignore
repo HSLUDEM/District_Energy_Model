@@ -66,3 +66,4 @@ data/read_data.py
 data/read_and_cluster_data.py
 data/tech_solar_pv/
 data/*.feather
+.vscode/
