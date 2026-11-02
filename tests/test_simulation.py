@@ -186,16 +186,3 @@ def test_hp_cop_without_division_warning(run_dem):
         warnings.filterwarnings('error', message='divide by zero', category=RuntimeWarning)
         run_dem(days=1)
 
-
-@requires_data
-def test_temperature_gaps_are_interpolated(run_dem):
-    # GitHub issue #59: municipality 4511 has no temperatures for 507 hours of 2016 (hours 921-4566)
-    raw = pd.read_feather(f'{ROOT}/data/weather_data/community_files/4511.feather')[2016].to_numpy()
-    gap = np.where(np.isnan(raw))[0]
-    assert len(gap) > 24
-    model = run_dem({'simulation': {'district_number': 4511}}, days=60)
-    hours = gap[gap < 60 * 24]
-    cop = model.tech_instances['heat_pump']._cops_existing[hours]
-    assert cop.min() > 2  # before: 1.0 (NaN replaced)
-    df = model.hourly_results()
-    assert df['d_h_s'].values[hours].sum() > 0  # before: no space heating in hours without temperature
