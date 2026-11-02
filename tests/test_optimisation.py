@@ -366,3 +366,12 @@ def test_feasibility_tol_with_large_energy_scaling(run_dem, scaling):
     # Default FeasibilityTol 1e-6 / scaling must stay within Gurobi's range (minimum 1e-9)
     model = run_dem({'optimisation': OPT | {'calliope_energy_scaling_factor': scaling}}, days=1)
     assert model.annual_results()['m_e_yr'] > 0
+
+
+@pytest.mark.parametrize('off', [['solar_pvrooftop'], ['solar_pvrooftop', 'solarthermal_rooftop']])
+def test_optimisation_without_rooftop_pv(run_dem, off):
+    # GitHub issues #20 and #22: rooftop solar thermal uses the PV locations, which only existed with PV
+    model = run_dem({**{t: {'deployment': False} for t in off}, 'optimisation': OPT}, days=1)
+    yr = model.annual_results()
+    assert yr['v_e_pvrooftop_yr'] == 0
+    assert yr['d_h_unmet_yr'] == pytest.approx(0, abs=1)
