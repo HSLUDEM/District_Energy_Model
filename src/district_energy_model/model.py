@@ -42,10 +42,15 @@ def launch(root_dir=None,
            # simulation_year = 2026,
            hist_data_year=C.HIST_DATA_YEAR_DEFAULT,
            current_year=C.CURRENT_YEAR,
+           master_data_suffix='',
            ):
     """
     root_dir: directory where the user provides `data/` and `config/` folders
     If None: use current working directory.
+    
+    master_data_suffix: str
+        Suffix of the year-specific master, meta and simulation profiles files
+        (see dem_paths.DEMPaths). Default '': standard files.
     
     data_year: int
         Year from which historical data is used to model demand and resources
@@ -84,6 +89,7 @@ def launch(root_dir=None,
         # simulation_year = simulation_year,
         hist_data_year = hist_data_year,
         current_year = current_year,
+        master_data_suffix = master_data_suffix,
         )
     
     # Read input files and update scen_techs:

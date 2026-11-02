@@ -84,6 +84,10 @@ class SolarPVType(TechCore):
                     p_remaining = 0
                 elif p_remaining == 0:
                     p_max_here = 0
+                else:
+                    raise ValueError(
+                        f"Invalid remaining capacity for {self._techkey}: {p_remaining}"
+                        )
             else:
                 p_max_here = p_max_profile / self._capex_scaling[i]
 

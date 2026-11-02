@@ -1482,6 +1482,8 @@ class EnergyDemand:
         if list_T_base_degC is None:
             list_T_base_degC = [12, 15]
 
+        self._check_temperature_data(temperature_data_year)
+
         df_temperature =\
             self.df_temperature_all_years[[temperature_data_year]].copy()
      
@@ -1507,8 +1509,30 @@ class EnergyDemand:
             sum_HDD = ds_HDD.sum()
             
             dict_HDD[T_base] = sum_HDD
-            
-        return dict_HDD    
+
+        return dict_HDD
+
+    def _check_temperature_data(self, year):
+        """
+        Raise an error if no temperature data is available for the given year
+        (i.e., all values of the year's column are NaN).
+
+        Parameters
+        ----------
+        year : int
+            Year (column) of the temperature data to be checked.
+
+        Returns
+        -------
+        None.
+
+        """
+        if self.df_temperature_all_years[year].isna().all():
+            raise ValueError(
+                f"No temperature data available for year {year} in "
+                f"{self.paths.weather_data_delta_method_dir}"
+                f"{self.com_nr_majority}.feather (all values are NaN)."
+                )
 
     #Helper function to calculate space heating demand for specific base_temp
     def _compute_d_h_hr_with_T_base(self, df_hour_, d_h_s_cat_yr, T_base):
@@ -1618,7 +1642,9 @@ class EnergyDemand:
         dhw_profile_file = self.paths.dhw_profile_file
         
         dhw_profile = pd.read_feather(dhw_profile_dir + dhw_profile_file)
-        
+
+        self._check_temperature_data(weather_year)
+
         df_hour = df_hour_all[[weather_year]]
         df_hour.index = df_hour.index.map(lambda t: t.replace(year=1900))
         df_hour = df_hour.rename(columns={weather_year: "T_degC"})
