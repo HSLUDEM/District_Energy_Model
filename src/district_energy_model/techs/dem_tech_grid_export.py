@@ -212,7 +212,8 @@ class GridExport(TechCore):
         self._f_e[i] = float(val)
 
     def get_energy_costs(self):
-        return np.sum(np.array(self._f_e)*self._tariff_timeseries)
+        # Feed-in is remunerated, i.e. negative costs (as in the optimisation):
+        return -np.sum(np.array(self._f_e)*self._tariff_timeseries)
 
     def get_tariff_timeseries(self):
         return self._tariff_timeseries

@@ -78,9 +78,6 @@ force_asynchronous_storage = True
 no_force_asynchronous_storage_export_subsidy = 1e-5
 
 
-coptest = np.zeros((24*365))+30.0
-coptest[20] = 1.0
-
 # master_path = paths.simulation_data_dir + paths.master_file
 # master_file = pd.read_feather(master_path)
 
@@ -97,6 +94,7 @@ scen_techs = {
             'implemented': False,
             # 'EGID_List': EGID_List,
             'EGID_List': [],
+            'scaling_factors': {}, #scaling factors for demand columns, e.g. 'space_heating_demand_estimation_kWh': 1.5, to increase space heating demand by 50%,
             'custom_district_name':'Test_Scenario',
             'manual_district': False,  #Are manual data added to the district?
             'manual_district_df_com_path': '', #Location of the file with the dataframe for the manual district
@@ -332,7 +330,7 @@ scen_techs = {
         # 'deployment':False,
         'eta_chg_dchg': 0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
         'tes_gamma':0.001,
-        'capacity_kWh':tes_cap*1e6 if tes_cap != 'inf' else 'inf',
+        'capacity_kWh_max':tes_cap*1e6 if tes_cap != 'inf' else 'inf',
         'force_cap_max':False, # implement max. storage capacity (kWh)
         'chg_dchg_per_cap_max':0.01, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':tes_ic,
@@ -374,7 +372,7 @@ scen_techs = {
         # 'deployment':False,
         'eta_chg_dchg': 0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
         'tes_gamma':0.001,
-        'capacity_kWh':tesdc_cap*1e6 if tesdc_cap != 'inf' else 'inf',
+        'capacity_kWh_max':tesdc_cap*1e6 if tesdc_cap != 'inf' else 'inf',
         'chg_dchg_per_cap_max':0.1, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':tesdc_ic,
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
@@ -394,7 +392,7 @@ scen_techs = {
         # 'deployment':False,
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
         'bes_gamma':0.001,
-        'capacity_kWh':bes_cap*1e6 if bes_cap != 'inf' else 'inf',
+        'capacity_kWh_max':bes_cap*1e6 if bes_cap != 'inf' else 'inf',
         'chg_dchg_per_cap_max':1.0, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':bes_ic,
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
@@ -410,7 +408,7 @@ scen_techs = {
         # 'deployment':False,
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
         'gtes_gamma':0.0,
-        'capacity_kWh':gtes_cap*1e6 if gtes_cap != 'inf' else 'inf',
+        'capacity_kWh_max':gtes_cap*1e6 if gtes_cap != 'inf' else 'inf',
         'chg_dchg_per_cap_max':0.1, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':gtes_ic,
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
@@ -426,7 +424,7 @@ scen_techs = {
         # 'deployment':False,
         'eta_chg_dchg': 1.0,
         'ws_gamma':0.0,
-        'capacity_kWh':ws_cap*1e6 if ws_cap != 'inf' else 'inf',
+        'capacity_kWh_max':ws_cap*1e6 if ws_cap != 'inf' else 'inf',
         'chg_dchg_per_cap_max':0.1, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':ws_ic,
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
@@ -442,7 +440,7 @@ scen_techs = {
         # 'deployment':False,
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
         'hes_gamma':0.0,
-        'capacity_kWh':hes_cap*1e6 if hes_cap != 'inf' else 'inf',
+        'capacity_kWh_max':hes_cap*1e6 if hes_cap != 'inf' else 'inf',
         'chg_dchg_per_cap_max':0.1, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':1.0,#hes_ic,
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
@@ -765,7 +763,7 @@ scen_techs = {
         'interest_rate':interest_rate,   
         },
 
-    'heat_pump_cp':{ # hpcp
+    'heat_pump_cp': {'instance_1': { # hpcp, instance names _have_ to start with instance_
         # 'deployment':True,
         'deployment':False,
         'kW_th_max': 'inf',#tech_cap_default,
@@ -775,9 +773,8 @@ scen_techs = {
         'capital_cost':1230.0, # [CHF/kW_th] # Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW Water-Water heat pump
         'maintenance_cost': 5.025, # [CHF/kW/year] # Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW Water-Water heat pump
         'interest_rate':interest_rate,
-
         'cop_mode': 'temperature_based', #option 'temperature_based', 'constant', 'from_file', 'from_file_adjusted_to_spf'
-        'cop_timeseries_file_path': coptest,
+        'cop_timeseries_file_path': "",
         'cop_constant_value': 3.0,
         'spf_to_target': 3.5,
         'cop_source_temperature': 'air_temperature', #choices: 'constant_temperature', 'air temperature'
@@ -785,6 +782,7 @@ scen_techs = {
         'cop_hot_temperature': 'constant_temperature',
         'cop_hot_temperature_constant_temperature_value': 70,
         'quality_factor': 0.5
+        }, 
         },
 
     'other':{ # other
@@ -909,12 +907,12 @@ scen_techs = {
 
     'thermal_energy_storage_scenario': {
         'capacity_kWh': 0,
-        'initial_charge': 0.5,
+        'initial_charge': 0.0, # [-] energy stored initially is not paid for (no cyclic condition in manual scenarios)
     },
 
     'battery_energy_storage_scenario': {
         'capacity_kWh': 1e4,
-        'initial_charge': 0.5,
+        'initial_charge': 0.0, # [-] energy stored initially is not paid for (no cyclic condition in manual scenarios)
     },
     
     'supply':{

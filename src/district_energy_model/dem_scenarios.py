@@ -422,6 +422,17 @@ def scenario_nuclear_phaseout(
 
 
 
+def __report_net_storage_discharge(label, q_initial, q_final):
+    """
+    The manual storage scenarios have no cyclic condition: energy stored
+    at the start but not at the end is not paid for by any technology.
+    """
+    if q_initial - q_final > 1.0:
+        print(f"\nWARNING: {label} ends {q_initial - q_final:.0f} kWh below its "
+              "initial charge. This energy comes from the initial charge and is "
+              "not produced (nor paid for) by any technology. Consider "
+              "initial_charge = 0.")
+
 def scenario_battery_energy_storage_via_pv(energy_demand, 
                                            scen_techs, 
                                            tech_instances):
@@ -507,6 +518,9 @@ def scenario_battery_energy_storage_via_pv(energy_demand,
                 tech_bes.update_sos_i(i, tech_bes.get_q_e()[i] / bes_cap)
                 tech_instances['grid_supply'].update_m_e_i(i, tech_instances['grid_supply'].get_m_e()[i] - discharge_rate)
             
+    if bes_cap > 0:
+        __report_net_storage_discharge('BES scenario', bes_ic*bes_cap, tech_bes.get_q_e()[-1])
+
     #Adjust import/export balance
     dem_eb.get_local_electricity_mix(energy_demand, tech_instances, with_bes = True)
     tech_grid_supply.update_m_e(tech_grid_supply.get_m_e())
@@ -572,8 +586,11 @@ def scenario_thermal_energy_storage_via_pv_hp(
     dem_helper.check_number(
         value=tesdc_ic, 
         var_name='thermal_energy_storage_scenario.initial_charge',
-        check_positive=True
         )
+    if not 0.0 <= tesdc_ic <= 1.0:
+        raise ValueError(
+            "thermal_energy_storage_scenario.initial_charge must be between 0 and 1. "
+            f"Selected value: {tesdc_ic}.")
 
     if tech_tesdc.get_cap() != 'inf':
         if tech_tesdc.get_cap() < tesdc_cap:
@@ -995,6 +1012,8 @@ def scenario_thermal_energy_storage_via_pv_hp(
             #------------------------------------------------------------------
             
         del df['tmp_tes_cap_avl']
+        
+        __report_net_storage_discharge('TES scenario', tesdc_ic*tesdc_cap, tech_tesdc.get_q_h()[-1])
         
         # print(f'No. of case A occurrences: {case_A_counter}')
         # print(f'No. of case B occurrences: {case_B_counter}')

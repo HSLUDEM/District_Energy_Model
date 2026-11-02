@@ -37,8 +37,13 @@ class Supply(TechCore):
         ...
         
         # Hourly values:
-        self._s_wet_bm = [] # wet biomass
-        self._s_wd = [] # wood
+        # Local resources: available potential (_pot), consumed amount, and
+        # remaining (unused) part (_rem = _pot - consumed):
+        self._s_wet_bm_pot = [] # wet biomass
+        self._s_wd_pot = [] # wood
+        
+        self._s_wet_bm = []
+        self._s_wd = []
         
         self._s_wet_bm_rem = []
         self._s_wd_rem = []
@@ -59,6 +64,8 @@ class Supply(TechCore):
         
     def update_df_results(self, df):
         
+        df['s_wet_bm_pot'] = self.get_s_wet_bm_pot()
+        df['s_wd_pot'] = self.get_s_wd_pot()
         df['s_wet_bm'] = self.get_s_wet_bm()
         df['s_wd'] = self.get_s_wd()
         df['s_wet_bm_rem'] = self.get_s_wet_bm_rem()
@@ -68,6 +75,13 @@ class Supply(TechCore):
         df['m_oil'] = self.get_m_oil()
         df['m_gas'] = self.get_m_gas()
         df['m_wd'] = self.get_m_wd()        
+        
+        # CO2 emissions of fuels (included in v_co2_tot):
+        df['m_co2_oil'] = self.get_m_oil()*self.supply_tech_dict['co2_content_oil']
+        df['m_co2_gas'] = self.get_m_gas()*self.supply_tech_dict['co2_content_gas']
+        df['m_co2_wd'] = self.get_m_wd()*self.supply_tech_dict['co2_content_imported_wood']
+        df['v_co2_wd_local'] = self.get_s_wd()*self.supply_tech_dict['co2_content_local_wood']
+        df['v_co2_wet_bm'] = self.get_s_wet_bm()*self.supply_tech_dict['co2_content_wet_biomass']
         
         return df
         
@@ -87,6 +101,9 @@ class Supply(TechCore):
         """
         
         n_hours = n_days*24
+        
+        self._s_wet_bm_pot = self._s_wet_bm_pot[:n_hours]
+        self._s_wd_pot = self._s_wd_pot[:n_hours]
         
         self._s_wet_bm = self._s_wet_bm[:n_hours]
         self._s_wd = self._s_wd[:n_hours]
@@ -347,39 +364,35 @@ class Supply(TechCore):
     def compute_s_h_wet_biomass(self):
         
         s_wet_bm_yr = self.df_meta.loc[self.df_meta['GGDENR'] == self.com_nr, 's_wet_bm']
-        self._s_wet_bm = s_wet_bm_yr.values[0]*self.profiles_file['Wet_biomass_profile']
-        self._s_wet_bm_rem = self._s_wet_bm
+        self._s_wet_bm_pot = np.array(s_wet_bm_yr.values[0]*self.profiles_file['Wet_biomass_profile'], dtype=float)
+        # No technology consumes wet biomass in a simulation:
+        self._s_wet_bm = np.zeros(len(self._s_wet_bm_pot))
+        self._s_wet_bm_rem = self._s_wet_bm_pot.copy()
         
-        return np.array(self._s_wet_bm)
+        return np.array(self._s_wet_bm_pot)
     
     def compute_s_h_wood(self):
         
         s_wd_bm_yr = self.df_meta.loc[self.df_meta['GGDENR'] == self.com_nr, 's_wd_bm']
-        self._s_wd = s_wd_bm_yr.values[0]*self.profiles_file['Woody_biomass_profile']
-        self._s_wd_rem = self._s_wd
+        self._s_wd_pot = np.array(s_wd_bm_yr.values[0]*self.profiles_file['Woody_biomass_profile'], dtype=float)
+        self._s_wd = np.zeros(len(self._s_wd_pot))
+        self._s_wd_rem = self._s_wd_pot.copy()
         
-        return np.array(self._s_wd)
+        return np.array(self._s_wd_pot)
     
-    def compute_s_h_wood_remaining(self, u_wd_wb):
-        df = pd.DataFrame({
-            's_wd_rem':list(self._s_wd_rem),
-            'u_wd_wb':list(u_wd_wb),
-            's_wd_imp':[0.0]*len(self._s_wd_rem)
-            })
+    def compute_s_h_wood_consumption(self, u_wd_wb):
+        """
+        Cover the wood demand u_wd_wb with local wood as far as available
+        (simulation). Updates the consumed (_s_wd) and remaining (_s_wd_rem)
+        local wood and returns the wood that must be imported.
+        """
+        u_wd_wb = np.array(u_wd_wb, dtype=float)
+        s_wd_pot = self.get_s_wd_pot()
+        s_wd = np.minimum(u_wd_wb, s_wd_pot) # Local wood consumed by the wood boiler.
+        self.update_s_wd(s_wd)
+        self.update_s_wd_rem(s_wd_pot - s_wd)
         
-        #Update remaining wood potential:
-        temp_wd_rem = (df['s_wd_rem'] - df['u_wd_wb']).to_frame('s_wd_rem')
-        # print(temp_wd_rem)
-        # df_base['s_wd_imp'] = 0
-        df.loc[temp_wd_rem['s_wd_rem']<0, 's_wd_imp'] = -temp_wd_rem.loc[temp_wd_rem['s_wd_rem']<0, 's_wd_rem']
-        temp_wd_rem.loc[temp_wd_rem['s_wd_rem']<0, 's_wd_rem'] = 0
-        df['s_wd_rem'] = temp_wd_rem['s_wd_rem']
-        
-        
-        self._s_wd_rem = np.array(df['s_wd_rem'])
-        
-        # TEMPORARY:
-        # self._s_wd_import = np.array(df['s_wd_imp'])
+        return u_wd_wb - s_wd # Imported wood is required wherever demand exceeds the local supply.
     
     def compute_s_y_wet_biomass(self):
         return sum(self.compute_s_h_wet_biomass())
@@ -477,6 +490,14 @@ class Supply(TechCore):
             raise ValueError()        
         self._m_wd = np.array(m_wd_updated)
         
+    def get_s_wet_bm_pot(self):
+        self.len_test(self._s_wet_bm_pot)
+        return np.array(self._s_wet_bm_pot)
+    
+    def get_s_wd_pot(self):
+        self.len_test(self._s_wd_pot)
+        return np.array(self._s_wd_pot)
+    
     def get_s_wet_bm(self):
         self.len_test(self._s_wet_bm)
         return np.array(self._s_wet_bm)

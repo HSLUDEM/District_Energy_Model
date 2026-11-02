@@ -83,8 +83,9 @@ def obtain_com_roof_profile(com_nr, efficiency_overall, paths):
 
         # print("GROUP = ", group_number)
 
-        if group_number == EXISTING_EPPS_GROUP:
-            efficiency = EFFICIENCY_TO_USE
+        # Existing installations use a fixed efficiency, all other groups
+        # the configured one (must not carry over to the following groups):
+        efficiency = EFFICIENCY_TO_USE if group_number == EXISTING_EPPS_GROUP else efficiency_overall
 
         if 'per_group_wintersum_grouping_group_'+str(group_number)+'_sumprofile' in pv_profiles.columns:
 
@@ -102,7 +103,7 @@ def obtain_com_roof_profile(com_nr, efficiency_overall, paths):
 
         peakpower_profile = efficiency * np.max(sumprofile)
 
-        capex_opex_increase_factor = peakpower / peakpower_profile
+        capex_opex_increase_factor = peakpower / peakpower_profile if peakpower_profile > 0 else 100.0 # roof group without potential (as for custom districts)
 
         pv_profile = sumprofile * efficiency
 
@@ -216,8 +217,9 @@ def obtain_custom_district_roof_profile(com_nrs,
 
         # print("GROUP = ", group_number)
 
-        if group_number == EXISTING_EPPS_GROUP:
-            efficiency = EFFICIENCY_TO_USE
+        # Existing installations use a fixed efficiency, all other groups
+        # the configured one (must not carry over to the following groups):
+        efficiency = EFFICIENCY_TO_USE if group_number == EXISTING_EPPS_GROUP else efficiency_overall
 
         sumprofile = tot_group_profiles[group_number]
 

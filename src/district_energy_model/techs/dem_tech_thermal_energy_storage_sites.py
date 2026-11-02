@@ -195,12 +195,12 @@ class ThermalEnergyStorageSites(TechCore):
         self._l_v_hltlt = self._l_v_hltlt[:, :n_hours]
         self._l_q_hltlt = self._l_q_hltlt[:, :n_hours]
 
-        self._u_hht_to_hlt = self._u_hltlt[:, :n_hours]
+        self._u_hht_to_hlt = self._u_hht_to_hlt[:, :n_hours]
 
         self._soc = self._soc[:, :n_hours]
         self._soc_hhtht = self._soc_hhtht[:, :n_hours]
         self._soc_hhtlt = self._soc_hhtlt[:, :n_hours]
-        self._soc_hhtlt = self._soc_hltlt[:, :n_hours]
+        self._soc_hltlt = self._soc_hltlt[:, :n_hours]
 
     def initialise_zero(self, n_days):
         n_hours = n_days*24

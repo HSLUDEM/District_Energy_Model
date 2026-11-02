@@ -64,7 +64,7 @@ class BatteryEnergyStorage(TechCore):
         # Properties:
         self._eta_chg_dchg = tech_dict['eta_chg_dchg']
         self._gamma = tech_dict['bes_gamma']
-        self._cap = tech_dict['capacity_kWh']
+        self._cap = tech_dict['capacity_kWh_max']
         self._ic = tech_dict['initial_charge']
         self._optimized_initial_charge = tech_dict['optimized_initial_charge']
         self._chg_dchg_per_cap_max = tech_dict['chg_dchg_per_cap_max']

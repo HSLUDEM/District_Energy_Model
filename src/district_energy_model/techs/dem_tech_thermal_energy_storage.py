@@ -63,7 +63,7 @@ class ThermalEnergyStorage(TechCore):
         # Properties:
         self._eta_chg_dchg = tech_dict['eta_chg_dchg']
         self._gamma = tech_dict['tes_gamma']
-        self._cap = tech_dict['capacity_kWh']
+        self._cap = tech_dict['capacity_kWh_max']
         self._force_cap_max = tech_dict['force_cap_max']
         self._ic = tech_dict['initial_charge']
         self._optimized_initial_charge = tech_dict['optimized_initial_charge']

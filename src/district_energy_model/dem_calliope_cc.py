@@ -142,6 +142,7 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list, energy_scaling
 
         constraint_name_max = 'tes_sites_size_constraint_tes_site_'+constraint_dict['sitestr']+'_max'
         constraint_name_min = 'tes_sites_size_constraint_tes_site_'+constraint_dict['sitestr']+'_min'
+        constraint_name_forced_deployment = 'tes_sites_size_constraint_tes_site_'+constraint_dict['sitestr']+'_forced_deployment'
         varname_binary = 'tes_sites_size_constraint_tes_site_'+constraint_dict['sitestr']+'_binaryvar'
         constraint_sets = ['loc_techs_store']
 
@@ -187,7 +188,7 @@ def tes_sites_minimum_size_constraints(model, ts_len, sites_list, energy_scaling
                 return 1 == binary_var[loc_tech] 
 
             model.backend.add_constraint(
-                constraint_name_min,
+                constraint_name_forced_deployment,
                 constraint_sets,
                 tes_sites_forced_deployment_rule
                 )
@@ -314,7 +315,7 @@ def tes_sites_minimum_size_cost(model, monetary_weight, ts_len, sites_list, ener
 
 
         interest_rate = value_dict['interest_rate']
-        lifetime=  site_entry['lifetime']
+        lifetime=  value_dict['lifetime']
 
         annuity_factor = ((((1+interest_rate)**lifetime) * interest_rate)/(((1+interest_rate)**lifetime) - 1) 
                           if interest_rate > 0 
@@ -323,8 +324,10 @@ def tes_sites_minimum_size_cost(model, monetary_weight, ts_len, sites_list, ener
         binary_var = bm.component(varname_binary)
 
 
-        obj.expr = obj.expr + value_dict['capex_base'] * annuity_factor * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor * monetary_weight
-        obj.expr = obj.expr + value_dict['maintenance_cost_base'] * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * energy_scaling_factor * monetary_weight
+        # Fixed costs per site [CHF], independent of the (scaled) capacity,
+        # i.e. not multiplied with the energy scaling factor:
+        obj.expr = obj.expr + value_dict['capex_base'] * annuity_factor * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * monetary_weight
+        obj.expr = obj.expr + value_dict['maintenance_cost_base'] * binary_var['X1::'+value_dict['sitestr']] * (ts_len/(365*24)) * monetary_weight
         
     active_objs[0] = obj
 
@@ -916,13 +919,17 @@ def building_inertia_flex_constraints(
                     for t in ts
                     )*energy_scaling_factor
             elif key=='district_heating':
+                # The number of district heating hubs depends on the grid cost
+                # categories; without district heating there are none:
+                dh_hubs = [
+                    loc_tech_carrier
+                    for loc_tech_carrier in backend_model.loc_tech_carriers_prod
+                    if loc_tech_carrier.startswith('X1::district_heating_hub')
+                    and loc_tech_carrier.endswith('::heat')
+                    ]
                 v_h_sum = sum(
-                    (                    
-                        backend_model.carrier_prod['X1::district_heating_hub_0::heat', t]
-                        + backend_model.carrier_prod['X1::district_heating_hub_1::heat', t]
-                        + backend_model.carrier_prod['X1::district_heating_hub_2::heat', t]
-                        + backend_model.carrier_prod['X1::district_heating_hub_3::heat', t]
-                        )
+                    backend_model.carrier_prod[loc_tech_carrier, t]
+                    for loc_tech_carrier in dh_hubs
                     for t in ts
                     )*energy_scaling_factor
             else:

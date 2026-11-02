@@ -6732,7 +6732,9 @@ def plot(
 
     add_tes_sites_plotting_keys(tes_sites_plotting_inf)
 
-    df_scen = dem_helper.add_missing_keys(df_scen, tes_sites_plotting_inf)
+    # df_scen is a placeholder (0.0) for pareto runs:
+    if isinstance(df_scen, pd.DataFrame):
+        df_scen = dem_helper.add_missing_keys(df_scen, tes_sites_plotting_inf)
 
     if pareto_results_loaded == True:
         plot_pareto_cost_vs_co2(

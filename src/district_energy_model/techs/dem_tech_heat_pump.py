@@ -49,7 +49,13 @@ class HeatPump(HeatPumpCore):
         self._u_e = [] # heat pump input - electricity
         self._u_h = [] # heat pump input - heat from environment
         self._v_h = [] # heat pump output (heat)
+        self._d_h_profile = [] # heat demand profile used for v_h (normed to annual heat demand)
         
+        
+    def compute_v_h(self, src_h_yr, d_h_profile):
+        # Keep the profile to relate the simulated timeframe to annual values:
+        self._d_h_profile = np.array(d_h_profile, dtype=float)
+        super().compute_v_h(src_h_yr, d_h_profile)
         
     def update_tech_properties(self, tech_dict):
         
@@ -224,8 +230,16 @@ class HeatPump(HeatPumpCore):
                     hps_new_cops*0+cop_constant_value, 
                     hps_one_to_one_replacement_cops*0+cop_constant_value)
         elif scen_techs['heat_pump']['cop_mode'] == "from_file":
-            cops = pd.read_feather(scen_techs['heat_pump']['cop_timeseries_file_path'])
-            return cops, cops, cops
+            # First column of the file contains the hourly COP values:
+            cops = pd.read_feather(
+                scen_techs['heat_pump']['cop_timeseries_file_path']
+                ).to_numpy(dtype=float)[:len(hps_existings_cops), 0]
+            if len(cops) != len(hps_existings_cops):
+                raise ValueError(
+                    f"COP timeseries file must contain {len(hps_existings_cops)} "
+                    f"hourly values, but contains {len(cops)}."
+                    )
+            return cops.copy(), cops.copy(), cops.copy()
         else:
             raise NotImplementedError("The COP mode selected isn't implemented.")
         
@@ -253,6 +267,16 @@ class HeatPump(HeatPumpCore):
         
         return self._cops_one_to_one_replacement
 
+    def get_timeframe_heat_fraction(self):
+        """
+        Return the fraction of the annual heat demand within the simulated
+        timeframe (1.0 for a full year or if no profile is available).
+        """
+        if len(self._d_h_profile) == 0:
+            return 1.0
+        fraction = np.sum(self._d_h_profile[:len(self._v_h)])
+        return fraction if fraction > 0 else 1.0
+
     def getRelativeSharesOfHPCategories(self):
 
         tot_v_h = np.sum(self._v_h)
@@ -260,24 +284,33 @@ class HeatPump(HeatPumpCore):
         v_h_one_to_one_yr = 0.0
         v_h_new_yr = 0.0
 
-        if tot_v_h <= self._tot_heat_existing:
+        # The heat totals of the categories are annual values. Compare them
+        # with the annual equivalent of the heat in the simulated timeframe:
+        timeframe_fraction = self.get_timeframe_heat_fraction()
+        tot_v_h_yr = tot_v_h/timeframe_fraction
+
+        if tot_v_h_yr <= self._tot_heat_existing:
             
 
-            v_h_existing_yr = tot_v_h
+            v_h_existing_yr = tot_v_h_yr
 
-        elif tot_v_h <= self._tot_heat_existing + self._tot_heat_one_to_one:
+        elif tot_v_h_yr <= self._tot_heat_existing + self._tot_heat_one_to_one:
 
 
             v_h_existing_yr = self._tot_heat_existing
-            v_h_one_to_one_yr = tot_v_h - self._tot_heat_existing
+            v_h_one_to_one_yr = tot_v_h_yr - self._tot_heat_existing
             
 
         else:
             
             v_h_existing_yr = self._tot_heat_existing
             v_h_one_to_one_yr = self._tot_heat_one_to_one
-            v_h_new_yr = tot_v_h - self._tot_heat_one_to_one - self._tot_heat_existing
+            v_h_new_yr = tot_v_h_yr - self._tot_heat_one_to_one - self._tot_heat_existing
 
+        # Back to the simulated timeframe:
+        v_h_existing_yr *= timeframe_fraction
+        v_h_one_to_one_yr *= timeframe_fraction
+        v_h_new_yr *= timeframe_fraction
                 
         return v_h_existing_yr, v_h_one_to_one_yr, v_h_new_yr, tot_v_h
     

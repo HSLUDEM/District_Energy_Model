@@ -15,7 +15,7 @@ from district_energy_model.techs.dem_tech_heat_pump_core import HeatPumpCore
 # class HeatPump(TechCore):
 class HeatPumpCP(HeatPumpCore):
     
-    def __init__(self, tech_dict):
+    def __init__(self, tech_dict, instance_key = None):
         
         """
         Initialise technology parameters.
@@ -39,8 +39,11 @@ class HeatPumpCP(HeatPumpCore):
         # Carrier types:
         self._input_carrier = 'electricity'
         self._output_carrier = 'heat_hpcp'
-        
-        self._label = 'heat_pump_cp'
+
+        if instance_key is not None:
+            self._label = 'heat_pump_cp_'+ instance_key
+        else:
+            self._label = 'heat_pump_cp'
 
         # Accounting:
         self._u_e = [] # heat pump input - electricity
@@ -97,11 +100,25 @@ class HeatPumpCP(HeatPumpCore):
     def update_df_results(self, df):
         
         # super().update_df_results(df)
-        
-        df['u_e_hpcp'] = self.get_u_e()
-        df['u_h_hpcp'] = self.get_u_h()
-        df['v_h_hpcp'] = self.get_v_h()
-        df['cop_hpcp'] = self.get_cop()
+        if 'u_e_hpcp' not in df.columns:
+            df['u_e_hpcp'] = self.get_u_e()
+            # df['v_h_hpcp'] = self.get_v_h()
+            # df['cop_hpcp'] = self.get_cop()
+        else:
+            df['u_e_hpcp'] += self.get_u_e()
+            # df['v_h_hpcp'] += self.get_v_h()
+            # df['cop_hpcp'] = self.get_cop()
+
+        if 'u_h_hpcp' not in df.columns:
+            df['u_h_hpcp'] = self.get_u_h()
+        else:
+            df['u_h_hpcp'] += self.get_u_h()
+
+        if 'v_h_hpcp' not in df.columns:
+            df['v_h_hpcp'] = self.get_v_h()
+        else:
+            df['v_h_hpcp'] += self.get_v_h()
+
 
         return df
     
