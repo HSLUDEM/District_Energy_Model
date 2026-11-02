@@ -8,7 +8,15 @@
 #
 # Local technologies listed in 'local_counterparts' are part of the national
 # profile and must be switched off (deployment: false), otherwise an error is
-# raised. In this example: hydro_power, wind_power and solar_pvalpine.
+# raised. In this example: wind_power and solar_pvalpine.
+#
+# Hydro power: run-of-river remains local (hydro_power, deployment: true), and
+# storage and pumped storage are national only (generator hydro_storage). The
+# counterpart 'hydro_power_storage' (storage and pumped-storage part of
+# hydro_power) raises an error if the local storage or pumped-storage potential
+# of the municipality is > 0, i.e. if the input data are not adapted as in the
+# OREES data (LocalHydroPotential_Speicherkraftwerk and
+# LocalHydroPotential_Pumpspeicherkraftwerk = 0).
 #
 # National generation is used before cross-border import: electricity is only
 # imported from the grid if all available national generation is used.
@@ -23,11 +31,11 @@
     # cost_CHFpkWh: 0.0
     # co2_intensity: 0.0
     # local_counterparts: []
-  # hydro:
-    # file: hydro.feather
+  # hydro_storage: # storage and pumped storage (run-of-river is local)
+    # file: hydro_storage.feather
     # cost_CHFpkWh: 0.0
     # co2_intensity: 0.0
-    # local_counterparts: [hydro_power]
+    # local_counterparts: [hydro_power_storage]
   # wind:
     # file: wind.feather
     # cost_CHFpkWh: 0.0

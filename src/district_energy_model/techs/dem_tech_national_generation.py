@@ -29,8 +29,11 @@ from district_energy_model.techs.dem_tech_core import TechCore
 GENERATOR_KEYS = ('file', 'cost_CHFpkWh', 'co2_intensity', 'local_counterparts')
 
 # Local technologies that can be declared as counterparts of a national
-# generator (i.e. their generation is part of the national profile):
-SUPPORTED_COUNTERPARTS = ('hydro_power', 'wind_power', 'solar_pvalpine')
+# generator (i.e. their generation is part of the national profile).
+# 'hydro_power_storage' is the storage and pumped-storage part of hydro_power
+# (the run-of-river part remains local); it is checked against the local
+# potentials of the municipality (see check_hydro_storage_counterpart):
+SUPPORTED_COUNTERPARTS = ('hydro_power', 'hydro_power_storage', 'wind_power', 'solar_pvalpine')
 
 N_HOURS_PROFILE = 8760
 
@@ -97,6 +100,8 @@ def check_national_generation_config(scen_techs):
     conflicts = []
     for gen_name, gen_dict in tech_dict['generators'].items():
         for tech in gen_dict['local_counterparts']:
+            if tech == 'hydro_power_storage':
+                continue # requires municipality data; see check_hydro_storage_counterpart
             if scen_techs[tech]['deployment']:
                 conflicts.append((gen_name, tech))
 
@@ -127,6 +132,86 @@ def check_national_generation_config(scen_techs):
             "profiles. Set scenarios -> nuclear_phaseout = False and rerun "
             "the model."
             )
+
+
+def check_hydro_storage_counterpart(scen_techs, df_meta, com_nr, com_name):
+    """
+    Raise a ValueError if a national generator contains the storage and
+    pumped-storage hydro power (local counterpart 'hydro_power_storage') while
+    the local hydro power of the municipality also contains storage or
+    pumped-storage potential (counted twice). The run-of-river part of
+    hydro_power remains local and is not affected.
+
+    Local hydro power is part of the run if hydro_power is deployed, or in a
+    simulation run (without optimisation), where the existing generation of
+    switched-off techs is kept, unless 'hydro_power' is a local counterpart
+    itself (then the local hydro power is removed completely).
+
+    Parameters
+    ----------
+    scen_techs : dict
+        Dictionary containing info about technologies.
+    df_meta : pandas dataframe
+        Meta data (one row per municipality) incl. the local hydro potentials.
+    com_nr : int
+        Municipality number.
+    com_name : str
+        Name of municipality (for the error message).
+
+    Returns
+    -------
+    None
+    """
+    if not is_deployed(scen_techs):
+        return
+
+    generators = scen_techs['national_generation']['generators']
+    gens = [
+        g for g, gen_dict in generators.items()
+        if 'hydro_power_storage' in gen_dict['local_counterparts']
+        ]
+    if not gens or 'hydro_power' in get_local_counterparts(scen_techs):
+        return
+
+    row = df_meta.loc[df_meta['GGDENR'] == com_nr]
+    s_storage = float(row['LocalHydroPotential_Speicherkraftwerk'].iloc[0]) # [GWh/a]
+    s_pumped = float(row['LocalHydroPotential_Pumpspeicherkraftwerk'].iloc[0]) # [GWh/a]
+    if s_storage + s_pumped <= 0:
+        return
+
+    deployed = scen_techs['hydro_power']['deployment']
+    optimisation = scen_techs['optimisation']['enabled']
+    if not deployed and optimisation:
+        return # local hydro power is removed from the optimisation
+
+    if deployed:
+        reason = "hydro_power -> deployment = True"
+    else:
+        reason = (
+            "hydro_power -> deployment = False, but in simulation runs "
+            "(optimisation -> enabled = False) the existing generation of "
+            "switched-off technologies is kept"
+            )
+
+    raise ValueError(
+        f"National generator(s) {gens} contain the storage and pumped-storage "
+        "hydro power (local_counterparts contains 'hydro_power_storage'), but "
+        f"the local hydro power of {com_name} also contains storage or "
+        f"pumped-storage potential ({s_storage} GWh/a storage, {s_pumped} GWh/a "
+        f"pumped storage) and is part of this run ({reason}). This generation "
+        "would be counted twice. Resolve it in one of the following ways and "
+        "rerun the model:\n"
+        "  - use input data in which the local storage and pumped-storage "
+        "potentials are 0 (meta data columns "
+        "LocalHydroPotential_Speicherkraftwerk and "
+        "LocalHydroPotential_Pumpspeicherkraftwerk), as in the OREES data; "
+        "the run-of-river potential remains local, or\n"
+        "  - set 'deployment: false' for 'hydro_power' and add 'hydro_power' "
+        "to local_counterparts (this also removes the local run-of-river "
+        "hydro power), or\n"
+        "  - remove 'hydro_power_storage' from local_counterparts if the "
+        "national profile does not contain the local storage hydro power."
+        )
 
 
 def validate_tech_dict(tech_dict):
