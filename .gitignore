@@ -8,6 +8,7 @@
 
 # ignore specific files:
 # ---------------------
+settings.json
 config/config_files/*.yml
 config/config_files/*.yaml
 src/dem_OLD.py
