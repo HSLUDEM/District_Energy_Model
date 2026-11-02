@@ -163,6 +163,15 @@ class DistrictEnergyModel:
                   "of municipalities to omit (see dem_constants.py).")
             raise ValueError("Municipality Number marked as to omit.")
         
+        # National generation: storage hydro power must not be contained in
+        # both the national profiles and the local hydro power:
+        dem_nat.check_hydro_storage_counterpart(
+            scen_techs,
+            self.df_meta,
+            self.com_nr,
+            self.com_name_
+            )
+        
         # Input data directories:
         self.simulation_data_dir = paths.simulation_data_dir
         self.wind_power_data_dir = paths.wind_power_data_dir # location of wind power data (e.g. installed capacities per municipality)
