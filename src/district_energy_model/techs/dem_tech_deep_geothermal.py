@@ -74,7 +74,7 @@ class DeepGeothermal(TechCore):
         None
         """
         # Properties:
-        # self.v_max = tech_dict['kWp_max']
+        self._v_h_max = tech_dict['kW_th_max']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
         self._co2_intensity = tech_dict['co2_intensity']
@@ -161,7 +161,7 @@ class DeepGeothermal(TechCore):
                 'parent': 'deep_geothermal'
                 },
             'constraints':{
-                'energy_cap_max': self._capex / energy_scaling_factor if self._capex != 'inf' else 'inf',
+                'energy_cap_max': self._v_h_max / energy_scaling_factor if self._v_h_max != 'inf' else 'inf',
                 },
             'costs':{
                 'monetary':{

@@ -322,7 +322,7 @@ class BuildingInertiaFlexibility:
 
         return dict_metrics
             
-    def create_techs_dict(self, techs_dict, color):
+    def create_techs_dict(self, techs_dict, color, energy_scaling_factor=1.0):
         """
         Create virtual storage tech in Calliope (one per flexibility system).
 
@@ -332,6 +332,9 @@ class BuildingInertiaFlexibility:
             DESCRIPTION.
         color : TYPE
             DESCRIPTION.
+        energy_scaling_factor : float
+            Calliope energy scaling factor; storage capacities are given in
+            scaled units.
 
         Returns
         -------
@@ -358,7 +361,7 @@ class BuildingInertiaFlexibility:
                     },
                 'constraints':{
                     'storage_initial':ic,
-                    'storage_cap_max':self._E_vs_tot,
+                    'storage_cap_max':self._E_vs_tot / energy_scaling_factor,
                     'storage_loss':self._r_tot,
                     'energy_eff': 1.0,
                     'lifetime': 25,
@@ -423,7 +426,7 @@ class BuildingInertiaFlexibility:
                     },
                 'constraints':{
                     'storage_initial':0.0,
-                    'storage_cap_equals':self._E_vs_tot_max,
+                    'storage_cap_equals':self._E_vs_tot_max / energy_scaling_factor,
                     'storage_loss':0.0, # no losses
                     'energy_cap_per_storage_cap_equals':1.0, # the entire storage can be filled or emptied in one timestep
                     'energy_eff': 1.0,

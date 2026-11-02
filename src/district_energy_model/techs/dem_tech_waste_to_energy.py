@@ -64,6 +64,9 @@ class WasteToEnergy(TechCore):
         self._eta_el = tech_dict['eta_el']
         self._htp_ratio = tech_dict['htp_ratio']
         self._force_cap_max = tech_dict['force_cap_max']
+        if self._force_cap_max and tech_dict['kW_el_max'] == 'inf':
+            raise ValueError("waste_to_energy.force_cap_max requires a finite waste_to_energy.kW_el_max "
+                             "(the capacity is fixed to this value).")
         self._cap_min_use = tech_dict['cap_min_use']
         # self._annual_msw_supply_kg = tech_dict['annual_msw_supply']
         self._kW_el_max = tech_dict['kW_el_max'] # [kW_el] Max. electric power output
@@ -269,6 +272,12 @@ class WasteToEnergy(TechCore):
         self.len_test(self._u_msw_kg)
         return self._u_msw_kg
     
+    def get_installed_cap(self):
+        # With force_cap_max, the optimiser builds kW_el_max (energy_cap_equals), even if it is not fully used:
+        if self._force_cap_max and self._kW_el_max != 'inf':
+            return max(self.get_output().max(), self._kW_el_max)
+        return self.get_output().max()
+
     def get_v_e(self):
         self.len_test(self._v_e)
         return self._v_e

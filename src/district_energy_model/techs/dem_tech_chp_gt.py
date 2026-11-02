@@ -64,6 +64,9 @@ class CHPGasTurbine(TechCore):
         self._htp_ratio = tech_dict['htp_ratio']
         self._kW_el_max = tech_dict['kW_el_max'] # [kW_el] Max. electric power output
         self._force_cap_max = tech_dict['force_cap_max']
+        if self._force_cap_max and tech_dict['kW_el_max'] == 'inf':
+            raise ValueError("chp_gt.force_cap_max requires a finite chp_gt.kW_el_max "
+                             "(the capacity is fixed to this value).")
         self._hv_gas = tech_dict['hv_gas_MJpkg']
         self._lifetime = tech_dict['lifetime']
         self._interest_rate = tech_dict['interest_rate']
@@ -225,7 +228,7 @@ class CHPGasTurbine(TechCore):
 
         if self._force_cap_max:
             techs_dict[header]['constraints']['energy_cap_equals']\
-                = self._kW_el_max
+                = self._kW_el_max / energy_scaling_factor
     
 
 
@@ -233,6 +236,9 @@ class CHPGasTurbine(TechCore):
     
     def get_deploy_existing(self):
         return self._deploy_existing
+    
+    def get_allow_heat_export(self):
+        return self._allow_heat_export
     
     def get_eta_el(self):
         self.num_test(self._eta_el)
@@ -254,6 +260,12 @@ class CHPGasTurbine(TechCore):
         self.len_test(self._u_gas_kg)
         return self._u_gas_kg
     
+    def get_installed_cap(self):
+        # With force_cap_max, the optimiser builds kW_el_max (energy_cap_equals), even if it is not fully used:
+        if self._force_cap_max and self._kW_el_max != 'inf':
+            return max(self.get_output().max(), self._kW_el_max)
+        return self.get_output().max()
+
     def get_v_e(self):
         self.len_test(self._v_e)
         return self._v_e

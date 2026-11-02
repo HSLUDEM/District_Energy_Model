@@ -678,6 +678,7 @@ scen_techs = {
 
     'deep_geothermal':{ # deep geothermal energy
         'deployment':False,
+        'kW_th_max':'inf', # [kW_th] Maximum heat output
         'capex': 25000.0, # [CHF/kWth] personal communication
         'maintenance_cost': 0.0,
         'lifetime':50,

@@ -114,9 +114,16 @@ class WasteHeat(TechCore):
         self._v_h_resource = zero_vals.copy()
         for i in range(len(self._timeseries_file_path)):
             path = self._timeseries_file_path[i]
-            if path.endswith(".feather"):
-                timeseries_data[i,:] = pd.read_feather(path).to_numpy()[:n_hours, 0]
-            
+            if not str(path).endswith(".feather"):
+                raise ValueError(
+                    f"waste_heat.timeseries_file_path: '{path}' is not supported. "
+                    "Use a .feather file with the hourly waste heat in its first column."
+                    )
+            timeseries_data[i,:] = self.check_hourly_timeseries(
+                pd.read_feather(path).to_numpy()[:, 0],
+                n_hours,
+                f"waste_heat.timeseries_file_path '{path}'"
+                )
 
             self._v_h_resource[i,:] = timeseries_data[i,:].copy()
         self._v_h = zero_vals.copy()
