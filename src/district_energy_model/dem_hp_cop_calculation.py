@@ -298,10 +298,14 @@ def calculateCOPs(
       vorlauf_radiators = {x : tempfunctions_radiators[x](weather_data) for x in tempfunctions_radiators.keys()}
       vorlauf_underfloor = {x : tempfunctions_underfloorheating[x](weather_data) for x in tempfunctions_underfloorheating.keys()}
 
-      carnot_eff_radiators_air_to_water = {x : (kelvin_offset+vorlauf_radiators[x])/(vorlauf_radiators[x]-weather_data) for x in vorlauf_radiators.keys()}
+      # The heating curves reach the outdoor temperature above 15 degC (e.g. 19 degC for underfloor
+      # heating after 2010), which gives a division by zero or negative values. These hours are
+      # set to COP_MAX_FACTOR below (weather_data > 15), so the warnings are suppressed:
+      with np.errstate(divide='ignore', invalid='ignore'):
+            carnot_eff_radiators_air_to_water = {x : (kelvin_offset+vorlauf_radiators[x])/(vorlauf_radiators[x]-weather_data) for x in vorlauf_radiators.keys()}
+            carnot_eff_underfloorheating_air_to_water = {x : (kelvin_offset+vorlauf_underfloor[x])/(vorlauf_underfloor[x]-weather_data) for x in vorlauf_underfloor.keys()}
       carnot_eff_radiators_brine_to_water = {x : (kelvin_offset+vorlauf_radiators[x])/(vorlauf_radiators[x]-temp_brine_) for x in vorlauf_radiators.keys()}
 
-      carnot_eff_underfloorheating_air_to_water = {x : (kelvin_offset+vorlauf_underfloor[x])/(vorlauf_underfloor[x]-weather_data) for x in vorlauf_underfloor.keys()}
       carnot_eff_underfloorheating_brine_to_water = {x : (kelvin_offset+vorlauf_underfloor[x])/(vorlauf_underfloor[x]-temp_brine_) for x in vorlauf_underfloor.keys()}
 
       carnot_eff_dhw_air_to_water =(kelvin_offset+temp_dhw)/(temp_dhw-weather_data)
