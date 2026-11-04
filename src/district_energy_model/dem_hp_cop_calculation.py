@@ -68,6 +68,7 @@ relu = lambda x: x * (x>0)
 share_underfloor = lambda year : smaller1(relu((year-1970)*(0.5/30)))
 
 COP_MAX_FACTOR = 20.0 #COP of individual systems is capped at 20 * quality_factor (e.g. for quality_factor = 0.4 -> 8)
+COP_TEMPERATURE_GAP = 2.0 #COP in hours without temperature data (gaps in the weather files, see dem_helper.check_temperature_data_gaps)
 
 
 # tempfunctions_radiators = 
@@ -85,7 +86,12 @@ def calculateHPCP_COP(paths,
 
       carnot_eff[carnot_eff > COP_MAX_FACTOR] = COP_MAX_FACTOR
 
-      return tech_instance._quality_factor* carnot_eff
+      cop = tech_instance._quality_factor* carnot_eff
+
+      # Hours without temperature data:
+      cop[np.isnan(cop)] = COP_TEMPERATURE_GAP
+
+      return cop
 
 
 
@@ -412,6 +418,12 @@ def calculateCOPs(
       cops_new = total_heat_produced_new_hps/electricity_consumed_new_hps
       with np.errstate(invalid='ignore', divide='ignore'):
           cops_one_to_one = total_heat_produced_one_to_one_replacement_hps/electricity_consumed_one_to_one_replacement_hps
+
+      # Hours without temperature data:
+      temperature_gap = np.isnan(weather_data)
+      cops_existing[temperature_gap] = COP_TEMPERATURE_GAP
+      cops_new[temperature_gap] = COP_TEMPERATURE_GAP
+      cops_one_to_one[temperature_gap] = COP_TEMPERATURE_GAP
 
       df_com_yr = df_com_yr.drop(columns = ['heat_pump_share_air_to_water', 
                                 'heat_pump_share_brine_to_water', 

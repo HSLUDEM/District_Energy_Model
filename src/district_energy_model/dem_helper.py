@@ -13,12 +13,14 @@ import os
 import math
 import re
 import yaml
+import warnings
 from numbers import Number
 # from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any
 
 # from district_energy_model import dem_constants as C
+from district_energy_model import dem_hp_cop_calculation
 
 class _ConfigLoader(yaml.SafeLoader):
     """
@@ -1924,3 +1926,74 @@ def check_number(value, var_name, check_positive=False):
 
 
 
+
+def check_temperature_data_gaps(weather_file, years, allow_gaps=False):
+    """
+    Check the temperature data of the given years for gaps (NaN values).
+    In hours without temperature data, the heat pump COP is set to a constant
+    value (see dem_hp_cop_calculation.COP_TEMPERATURE_GAP).
+
+    Years without any temperature data are not checked here (they raise an
+    error in dem_demand).
+
+    Parameters
+    ----------
+    weather_file : str
+        Path of the feather file with the hourly temperatures (one column
+        per year).
+    years : list of int
+        Years (columns) to be checked.
+    allow_gaps : bool, optional
+        If False (default), gaps raise an error. If True, a warning (in red)
+        is shown instead (scen_techs['simulation']['allow_temperature_data_gaps']).
+
+    Returns
+    -------
+    None.
+
+    """
+    df_temperature = pd.read_feather(weather_file)
+
+    gaps = []
+    for year in dict.fromkeys(years):
+        if year not in df_temperature.columns:
+            continue
+        nan_hours = df_temperature[year].isna()
+        if nan_hours.all() or not nan_hours.any():
+            continue
+        idx = np.flatnonzero(nan_hours.to_numpy())
+        gaps.append(
+            f"  - {year}: {len(idx)} hours without data "
+            f"(between hours {idx[0]} and {idx[-1]})"
+            )
+
+    if len(gaps) == 0:
+        return
+
+    line = "!" * 79
+    msg = (
+        f"\n{line}\n"
+        f"FAULTY TEMPERATURE DATA in {weather_file}:\n"
+        + "\n".join(gaps) + "\n"
+        )
+    consequences = (
+        "the heat pump COP is set to "
+        f"{dem_hp_cop_calculation.COP_TEMPERATURE_GAP} in these hours and no "
+        "space heating demand\n"
+        "is assigned to them (it is moved to the other hours).\n"
+        )
+
+    if allow_gaps:
+        warnings.warn(
+            "\033[91m" + msg
+            + "The model continues (allow_temperature_data_gaps: true), but\n"
+            + consequences + line + "\033[0m",
+            stacklevel=2,
+            )
+    else:
+        raise ValueError(
+            msg
+            + "To run the model anyway, set "
+            "simulation: allow_temperature_data_gaps: true\n"
+            "Then " + consequences + line
+            )
