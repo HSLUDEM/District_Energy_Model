@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - Added run_dem_local_parallel.py to run multiple municipalities in parallel (list of BFS numbers in a .yaml file). Interrupted batches can be continued by restarting the script.
 - Added solver option `solver_option_Threads` (number of Gurobi threads; default: 0 = automatic).
 - Added national generation (`national_generation`): hourly profiles of a flexible set of national generators (e.g. nuclear, hydro, alpine PV, agri PV, wind, gas plant) allocated to the municipality are used as an upper bound for supply. Unused generation is reported as curtailment. National generation cannot be exported and is used before cross-border import (binary constraints in the optimisation). An error is raised if a national generator and its local counterpart (e.g. hydro_power) are both switched on. See doc/national_generation.pdf.
+- Added output file capacities.csv (optimisation runs with save_results): optimised capacities (Calliope energy_cap [kW] and storage_cap [kWh]) per technology, split into existing, one-to-one replacement and new capacity where available.
 
 
 ### Fixed

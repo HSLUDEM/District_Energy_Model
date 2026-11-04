@@ -279,6 +279,9 @@ class DistrictEnergyModel:
         self.scenario_generated = False
         self.pareto_results_generated = False
         self.pareto_results_loaded = False
+
+        # Optimised capacities (only available after an optimisation):
+        self.df_capacities = None
         
     def __generate_base_scenario(self, scen_techs):
         """
@@ -1800,6 +1803,7 @@ class DistrictEnergyModel:
                 optimiser.get_optimal_output_df(
                 opt_results=opt_results
                 )
+            self.df_capacities = optimiser.get_capacities(opt_results)
                 
             dict_total_costs["Kostenmodul"] = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"], debug=False)
                 
@@ -2321,6 +2325,8 @@ class DistrictEnergyModel:
                     self.results_path,
                     self.building_inertia_flex,
                     )
+                if self.df_capacities is not None:
+                    dem_output.capacities_to_file(self.results_path, self.df_capacities)
 
             else:
                 return
@@ -2346,6 +2352,8 @@ class DistrictEnergyModel:
                 self.results_path,
                 self.building_inertia_flex,
                 )
+            if self.df_capacities is not None:
+                dem_output.capacities_to_file(self.results_path, self.df_capacities)
 
         else:
             raise(Exception('No Scenario has been generated!'))
