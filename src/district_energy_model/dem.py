@@ -1003,8 +1003,12 @@ class DistrictEnergyModel:
             self.tech_instances['waste_to_energy'] = self.tech_waste_to_energy
                     
         # Heat pump (central plant):
-        for scen_tech_hpcp_key in scen_techs['heat_pump_cp'].keys():
-            scen_tech_hpcp = scen_techs['heat_pump_cp'][scen_tech_hpcp_key]
+        # (parameters can be lists, one instance per list entry)
+        hpcp_dicts = dem_helper.expand_list_parameters(
+            scen_techs['heat_pump_cp'], 'heat_pump_cp'
+            )
+        for i, scen_tech_hpcp in enumerate(hpcp_dicts):
+            scen_tech_hpcp_key = f'instance_{i+1}'
             if scen_tech_hpcp['deployment']:
                 weather_year_ = (
                     self.simulation_year
