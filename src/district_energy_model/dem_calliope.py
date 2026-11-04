@@ -21,6 +21,8 @@ CHANGES THAT MUST BE REVERTED EVENTUALLY:
 """
 
 
+import re
+
 import pandas as pd
 import numpy as np
 
@@ -889,6 +891,125 @@ class CalliopeOptimiser:
             return opt_results, new_model
         else:
             return opt_results, model        
+
+    def get_capacities(self, opt_results):
+        """
+        Optimised capacities of the DEM technologies: Calliope decision
+        variables energy_cap [kW] and storage_cap [kWh], summed over all
+        locations and multiplied by the energy scaling factor.
+
+        The Calliope techs of a DEM tech are assigned to existing, one-to-one
+        replacement and new capacity where their names allow it:
+            <tech>_old                       existing
+            <tech>_one_to_one_replacement    replacement
+            <tech>_new                       new
+            <tech>, <tech>_exist(s)          total only (no split)
+            solar installations: <..>_installation_<i>_occupied (existing),
+                                 <..>_installation_<i>_unoccupied (new)
+            district_heating: district_heating_hub_<i> (grid; import excluded)
+            tes_sites: tes_site_<..>
+        Supply and demand techs, transmission lines, hubs and helper techs
+        are not included. energy_cap refers to the output of a tech (e.g. PV:
+        peak of the generation profile in kW, not kWp).
+
+        Parameters
+        ----------
+        opt_results : xarray
+            Results from calliope optimisation.
+
+        Returns
+        -------
+        df_capacities : pandas dataframe
+            One row per DEM tech with Calliope capacities. Columns: tech,
+            existing_kW, replacement_kW, new_kW, total_kW, storage_kWh,
+            calliope_techs. Split columns are NaN if the tech is not split.
+        """
+
+        # Not part of the capacity output (same as in the cost module):
+        techs_excluded = [
+            'grid_supply', 'grid_export', 'national_generation',
+            'pile_of_berries', 'heat_demand_manual',
+            ]
+        installation_prefix = {
+            'solar_pvrooftop': 'solar_pvrooftop_installation_',
+            'solar_pvalpine': 'solar_pvalpine_installation_',
+            'solarthermal_rooftop': 'solar_solarthermalrooftop_installation_',
+            }
+        suffix_part = {
+            '_old': 'existing',
+            '_one_to_one_replacement': 'replacement',
+            '_new': 'new',
+            '': 'total',
+            '_exist': 'total',
+            '_exists': 'total',
+            }
+
+        def get_part(tech, calliope_tech):
+            if tech in installation_prefix:
+                if not calliope_tech.startswith(installation_prefix[tech]):
+                    return None
+                if calliope_tech.endswith('_unoccupied'):
+                    return 'new'
+                if calliope_tech.endswith('_occupied'):
+                    return 'existing'
+                return None
+            if tech == 'district_heating':
+                if re.fullmatch(r'district_heating_hub_\d+', calliope_tech):
+                    return 'total'
+                return None
+            if tech == 'tes_sites':
+                return 'total' if calliope_tech.startswith('tes_site_') else None
+            for suffix, part in suffix_part.items():
+                if calliope_tech == tech + suffix:
+                    return part
+            return None
+
+        # Capacities per Calliope tech (index of results: '<loc>::<tech>'):
+        caps = {}
+        for var in ['energy_cap', 'storage_cap']:
+            if var in opt_results:
+                s = opt_results[var].to_series()*self.energy_scaling_factor
+                caps[var] = s.groupby(lambda lt: lt.split('::', 1)[1]).sum()
+            else:
+                caps[var] = pd.Series(dtype=float)
+
+        rows = []
+        for tech in self.tech_list:
+            if tech in techs_excluded:
+                continue
+            parts = {
+                c: get_part(tech, c)
+                for c in caps['energy_cap'].index.union(caps['storage_cap'].index)
+                }
+            parts = {c: p for c, p in parts.items() if p is not None}
+            if not parts:
+                continue
+
+            e_cap = caps['energy_cap']
+            e_parts = {c: p for c, p in parts.items() if c in e_cap.index}
+            row = {'tech': tech}
+            for part in ['existing', 'replacement', 'new']:
+                if 'total' in e_parts.values() or not e_parts:
+                    row[f'{part}_kW'] = np.nan
+                else:
+                    row[f'{part}_kW'] = sum(
+                        e_cap[c] for c, p in e_parts.items() if p == part
+                        )
+            row['total_kW'] = sum(e_cap[c] for c in e_parts) if e_parts else np.nan
+            s_parts = [c for c in parts if c in caps['storage_cap'].index]
+            row['storage_kWh'] = (
+                sum(caps['storage_cap'][c] for c in s_parts) if s_parts else np.nan
+                )
+            row['calliope_techs'] = ';'.join(sorted(parts))
+            rows.append(row)
+
+        df_capacities = pd.DataFrame(
+            rows,
+            columns=['tech', 'existing_kW', 'replacement_kW', 'new_kW',
+                     'total_kW', 'storage_kWh', 'calliope_techs'],
+            )
+
+        return df_capacities
 
     def get_optimal_output_df(self,opt_results):
         """

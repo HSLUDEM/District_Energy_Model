@@ -859,7 +859,7 @@ scen_techs = {
     'demand_side':{ # only applies if ['scenarios]['demand_side'] == True
         'simulation_year':{
             'type':'current', # Options: 'current', 'future'
-            'future_year': 2050, # Only relevant if type == future; Options: '2030', '2040', '2050'
+            'future_year': 2050, # Only relevant if type == future; Options: '2030', '2035', '2040', '2050'
             },
         # 'year': 2023, # Options: 2023, 2030, 2040, 2050
         'rcp_scenario':'RCP26',

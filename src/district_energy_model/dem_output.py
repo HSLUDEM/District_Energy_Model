@@ -413,6 +413,34 @@ def total_costs_to_file(dir_path,
         for key, value in dictionary.items():
             f.write('%s: %s\n' % (key, value))
             
+def capacities_to_file(dir_path,
+                       df_capacities,
+                       filename = 'capacities.csv'):
+    """
+    Writes the optimised capacities of the technologies to a .csv file and
+    stores it in dir_path directory.
+
+    Parameters
+    ----------
+
+    dir_path : string
+        Path to directory where file should be saved.
+    df_capacities : pandas dataframe
+        Dataframe with one row per technology. It is generated using the
+        get_capacities() method of the CalliopeOptimiser class in
+        dem_calliope module.
+    filename : string
+        Name of csv file. Must contain extension (.csv).
+
+    Returns
+    -------
+    n/a
+    """
+
+    file = dir_path + '/' + filename
+
+    df_capacities.to_csv(file, index=False)
+
 def pareto_metrics_to_csv_SUPERSEDED(
         dir_path,
         pareto_results,

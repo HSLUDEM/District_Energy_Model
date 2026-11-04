@@ -1420,13 +1420,13 @@ class EnergyDemand:
 
         """
         
-        valid_years = {2016,2017,2018,2019,2020,2021,2022,2023,2030,2040,2050}
+        valid_years = {2016,2017,2018,2019,2020,2021,2022,2023,2030,2035,2040,2050}
         if weather_year in valid_years:
             pass
         else:
             msg = (
                 f"Value for selected year ({weather_year}) is invalid. "
-                "Options are 2016-2023, 2030, 2040, or 2050.")
+                "Options are 2016-2023, 2030, 2035, 2040, or 2050.")
             raise ValueError(msg)
             
         if weather_year == hist_data_year:
