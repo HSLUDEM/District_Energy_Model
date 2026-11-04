@@ -412,6 +412,9 @@ def calculate_CO2_emissions(supply, tech_instances, debug=False):
                 sum(tech_instances["district_heating"]._m_h)
                 * tech_instances["district_heating"]._co2_intensity
             )
+        # Heat sources with their own co2_intensity (as in the optimisation and v_co2_tot):
+        if tech in ("deep_geothermal", "waste_heat", "waste_heat_low_temperature"):
+            co2_emissions[tech] = np.sum(tech_instances[tech].get_v_co2())
 
     for tech in tech_instances:
         total_heat_generation += sum(getattr(tech_instances[tech], "_v_h", [0]))

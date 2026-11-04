@@ -81,6 +81,10 @@ class DistrictEnergyModel:
         Prepare input:
         """
         self.paths = paths
+
+        # Configuration as given by the user (saved to scen_techs.yaml); the
+        # run adds derived values to scen_techs and changes some settings:
+        self.scen_techs_input = copy.deepcopy(scen_techs)
         
         # Selected community/ custom scenario:
         self.com_nr = arg_com_nr
@@ -578,6 +582,7 @@ class DistrictEnergyModel:
         self.tech_biomass.update_v_e_cons(tmp_null_arr)
         self.tech_biomass.update_v_e_exp(tmp_null_arr)
         self.tech_biomass.update_v_h(tmp_null_arr)
+        self.tech_biomass.update_v_h_curt(tmp_null_arr)
 
         """--------------------------------------------------------------------
         Hydro Potentials and Current Consumption:
@@ -621,7 +626,7 @@ class DistrictEnergyModel:
                 )        
             dem_eb.energy_balance_test(
                 sum(self.tech_grid_supply.get_m_e_ch()), 
-                sum_a, 
+                sum_a,
                 'electricity mix'
                 )        
             dem_eb.energy_balance_test(
@@ -791,6 +796,16 @@ class DistrictEnergyModel:
 
         # Heat demand manual flow
         if scen_techs['heat_demand_manual']['deployment']:                
+            if not (scen_techs['optimisation']['enabled']
+                    or scen_techs['optimisation']['pareto_monetary_co2']):
+                # The manual heat demand is only supplied in the optimisation;
+                # a simulation would silently ignore it. (The pareto front
+                # sets 'enabled' to False while it generates the scenario.)
+                raise ValueError(
+                    "heat_demand_manual is only supported in optimisations "
+                    "(optimisation.enabled = True). In a simulation the manual "
+                    "heat demand would be ignored."
+                    )
             self.tech_heat_demand_manual = dem_techs.HeatDemandManual(scen_techs['heat_demand_manual'])
             self.tech_heat_demand_manual.initialise_zero(n_days)
             self.tech_instances['heat_demand_manual'] = self.tech_heat_demand_manual
@@ -1744,6 +1759,16 @@ class DistrictEnergyModel:
                         "(check solver options, e.g. solver_option_FeasibilityTol)."
                         )
 
+            # Heat co-produced by biomass technologies that district heating cannot take is curtailed:
+            curt_kWh = df_scen['v_h_bm_curt'].sum() if 'v_h_bm_curt' in df_scen.columns else 0.0
+            if curt_kWh > C.DIFF_SUM_ACC:
+                print(
+                    f"\nWARNING: {curt_kWh:.1f} kWh of heat co-produced by biomass "
+                    "technologies were curtailed (v_h_bm_curt): district heating did "
+                    "not take all of it (district_heating.heat_sources.biomass is False, "
+                    "or district heating needs less heat than the biomass technologies produce)."
+                    )
+
             if self.toggle_energy_balance_tests:
                 dem_eb.electricity_balance_test(
                     scen_techs=scen_techs,
@@ -1760,11 +1785,15 @@ class DistrictEnergyModel:
                     tes_sites_plotting_inf = (
                         self
                         .tech_tes_sites
-                        .get_plotting_information() 
+                        .get_plotting_information()
                         if scen_techs['tes_sites']['deployment'] else {}
                         )
                     )
-            
+                dem_helper.unmet_demand_test(
+                    df_scen=df_scen,
+                    share_accepted=C.UNMET_SHARE_ACC
+                    )
+
         else:
             
             # Update fuel imports to boiler outputs after scenarios:
@@ -1820,7 +1849,8 @@ class DistrictEnergyModel:
                 df_values = df_scen,
                 description = 'df_scen',
                 error_accepted=C.NEG_ACC,
-                exempted_columns=exempted_columns_
+                exempted_columns=exempted_columns_,
+                relative_error_accepted=C.NEG_ACC_REL
                 )
         
         #----------------------------------------------------------------------            
@@ -2217,7 +2247,7 @@ class DistrictEnergyModel:
             if self.scenario_generated == True:
                 dem_output.input_to_file(self.results_path, self.list_input_data)
                 dem_output.hourly_results_to_file(self.results_path, self.df_scen)
-                dem_output.scen_techs_to_file(self.results_path, self.scen_techs)
+                dem_output.scen_techs_to_file(self.results_path, self.scen_techs_input)
                 dem_output.annual_results_to_file(self.results_path, self.dict_yr_scen)
                 dem_output.total_costs_to_file(self.results_path, self.dict_total_costs)
                 dem_output.flexibility_metrics_to_file(
@@ -2242,7 +2272,7 @@ class DistrictEnergyModel:
         elif self.scenario_generated == True:
             dem_output.input_to_file(self.results_path, self.list_input_data)
             dem_output.hourly_results_to_file(self.results_path, self.df_scen)
-            dem_output.scen_techs_to_file(self.results_path, self.scen_techs)
+            dem_output.scen_techs_to_file(self.results_path, self.scen_techs_input)
             dem_output.annual_results_to_file(self.results_path, self.dict_yr_scen)
             dem_output.total_costs_to_file(self.results_path, self.dict_total_costs)
             dem_output.flexibility_metrics_to_file(

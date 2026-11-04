@@ -11,6 +11,33 @@ import warnings
 
 class TechCore():
     
+    @staticmethod
+    def check_hourly_timeseries(values, n_hours, description):
+        """
+        Check an hourly input time series: it must cover the simulated
+        period (n_hours) and contain no missing or negative values.
+        """
+        values = np.asarray(values, dtype=float)
+        if len(values) < n_hours:
+            raise ValueError(
+                f"{description}: the time series has {len(values)} values, "
+                f"but the simulated period has {n_hours} hours."
+                )
+        values = values[:n_hours]
+        if not np.all(np.isfinite(values)):
+            i = int(np.argmax(~np.isfinite(values)))
+            raise ValueError(
+                f"{description}: the time series contains missing or "
+                f"non-finite values (first in hour {i})."
+                )
+        if np.any(values < 0.0):
+            i = int(np.argmax(values < 0.0))
+            raise ValueError(
+                f"{description}: the time series contains negative values "
+                f"(first in hour {i}: {values[i]})."
+                )
+        return values
+    
     def __init__(self, tech_dict):
         
         """
@@ -115,7 +142,7 @@ class TechCore():
                 replacement_capex = self._capex_one_to_one_replacement*self.needs_replacement
                 return replacement_capex + new_capex
         else: 
-            new_capex = self._capex*(self.get_output().max() - self.existing)
+            new_capex = self._capex*(self.get_installed_cap() - self.existing)
             if new_capex < 0:
                 new_capex = 0
             total_capex = new_capex
@@ -127,7 +154,7 @@ class TechCore():
         if hasattr(self, '_cap') and self._cap != 'inf':
             return self._maintenance_cost*self.get_cap()
         if hasattr(self, '_maintenance_cost'):
-            return self._maintenance_cost*self.get_output().max()
+            return self._maintenance_cost*self.get_installed_cap()
         elif hasattr(self, 'maintenance_cost'):
             return self.maintenance_cost*self.get_output().max()
 
@@ -143,6 +170,11 @@ class TechCore():
     #     variable = np.array([0]*n_hours)
 
  
+    def get_installed_cap(self):
+        # Capacity for the cost module: the peak output (the optimiser builds the capacity it uses),
+        # unless a technology forces a larger capacity (overridden there).
+        return self.get_output().max()
+
     def get_output(self):
         # First check for storage variables, then for flow variables:
         for attr in ["_q_h", "_q_gas", "_q_wd", "_q_hyd", "_q_e"]:

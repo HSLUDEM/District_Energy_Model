@@ -127,8 +127,9 @@ class CalliopeOptimiser:
         self.tech_list_new = []
         self.tech_list_old = []
         self.tech_list_grid_connection = []
-        self.tech_list_pv = []
-        self.tech_list_solarthermal = [] #Always same length as pv!
+        self.solar_locs = [] # Locations of the solar installations, in groups (rooftop, alpine)
+        self.tech_list_pv = [] # PV techs per group (None: no PV in this group); same length as solar_locs
+        self.tech_list_solarthermal = [] # Solar thermal techs per group (None: no solar thermal); same length as solar_locs
         
         # Unpack tech instances:
         if 'heat_pump' in self.tech_list:
@@ -847,6 +848,87 @@ class CalliopeOptimiser:
         else:
             return opt_results, model        
 
+    def __get_unmet_demand_keys(self):
+        """
+        Return the locations::carriers whose unmet demand is reported as
+        d_e_unmet, d_h_unmet and d_h_unmet_dhn.
+        """
+        keys = {
+            'd_e_unmet': ['X1::electricity', 'New_Techs::electricity'],
+            'd_h_unmet': ['X1::heat', 'New_Techs::heat'],
+            'd_h_unmet_dhn': [],
+            }
+
+        if 'heat_pump' in self.tech_list:
+            keys['d_h_unmet'] += ['X1::heat_hp', 'New_Techs::heat_hp']
+            # The solar locations are linked with hp_heat_line:
+            keys['d_h_unmet'] += [loc+'::heat_hp' for locs in self.solar_locs for loc in locs]
+            if 'wind_power' in self.tech_list:
+                keys['d_h_unmet'] += ['loc_wp_annual::heat_hp', 'loc_wp_winter::heat_hp']
+
+        if 'district_heating' in self.tech_list:
+            keys['d_h_unmet_dhn'] += ['X1::heat_dh', 'X1::heat_dhimp']
+
+        if 'tes_sites' in self.tech_list:
+            for loc in self.tech_tes_sites.get_list_of_sitekeys():
+                for x in loc:
+                    if x.endswith("ht"):
+                        keys['d_h_unmet_dhn'].append('X1::heat_'+x)
+
+        # Heat carriers of central plants connected to district heating:
+        dhn_carriers = {
+            'steam_turbine': 'heat_st',
+            'tes': 'heat_tes',
+            'waste_to_energy': 'heat_wte',
+            'heat_pump_cp': 'heat_hpcp',
+            'heat_pump_cp_lt': 'heat_hpcplt',
+            'oil_boiler_cp': 'heat_obcp',
+            'electric_heater_cp': 'heat_ehcp',
+            'wood_boiler_cp': 'heat_wbcp',
+            'waste_heat': 'heat_wh',
+            'deep_geothermal': 'heat_dgt',
+            'gas_boiler_cp': 'heat_gbcp',
+            }
+        for tech, carrier in dhn_carriers.items():
+            if tech in self.tech_list:
+                keys['d_h_unmet_dhn'].append('X1::'+carrier)
+
+        return keys
+
+    def __check_unmet_demand_on_internal_carriers(self, opt_results):
+        """
+        Raise an error if the optimiser used unmet demand on carriers that
+        are not reported as unmet demand (e.g. wind power or building
+        inertia carriers). This only happens if the demand cannot be met;
+        the results would then not be consistent.
+        """
+        unmet = (
+            opt_results['unmet_demand'].to_series()*self.energy_scaling_factor
+            ).groupby(level=0).sum()
+        reported = {
+            key: col for col, keys in self.__get_unmet_demand_keys().items()
+            for key in keys
+            }
+        internal = unmet[[k not in reported for k in unmet.index]]
+        internal = internal[internal.abs() > C.MAX_VIOLATION_kWh]
+
+        if len(internal) > 0:
+            totals = {}
+            for key, col in reported.items():
+                if key in unmet.index:
+                    totals[col] = totals.get(col, 0.0) + unmet[key]
+            msg = (
+                "The optimisation could not meet all demands: the solver used "
+                "unmet demand on internal energy carriers ("
+                + ", ".join(f"{k}: {v:.1f} kWh" for k, v in internal.items())
+                + "). Unmet demand of the reported carriers: "
+                + ", ".join(f"{k}: {v:.1f} kWh" for k, v in totals.items())
+                + ". Check whether the selected technologies and constraints "
+                "can cover the demand (e.g. grid_supply.kW_max, "
+                "only_allow_existing, deployment)."
+                )
+            raise RuntimeError(msg)
+
     def get_optimal_output_df(self,opt_results):
         """
         Write the results of the Calliope optimisation to a dataframe of the same
@@ -874,6 +956,8 @@ class CalliopeOptimiser:
         # ---------------------------------------------------------------------       
         n_hours = len(self.energy_demand.get_d_e())
         null_array = np.array([0.0]*n_hours)
+
+        self.__check_unmet_demand_on_internal_carriers(opt_results)
 
         # -------------------------------------------------------------------------
         # Virtual storage for flexibility:
@@ -1441,10 +1525,16 @@ class CalliopeOptimiser:
             v_e_bm_exp = v_e_aguc_exp + v_e_wguc_exp
             v_e_bm_cons = v_e_bm - v_e_bm_exp
             v_h_bm = v_h_aguh + v_h_aguc + v_h_wgu + v_h_wguh + v_h_wguc
+            if 'heat_biomass_curtailment' in self.tech_list_new:
+                v_h_bm_curt = -opt_results['carrier_con'].loc['New_Techs::heat_biomass_curtailment::heat_biomass'].values*self.energy_scaling_factor
+            else:
+                v_h_bm_curt = null_array.copy()
+            v_h_bm = v_h_bm - v_h_bm_curt # delivered to district heating
             self.tech_biomass.update_v_e(v_e_bm)
             self.tech_biomass.update_v_e_exp(v_e_bm_exp)
             self.tech_biomass.update_v_e_cons(v_e_bm_cons)
             self.tech_biomass.update_v_h(v_h_bm)
+            self.tech_biomass.update_v_h_curt(v_h_bm_curt)
 
         #------------------
         # Biomass Supply
@@ -1477,7 +1567,10 @@ class CalliopeOptimiser:
         if 'chp_gt' in self.tech_list:
             v_e_chp_gt = opt_results['carrier_prod'].loc['X1::chp_gt_new::electricity'].values*self.energy_scaling_factor
             v_h_chp_gt = opt_results['carrier_prod'].loc['X1::chp_gt_new::heat_chpgt'].values*self.energy_scaling_factor
-            v_h_chp_gt_waste = opt_results['carrier_export'].loc['X1::chp_gt_new::heat_chpgt'].values*self.energy_scaling_factor
+            if self.tech_chp_gt.get_allow_heat_export(): # carrier_export only exists with heat export
+                v_h_chp_gt_waste = opt_results['carrier_export'].loc['X1::chp_gt_new::heat_chpgt'].values*self.energy_scaling_factor
+            else:
+                v_h_chp_gt_waste = 0.0*v_h_chp_gt
             v_h_chp_gt_con = v_h_chp_gt - v_h_chp_gt_waste
             
             self.tech_chp_gt.update_v_e(v_e_chp_gt)
@@ -1512,7 +1605,10 @@ class CalliopeOptimiser:
         if 'steam_turbine' in self.tech_list:
             v_e_st = opt_results['carrier_prod'].loc['X1::steam_turbine_exist::electricity'].values*self.energy_scaling_factor
             v_h_st = opt_results['carrier_prod'].loc['X1::steam_turbine_exist::heat_st'].values*self.energy_scaling_factor
-            v_h_st_waste = opt_results['carrier_export'].loc['X1::steam_turbine_exist::heat_st'].values*self.energy_scaling_factor
+            if self.tech_steam_turbine.get_allow_heat_export(): # carrier_export only exists with heat export
+                v_h_st_waste = opt_results['carrier_export'].loc['X1::steam_turbine_exist::heat_st'].values*self.energy_scaling_factor
+            else:
+                v_h_st_waste = 0.0*v_h_st
             v_h_st_con = v_h_st - v_h_st_waste
 
             self.tech_steam_turbine.update_v_e(v_e_st)
@@ -1720,83 +1816,18 @@ class CalliopeOptimiser:
         self.energy_demand.update_d_h_flex(d_h_flex)
         
         # Unmet demand:
-
-        d_e_unmet = (
-            opt_results['unmet_demand'].loc['X1::electricity'].values*self.energy_scaling_factor
-            + opt_results['unmet_demand'].loc['New_Techs::electricity'].values*self.energy_scaling_factor
-            )
-            
-        d_h_unmet = (
-            opt_results['unmet_demand'].loc['X1::heat'].values*self.energy_scaling_factor
-            # + opt_results['unmet_demand'].loc['X1::heat_tes'].values
-            + opt_results['unmet_demand'].loc['New_Techs::heat'].values*self.energy_scaling_factor
-            )
-        
-        if 'heat_pump' in self.tech_list:
-            d_h_unmet += (
-                opt_results['unmet_demand'].loc['X1::heat_hp'].values*self.energy_scaling_factor
-                + opt_results['unmet_demand'].loc['New_Techs::heat_hp'].values*self.energy_scaling_factor
-                # + opt_results['unmet_demand'].loc['loc_wp_annual::heat_hp'].values*self.energy_scaling_factor
-                # + opt_results['unmet_demand'].loc['loc_wp_winter::heat_hp'].values*self.energy_scaling_factor
-                + opt_results['unmet_demand'].loc['solar_pvrooftop_installation_0::heat_hp'].values*self.energy_scaling_factor
-                + opt_results['unmet_demand'].loc['solar_pvrooftop_installation_1::heat_hp'].values*self.energy_scaling_factor
-                + opt_results['unmet_demand'].loc['solar_pvrooftop_installation_2::heat_hp'].values*self.energy_scaling_factor
-                + opt_results['unmet_demand'].loc['solar_pvrooftop_installation_3::heat_hp'].values*self.energy_scaling_factor
+        unmet_keys = self.__get_unmet_demand_keys()
+        unmet = {
+            col: sum(
+                (opt_results['unmet_demand'].loc[key].values*self.energy_scaling_factor
+                 for key in keys),
+                np.array([0.0]*n_hours)
                 )
-        
-            if 'wind_power' in self.tech_list:
-                d_h_unmet += (
-                    + opt_results['unmet_demand'].loc['loc_wp_annual::heat_hp'].values*self.energy_scaling_factor
-                    + opt_results['unmet_demand'].loc['loc_wp_winter::heat_hp'].values*self.energy_scaling_factor
-                    )
-        
-        d_h_unmet_dhn = np.array([0.0]*len(d_h_unmet))
-        
-        if 'district_heating' in self.tech_list:
-            d_h_unmet_dhn += (
-                opt_results['unmet_demand'].loc['X1::heat_dh'].values*self.energy_scaling_factor
-                + opt_results['unmet_demand'].loc['X1::heat_dhimp'].values*self.energy_scaling_factor
-                )
-        
-        if 'steam_turbine' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_st'].values*self.energy_scaling_factor
-            
-        if 'tes' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_tes'].values*self.energy_scaling_factor
-
-        if 'tes_sites' in self.tech_list:
-
-            for loc in self.tech_tes_sites.get_list_of_sitekeys():
-                for x in loc:
-                    if x.endswith("ht"):
-                        d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_'+x].values*self.energy_scaling_factor
-
-        if 'waste_to_energy' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_wte'].values*self.energy_scaling_factor
-            
-        if 'heat_pump_cp' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_hpcp'].values*self.energy_scaling_factor
-
-        if 'heat_pump_cp_lt' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_hpcplt'].values*self.energy_scaling_factor
-
-        if 'oil_boiler_cp' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_obcp'].values*self.energy_scaling_factor
-
-        if 'electric_heater_cp' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_ehcp'].values*self.energy_scaling_factor
-
-        if 'wood_boiler_cp' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_wbcp'].values*self.energy_scaling_factor
-
-        if 'waste_heat' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_wh'].values*self.energy_scaling_factor
-
-        if 'deep_geothermal' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_dgt'].values*self.energy_scaling_factor
-
-        if 'gas_boiler_cp' in self.tech_list:
-            d_h_unmet_dhn += opt_results['unmet_demand'].loc['X1::heat_gbcp'].values*self.energy_scaling_factor
+            for col, keys in unmet_keys.items()
+            }
+        d_e_unmet = unmet['d_e_unmet']
+        d_h_unmet = unmet['d_h_unmet']
+        d_h_unmet_dhn = unmet['d_h_unmet_dhn']
 
         self.energy_demand.update_d_e_unmet(d_e_unmet)
         self.energy_demand.update_d_h_unmet(d_h_unmet)
@@ -1807,6 +1838,9 @@ class CalliopeOptimiser:
         if 'grid_supply' in self.tech_list:
             m_e =\
                 opt_results['carrier_prod'].loc['Grid_Connection_Node::grid_supply::electricity'].values*self.energy_scaling_factor
+            # Solver tolerances can give slightly negative values; accept them as in the
+            # negative value check of the results (C.NEG_ACC):
+            m_e = np.where((m_e < 0) & (m_e >= C.NEG_ACC), 0.0, m_e)
                 
             # Recalculate electricity mix:
             self.tech_grid_supply.update_m_e(m_e)
@@ -2437,7 +2471,8 @@ class CalliopeOptimiser:
         if self.building_inertia_flex_flag:
             techs_dict = self.building_inertia_flex.create_techs_dict(
                 techs_dict=techs_dict,
-                color=colors['flexibility_vs']
+                color=colors['flexibility_vs'],
+                energy_scaling_factor=self.energy_scaling_factor
                 )
         
         # Add user-selected techologies:
@@ -2680,7 +2715,9 @@ class CalliopeOptimiser:
                                                                               energy_scaling_factor = self.energy_scaling_factor
                                                                               )
             
-            self.tech_list_pv.append(headers)
+            pvrooftop_headers = headers
+        else:
+            pvrooftop_headers = None
 
         if 'solarthermal_rooftop' in self.tech_list:
             
@@ -2694,9 +2731,17 @@ class CalliopeOptimiser:
                                                                                   energy_scaling_factor = self.energy_scaling_factor
                                                                               )
             
-            self.tech_list_solarthermal.append(headers)
+            solarthermal_rooftop_headers = headers
         else:
-            self.tech_list_solarthermal.append(None)
+            solarthermal_rooftop_headers = None
+
+        # Rooftop PV and solar thermal share the roof (available_area) of the
+        # locations 'solar_pvrooftop_installation_<i>', also if only one of them is deployed:
+        if pvrooftop_headers is not None or solarthermal_rooftop_headers is not None:
+            num_rooftop_locs = len(pvrooftop_headers if pvrooftop_headers is not None else solarthermal_rooftop_headers)
+            self.solar_locs.append(['solar_pvrooftop_installation_'+str(i) for i in range(num_rooftop_locs)])
+            self.tech_list_pv.append(pvrooftop_headers)
+            self.tech_list_solarthermal.append(solarthermal_rooftop_headers)
 
         if 'solar_pvalpine' in self.tech_list:
             
@@ -2710,6 +2755,7 @@ class CalliopeOptimiser:
                                                                               energy_scaling_factor = self.energy_scaling_factor
                                                                               )
             
+            self.solar_locs.append(headers)
             self.tech_list_pv.append(headers)
             self.tech_list_solarthermal.append(None)
 
@@ -2760,7 +2806,7 @@ class CalliopeOptimiser:
             
             # Force deployment of currently installed systems:
             techs_dict['hydro_power']['constraints.energy_cap_equals'] =\
-                energy_cap
+                energy_cap / self.energy_scaling_factor
             
             self.tech_list_old.append('hydro_power')
             
@@ -2891,6 +2937,33 @@ class CalliopeOptimiser:
             techs_dict = self.tech_hydrogen_production.generate_tech_dict(techs_dict, energy_scaling_factor = self.energy_scaling_factor)
             
             self.tech_list_new.append('hydrogen_production')
+
+        if any(t in self.tech_list for t in C.BIOMASS_HEAT_TECHS):
+            # Heat co-produced by biomass technologies (fixed carrier ratio) that
+            # district heating cannot take is curtailed (exported out of the system):
+            techs_dict['heat_biomass_curtailment'] = {
+                'essentials':{
+                    'name':'Curtailment of biomass heat',
+                    'color':colors['demand_heat'],
+                    'parent':'conversion',
+                    'carrier_in':'heat_biomass',
+                    'carrier_out':'heat_biomass_curtailed',
+                    },
+                'constraints':{
+                    'energy_cap_max':'inf',
+                    'energy_eff':1.0,
+                    'export_carrier':'heat_biomass_curtailed',
+                    'lifetime':1,
+                    },
+                'costs':{
+                    'monetary':{
+                        'om_con':0.0,
+                        'interest_rate':0.0,
+                        },
+                    }
+                }
+
+            self.tech_list_new.append('heat_biomass_curtailment')
             
         if 'chp_gt' in self.tech_list:            
             techs_dict = self.tech_chp_gt.create_techs_dict(
@@ -3146,10 +3219,10 @@ class CalliopeOptimiser:
                 loc_dict['X1']['techs'][f'virtual_storage_drain_{acr}'] = {}
                 loc_dict['X1']['techs'][f'conv_{acr}_vs'] = {}
                 
-        if len(self.tech_list_pv) > 0:
-            for i in range(len(self.tech_list_pv)):
-                for j in range(len(self.tech_list_pv[i])):
-                    loc_dict[self.tech_list_pv[i][j]] = {
+        if len(self.solar_locs) > 0:
+            for i in range(len(self.solar_locs)):
+                for j in range(len(self.solar_locs[i])):
+                    loc_dict[self.solar_locs[i][j]] = {
                         'techs': {},
                         'available_area': self.available_area_scaling,
                         'coordinates':{
@@ -3180,21 +3253,23 @@ class CalliopeOptimiser:
             else:
                 loc_dict['New_Techs']['techs'][tech] = None
 
-        for i in range(len(self.tech_list_pv)):
+        for i in range(len(self.solar_locs)):
 
-            techs = self.tech_list_pv[i]
+            locs = self.solar_locs[i]
 
-            for j in range(len(techs)):
+            for j in range(len(locs)):
 
-                tech = techs[j]
+                loc = locs[j]
 
-                loc_dict[tech]['techs'][tech+"_occupied"] = None
-                loc_dict[tech]['techs'][tech+"_unoccupied"] = None
+                if self.tech_list_pv[i] != None:
+                    tech = self.tech_list_pv[i][j]
+                    loc_dict[loc]['techs'][tech+"_occupied"] = None
+                    loc_dict[loc]['techs'][tech+"_unoccupied"] = None
 
                 if self.tech_list_solarthermal[i] != None:
                     tech_thermal = self.tech_list_solarthermal[i][j]
-                    loc_dict[tech]['techs'][tech_thermal+"_occupied"] = None
-                    loc_dict[tech]['techs'][tech_thermal+"_unoccupied"] = None
+                    loc_dict[loc]['techs'][tech_thermal+"_occupied"] = None
+                    loc_dict[loc]['techs'][tech_thermal+"_unoccupied"] = None
 
 
 
@@ -3396,10 +3471,10 @@ class CalliopeOptimiser:
             link_locs_power.append('loc_wp_winter')
             link_locs_power.append('loc_wp_annual')
         
-        if len(self.tech_list_pv) > 0:
-            for i in range(len(self.tech_list_pv)):
-                for j in range(len(self.tech_list_pv[i])):
-                    link_locs_power.append(self.tech_list_pv[i][j])
+        if len(self.solar_locs) > 0:
+            for i in range(len(self.solar_locs)):
+                for j in range(len(self.solar_locs[i])):
+                    link_locs_power.append(self.solar_locs[i][j])
 
         # Initialise dict:
         links_dict = {}
@@ -3571,7 +3646,9 @@ class CalliopeOptimiser:
                 'TimeLimit':self.opt_metrics['solver_option_TimeLimit'],
                 'Presolve':self.opt_metrics['solver_option_Presolve'],
                 'Aggregate':self.opt_metrics['solver_option_Aggregate'],
-                'FeasibilityTol':self.opt_metrics['solver_option_FeasibilityTol'] / self.energy_scaling_factor,
+                # Scaled with the energy values, kept within Gurobi's range [1e-9, 1e-2]
+                # (e.g. 1e-6 with scaling 1000 would be 1e-9 minus rounding):
+                'FeasibilityTol':min(max(self.opt_metrics['solver_option_FeasibilityTol'] / self.energy_scaling_factor, 1e-9), 1e-2),
                 'MIPGap':mipgap_,
                 'Threads':self.opt_metrics.get('solver_option_Threads', 0), # .get(): input files without this key use the solver default (0)
                 }

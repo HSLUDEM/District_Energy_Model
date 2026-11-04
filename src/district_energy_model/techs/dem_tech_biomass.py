@@ -29,7 +29,8 @@ class Biomass(TechCore):
         self._v_e = []
         self._v_e_exp = []
         self._v_e_cons = []
-        self._v_h = []
+        self._v_h = [] # biomass heat delivered to district heating [kWh]
+        self._v_h_curt = [] # curtailed biomass heat [kWh]
         
     def update_tech_properties(self, tech_dict):
         
@@ -53,6 +54,7 @@ class Biomass(TechCore):
         df['v_e_bm_exp'] = self.get_v_e_exp()
         df['v_e_bm_cons'] = self.get_v_e_cons()
         df['v_h_bm'] = self.get_v_h()
+        df['v_h_bm_curt'] = self.get_v_h_curt()
         
         return df
     
@@ -77,6 +79,7 @@ class Biomass(TechCore):
         self._v_e_exp = self._v_e_exp[:n_hours]
         self._v_e_cons = self._v_e_cons[:n_hours]
         self._v_h = self._v_h[:n_hours]
+        self._v_h_curt = self._v_h_curt[:n_hours]
         
     def update_v_e(self, v_e_updated):
         self._v_e = np.array(v_e_updated)
@@ -95,6 +98,9 @@ class Biomass(TechCore):
         
     def update_v_h(self, v_h_updated):
         self._v_h = np.array(v_h_updated)
+
+    def update_v_h_curt(self, v_h_curt_updated):
+        self._v_h_curt = np.array(v_h_curt_updated)
         
     def get_v_e(self):
         self.len_test(self._v_e)
@@ -111,6 +117,10 @@ class Biomass(TechCore):
     def get_v_h(self):
         self.len_test(self._v_h)
         return self._v_h
+
+    def get_v_h_curt(self):
+        self.len_test(self._v_h_curt)
+        return self._v_h_curt
     
     def get_total_capex(self):
         return 0
@@ -330,6 +340,10 @@ class HydrothermalGasification(TechCore): # hg
     def get_v_gas(self):
         self.len_test(self._v_gas)
         return self._v_gas        
+
+    def get_energy_costs(self):
+        # om_cost [CHF/kWh] per kWh of the primary input, as om_con in the optimisation
+        return self.__tech_dict['om_cost'] * np.sum(self.get_u_wet_bm())
     
 
 class AnaerobicDigestionUpgrade(TechCore): # agu
@@ -501,6 +515,10 @@ class AnaerobicDigestionUpgrade(TechCore): # agu
     def get_v_gas(self):
         self.len_test(self._v_gas)
         return self._v_gas
+
+    def get_energy_costs(self):
+        # om_cost [CHF/kWh] per kWh of the primary input, as om_con in the optimisation
+        return self.__tech_dict['om_cost'] * np.sum(self.get_u_wet_bm())
     
         
 class AnaerobicDigestionUpgradeHydrogen(TechCore): # aguh
@@ -746,6 +764,11 @@ class AnaerobicDigestionUpgradeHydrogen(TechCore): # aguh
     def get_v_gas(self):
         self.len_test(self._v_gas)
         return self._v_gas
+
+    def get_output(self):
+        # The capacity (energy_cap) is sized on the primary output gas, not on the heat by-product
+        # (TechCore.get_output() would return _v_h first):
+        return self.get_v_gas()
         
         
 class AnaerobicDigestionCHP(TechCore): # aguc
@@ -1200,6 +1223,11 @@ class WoodGasificationUpgrade(TechCore): # wgu
     def get_v_gas(self):
         self.len_test(self._v_gas)
         return self._v_gas
+
+    def get_output(self):
+        # The capacity (energy_cap) is sized on the primary output gas, not on the heat by-product
+        # (TechCore.get_output() would return _v_h first):
+        return self.get_v_gas()
             
 
 class WoodGasificationUpgradeHydrogen(TechCore): # wguh
@@ -1444,6 +1472,11 @@ class WoodGasificationUpgradeHydrogen(TechCore): # wguh
     def get_v_gas(self):
         self.len_test(self._v_gas)
         return self._v_gas
+
+    def get_output(self):
+        # The capacity (energy_cap) is sized on the primary output gas, not on the heat by-product
+        # (TechCore.get_output() would return _v_h first):
+        return self.get_v_gas()
             
             
 class WoodGasificationCHP(TechCore): # wguc

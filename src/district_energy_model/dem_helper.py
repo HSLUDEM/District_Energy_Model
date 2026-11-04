@@ -12,6 +12,7 @@ import numpy as np
 import os
 import math
 import warnings
+import re
 import yaml
 from numbers import Number
 # from datetime import datetime
@@ -19,6 +20,37 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 # from district_energy_model import dem_constants as C
+
+class _ConfigLoader(yaml.SafeLoader):
+    """
+    YAML loader for configuration files. PyYAML (YAML 1.1) reads numbers in
+    scientific notation without a decimal point (e.g. 1e5) as strings; they
+    are read as floats here (as in YAML 1.2).
+    """
+
+_ConfigLoader.add_implicit_resolver(
+    'tag:yaml.org,2002:float',
+    re.compile(r'''^(?:[-+]?(?:[0-9][0-9_]*)\.[0-9_]*(?:[eE][-+]?[0-9]+)?
+    |[-+]?(?:[0-9][0-9_]*)(?:[eE][-+]?[0-9]+)
+    |\.[0-9_]+(?:[eE][-+]?[0-9]+)?
+    |[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*
+    |[-+]?\.(?:inf|Inf|INF)
+    |\.(?:nan|NaN|NAN))$''', re.X),
+    list('-+0123456789.'))
+
+def _normalise_inf(value):
+    """
+    Return value with infinite floats replaced by 'inf', the notation for
+    unlimited values used throughout the model (e.g. YAML .inf or
+    float('inf') in config_dict).
+    """
+    if isinstance(value, dict):
+        return {k: _normalise_inf(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_normalise_inf(v) for v in value]
+    if isinstance(value, float) and math.isinf(value) and value > 0:
+        return 'inf'
+    return value
 
 def _add_new_config_key(dst, tmpl, key):
     """
@@ -103,7 +135,7 @@ def update_scen_techs_from_config(scen_techs: Dict[str, Any],
             if key not in scen_node and _add_new_config_key(scen_node, tmpl_node, key):
                 if key not in scen_node:
                     # Key in a dict that is empty by default:
-                    scen_node[key] = copy.deepcopy(cfg_value)
+                    scen_node[key] = _normalise_inf(copy.deepcopy(cfg_value))
                     continue
 
             if key not in scen_node:
@@ -124,7 +156,7 @@ def update_scen_techs_from_config(scen_techs: Dict[str, Any],
                                   _config_template_child(tmpl_node, key))
 
             else:
-                scen_node[key] = cfg_value
+                scen_node[key] = _normalise_inf(cfg_value)
 
     _update_recursive(scen_techs, config_dict, [], templates)
     return scen_techs
@@ -190,7 +222,7 @@ def update_scen_techs_from_yaml(input_files_dir, scen_techs):
         techs_path = input_dir / techs_filename
         if techs_path.exists():
             with open(techs_path, "r", encoding="utf-8") as f:
-                technologies_content = yaml.safe_load(f) or {}
+                technologies_content = _normalise_inf(yaml.load(f, Loader=_ConfigLoader) or {})
             if not isinstance(technologies_content, dict):
                 raise ValueError(
                     f"YAML file {techs_path.name} must contain a dictionary at top level."
@@ -236,7 +268,7 @@ def update_scen_techs_from_yaml(input_files_dir, scen_techs):
             continue
 
         with open(file, "r", encoding="utf-8") as f:
-            content = yaml.safe_load(f) or {}
+            content = _normalise_inf(yaml.load(f, Loader=_ConfigLoader) or {})
 
         if not isinstance(content, dict):
             raise ValueError(f"YAML file {file.name} must contain a dictionary at top level.")
@@ -399,6 +431,7 @@ def positive_values_test_df(
         description,
         error_accepted=-0.1,
         exempted_columns=[],
+        relative_error_accepted=0.0,
         ):
     
     """
@@ -417,6 +450,10 @@ def positive_values_test_df(
     exempted_columns : list of strings
         List containing the column header that are exempted from the test (i.e.
         they can contain negative values.)
+    relative_error_accepted : float
+        Additional accepted error relative to the largest absolute value of
+        the tested columns (e.g. 1e-6 for the accuracy of an optimisation
+        solver, whose tolerances are relative).
 
     Returns
     -------
@@ -425,6 +462,12 @@ def positive_values_test_df(
     
     # Initialize an empty list to store column headers with negative values
     negative_columns = []
+
+    if relative_error_accepted > 0.0:
+        tested = df_values[[c for c in df_values.columns if c not in exempted_columns]]
+        max_abs = tested.select_dtypes('number').abs().max().max()
+        if np.isfinite(max_abs):
+            error_accepted -= relative_error_accepted*max_abs
     
     # Iterate through each column in the DataFrame
     for column in df_values.columns:
@@ -438,7 +481,49 @@ def positive_values_test_df(
     if len(negative_columns) > 0:
         print(f"Positive value test for {description} not successful!")
         raise Exception(f"{description} contains negative values in the following columns: {negative_columns}")
-        
+
+def unmet_demand_test(df_scen, share_accepted=1e-3):
+
+    """
+    Checks if the annual unmet demand of the optimisation exceeds the accepted
+    share of the annual demand. Unmet demand is penalised with bigM and should
+    therefore not occur; large values indicate that the solver returned an
+    invalid solution (e.g. due to numerical issues).
+
+    Parameters
+    ----------
+    df_scen : pandas dataframe
+        Results dataframe containing the columns 'd_e', 'd_h', 'd_e_unmet',
+        'd_h_unmet' and 'd_h_unmet_dhn'.
+    share_accepted : float
+        Accepted share of annual unmet demand in annual demand [-].
+
+    Returns
+    -------
+    n/a
+    """
+
+    unmet = {
+        'electricity':(
+            df_scen['d_e_unmet'].clip(lower=0).sum(),
+            df_scen['d_e'].sum()
+            ),
+        'heat':(
+            df_scen['d_h_unmet'].clip(lower=0).sum()
+            + df_scen['d_h_unmet_dhn'].clip(lower=0).sum(),
+            df_scen['d_h'].sum()
+            ),
+        }
+
+    for carrier, (unmet_yr, demand_yr) in unmet.items():
+        if unmet_yr > share_accepted*demand_yr:
+            print(f"Unmet demand test for {carrier} not successful!")
+            raise Exception(
+                f"Unmet {carrier} demand of {unmet_yr:.0f} kWh exceeds "
+                f"{share_accepted:.1%} of annual {carrier} demand "
+                f"({demand_yr:.0f} kWh)."
+                )
+
 
 def create_results_directory(arg_path, arg_results_dir_name):
 
@@ -454,7 +539,7 @@ def create_results_directory(arg_path, arg_results_dir_name):
         full_path = base_path / dirname
 
         if not full_path.exists():
-            full_path.mkdir()
+            full_path.mkdir(parents=True)
             return str(full_path)
 
     raise RuntimeError("Could not create unique directory")

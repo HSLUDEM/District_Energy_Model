@@ -26,15 +26,17 @@ temptable_mapping = {year:
                                          else 2100)))
                                                 for year in np.arange(1600, 2100,1)}
 
+# Heating curves: linear between the two points of the table; above the upper outdoor
+# temperature (15 degC) the flow temperature stays at its value at 15 degC:
 tempfunctions_radiators = {x : lambda t, x2=x:  
                            ((temptable_radiators[x2][1][1]-temptable_radiators[x2][1][0])
                             /(temptable_radiators[x2][0][1]-temptable_radiators[x2][0][0]))
-                           *(t-temptable_radiators[x2][0][0])+temptable_radiators[x2][1][0]  
+                           *(np.minimum(t, temptable_radiators[x2][0][1])-temptable_radiators[x2][0][0])+temptable_radiators[x2][1][0]  
                            for x in temptable_radiators.keys()}
 tempfunctions_underfloorheating = {x: (lambda t, x2=x: 
                            ((temptable_underfloorheating[x2][1,1]-temptable_underfloorheating[x2][1,0])
                             /(temptable_underfloorheating[x2][0,1]-temptable_underfloorheating[x2][0,0]))
-                           *(t-temptable_underfloorheating[x2][0,0])+temptable_underfloorheating[x2][1,0])
+                           *(np.minimum(t, temptable_underfloorheating[x2][0,1])-temptable_underfloorheating[x2][0,0])+temptable_underfloorheating[x2][1,0])
                            for x in temptable_underfloorheating.keys()}
 
 gbaup_to_gbauj = {8011 : 1910,
@@ -298,28 +300,34 @@ def calculateCOPs(
       vorlauf_radiators = {x : tempfunctions_radiators[x](weather_data) for x in tempfunctions_radiators.keys()}
       vorlauf_underfloor = {x : tempfunctions_underfloorheating[x](weather_data) for x in tempfunctions_underfloorheating.keys()}
 
-      carnot_eff_radiators_air_to_water = {x : (kelvin_offset+vorlauf_radiators[x])/(vorlauf_radiators[x]-weather_data) for x in vorlauf_radiators.keys()}
+      # Above 15 degC the flow temperature is constant (21 or 25 degC). Air-to-water: where the outdoor
+      # temperature reaches it, the division gives infinite values (capped at COP_MAX_FACTOR below), and
+      # above it negative values (set to COP_MAX_FACTOR below), so the warnings are suppressed:
+      with np.errstate(divide='ignore', invalid='ignore'):
+            carnot_eff_radiators_air_to_water = {x : (kelvin_offset+vorlauf_radiators[x])/(vorlauf_radiators[x]-weather_data) for x in vorlauf_radiators.keys()}
+            carnot_eff_underfloorheating_air_to_water = {x : (kelvin_offset+vorlauf_underfloor[x])/(vorlauf_underfloor[x]-weather_data) for x in vorlauf_underfloor.keys()}
       carnot_eff_radiators_brine_to_water = {x : (kelvin_offset+vorlauf_radiators[x])/(vorlauf_radiators[x]-temp_brine_) for x in vorlauf_radiators.keys()}
 
-      carnot_eff_underfloorheating_air_to_water = {x : (kelvin_offset+vorlauf_underfloor[x])/(vorlauf_underfloor[x]-weather_data) for x in vorlauf_underfloor.keys()}
       carnot_eff_underfloorheating_brine_to_water = {x : (kelvin_offset+vorlauf_underfloor[x])/(vorlauf_underfloor[x]-temp_brine_) for x in vorlauf_underfloor.keys()}
 
       carnot_eff_dhw_air_to_water =(kelvin_offset+temp_dhw)/(temp_dhw-weather_data)
       carnot_eff_dhw_brine_to_water = (kelvin_offset+temp_dhw)/(temp_dhw-temp_brine_)
 
       for x in vorlauf_radiators.keys():
-            carnot_eff_radiators_air_to_water[x][weather_data > 15] = COP_MAX_FACTOR
-            carnot_eff_radiators_brine_to_water[x][weather_data > 15] = COP_MAX_FACTOR
-
             carnot_eff_radiators_air_to_water[x][carnot_eff_radiators_air_to_water[x] > COP_MAX_FACTOR] = COP_MAX_FACTOR
             carnot_eff_radiators_brine_to_water[x][carnot_eff_radiators_brine_to_water[x] > COP_MAX_FACTOR] = COP_MAX_FACTOR
 
-      for x in vorlauf_underfloor.keys():
-            carnot_eff_underfloorheating_air_to_water[x][weather_data > 15] = COP_MAX_FACTOR
-            carnot_eff_underfloorheating_brine_to_water[x][weather_data > 15] = COP_MAX_FACTOR
+            # Flow temperature below the source temperature (negative temperature lift):
+            carnot_eff_radiators_air_to_water[x][carnot_eff_radiators_air_to_water[x] < 0] = COP_MAX_FACTOR
+            carnot_eff_radiators_brine_to_water[x][carnot_eff_radiators_brine_to_water[x] < 0] = COP_MAX_FACTOR
 
+      for x in vorlauf_underfloor.keys():
             carnot_eff_underfloorheating_air_to_water[x][carnot_eff_underfloorheating_air_to_water[x] > COP_MAX_FACTOR] = COP_MAX_FACTOR
             carnot_eff_underfloorheating_brine_to_water[x][carnot_eff_underfloorheating_brine_to_water[x] > COP_MAX_FACTOR] = COP_MAX_FACTOR
+
+            # Flow temperature below the source temperature (negative temperature lift):
+            carnot_eff_underfloorheating_air_to_water[x][carnot_eff_underfloorheating_air_to_water[x] < 0] = COP_MAX_FACTOR
+            carnot_eff_underfloorheating_brine_to_water[x][carnot_eff_underfloorheating_brine_to_water[x] < 0] = COP_MAX_FACTOR
 
       carnot_effs_all = np.zeros((len(sh_profile), 2,2,5)) # Dimensions: Time, diss_type, hp_style, construction_year_cat
       for diss_is_radiator in [False, True]:

@@ -65,6 +65,10 @@ class HydrogenProduction(TechCore):
         #Properties:
         self._eta = tech_dict['efficiency']
         self._maintenance_cost = tech_dict['maintenance_cost']
+        # Capex, lifetime and interest rate as in the optimisation (used by the cost module):
+        self._capex = tech_dict['capital_cost']
+        self._lifetime = tech_dict['lifetime']
+        self._interest_rate = tech_dict['interest_rate']
 
         
         # Update input dict:
@@ -185,3 +189,7 @@ class HydrogenProduction(TechCore):
     def get_v_hyd(self):
         self.len_test(self._v_hyd)
         return self._v_hyd
+
+    def get_energy_costs(self):
+        # om_cost [CHF/kWh] per kWh of electricity input, as om_con in the optimisation
+        return self.__tech_dict['om_cost'] * np.sum(self.get_u_e())
