@@ -387,7 +387,7 @@ scen_techs = {
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg': 0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
-        'tes_gamma':0.001,
+        'tes_gamma':0.005, # (Begründung: https://pubdbtest.bfe.admin.ch/de/publication/download/7687 , 1000 Liter ergibt 0.0067, Absenkung wegen reale Speicher besser als Norm, Grössenverteilung
         'capacity_kWh_max':tesdc_cap*1e6 if tesdc_cap != 'inf' else 'inf',
         'chg_dchg_per_cap_max':0.1, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':tesdc_ic,
@@ -407,7 +407,7 @@ scen_techs = {
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
-        'bes_gamma':0.001,
+        'bes_gamma':7e-5, # 95% nach einem Monat, Wikipedia: LFP
         'capacity_kWh_max':bes_cap*1e6 if bes_cap != 'inf' else 'inf',
         'chg_dchg_per_cap_max':1.0, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':bes_ic,
