@@ -1,9 +1,12 @@
 """Optimisation runs (Gurobi)."""
 import shutil
 
+import numpy as np
+import pandas as pd
+
 import pytest
 
-from conftest import OPT, cost_overview, requires_data, requires_solver
+from conftest import OPT, ROOT, cost_overview, requires_data, requires_solver
 
 pytestmark = [requires_data, requires_solver]
 
@@ -375,3 +378,19 @@ def test_optimisation_without_rooftop_pv(run_dem, off):
     yr = model.annual_results()
     assert yr['v_e_pvrooftop_yr'] == 0
     assert yr['d_h_unmet_yr'] == pytest.approx(0, abs=1)
+
+
+@requires_data
+@requires_solver
+def test_central_heat_pump_with_allowed_temperature_gaps(run_dem):
+    # GitHub issue #59: NaN COPs of the central heat pump made the optimisation fail
+    raw = pd.read_feather(f'{ROOT}/data/weather_data/community_files/4511.feather')[2016].to_numpy()
+    hours = np.where(np.isnan(raw[:60 * 24]))[0]
+    assert len(hours) > 24
+    with pytest.warns(UserWarning, match='FAULTY TEMPERATURE DATA'):
+        model = run_dem({'simulation': {'district_number': 4511, 'allow_temperature_data_gaps': True},
+                         'heat_pump_cp': {'instance_1': {'deployment': True}},
+                         'optimisation': OPT}, days=60)
+    cop = np.asarray(model.tech_instances['heat_pump_cp_instance_1'].get_cop())
+    assert np.all(cop[hours] == 2.0)
+    assert model.annual_results()['d_h_unmet_yr'] == pytest.approx(0, abs=1)
