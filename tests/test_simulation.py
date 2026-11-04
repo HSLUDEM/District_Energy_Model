@@ -186,3 +186,30 @@ def test_hp_cop_without_division_warning(run_dem):
         warnings.filterwarnings('error', message='divide by zero', category=RuntimeWarning)
         run_dem(days=1)
 
+
+
+def _temperature_gap_hours(com_nr, year, n_hours):
+    raw = pd.read_feather(f'{ROOT}/data/weather_data/community_files/{com_nr}.feather')[year].to_numpy()
+    gap = np.where(np.isnan(raw))[0]
+    return gap[gap < n_hours]
+
+
+@requires_data
+def test_temperature_gaps_stop_the_model(run_dem):
+    # GitHub issue #59: municipality 4511 has no temperatures for 507 hours of 2016 (hours 921-4566)
+    with pytest.raises(ValueError, match='FAULTY TEMPERATURE DATA'):
+        run_dem({'simulation': {'district_number': 4511}}, days=1)
+
+
+@requires_data
+def test_temperature_gaps_allowed_give_cop_2(run_dem):
+    # GitHub issue #59: with allow_temperature_data_gaps a (red) warning, COP 2.0 in the gaps
+    hours = _temperature_gap_hours(4511, 2016, 60 * 24)
+    assert len(hours) > 24
+    with pytest.warns(UserWarning, match='FAULTY TEMPERATURE DATA') as w:
+        model = run_dem({'simulation': {'district_number': 4511, 'allow_temperature_data_gaps': True}}, days=60)
+    assert any(str(x.message).startswith('\033[91m') for x in w)
+    hp = model.tech_instances['heat_pump']
+    for cop in [hp._cops_existing, hp._cops_new]:
+        assert np.all(cop[hours] == 2.0)  # before: 1.0 (NaN replaced)
+        assert not np.isnan(cop).any()
