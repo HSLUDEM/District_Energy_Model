@@ -237,6 +237,20 @@ class DistrictEnergyModel:
         self.list_input_data.append(['com_lon',self.com_lon,'longitude'])
         self.list_input_data.append(['com_alt',self.com_alt,'altitude'])
         
+        # Gaps in the temperature data (error, or warning if allowed); the
+        # simulation year's temperatures are used for future demand:
+        temperature_years = [self.hist_data_year]
+        if self.simulation_year != self.current_year:
+            temperature_years.append(self.simulation_year)
+        dem_helper.check_temperature_data_gaps(
+            weather_file=(
+                paths.weather_data_delta_method_dir
+                + str(self.com_nr_majority) + ".feather"
+                ),
+            years=temperature_years,
+            allow_gaps=scen_techs['simulation']['allow_temperature_data_gaps'],
+            )
+
         """--------------------------------------------------------------------
         Generate base scenario (as-is):
         """

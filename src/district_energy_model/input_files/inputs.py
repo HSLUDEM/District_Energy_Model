@@ -860,6 +860,7 @@ scen_techs = {
         # 'data_year':2016, # Options: 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023
         'generate_plots':toggle_plot,
         'save_results':toggle_save_results,
+        'allow_temperature_data_gaps':False, # If True, gaps in the temperature data only give a warning instead of an error (heat pump COP 2.0 in these hours)
         # 'results_dir':''
         # 'timeframe':['2050-01-01', '2050-01-31'], # NOT YET IMPLEMENTED
         # 'ts_resolution':60 # [min] timestep resolution # NOT YET IMPLEMENTED
