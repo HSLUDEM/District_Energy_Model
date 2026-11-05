@@ -802,10 +802,34 @@ scen_techs = {
         'thermal_energy_storage':False,
         # 'thermal_energy_storage':True,
         'nuclear_phaseout':False,
-
+        # 'nuclear_phaseout':True,
         'battery_energy_storage': False,
+        # 'battery_energy_storage': True,
+
+        # Manual surplus-driven controller for the combined storage system:
+        'scenario_battery_plus_thermal_energy_storage': False,
 
         },
+
+    # Settings for the combined battery and thermal energy storage scenario:
+    'scenario_battery_plus_thermal_energy_storage': {
+        'electricity_supply_order': [
+            'solar_pvrooftop', 'solar_pvalpine', 'wind_power', 'biomass', 'hydro_power',
+        ],
+        'storage_priority': {
+            'charge': ['bes', 'tes_decentralised'],
+            'discharge': ['tes_decentralised', 'bes'], # tes will only provide heat and never electricity
+        },
+        # Minimum electrical power for additional HP operation to charge TES.
+        # Provisional value; 0.0 disables the threshold. Not a space-heating limit.
+        'heat_pump_tes_min_electric_power_kW': 1.0,
+        # Total electrical power of the independent TES heater, not per building.
+        # 3 kW is a small-storage starting value; 0 disables direct charging.
+        'tes_direct_max_electric_power_kW': 3.0,
+        # Direct tank charging is independent of the building EH at 100%
+        # conversion efficiency, with no minimum operating threshold.
+        'tes_charge_heat_source_order': ['heat_pump', 'direct_electric'],
+    },
                              
     'optimisation':{ # note: objective weights will be overriden in case of pareto front computation (i.e. toggle_create_pareto_monetary_vs_co2 = True)
         'enabled':False,
