@@ -770,7 +770,9 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
     power threshold for additional HP-driven TES charging (0 disables it).
     ``tes_charge_heat_source_order`` is
     checked only when TES is deployed. It selects heat_pump and/or
-    direct_electric (an internal tank resistance element, independent of EH).
+    direct_electric (an independent tank heater, even without building EH).
+    ``tes_direct_max_electric_power_kW`` limits total direct charging power
+    and must be finite and nonnegative; zero disables this charging path.
 
     This validates configuration only; conversion paths, capacity limits and
     energy balances must also be enforced by the scenario implementation.
@@ -901,8 +903,15 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
         heat_sources = ordered_sources(key, ('heat_pump', 'direct_electric'))
         if not heat_sources:
             fail(f'{key} must not be empty when TES is deployed.')
-        # HP charging requires an actual connected HP; direct electric charging
-        # has no deployment requirement for any building electric heater.
+        # Validate the independent tank heater's own electrical power limit;
+        # building EH deployment and power do not constrain this charging path.
+        if 'direct_electric' in heat_sources:
+            limit = config.get('tes_direct_max_electric_power_kW')
+            if (isinstance(limit, bool) or not isinstance(limit, (int, float))
+                    or not math.isfinite(limit) or limit < 0):
+                fail('tes_direct_max_electric_power_kW must be a finite '
+                     'nonnegative number (0 disables direct charging).')
+        # HP charging still requires an actual connected HP.
         if 'heat_pump' in heat_sources and not deployed('heat_pump'):
             fail('HP charging requires heat_pump.deployment=true.')
         # As in the TES-only scenario, discharge always replaces HP heat;

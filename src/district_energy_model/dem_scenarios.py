@@ -1102,10 +1102,14 @@ def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, 
             raise ValueError('TES heat-pump operation requires finite COP values >= 1.')
     hp_limit = float(scen_techs['heat_pump']['kW_th_max'])
 
+    # The independent tank heater has its own electrical power limit. One-hour
+    # timesteps make this numerically equal to its maximum hourly input in kWh.
+    direct_limit = float(config['tes_direct_max_electric_power_kW'])
+
     # Walk forward in time; standing losses occur between consecutive hours,
     # while the first hour starts at the explicitly configured initial charge.
     for i in range(count):
-        # Keep this hour's tank charging separate from building EH operation.
+        # Track the independent tank heater without changing the building EH.
         direct_charging = 0.0
         for key, store in stores.items():
             tech = store['tech']
@@ -1191,13 +1195,15 @@ def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, 
                     heat_input = electric_input * cops[i]
                     hp_heat[i] += heat_input
                 else:
-                    # A TES resistance element converts electricity to heat at
-                    # 100%; it has no dependency on the building EH technology.
-                    electric_input = min(surplus, heat_room)
+                    # The tank heater is independent of building EH deployment
+                    # and converts surplus at 100%, within its own power limit.
+                    electric_input = min(surplus, heat_room, direct_limit)
                     heat_input = electric_input
-                    direct_charging += electric_input
+                    direct_charging += heat_input
                 store['charge'] += heat_input
                 store['level'] += heat_input * store['eta']
+                # Count each conversion load once during dispatch. Later demand
+                # aggregation reads HP input and the independent tank input.
                 demand[i] += electric_input
                 heating_electricity[i] += electric_input
                 surplus = max(surplus - electric_input, 0.0)

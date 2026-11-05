@@ -125,8 +125,8 @@ class ThermalEnergyStorageDC(TechCore):
         df['l_v_h_tesdc'] = self.get_l_v_h() # discharging losses [kWh]
         df['l_q_h_tesdc'] = self.get_l_q_h() # storage losses [kWh]
         df['sos_tesdc'] = self.get_sos() # state of charge [-]
-        # Track only the direct conversion at the TES inlet; HP charging is
-        # already recorded by the HP and the total thermal input u_h_tesdc.
+        # Independent tank-heater input at unity efficiency, separate from
+        # building EH input/output and included in total TES heat input.
         df['u_e_tesdc_direct'] = self._u_e_direct
         df['u_h_tesdc_direct'] = self._u_e_direct
         
@@ -210,13 +210,13 @@ class ThermalEnergyStorageDC(TechCore):
         self._l_q_h[i] = float(val)
 
     def update_u_e_direct_i(self, i, direct_input):
-        """Record direct tank charging electricity without changing building EH."""
-        # This input equals the thermal input before TES charging losses.
+        """Record independent tank-heater input, separate from building EH."""
+        # Unity efficiency makes this equal to heat before TES charge losses.
         self.num_test(direct_input)
         self._u_e_direct[i] = float(direct_input)
 
     def get_u_e_direct(self):
-        # Demand aggregation needs this extra electrical load after dispatch.
+        # Demand aggregation adds this input separately from the building EH.
         return self._u_e_direct
 
     def update_u_h(self, u_h_updated):

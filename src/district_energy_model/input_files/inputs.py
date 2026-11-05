@@ -823,7 +823,11 @@ scen_techs = {
         # Minimum electrical power for additional HP operation to charge TES.
         # Provisional value; 0.0 disables the threshold. Not a space-heating limit.
         'heat_pump_tes_min_electric_power_kW': 1.0,
-        # Direct electric charging belongs to TES, not the building EH.
+        # Total electrical power of the independent TES heater, not per building.
+        # 3 kW is a small-storage starting value; 0 disables direct charging.
+        'tes_direct_max_electric_power_kW': 3.0,
+        # Direct tank charging is independent of the building EH at 100%
+        # conversion efficiency, with no minimum operating threshold.
         'tes_charge_heat_source_order': ['heat_pump', 'direct_electric'],
     },
                              

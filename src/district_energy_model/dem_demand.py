@@ -415,8 +415,8 @@ class EnergyDemand:
         d_e_h_yr = sum(d_e_h)
         
         
-        # Add direct tank resistance charging without attributing it to the
-        # building electric heater; HP tank electricity is already in u_e_hp.
+        # The independent tank heater is not included in building EH input.
+        # HP tank charging is already in u_e_hp, so only direct input is added.
         if 'tes_decentralised' in tech_instances:
             d_e_h += np.array(tech_instances['tes_decentralised'].get_u_e_direct())
             d_e_h_yr = d_e_h.sum()

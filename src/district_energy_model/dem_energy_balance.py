@@ -475,7 +475,7 @@ def electricity_balance_test(scen_techs,
                                      + df_scen['u_e_hpcplt']
                                      + df_scen['u_e_ehcp']
                                      )
-    # Tank resistance charging is a heating load independent of building EH.
+    # The independent TES heater is additional to the building EH input.
     electricity_for_heating_split += df_scen.get('u_e_tesdc_direct', 0.0)
     
     pv_generation = df_scen['v_e_pvrooftop']
@@ -732,9 +732,8 @@ def heat_balance_test(scen_techs,
                        # + df_scen['v_h_hpcp'] # INCLUDED IN DISTRICT HEATING
                        + df_scen['d_h_unmet']
                        )
-    # Direct electricity becomes heat at the TES inlet at unity efficiency.
-    # Count this conversion once against total TES heat input; HP charging
-    # heat is already contained in v_h_hp and must not be added again.
+    # Independent tank heat is not part of v_h_eh. HP tank charging is already
+    # included in v_h_hp and must not be counted again.
     heat_generation += df_scen.get('u_h_tesdc_direct', 0.0)
     
     # ------------------------------------------------
