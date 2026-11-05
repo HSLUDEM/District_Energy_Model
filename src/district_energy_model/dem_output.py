@@ -4588,7 +4588,7 @@ def plot_tesdc_sos_hourly(
         ):
     """Plot stored TESDC heat and, for combined dispatch, charging by source.
 
-    Charging areas show HP and independent electric-heater input before TES
+    Stacked bars show HP and independent electric-heater input before TES
     losses. Stored heat remains one mixed state, without origin attribution.
     The existing timeframe arguments remain reserved for future filtering.
     Return the figure as well as writing the requested HTML/SVG outputs.
@@ -4614,14 +4614,26 @@ def plot_tesdc_sos_hourly(
                             vertical_spacing=0.15,
                             subplot_titles=('Stored heat', 'Charging input by source (before TES losses)'))
         fig.add_trace(stored_trace, row=1, col=1)
-        # These stacked hourly inputs add to total charging; they do not split
-        # the stored state or claim a source for later discharged heat.
-        for name, values, color in [('HP to TES', hp, '#0072B2'),
-                                    ('Direct electric heater to TES', direct, '#E69F00')]:
-            fig.add_trace(go.Scatter(x=x, y=values, mode='lines', name=name,
-                                    stackgroup='tes_charging',
-                                    line=dict(color=color, shape='hv'),
+        # Keep one bar per original hourly timestep, even for annual runs.
+        # Users can zoom into short periods without losing hourly detail.
+        sources = pd.DataFrame({'hp': hp, 'direct': direct}, index=pd.DatetimeIndex(x))
+        charging, bar_duration, charging_period = sources, 3600000, 'hour'
+        total_heat = float(sources.to_numpy().sum())
+        for key, name, color in [('hp', 'HP to TES', '#0072B2'),
+                                  ('direct', 'Direct electric heater to TES', '#D55E00')]:
+            # Quantities and percentages keep even a genuinely small source
+            # identifiable. Zero sources stay inactive rather than painting over
+            # another source, and opaque bars remain legible in a full-year view.
+            amount = float(sources[key].sum())
+            share = amount / total_heat * 100 if total_heat > 0 else 0.0
+            active = bool(np.any(sources[key].to_numpy() > 1e-11))
+            fig.add_trace(go.Bar(x=charging.index, y=charging[key],
+                                    name=f'{name}: {amount * 1000:.2f} kWh ({share:.1f}%)',
+                                    width=bar_duration * 0.85,
+                                    visible=True if active else 'legendonly',
+                                    marker=dict(color=color, line=dict(width=0)),
                                     hoverinfo='x+y+name'), row=2, col=1)
+        fig.update_layout(barmode='stack')
     else:
         fig = go.Figure(data=[stored_trace])
 
@@ -4630,7 +4642,8 @@ def plot_tesdc_sos_hourly(
                       else 'TESDC - Stored heat (hourly)', title_x=0.5,
                       title_font_size=title_font_size, plot_bgcolor='white',
                       height=700 if split_charging_sources else svg_height,
-                      legend=dict(orientation='h', x=0, y=-0.18, font=dict(size=axes_font_size)),
+                      legend=dict(orientation='h', traceorder='normal', x=0, y=-0.18,
+                                  font=dict(size=min(axes_font_size, 14))),
                       margin=dict(b=120))
     axis_style = dict(mirror=True, ticks='outside', showline=True,
                       linecolor='black', gridcolor='lightgrey',
@@ -4639,7 +4652,7 @@ def plot_tesdc_sos_hourly(
     fig.layout.yaxis.update(dict(axis_style, title='Stored heat [MWh]'))
     if split_charging_sources:
         fig.layout.xaxis2.update(dict(axis_style, tickformat='%d %b %H:%M'))
-        fig.layout.yaxis2.update(dict(axis_style, title='Charging heat [MWh / hour]'))
+        fig.layout.yaxis2.update(dict(axis_style, title=f'Charging heat [MWh / {charging_period}]'))
     if output_svg:
         fig.write_image(dir_path + '/' + filename + '.svg', width=svg_width,
                         height=700 if split_charging_sources else svg_height)
