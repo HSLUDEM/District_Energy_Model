@@ -633,6 +633,11 @@ class CalliopeOptimiser:
                  for g in self.tech_national_generation.get_generators()},
                 index=date_index
                 )
+            df_national_generation_cost = pd.DataFrame(
+                {g: self.tech_national_generation.get_cost_timeseries(g)
+                 for g in self.tech_national_generation.get_generators()},
+                index=date_index
+                )
         
         df_grid_export_timeseries = pd.DataFrame({
                                     "tariff_timeseries": - grid_export_resource_tariff_timeseries * self.energy_scaling_factor,
@@ -691,6 +696,8 @@ class CalliopeOptimiser:
         if 'national_generation' in self.tech_list:
             timeseries_dataframes['national_generation'] =\
                 df_national_generation_resource / self.energy_scaling_factor
+            timeseries_dataframes['national_generation_cost'] =\
+                df_national_generation_cost * self.energy_scaling_factor
         
         
         # dftpv = timeseries_dataframes['pvrooftop_resource']

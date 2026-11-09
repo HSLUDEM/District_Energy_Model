@@ -5,6 +5,8 @@ Created on Wed Apr 10 16:00:15 2024
 @author: UeliSchilt
 """
 
+import os
+
 import numpy as np
 import pandas as pd
 
@@ -17,7 +19,7 @@ class GridSupply(TechCore):
     Generation technology: grid supply.
     """
     
-    def __init__(self, paths, tech_dict):
+    def __init__(self, paths, tech_dict, com_nr=None, simulation_year=None):
         
         """
         Initialise grid supply parameters.
@@ -27,6 +29,10 @@ class GridSupply(TechCore):
             
         tech_dict : dict
             Dictionary with technology parameters (subset of scen_techs).
+        com_nr : int
+            Municipality number; used in tariff_mode 'munic_file'.
+        simulation_year : int
+            Simulated year; used in tariff_mode 'munic_file'.
     
         Returns
         -------
@@ -36,6 +42,8 @@ class GridSupply(TechCore):
         super().__init__(tech_dict)
         
         self.paths = paths
+        self._com_nr = com_nr
+        self._simulation_year = simulation_year
         
         # Initialize properties:
         self.update_tech_properties(tech_dict)
@@ -83,32 +91,145 @@ class GridSupply(TechCore):
         self._constant_tariff_CHFpkWh = tech_dict['constant_tariff_CHFpkWh']
         self._constant_co2_intensity = tech_dict['constant_co2_intensity']
 
+        # The keys below are missing in older copies of inputs.py:
+        self._tariff_munic_filepath = tech_dict.get('tariff_munic_filepath', '')
+        self._tariff_year = tech_dict.get('tariff_year', 'auto')
+        self._tariff_factor = tech_dict.get('tariff_factor', 1.0)
+
+        if (
+                isinstance(self._tariff_factor, bool)
+                or not isinstance(self._tariff_factor, (int, float))
+                or self._tariff_factor < 0
+                ):
+            raise ValueError(
+                "grid_supply -> tariff_factor must be a number >= 0. "
+                f"Selected value: {self._tariff_factor!r}."
+                )
+
         self._capex = 0
         self._capex_one_to_one_replacement = 0
         self._maintenance_cost = 0
         
         self.__tech_dict = tech_dict
+
+        # Scenarios update the properties after the initialisation:
+        if hasattr(self, '_tariff_timeseries'):
+            self._tariff_timeseries = self._compute_tariff_timeseries(
+                len(self._tariff_timeseries)
+                )
         
+    def _read_tariff_munic_file(self):
+        """
+        Return the tariff of the municipality [CHF/kWh] from the file with one
+        row per municipality (column GGDENR) and one column per year. If
+        tariff_year is 'auto', the simulated year is used. If the simulated
+        year is not in the file, the last year of the file is used.
+
+        Returns
+        -------
+        float
+            Tariff [CHF/kWh].
+        """
+        file_path = self._tariff_munic_filepath
+        if file_path in ('', None):
+            file_path = self.paths.electricity_dir + self.paths.electricity_tariff_file
+
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(
+                f"Electricity tariff file not found: {file_path}. Add the file "
+                "or set grid_supply -> tariff_mode to 'const' or 'timeseries'."
+                )
+
+        df_tariff = pd.read_feather(file_path).set_index('GGDENR')
+        years = sorted(int(year) for year in df_tariff.columns)
+
+        if self._com_nr not in df_tariff.index:
+            raise ValueError(
+                f"Municipality {self._com_nr} is not in the electricity tariff "
+                f"file {file_path}."
+                )
+
+        if self._tariff_year == 'auto':
+            year = self._simulation_year
+            if year not in years:
+                year = years[-1]
+                print(
+                    f"\nWARNING: Simulated year {self._simulation_year} is not "
+                    f"in the electricity tariff file. The tariff of {year} is "
+                    "used. Use grid_supply -> tariff_factor to scale it."
+                    )
+        elif self._tariff_year in years:
+            year = self._tariff_year
+        else:
+            raise ValueError(
+                f"grid_supply -> tariff_year must be 'auto' or a year of the "
+                f"tariff file ({years[0]}-{years[-1]}). "
+                f"Selected value: {self._tariff_year!r}."
+                )
+
+        return float(df_tariff.at[self._com_nr, str(year)])
+
+    def _read_tariff_timeseries_file(self, n_hours):
+        """Return the hourly tariff [CHF/kWh] from a feather or npy file."""
+        file_path = self._tariff_timeseries_filepath
+        if file_path.endswith(".feather"):
+            timeseries = pd.read_feather(file_path).to_numpy()[:, 0]
+        elif file_path.endswith(".npy"):
+            timeseries = np.load(file_path)
+        else:
+            raise ValueError("Unknown file format for timeseries of electricity prices. Use feather or npy.")
+
+        if len(timeseries) < n_hours:
+            raise ValueError(
+                f"The electricity tariff timeseries {file_path} has "
+                f"{len(timeseries)} values, but {n_hours} are required."
+                )
+
+        return timeseries[:n_hours].astype(float)
+
+    def _compute_tariff_timeseries(self, n_hours):
+        """
+        Compute the hourly tariff [CHF/kWh] according to tariff_mode. The
+        tariff_factor is applied in all modes.
+
+        Parameters
+        ----------
+        n_hours : int
+            Number of hours.
+
+        Returns
+        -------
+        numpy array
+            Hourly tariff [CHF/kWh].
+        """
+        mode = self._tariff_mode
+
+        if mode == 'file':
+            print("\nWARNING: grid_supply -> tariff_mode 'file' is deprecated. Use 'timeseries'.")
+            mode = 'timeseries'
+
+        if mode == 'const':
+            tariff = np.full(n_hours, float(self._constant_tariff_CHFpkWh))
+        elif mode == 'munic_file':
+            tariff = np.full(n_hours, self._read_tariff_munic_file())
+        elif mode == 'timeseries':
+            tariff = self._read_tariff_timeseries_file(n_hours)
+        else:
+            raise ValueError(
+                "Unknown mode for timeseries of electricity prices. "
+                "Use 'const', 'munic_file' or 'timeseries'."
+                )
+
+        return tariff*self._tariff_factor
+
     def init_timeseries(self):
 
         #Price
 
         n_hours = 365*24
 
-        self._tariff_timeseries = np.zeros(n_hours)
+        self._tariff_timeseries = self._compute_tariff_timeseries(n_hours)
         self._co2_intensity_timeseries = np.zeros(n_hours)
-
-        if self._tariff_mode == 'const':
-            self._tariff_timeseries = self._tariff_timeseries + self._constant_tariff_CHFpkWh
-        elif self._tariff_mode == 'file':
-            if self._tariff_timeseries_filepath.endswith(".feather"):
-                self._tariff_timeseries = pd.read_feather(self._tariff_timeseries_filepath).to_numpy()[:n_hours, 0]
-            elif self._tariff_timeseries_filepath.endswith(".npy"):
-                self._tariff_timeseries = np.load(self._tariff_timeseries_filepath)
-            else:
-                raise ValueError("Unknown file format for timeseries of electricity prices. Use feather or npy.")
-        else:
-            raise ValueError("Unknown mode for timeseries of electricity prices. Use 'const' or 'file'.")
 
         #CO2 intensity
 

@@ -28,31 +28,31 @@
 # generators:
   # nuclear:
     # file: nuclear.feather
-    # cost_CHFpkWh: 0.0
+    # cost_CHFpkWh: grid_tariff # a number [CHF/kWh], or grid_tariff for the tariff of grid_supply (default if omitted)
     # co2_intensity: 0.0
     # local_counterparts: []
   # hydro_storage: # storage and pumped storage (run-of-river is local)
     # file: hydro_storage.feather
-    # cost_CHFpkWh: 0.0
+    # cost_CHFpkWh: grid_tariff
     # co2_intensity: 0.0
     # local_counterparts: [hydro_power_storage]
   # wind:
     # file: wind.feather
-    # cost_CHFpkWh: 0.0
+    # cost_CHFpkWh: grid_tariff
     # co2_intensity: 0.0
     # local_counterparts: [wind_power]
   # alpine_pv:
     # file: alpine_pv.feather
-    # cost_CHFpkWh: 0.0
+    # cost_CHFpkWh: grid_tariff
     # co2_intensity: 0.0
     # local_counterparts: [solar_pvalpine]
   # agri_pv:
     # file: agri_pv.feather
-    # cost_CHFpkWh: 0.0
+    # cost_CHFpkWh: grid_tariff
     # co2_intensity: 0.0
     # local_counterparts: []
   # gas:
     # file: gas.feather
-    # cost_CHFpkWh: 0.0
+    # cost_CHFpkWh: grid_tariff
     # co2_intensity: 0.0
     # local_counterparts: []

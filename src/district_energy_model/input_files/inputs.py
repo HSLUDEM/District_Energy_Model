@@ -57,6 +57,10 @@ hv_gas = 46.0 # [MJ/kg] Heating value (lower) of gas
 hv_wood = 15.0 # [MJ/kg] Heating value (lower) of wood
 hv_msw = 12.0 # [MJ/kg] Heating value (lower) of municipal solid waste; https://vbsa.ch/artikel/aggregierte-zahlen-der-kehricht-verwertungs-anlagen-der-schweiz
 
+# VAT convention: all costs, prices and tariffs exclude VAT.
+# Known exception: oil_price is based on the Migrol price index, which includes
+# VAT (not adjusted). The VAT basis of many other cost values has not been
+# checked against their sources.
 oil_price = 1.00 # 1.00 # [CHF/l] Oil price
 gas_price = 0.13 #0.15 #0.13 # [CHF/kWh] price of natural gas # see: https://gaspreise.preisueberwacher.ch/web/index.asp
 wood_price = 0.5 # [CHF/kg] price of wood
@@ -65,7 +69,7 @@ dh_tariff = 0.13 # [CHF/kWh_th] district heating tariff
 wh_tariff = 0.01 # [CHF/kWh_th]
 whlt_tariff = 0.01 # [CHF/kWh_th]
 
-grid_tariff_CHFpkWh = 0.29 # [CHF/kWh] electricity tariff
+grid_tariff_CHFpkWh = 0.29 # [CHF/kWh] electricity tariff; used in grid_supply tariff_mode 'const'
 grid_feed_in_tariff_CHFpkWh = 0.06
 interest_rate = 0.025
 
@@ -300,11 +304,14 @@ scen_techs = {
         'deployment':True,
         # 'deployment':False,
         'kW_max':'inf',
-        'tariff_mode': 'const', # 'const' or 'file'
+        'tariff_mode': 'munic_file', # 'munic_file': value of the municipality from a file; 'const': constant_tariff_CHFpkWh; 'timeseries': hourly values from tariff_timeseries_filepath
         'co2_intensity_mode': 'const',
-        'tariff_timeseries_filepath': '',
+        'tariff_munic_filepath': '', # 'munic_file': rows: municipalities (GGDENR); columns: years; values: [CHF/kWh]; '' = <root_dir>/data/electricity/electricity_tariff_munic.feather
+        'tariff_year': 'auto', # 'munic_file': year of the tariff; 'auto' = simulated year, or the last year of the file (with a warning) if the simulated year is not in the file
+        'tariff_timeseries_filepath': '', # 'timeseries': feather (first column) or npy file with 8760 values [CHF/kWh]
         'co2_intensity_timeseries_filepath': '',
-        'constant_tariff_CHFpkWh':grid_tariff_CHFpkWh, #0.29, # [CHF/kWh] electricity tariff !!! MUST BE CHANGED TO A TIME SERIES
+        'constant_tariff_CHFpkWh':grid_tariff_CHFpkWh, #0.29, # 'const': [CHF/kWh] electricity tariff
+        'tariff_factor':1.0, # [-] factor applied to the tariff in all modes (e.g. for future scenarios)
         'constant_co2_intensity':0.097, # [kgCO2/kWh] Source: Verband Schweizerischer Elektrizitätsunternehmen VSE CO2-Gehalt des Strommix Schweiz https://www.strom.ch/de/media/15408/download
         'lifetime':25,
         'interest_rate':interest_rate
@@ -319,7 +326,7 @@ scen_techs = {
             # One entry per generator (empty by default), e.g.:
             # 'nuclear':{
             #     'file':'nuclear.feather', # rows: 8760 h; columns: municipality numbers (BFS); values: allocated generation [kWh]
-            #     'cost_CHFpkWh':0.0, # [CHF/kWh] cost of used national generation
+            #     'cost_CHFpkWh':'grid_tariff', # [CHF/kWh] cost of used national generation: a number, or 'grid_tariff' for the tariff of grid_supply (default if omitted)
             #     'co2_intensity':0.0, # [kgCO2/kWh]
             #     'local_counterparts':[], # local techs contained in this profile (e.g. ['hydro_power']); must be switched off
             #     },

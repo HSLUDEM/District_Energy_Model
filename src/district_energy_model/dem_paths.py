@@ -96,6 +96,7 @@ class DEMPaths:
         # Input data files:
         # ----------------
         self.electricity_mix_file = 'electricity_mix.feather' # timeseries of hourly electricity mix fractions.
+        self.electricity_tariff_file = 'electricity_tariff_munic.feather' # retail electricity tariff [CHF/kWh, excl. VAT] per municipality and year
         self.pv_alpine_file = path_strt1 + '/data/tech_solar_pv/alpine_pv_profiles.feather'
         self.pv_epps_unassigned_path = path_strt1 + '/data/tech_solar_pv/solar_epps_not_assigned_to_roofs_powers.feather'
         self.wind_power_cap_file = 'p_installed_kW_wind_power.feather' # installed wind power capacity [kW] per municipality
