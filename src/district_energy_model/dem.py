@@ -502,7 +502,9 @@ class DistrictEnergyModel:
         
         self.tech_grid_supply = dem_techs.GridSupply(
             self.paths,
-            scen_techs['grid_supply']
+            scen_techs['grid_supply'],
+            com_nr = self.com_nr_majority,
+            simulation_year = self.simulation_year
             )
         self.tech_instances['grid_supply'] = self.tech_grid_supply
 
@@ -522,7 +524,8 @@ class DistrictEnergyModel:
                     ),
                 com_nr = self.com_nr,
                 com_percent_2 = self.com_percent_2,
-                tech_dict = scen_techs['national_generation']
+                tech_dict = scen_techs['national_generation'],
+                grid_supply = self.tech_grid_supply
                 )
             self.tech_instances['national_generation'] = self.tech_national_generation
 

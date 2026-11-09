@@ -23,9 +23,12 @@ All notable changes to this project will be documented in this file.
 - Added solver option `solver_option_Threads` (number of Gurobi threads; default: 0 = automatic).
 - Added national generation (`national_generation`): hourly profiles of a flexible set of national generators (e.g. nuclear, hydro, alpine PV, agri PV, wind, gas plant) allocated to the municipality are used as an upper bound for supply. Unused generation is reported as curtailment. National generation cannot be exported and is used before cross-border import (binary constraints in the optimisation). An error is raised if a national generator and its local counterpart (e.g. hydro_power) are both switched on. See doc/national_generation.pdf.
 - Added output file capacities.csv (optimisation runs with save_results): optimised capacities (Calliope energy_cap [kW] and storage_cap [kWh]) per technology, split into existing, one-to-one replacement and new capacity where available.
+- Added municipal retail electricity tariffs: new default `grid_supply` `tariff_mode` `munic_file` reads the tariff of the municipality and simulated year from `data/electricity/electricity_tariff_munic.feather` (CHF/kWh, excl. VAT; ElCom data, 2016-2027). If the simulated year is not in the file, the last year is used (with a warning). The modes `const` and `timeseries` remain available (`file` is deprecated, use `timeseries`). New inputs: `tariff_munic_filepath`, `tariff_year`, `tariff_factor`.
+- National generators use the tariff of `grid_supply` by default: `cost_CHFpkWh` can be omitted or set to `grid_tariff`; a number sets a different cost.
 
 
 ### Fixed
+- Changes of the `grid_supply` tariff in a scenario are applied (previously, the tariff timeseries was not updated).
 - Configuration YAML files are checked for valid keywords. An error is thrown if a keyword is invalid (e.g., due to incorrect spelling). Previously, the simulation just continued.
 – Adjust upper and lower flexibility bounds if EV integration is <100% in optimization scenario (previously leading to an error).
 - Minor bugfixes

@@ -25,8 +25,12 @@ import pandas as pd
 
 from district_energy_model.techs.dem_tech_core import TechCore
 
-# Keys required for each generator in scen_techs['national_generation']['generators']:
+# Keys of each generator in scen_techs['national_generation']['generators']:
 GENERATOR_KEYS = ('file', 'cost_CHFpkWh', 'co2_intensity', 'local_counterparts')
+
+# Value of cost_CHFpkWh for using the tariff of grid_supply (hourly, incl.
+# tariff_factor). This is the default if cost_CHFpkWh is not set:
+COST_GRID_TARIFF = 'grid_tariff'
 
 # Local technologies that can be declared as counterparts of a national
 # generator (i.e. their generation is part of the national profile).
@@ -261,16 +265,22 @@ def validate_tech_dict(tech_dict):
                 f"{context}: unknown key(s) {unknown}. "
                 f"Allowed keys: {list(GENERATOR_KEYS)}."
                 )
-        missing = [k for k in GENERATOR_KEYS if k not in gen_dict]
+        missing = [
+            k for k in GENERATOR_KEYS
+            if k not in gen_dict and k != 'cost_CHFpkWh'
+            ]
         if missing:
             raise ValueError(f"{context}: missing key(s) {missing}.")
 
         for key in ('cost_CHFpkWh', 'co2_intensity'):
-            val = gen_dict[key]
+            val = gen_dict.get(key, COST_GRID_TARIFF)
+            if key == 'cost_CHFpkWh' and val == COST_GRID_TARIFF:
+                continue
             if isinstance(val, bool) or not isinstance(val, (int, float)) or val < 0:
                 raise ValueError(
-                    f"{context} -> {key} must be a number >= 0. "
-                    f"Selected value: {val!r}."
+                    f"{context} -> {key} must be a number >= 0"
+                    + (f" or '{COST_GRID_TARIFF}'" if key == 'cost_CHFpkWh' else "")
+                    + f". Selected value: {val!r}."
                     )
 
         counterparts = gen_dict['local_counterparts']
@@ -375,7 +385,7 @@ class NationalGeneration(TechCore):
     Generation technology: national generators allocated to the municipality.
     """
 
-    def __init__(self, data_dir, com_nr, com_percent_2, tech_dict):
+    def __init__(self, data_dir, com_nr, com_percent_2, tech_dict, grid_supply):
 
         """
         Initialise national generation and read the hourly profiles.
@@ -391,6 +401,9 @@ class NationalGeneration(TechCore):
             district. Empty list otherwise.
         tech_dict : dict
             Dictionary with technology parameters (subset of scen_techs).
+        grid_supply : GridSupply
+            Grid supply technology; provides the tariff for generators with
+            the cost 'grid_tariff'.
 
         Returns
         -------
@@ -398,6 +411,8 @@ class NationalGeneration(TechCore):
         """
 
         super().__init__(tech_dict)
+
+        self._grid_supply = grid_supply
 
         # Initialize properties:
         self.update_tech_properties(tech_dict)
@@ -443,7 +458,10 @@ class NationalGeneration(TechCore):
                 )
 
         self._generators = generators
-        self._cost = {g: float(tech_dict['generators'][g]['cost_CHFpkWh']) for g in generators} # [CHF/kWh]
+        self._cost = {
+            g: tech_dict['generators'][g].get('cost_CHFpkWh', COST_GRID_TARIFF)
+            for g in generators
+            } # [CHF/kWh] or COST_GRID_TARIFF
         self._co2_intensity = {g: float(tech_dict['generators'][g]['co2_intensity']) for g in generators} # [kgCO2/kWh]
         self._export_big_M = tech_dict['export_big_M_kWh']
         self._import_big_M = tech_dict['import_big_M_kWh']
@@ -577,7 +595,7 @@ class NationalGeneration(TechCore):
                     },
                 'costs':{
                     'monetary':{
-                        'om_prod':self._cost[g] * energy_scaling_factor, # [CHF/kWh]
+                        'om_prod':f'df=national_generation_cost:{g}', # [CHF/kWh]
                         'interest_rate':0.0,
                         },
                     'emissions_co2':{
@@ -606,8 +624,15 @@ class NationalGeneration(TechCore):
     def get_v_e_pot_tot(self):
         return sum(self.get_v_e_pot(g) for g in self._generators)
 
-    def get_cost(self, gen_name):
-        return self._cost[gen_name]
+    def get_cost_timeseries(self, gen_name):
+        """
+        Return the hourly cost of a generator [CHF/kWh]: the tariff of
+        grid_supply or the value set in cost_CHFpkWh.
+        """
+        n_hours = len(self._v_e_pot_gen[gen_name])
+        if self._cost[gen_name] == COST_GRID_TARIFF:
+            return self._grid_supply.get_tariff_timeseries()[:n_hours]
+        return np.full(n_hours, float(self._cost[gen_name]))
 
     def get_co2_intensity(self, gen_name):
         return self._co2_intensity[gen_name]
@@ -620,7 +645,8 @@ class NationalGeneration(TechCore):
 
     def get_energy_costs(self):
         return sum(
-            np.sum(self.get_v_e(g))*self._cost[g] for g in self._generators
+            np.sum(self.get_v_e(g)*self.get_cost_timeseries(g))
+            for g in self._generators
             )
 
     def get_co2_emissions(self):
