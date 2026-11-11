@@ -1039,9 +1039,10 @@ def scenario_thermal_energy_storage_via_pv_hp(
 def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, scen_techs):
     """Dispatch each store once per priority pass; all timestep energies are kWh.
 
-    TES-first replaces HP-supplied building heat before using the BES. BES-first
-    supplies the electrical deficit first; TES then replaces only heating that
-    still needs imported electricity. The grid supplies the final deficit.
+    Local generation covers demand before either store discharges. TES-first
+    replaces the remaining HP-supplied heat before using BES electricity;
+    BES-first supplies the deficit before TES is considered. The grid supplies
+    the final deficit.
     """
     # Read the scenario settings without changing the caller's configuration.
     config = scen_techs['scenario_battery_plus_thermal_energy_storage']
@@ -1132,16 +1133,14 @@ def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, 
                     tech.update_l_q_h_i(i - 1, loss)
 
         # Visit each discharging technology once in the requested priority.
-        # Once BES has supplied electricity, TES may not make it surplus.
+        # Both stores serve only demand not covered by local generation.
         bes_output = 0.0
-        bes_visited = False
         for key in config['storage_priority']['discharge']:
             if key not in stores:
                 continue
             store = stores[key]
             available = min(store['limit'], store['level'] * store['eta'])
             if key == 'bes':
-                bes_visited = True
                 bes_output = min(max(demand[i] - renewable[i], 0.0), available)
                 store['discharge'] = bes_output
                 store['level'] -= bes_output / store['eta']
@@ -1149,10 +1148,11 @@ def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, 
 
             # TES supplies heat directly to replace HP output; it does not run
             # the HP on discharge or replace any building electric-heater heat.
-            replaced = min(hp_heat[i], available)
-            if bes_visited:
-                remaining_import = max(demand[i] - renewable[i] - bes_output, 0.0)
-                replaced = min(replaced, remaining_import * cops[i])
+            # Reserve local generation for demand before replacing HP heat.
+            # TES-first therefore reduces the HP deficit before BES supplies it;
+            # BES-first also reserves electricity already delivered by BES.
+            remaining_import = max(demand[i] - renewable[i] - bes_output, 0.0)
+            replaced = min(hp_heat[i], available, remaining_import * cops[i])
             hp_heat[i] -= replaced
             saved_electricity = replaced / cops[i]
             demand[i] -= saved_electricity
@@ -1247,6 +1247,14 @@ def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, 
             hp.update_v_h_i(i, hp_heat[i])
         energy_demand.update_d_e_i(i, max(demand[i], 0.0))
         energy_demand.update_d_e_h_i(i, max(heating_electricity[i], 0.0))
+
+    # Report unpaid initial energy using the same warning as the single-store
+    # scenarios, separately for each deployed store after its final timestep.
+    for key, store in stores.items():
+        tech = store['tech']
+        final_energy = tech.get_q_e()[-1] if key == 'bes' else tech.get_q_h()[-1]
+        label = 'Combined BES scenario' if key == 'bes' else 'Combined TES scenario'
+        __report_net_storage_discharge(label, store['initial'], final_energy)
 
     # Refresh annual totals after the hourly demand updates. BES charging is
     # added separately by the mix function, preserving its existing contract.
