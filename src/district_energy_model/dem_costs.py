@@ -373,6 +373,22 @@ def calculate_CO2_emissions(supply, tech_instances, debug=False):
     total_heat_generation = 0
     total_electricity_generation = 0
 
+    co2_emissions["emissions_petrol_combustion"] = (
+        sum(supply.get_m_petrol_l())
+        * supply.supply_tech_dict.get("co2_petrol_combustion_kgpl", 0.0)
+    )
+    co2_emissions["emissions_petrol_upstream"] = (
+        sum(supply.get_m_petrol_l())
+        * supply.supply_tech_dict.get("co2_petrol_upstream_kgpl", 0.0)
+    )
+    co2_emissions["emissions_diesel_combustion"] = (
+        sum(supply.get_m_diesel_l())
+        * supply.supply_tech_dict.get("co2_diesel_combustion_kgpl", 0.0)
+    )
+    co2_emissions["emissions_diesel_upstream"] = (
+        sum(supply.get_m_diesel_l())
+        * supply.supply_tech_dict.get("co2_diesel_upstream_kgpl", 0.0)
+    )
     co2_emissions["emissions_oil"] = (
         sum(supply._m_oil) * supply.supply_tech_dict["co2_content_oil"]
     )

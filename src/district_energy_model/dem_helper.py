@@ -381,7 +381,9 @@ def update_df_results(
             )
 
     # Compute total CO2 emissions and add column (v_CO2_tot):
-    co2_columns = [col for col in df_results.columns if col.startswith('v_co2') or col.startswith('m_co2')]
+    co2_columns = [col for col in df_results.columns
+                   if col != 'v_co2_tot'
+                   and (col.startswith('v_co2') or col.startswith('m_co2'))]
     df_results['v_co2_tot'] = df_results[co2_columns].sum(axis=1)
 
         

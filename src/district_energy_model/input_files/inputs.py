@@ -791,6 +791,8 @@ scen_techs = {
         },
               
     'scenarios':{
+        # Requires mobility.enabled. Independent of the demand_side scenario.
+        'traffic_electrification': False,
         'demand_side': False,
         # 'demand_side':True,
         'fossil_heater_retrofit':False,
@@ -842,6 +844,22 @@ scen_techs = {
         # 'ts_resolution':60 # [min] timestep resolution # NOT YET IMPLEMENTED
         },
     
+    'mobility': {
+        'enabled': False,  # Include the complete passenger-car balance, also in base.
+        'ev_flexibility': True,  # BEV only; PHEV charging remains fixed.
+        # Percent of equivalent vehicle-km. Four BFS 2026 categories normalised
+        # to 100%, excluding ~0.3% other vehicles. Assumption: all PHEV petrol.
+        'baseline_shares_percent': {
+            'petrol': 66.30, 'diesel': 24.07, 'bev': 6.42,
+            'phev_petrol': 3.21, 'phev_diesel': 0.0,
+        },
+        # Used only when scenarios.traffic_electrification is True.
+        'scenario_shares_percent': {
+            'petrol': 0.0, 'diesel': 0.0, 'bev': 100.0,
+            'phev_petrol': 0.0, 'phev_diesel': 0.0,
+        },
+    },
+
     'demand_side':{ # only applies if ['scenarios]['demand_side'] == True
         'simulation_year':{
             'type':'current', # Options: 'current', 'future'
@@ -918,6 +936,36 @@ scen_techs = {
     },
     
     'supply':{
+        # Passenger-car consumption: BFE 2023 new-car norms, Table 3, p. 24.
+        # https://pubdb.bfe.admin.ch/de/publication/download/11780#page=24
+        # ETH charging energy / EV consumption gives equivalent vehicle-km.
+        # PHEV fuel AND electricity values are used directly per total distance.
+        'ev_consumption_kWhp100km': 17.99,
+        'petrol_consumption_Lp100km': 6.68,  # includes non-plug-in HEV
+        'diesel_consumption_Lp100km': 6.28,  # includes non-plug-in HEV
+        # PHEV fuel: EC COM(2024) 122, Table 3, real-world means (2021 cars).
+        # https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52024DC0122
+        'phev_petrol_consumption_Lp100km': 5.97,
+        'phev_diesel_consumption_Lp100km': 5.83,
+        # PHEV electricity: provisional midpoint of the reported typical
+        # 5-10 kWh/100 km charged (PHEV_Realverbrauch.pdf, pp. 25-26).
+        # Not a measured fleet mean or fuel-specific result. Charging-loss
+        # boundary remains unverified; no additional loss factor is applied.
+        'phev_petrol_consumption_kWhp100km': 7.5,
+        'phev_diesel_consumption_kWhp100km': 7.5,
+        # BAFU Jan. 2026 Table 1: heating values, densities, direct fossil CO2.
+        # https://www.bafu.admin.ch/dam/de/sd-web/NlGIhzJ8OW0t/Faktenblatt_CO2-Emissionsfaktoren_01-2026_DE.pdf
+        'hv_petrol_MJpkg': 42.6,
+        'density_petrol_kgpl': 0.737,
+        'hv_diesel_MJpkg': 43.0,
+        'density_diesel_kgpl': 0.830,
+        'co2_petrol_combustion_kgpl': 2.32,
+        'co2_diesel_combustion_kgpl': 2.62,
+        # BFE/tree ze 2025 Table 4.2, PDF p. 27: well-to-tank fossil CO2.
+        # https://pubdb.bfe.admin.ch/de/publication/download/12224#page=27
+        'co2_petrol_upstream_kgpl': 0.461,
+        'co2_diesel_upstream_kgpl': 0.437,
+        # Traffic fuel costs and vehicle manufacturing are outside version 1.
         
         #Oil
         'hv_oil_MJpkg':hv_oil, # [MJ/kg] Heating value (lower) of oil

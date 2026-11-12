@@ -15,6 +15,7 @@ import copy
 
 from district_energy_model import dem_costs, dem_techs
 from district_energy_model import dem_demand
+from district_energy_model import dem_mobility
 from district_energy_model import dem_hp_cop_calculation
 from district_energy_model import dem_helper
 from district_energy_model import dem_energy_balance as dem_eb
@@ -552,6 +553,8 @@ class DistrictEnergyModel:
         
         # Total electricity demand (hourly and annual):
         self.energy_demand.compute_d_e()
+        # A mobility-enabled base includes today's complete drive mix.
+        self.__configure_mobility(scen_techs, scenario=False)
         
         """--------------------------------------------------------------------
         Reset unmet demand:
@@ -696,6 +699,55 @@ class DistrictEnergyModel:
         del df_interim
         return df_base, dict_yr
 
+    def __configure_mobility(self, scen_techs, scenario):
+        """Replace the legacy EV increment with a complete passenger-car balance."""
+        config = scen_techs.get('mobility', {})
+        active_scenario = scen_techs['scenarios'].get('traffic_electrification', False)
+        if not isinstance(config.get('enabled', False), bool):
+            raise ValueError('mobility.enabled must be a boolean.')
+        if not isinstance(active_scenario, bool):
+            raise ValueError('scenarios.traffic_electrification must be a boolean.')
+        if active_scenario and not config.get('enabled', False):
+            raise ValueError('scenarios.traffic_electrification requires '
+                             'mobility.enabled = True.')
+        if not config.get('enabled', False):
+            # Keep the historical EV path unchanged when the feature is off.
+            if self.energy_demand.get_mobility() is not None:
+                self.energy_demand.update_mobility(None)
+                n = len(self.energy_demand.get_d_e())
+                self.energy_demand.update_d_e_ev_cp(np.zeros(n), n // 24)
+                self.energy_demand.update_d_e_ev_pd(np.zeros(n))
+                self.energy_demand.update_d_e_ev_pu(np.zeros(n))
+                self.energy_demand.update_f_e_ev_pot_dy(np.zeros(n // 24))
+                self.energy_demand.update_d_e_ev(np.zeros(n))
+                self.energy_demand.compute_d_e()
+            self.supply.update_mobility(None)
+            return
+        # Validate both mixes even when only the baseline is being calculated.
+        dem_mobility.validate_shares(config['baseline_shares_percent'])
+        dem_mobility.validate_shares(config['scenario_shares_percent'])
+        if not isinstance(config['ev_flexibility'], bool):
+            raise ValueError('mobility.ev_flexibility must be a boolean.')
+        if not hasattr(self, '_mobility_reference'):
+            self._mobility_reference = dem_mobility.read_reference_profiles(
+                self.paths, self.com_nr, self.com_percent_2)
+        mix = ('scenario_shares_percent' if scenario and active_scenario
+               else 'baseline_shares_percent')
+        n = len(self.energy_demand.get_d_e())
+        mobility = dem_mobility.MobilityDemand(
+            self._mobility_reference, config[mix], scen_techs['supply'], n)
+        self.energy_demand.update_mobility(mobility)
+        charging = mobility.charging_profiles()
+        self.energy_demand.update_d_e_ev_cp(charging['cp'], n // 24)
+        self.energy_demand.update_d_e_ev_pd(charging['pd'])
+        self.energy_demand.update_d_e_ev_pu(charging['pu'])
+        self.energy_demand.update_f_e_ev_pot_dy(charging['fe'])
+        self.energy_demand.update_d_e_ev(charging['cp'])
+        self.energy_demand.compute_d_e()
+        # Copy to avoid mutating caller/default configuration dictionaries.
+        self.supply.supply_tech_dict = copy.deepcopy(scen_techs['supply'])
+        self.supply.update_mobility(mobility)
+
     def __allocate_fuel_imports(self):
         """
         Allocate fuel imports (oil, gas, wood) to the supply instance based on
@@ -776,6 +828,10 @@ class DistrictEnergyModel:
 
         techs_not_deployed = []
         for tech_name, tech_instance in list(self.tech_instances.items()): # iterate over a copy()
+            # Internal Calliope workaround, recreated below. It has no user
+            # configuration key and may already exist on a repeated scenario.
+            if tech_name == 'pile_of_berries':
+                continue
             if scen_techs[tech_name]['deployment']:
                 tech_instance.update_tech_properties(scen_techs[tech_name])
             elif scen_techs['optimisation']['enabled']:
@@ -1089,6 +1145,16 @@ class DistrictEnergyModel:
                 raise(Exception('Hydrogen is required for this tech list!'))        
         
         #----------------------------------------------------------------------
+        # Independent of demand-side heat/weather scenarios. Recalculate from
+        # the unscaled reference each time, never from a prior scenario's load.
+        self.__configure_mobility(scen_techs, scenario=True)
+        if scen_techs.get('mobility', {}).get('enabled', False):
+            dem_eb.get_local_electricity_mix(self.energy_demand, self.tech_instances)
+            self.tech_grid_supply.update_m_e(self.tech_grid_supply.get_m_e())
+            dem_helper.update_df_results(
+                self.energy_demand, self.supply, self.building_inertia_flex,
+                self.tech_instances, df_scen)
+
         # Check overall energy balance:
         if self.toggle_energy_balance_tests:
             dem_eb.electricity_balance_test(
@@ -1275,7 +1341,8 @@ class DistrictEnergyModel:
                     self.tech_instances[techstoacton[k]].set_power_up_for_replacement(power_up_for_replacement)
 
             
-            if scen_techs['demand_side']['ev_integration']:
+            if (scen_techs['demand_side']['ev_integration']
+                    and not scen_techs.get('mobility', {}).get('enabled', False)):
                 print('\n demand_side')
                 self.energy_demand.compute_d_e_ev(
                     ev_profiles_dir=self.ev_profiles_dir,
@@ -2247,6 +2314,10 @@ class DistrictEnergyModel:
             raise(Exception('No Scenario has been generated!'))
             
     def plot(self):
+        if (not (self.pareto_results_generated or self.pareto_results_loaded)
+                and self.scen_techs.get('mobility', {}).get('enabled', False)):
+            dem_output.plot_mobility_comparison(
+                self.df_base, self.df_scen, self.results_path)
         if self.pareto_results_generated or self.pareto_results_loaded:
             pareto_results=self.pareto_results
             self.dict_yr_scen = 0.0

@@ -29,6 +29,21 @@ def _save_html_figure(fig, file_html):
     plotly_plot(fig, filename=file_html, auto_open=False)
 
 
+def plot_mobility_comparison(df_base, df_scenario, results_path):
+    """Compare complete passenger-car end energy for the simulated timeframe."""
+    from pathlib import Path
+    count = len(df_scenario)
+    fig = go.Figure()
+    for name, frame in (('Baseline', df_base.iloc[:count]), ('Scenario', df_scenario)):
+        fig.add_trace(go.Bar(
+            name=name, x=['Electricity (BEV + PHEV)', 'Petrol', 'Diesel'],
+            y=[float(frame[column].sum()) / 1000
+               for column in ('d_e_ev', 'm_petrol', 'm_diesel')]))
+    fig.update_layout(barmode='group', title='Passenger-car end energy',
+                      yaxis_title='Energy in simulated period [MWh]')
+    _save_html_figure(fig, str(Path(results_path) / 'mobility_energy.html'))
+
+
 def _write_html(self, file, *args, **kwargs):
     _save_html_figure(self, file)
 

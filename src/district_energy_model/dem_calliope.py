@@ -98,6 +98,9 @@ class CalliopeOptimiser:
         
         self.rerun_eps = False
         self.eps_n = 'inf'
+        # Prescribed traffic fuels do not affect dispatch. Include their constant
+        # emissions in reported objectives and in systemwide epsilon caps.
+        self.fixed_mobility_co2 = supply.get_mobility_co2()
         self.dhn_share_type = False
         self.dhn_share_val = 0.0
         
@@ -105,7 +108,11 @@ class CalliopeOptimiser:
         
         # Flexibility:
         # -----------
-        if (
+        mobility = self.scen_techs.get('mobility', {})
+        if mobility.get('enabled', False):
+            self.ev_flex_flag = (mobility['ev_flexibility']
+                                 and np.any(self.energy_demand.get_f_e_ev_pot_dy() > 0))
+        elif (
             self.scen_techs['scenarios']['demand_side']
             and self.scen_techs['demand_side']['ev_integration']
             and self.scen_techs['demand_side']['ev_flexibility']
@@ -1748,11 +1755,7 @@ class CalliopeOptimiser:
         # -------------------
         # Demand:
 
-        if (
-                self.scen_techs['scenarios']['demand_side']
-                and self.scen_techs['demand_side']['ev_integration']
-                and self.scen_techs['demand_side']['ev_flexibility']
-                ):
+        if self.ev_flex_flag:
             
             d_e_ev = (
                 -opt_results['carrier_con'].loc['X1::demand_electricity_ev_pd::electricity'].values*self.energy_scaling_factor
@@ -2049,6 +2052,12 @@ class CalliopeOptimiser:
         if objective_monetary > 0:
             dict_total_costs['monetary']['total'] =\
                 (dict_total_costs['objective']['total'] - objective_co2*dict_total_costs['co2']['total'])/objective_monetary
+
+        # Add the fixed traffic term only after recovering monetary costs from
+        # the solver objective, which contains the dispatch-dependent part.
+        dict_total_costs['co2']['mobility_fuels'] = self.fixed_mobility_co2
+        dict_total_costs['co2']['total'] += self.fixed_mobility_co2
+        dict_total_costs['objective']['total'] += objective_co2 * self.fixed_mobility_co2
 
         return dict_total_costs
     
@@ -2356,11 +2365,7 @@ class CalliopeOptimiser:
                 },
             }
         
-        if (
-                self.scen_techs['scenarios']['demand_side']
-                and self.scen_techs['demand_side']['ev_integration']
-                and self.scen_techs['demand_side']['ev_flexibility']
-                ):
+        if self.ev_flex_flag:
             
             techs_dict['demand_electricity_ev_pd'] = {
                 'essentials':{
@@ -3194,11 +3199,7 @@ class CalliopeOptimiser:
                 }
                     }
         
-        if (
-                self.scen_techs['scenarios']['demand_side']
-                and self.scen_techs['demand_side']['ev_integration']
-                and self.scen_techs['demand_side']['ev_flexibility']
-                ):
+        if self.ev_flex_flag:
             
             loc_dict['X1']['techs']['demand_electricity_ev_pd'] = {}
             loc_dict['X1']['techs']['demand_electricity_ev_delta'] = {}
@@ -3280,11 +3281,7 @@ class CalliopeOptimiser:
             'df=demand_power_baseline:d_e_baseline'
         
         # Electric vehicles:
-        if (
-                self.scen_techs['scenarios']['demand_side']
-                and self.scen_techs['demand_side']['ev_integration']
-                and self.scen_techs['demand_side']['ev_flexibility']
-                ):
+        if self.ev_flex_flag:
             
             # There is a lower bound (pd) that must be fulfilled and a max. upper bound (pd + delta):
             loc_dict['X1']['techs']['demand_electricity_ev_pd']['constraints.resource'] =\
@@ -3722,7 +3719,7 @@ class CalliopeOptimiser:
             group_constraints_dict['systemwide_co2_cap'] = None
             group_constraints_dict['systemwide_co2_cap'] = {
                     'cost_max':{
-                        'emissions_co2':self.eps_n,
+                        'emissions_co2':float(self.eps_n) - self.fixed_mobility_co2,
                         }
                     }
 

@@ -72,6 +72,7 @@ class EnergyDemand:
     def __init__(self, paths, com_nr, com_nr_majority):
         
         self.paths = paths
+        self._mobility = None
                 
         # Properties:
         self.com_nr = com_nr
@@ -179,6 +180,8 @@ class EnergyDemand:
         df['d_h_flex_ll'] = self.get_d_h_flex_ll()
         df['d_h_flex_ul'] = self.get_d_h_flex_ul()
         df['d_h_s_flex_ll'] = self.get_d_h_s_flex_ll()
+        if self._mobility is not None:
+            self._mobility.update_df_results(df, self.get_d_e_ev())
         
         return df
     
@@ -198,6 +201,8 @@ class EnergyDemand:
         """
         
         n_hours = n_days*24
+        if self._mobility is not None:
+            self._mobility.reduce_timeframe(n_days)
         
         self._d_e = self._d_e[:n_hours]
         self._d_e_ev = self._d_e_ev[:n_hours]
@@ -552,6 +557,9 @@ class EnergyDemand:
             
     #     self.__dict__[var_name] = np.array(var_data)
             
+    def update_mobility(self, mobility):
+        self._mobility = mobility
+
     def update_d_e(self, d_e_updated):
         if len(d_e_updated) != len(self._d_e):
             raise ValueError("d_e_updated must have the same length as d_e!")
@@ -2030,6 +2038,9 @@ class EnergyDemand:
         if isinstance(var, (int, float, np.integer))==False:
             raise ValueError()
             
+    def get_mobility(self):
+        return self._mobility
+
     def get_d_e(self):
         self.len_test(self._d_e)
         return self._d_e

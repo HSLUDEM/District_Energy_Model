@@ -56,6 +56,10 @@ class Supply(TechCore):
         self._m_oil = [0.0]*8760
         self._m_gas = [0.0]*8760        
         self._m_wd = [0.0]*8760
+        self._m_petrol = np.zeros(8760)  # [kWh] passenger-car fuel imports
+        self._m_diesel = np.zeros(8760)
+        self._m_petrol_l = np.zeros(8760)
+        self._m_diesel_l = np.zeros(8760)
         
         # Annual values:
         self._s_hydroL_yr = ...
@@ -75,6 +79,12 @@ class Supply(TechCore):
         df['m_oil'] = self.get_m_oil()
         df['m_gas'] = self.get_m_gas()
         df['m_wd'] = self.get_m_wd()        
+        df['m_petrol'] = self.get_m_petrol()
+        df['m_diesel'] = self.get_m_diesel()
+        df['m_petrol_l'] = self.get_m_petrol_l()
+        df['m_diesel_l'] = self.get_m_diesel_l()
+        for name, values in self.get_mobility_emissions().items():
+            df['m_co2_' + name] = values
         
         # CO2 emissions of fuels (included in v_co2_tot):
         df['m_co2_oil'] = self.get_m_oil()*self.supply_tech_dict['co2_content_oil']
@@ -118,6 +128,35 @@ class Supply(TechCore):
         self._m_oil = self._m_oil[:n_hours]
         self._m_gas = self._m_gas[:n_hours]        
         self._m_wd = self._m_wd[:n_hours]
+        self._m_petrol = self._m_petrol[:n_hours]
+        self._m_diesel = self._m_diesel[:n_hours]
+        self._m_petrol_l = self._m_petrol_l[:n_hours]
+        self._m_diesel_l = self._m_diesel_l[:n_hours]
+
+    def update_mobility(self, mobility):
+        """Prescribed traffic imports, kept separate from boiler heating oil."""
+        if mobility is None:
+            self._m_petrol = np.zeros(len(self._m_oil))
+            self._m_diesel = np.zeros(len(self._m_oil))
+            self._m_petrol_l = np.zeros(len(self._m_oil))
+            self._m_diesel_l = np.zeros(len(self._m_oil))
+        else:
+            self._m_petrol_l = mobility.petrol_l.copy()
+            self._m_diesel_l = mobility.diesel_l.copy()
+            self._m_petrol = self._m_petrol_l * mobility.petrol_kWhpl
+            self._m_diesel = self._m_diesel_l * mobility.diesel_kWhpl
+
+    def get_mobility_emissions(self):
+        """Disjoint fossil CO2 components in kg, including well-to-tank."""
+        return {
+            f'{fuel}_{part}': getattr(self, f'_m_{fuel}_l')
+            * self.supply_tech_dict.get(f'co2_{fuel}_{part}_kgpl', 0.0)
+            for fuel in ('petrol', 'diesel')
+            for part in ('combustion', 'upstream')
+        }
+
+    def get_mobility_co2(self):
+        return float(sum(np.sum(v) for v in self.get_mobility_emissions().values()))
         
     def create_supply_dict_oil(
             self,
@@ -541,6 +580,22 @@ class Supply(TechCore):
     def get_m_wd(self):
         self.len_test(self._m_wd)
         return self._m_wd
+
+    def get_m_petrol(self):
+        self.len_test(self._m_petrol)
+        return self._m_petrol
+
+    def get_m_diesel(self):
+        self.len_test(self._m_diesel)
+        return self._m_diesel
+
+    def get_m_petrol_l(self):
+        self.len_test(self._m_petrol_l)
+        return self._m_petrol_l
+
+    def get_m_diesel_l(self):
+        self.len_test(self._m_diesel_l)
+        return self._m_diesel_l
 
 
 # sirnach_wet.to_frame(sirnach_wet, 'wet_biomass')
