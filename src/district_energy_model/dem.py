@@ -1125,7 +1125,14 @@ class DistrictEnergyModel:
         """--------------------------------------------------------------------
         Apply scenarios:
         """
-        
+        if scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage'] == True:
+            # Safety check before any scenario runs: the combined controller
+            # cannot run together with either legacy storage scenario.
+            # Validate once here so optional-storage warnings are not repeated.
+            dem_helper.validate_scenario_battery_plus_thermal_energy_storage(
+                scen_techs
+                )
+
         if scen_techs['scenarios']['demand_side'] == True:
             # TO DO: WRAP IN SCENARIO FUNCTION
             weather_year_ = (
@@ -1513,6 +1520,8 @@ class DistrictEnergyModel:
                     diff_sum_accepted = C.DIFF_SUM_ACC,
                     tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                     )
+
+
         if (scen_techs['scenarios']['battery_energy_storage'] == True 
             and scen_techs['scenarios']['thermal_energy_storage'] == True):
 
@@ -1577,9 +1586,6 @@ class DistrictEnergyModel:
                     )
 
 
-
-
-
         if scen_techs['scenarios']['thermal_energy_storage'] == True:
             print('\n thermal_energy_storage')
             # Check if required technologies are deployed:
@@ -1632,7 +1638,52 @@ class DistrictEnergyModel:
                     diff_sum_accepted = C.DIFF_SUM_ACC,
                     tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
                     )
+
             
+        if scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage'] == True:
+            print('\n scenario_battery_plus_thermal_energy_storage')
+            # Configuration was validated at the start of Apply scenarios.
+            # Apply storage after demand changes and PV/wind integration.
+            dem_scenarios.scenario_battery_plus_thermal_energy_storage(
+                energy_demand=self.energy_demand,
+                tech_instances=self.tech_instances,
+                scen_techs=scen_techs
+                )
+
+            #------------------------------------------------------------------
+            # Update df_scen:
+            dem_helper.update_df_results(
+                self.energy_demand,
+                self.supply,
+                self.building_inertia_flex,
+                self.tech_instances,
+                df_scen
+                )
+
+            # Report completion only after dispatch and result accounting finish.
+            print('\nCombined BES/TES dispatch completed.')
+
+            #------------------------------------------------------------------
+            # Check overall energy balance.
+            if self.toggle_energy_balance_tests:
+                dem_eb.electricity_balance_test(
+                    scen_techs=scen_techs,
+                    df_scen=df_scen,
+                    optimisation=False,
+                    diff_accepted=C.DIFF_ACC,
+                    diff_sum_accepted=C.DIFF_SUM_ACC
+                    )
+                dem_eb.heat_balance_test(
+                    scen_techs=scen_techs,
+                    df_scen=df_scen,
+                    optimisation=False,
+                    diff_accepted=C.DIFF_ACC,
+                    diff_sum_accepted=C.DIFF_SUM_ACC,
+                    tes_sites_plotting_inf=(self.tech_tes_sites.get_plotting_information()
+                                            if scen_techs['tes_sites']['deployment'] else {})
+                    )
+
+
         if scen_techs['scenarios']['nuclear_phaseout'] == True:
             print('\n nuclear_phaseout')
 
@@ -2271,6 +2322,9 @@ class DistrictEnergyModel:
             df_scen=self.df_scen,   
             tes_sites_plotting_inf=tes_sites_plotting_inf,
             building_inertia_flex=self.building_inertia_flex,
+            # Only combined dispatch has exactly HP and direct TES charging.
+            combined_storage=self.scen_techs['scenarios'].get(
+                'scenario_battery_plus_thermal_energy_storage', False),
             )
             
     def run(self,
