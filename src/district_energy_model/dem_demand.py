@@ -394,8 +394,9 @@ class EnergyDemand:
         # -----------------------------------------------
         # Additional techs:
                 
-        if 'heat_pump_cp' in tech_instances:
-            hpcp_inst = tech_instances['heat_pump_cp']
+        for tech_name, hpcp_inst in tech_instances.items():
+            if not tech_name.startswith('heat_pump_cp_instance_'):
+                continue
             if len(hpcp_inst.get_u_e()) == 0:
                 raise ValueError("u_e_hpcp must be computed first!")
             else:

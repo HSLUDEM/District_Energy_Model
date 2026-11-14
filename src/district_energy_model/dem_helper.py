@@ -59,9 +59,7 @@ def _add_new_config_key(dst, tmpl, key):
     Check whether a key that does not exist in scen_techs may be added.
 
     Allowed are any keys in a dict that is empty by default (e.g.
-    meta_data.custom_district.scaling_factors) and new instances of techs
-    with several instances (e.g. heat_pump_cp.instance_2). New instances
-    are initialised with the default values of instance_1 and added to dst.
+    meta_data.custom_district.scaling_factors).
 
     Parameters
     ----------
@@ -77,26 +75,54 @@ def _add_new_config_key(dst, tmpl, key):
     bool
         True if the key may be added.
     """
-    if isinstance(tmpl, dict) and len(tmpl) == 0:
-        return True
-    if (
-            str(key).startswith('instance_')
-            and isinstance(tmpl, dict)
-            and 'instance_1' in tmpl
-            ):
-        dst[key] = copy.deepcopy(tmpl['instance_1'])
-        return True
-    return False
+    return isinstance(tmpl, dict) and len(tmpl) == 0
 
 def _config_template_child(tmpl, key):
     """Return the default node for key (see _add_new_config_key)."""
     if not isinstance(tmpl, dict):
         return {}
-    if key in tmpl:
-        return tmpl[key]
-    if str(key).startswith('instance_') and 'instance_1' in tmpl:
-        return tmpl['instance_1']
-    return {}
+    return tmpl.get(key, {})
+
+def expand_list_parameters(tech_dict, tech_name):
+    """
+    Split a tech dict whose parameters may be lists into one dict per
+    instance (e.g. heat_pump_cp). Single values apply to all instances.
+
+    Parameters
+    ----------
+    tech_dict : dict
+        Technology parameters (subset of scen_techs).
+    tech_name : str
+        Name of the technology in scen_techs (for error messages).
+
+    Raises
+    ------
+    ValueError
+        If lists of different lengths or empty lists are given.
+
+    Returns
+    -------
+    list of dict
+        One tech dict per instance (with single values only).
+    """
+    list_lengths = {
+        k: len(v) for k, v in tech_dict.items() if isinstance(v, list)
+        }
+    n_instances = set(list_lengths.values()) - {1}
+    if 0 in n_instances or len(n_instances) > 1:
+        raise ValueError(
+            f"{tech_name}: all parameters given as lists must have the same "
+            f"(non-zero) length. List lengths: {list_lengths}"
+            )
+    n_instances = n_instances.pop() if n_instances else 1
+
+    return [
+        {
+            k: (v[0] if len(v) == 1 else v[i]) if isinstance(v, list) else v
+            for k, v in tech_dict.items()
+            }
+        for i in range(n_instances)
+        ]
 
 def update_scen_techs_from_config(scen_techs: Dict[str, Any],
                                   config_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -108,8 +134,8 @@ def update_scen_techs_from_config(scen_techs: Dict[str, Any],
       a KeyError is raised (same as for YAML configuration files).
     - If an upstream key exists, only the specified downstream keys are updated;
       other downstream keys in scen_techs are kept as-is.
-    - Exceptions: keys in dicts that are empty by default and new tech
-      instances (see _add_new_config_key).
+    - Exception: keys in dicts that are empty by default (see
+      _add_new_config_key).
 
     Parameters
     ----------
