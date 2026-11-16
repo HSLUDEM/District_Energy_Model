@@ -394,3 +394,39 @@ def test_central_heat_pump_with_allowed_temperature_gaps(run_dem):
     cop = np.asarray(model.tech_instances['heat_pump_cp_instance_1'].get_cop())
     assert np.all(cop[hours] == 2.0)
     assert model.annual_results()['d_h_unmet_yr'] == pytest.approx(0, abs=1)
+
+
+def test_generator_renovation_existing_capacity_reduced_once(run_dem, monkeypatch):
+    # A1: CalliopeOptimiser called get_needs_replacement_cap() a second time, so the replacement share was
+    # subtracted twice from the capex-free existing capacity of the decentral heat generators.
+    from district_energy_model import dem_calliope, dem_costs
+    techs = ['heat_pump', 'electric_heater', 'oil_boiler', 'gas_boiler', 'wood_boiler']
+    base, caps = {}, {}
+    orig_replacement = dem_costs.get_replacement_capacities
+    orig_run = dem_calliope.CalliopeOptimiser.run_optimisation
+
+    def replacement_capacities(tech_instances, debug=False):
+        base.update({t: (tech_instances[t].existing, tech_instances[t].get_power_up_for_replacement()) for t in techs})
+        return orig_replacement(tech_instances, debug)
+
+    def run_optimisation(self, *args, **kwargs):
+        opt_results, model = orig_run(self, *args, **kwargs)
+        cap = model.inputs['energy_cap_max'].to_series() * self.energy_scaling_factor
+        caps.update({lt.split('::')[-1]: v for lt, v in cap.items()})
+        return opt_results, model
+
+    monkeypatch.setattr(dem_costs, 'get_replacement_capacities', replacement_capacities)
+    monkeypatch.setattr(dem_calliope.CalliopeOptimiser, 'run_optimisation', run_optimisation)
+    model = run_dem({'scenarios': {'demand_side': True},
+                     'demand_side': {'simulation_year': {'type': 'future', 'future_year': 2040},
+                                     'heat_generator_renovation': True},
+                     'optimisation': OPT}, days=2)
+    for tech in techs:
+        existing, replacement = base[tech]
+        assert 0 < replacement < existing
+        assert caps[f'{tech}_old'] == pytest.approx(existing - replacement, rel=1e-6), tech
+        assert model.tech_instances[tech].existing == pytest.approx(existing - replacement, rel=1e-6), tech
+        if tech != 'electric_heater':
+            assert caps[f'{tech}_one_to_one_replacement'] == pytest.approx(replacement, rel=1e-6), tech
+    objective = model.total_cost()['objective']['total']
+    assert cost_overview(model)['monetary']['total'] == pytest.approx(objective, rel=0.01, abs=100)
