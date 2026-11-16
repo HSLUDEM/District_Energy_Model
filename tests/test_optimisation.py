@@ -401,13 +401,15 @@ def test_generator_renovation_existing_capacity_reduced_once(run_dem, monkeypatc
     # subtracted twice from the capex-free existing capacity of the decentral heat generators.
     from district_energy_model import dem_calliope, dem_costs
     techs = ['heat_pump', 'electric_heater', 'oil_boiler', 'gas_boiler', 'wood_boiler']
-    base, caps = {}, {}
+    split, caps = {}, {}
     orig_replacement = dem_costs.get_replacement_capacities
     orig_run = dem_calliope.CalliopeOptimiser.run_optimisation
 
     def replacement_capacities(tech_instances, debug=False):
-        base.update({t: (tech_instances[t].existing, tech_instances[t].get_power_up_for_replacement()) for t in techs})
-        return orig_replacement(tech_instances, debug)
+        # Split computed by the single call (independent of how it is computed, see A6):
+        out = orig_replacement(tech_instances, debug)
+        split.update({t: (tech_instances[t].existing, tech_instances[t].needs_replacement) for t in techs})
+        return out
 
     def run_optimisation(self, *args, **kwargs):
         opt_results, model = orig_run(self, *args, **kwargs)
@@ -422,10 +424,10 @@ def test_generator_renovation_existing_capacity_reduced_once(run_dem, monkeypatc
                                      'heat_generator_renovation': True},
                      'optimisation': OPT}, days=2)
     for tech in techs:
-        existing, replacement = base[tech]
-        assert 0 < replacement < existing
-        assert caps[f'{tech}_old'] == pytest.approx(existing - replacement, rel=1e-6), tech
-        assert model.tech_instances[tech].existing == pytest.approx(existing - replacement, rel=1e-6), tech
+        existing, replacement = split[tech]
+        assert existing > 0 and replacement > 0, tech
+        assert caps[f'{tech}_old'] == pytest.approx(existing, rel=1e-6), tech
+        assert model.tech_instances[tech].existing == pytest.approx(existing, rel=1e-6), tech
         if tech != 'electric_heater':
             assert caps[f'{tech}_one_to_one_replacement'] == pytest.approx(replacement, rel=1e-6), tech
     objective = model.total_cost()['objective']['total']
