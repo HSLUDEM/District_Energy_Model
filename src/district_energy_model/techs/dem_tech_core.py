@@ -210,10 +210,25 @@ class TechCore():
         self.existing = self.get_output().max()
 
     def get_needs_replacement_cap(self, debug=False):
+        """
+        Split the existing capacity into a capex-free part and a part that
+        needs one-to-one replacement, and compute the capacity left for new
+        installations.
+
+        The results are stored in self.existing (overwritten with the
+        capex-free part), self.needs_replacement and self.cap_new, and the
+        returned triple is kept for get_replacement_caps().
+
+        Must be called only once per scenario (see
+        dem_costs.get_replacement_capacities): it reads self.existing and
+        overwrites it, so a second call would subtract the replacement
+        share again. Use get_replacement_caps() to read the results.
+        """
         if hasattr(self, 'existing'):
             energy_cap_old = self.existing
         else:
-            return 0,0,self.get_v_max()
+            self._replacement_caps = (0, 0, self.get_v_max())
+            return self._replacement_caps
         needs_replacement = self.get_power_up_for_replacement()
 
         energy_cap_zero_capex = energy_cap_old-needs_replacement if energy_cap_old>=needs_replacement else 0.0
@@ -242,6 +257,7 @@ class TechCore():
         self.existing = energy_cap_zero_capex
         self.needs_replacement = cap_one_to_one_replacement
         self.cap_new = cap_new
+        self._replacement_caps = (energy_cap_zero_capex, cap_one_to_one_replacement, cap_new)
 
         if debug:
             print(f"Energy cap old: {energy_cap_old}")
@@ -252,3 +268,16 @@ class TechCore():
             print(f"Cap new: {cap_new}")
 
         return energy_cap_zero_capex, cap_one_to_one_replacement, cap_new
+
+    def get_replacement_caps(self):
+        """
+        Return the result of the (single) call of get_needs_replacement_cap():
+        (energy_cap_zero_capex, cap_one_to_one_replacement, cap_new).
+        """
+        if not hasattr(self, '_replacement_caps'):
+            raise RuntimeError(
+                f"Replacement capacities of {type(self).__name__} have not "
+                "been computed yet (call get_needs_replacement_cap() once, "
+                "see dem_costs.get_replacement_capacities)."
+                )
+        return self._replacement_caps

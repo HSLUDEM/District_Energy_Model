@@ -1715,6 +1715,7 @@ class DistrictEnergyModel:
         self.tech_list = list(self.tech_instances.keys())
 
         # Prepare cost calculation by calculating the capacities that need to be replaced based on scenarios
+        # (the only call; the optimiser reads the stored results via get_replacement_caps()):
         dem_costs.get_replacement_capacities(self.tech_instances)
 
         """--------------------------------------------------------------------
