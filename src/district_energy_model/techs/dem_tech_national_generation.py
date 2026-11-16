@@ -34,9 +34,11 @@ COST_GRID_TARIFF = 'grid_tariff'
 
 # Local technologies that can be declared as counterparts of a national
 # generator (i.e. their generation is part of the national profile).
-# 'hydro_power_storage' is the storage and pumped-storage part of hydro_power
-# (the run-of-river part remains local); it is checked against the local
-# potentials of the municipality (see check_hydro_storage_counterpart):
+# 'hydro_power' is the complete local hydro power (run-of-river, storage and
+# pumped storage). 'hydro_power_storage' is only the storage and
+# pumped-storage part of hydro_power (the run-of-river part remains local); it
+# is checked against the local potentials of the municipality (see
+# check_hydro_storage_counterpart):
 SUPPORTED_COUNTERPARTS = ('hydro_power', 'hydro_power_storage', 'wind_power', 'solar_pvalpine')
 
 N_HOURS_PROFILE = 8760

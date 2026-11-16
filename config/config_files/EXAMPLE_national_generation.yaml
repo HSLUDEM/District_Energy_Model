@@ -8,15 +8,18 @@
 #
 # Local technologies listed in 'local_counterparts' are part of the national
 # profile and must be switched off (deployment: false), otherwise an error is
-# raised. In this example: wind_power and solar_pvalpine.
+# raised. In this example: hydro_power, wind_power and solar_pvalpine.
 #
-# Hydro power: run-of-river remains local (hydro_power, deployment: true), and
-# storage and pumped storage are national only (generator hydro_storage). The
-# counterpart 'hydro_power_storage' (storage and pumped-storage part of
-# hydro_power) raises an error if the local storage or pumped-storage potential
-# of the municipality is > 0, i.e. if the input data are not adapted as in the
-# OREES data (LocalHydroPotential_Speicherkraftwerk and
-# LocalHydroPotential_Pumpspeicherkraftwerk = 0).
+# Hydro power, two options:
+# - All hydro power national (as in this example): generators hydro_storage and
+#   run_of_river with the counterpart 'hydro_power'; the local hydro_power must
+#   be switched off (deployment: false).
+# - Run-of-river local (hydro_power, deployment: true), storage and pumped
+#   storage national: generator hydro_storage with the counterpart
+#   'hydro_power_storage' (storage and pumped-storage part of hydro_power). An
+#   error is raised if the local storage or pumped-storage potential of the
+#   municipality is > 0 (LocalHydroPotential_Speicherkraftwerk and
+#   LocalHydroPotential_Pumpspeicherkraftwerk must be 0 in the input data).
 #
 # National generation is used before cross-border import: electricity is only
 # imported from the grid if all available national generation is used.
@@ -31,11 +34,16 @@
     # cost_CHFpkWh: grid_tariff # a number [CHF/kWh], or grid_tariff for the tariff of grid_supply (default if omitted)
     # co2_intensity: 0.0
     # local_counterparts: []
-  # hydro_storage: # storage and pumped storage (run-of-river is local)
+  # hydro_storage: # storage and pumped storage
     # file: hydro_storage.feather
     # cost_CHFpkWh: grid_tariff
     # co2_intensity: 0.0
-    # local_counterparts: [hydro_power_storage]
+    # local_counterparts: [hydro_power]
+  # run_of_river:
+    # file: run_of_river.feather
+    # cost_CHFpkWh: grid_tariff
+    # co2_intensity: 0.0
+    # local_counterparts: [hydro_power]
   # wind:
     # file: wind.feather
     # cost_CHFpkWh: grid_tariff
