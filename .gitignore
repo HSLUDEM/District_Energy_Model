@@ -32,6 +32,7 @@ doc/DEM_code_audit.md
 # ignore directories:
 # ------------------
 0_results_WORKSTATION/
+doc/bug_fixing/
 dem_output*/
 data_OREES_study/
 #dist/
