@@ -920,6 +920,8 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs,
         return
     # A manual priority controller must not pre-dispatch storage for Gurobi;
     # the optimiser determines its own storage operation and conversion paths.
+    # (The model ignores the scenario in optimisations with a warning and
+    # does not call this validator then; this guards direct calls.)
     if scen_techs.get('optimisation', {}).get('enabled', False):
         fail('This is a manual scenario. Disable optimisation, or disable '
              'the combined scenario when running the optimiser.')

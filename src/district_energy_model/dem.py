@@ -1202,7 +1202,22 @@ class DistrictEnergyModel:
         """--------------------------------------------------------------------
         Apply scenarios:
         """
-        if scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage'] == True:
+        run_combined_storage = (
+            scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage'] == True
+            )
+        if run_combined_storage and scen_techs['optimisation']['enabled']:
+            # Manual (simulation) storage dispatch is not used in
+            # optimisations; the optimiser sizes and dispatches the storages.
+            warnings.warn(
+                "scenarios.scenario_battery_plus_thermal_energy_storage is a "
+                "manual (simulation) scenario and is ignored in optimisations; "
+                "the optimiser sizes and dispatches the storages via bes and "
+                "tes_decentralised (deployment, capacity_kWh_max).",
+                UserWarning,
+                stacklevel=2,
+                )
+            run_combined_storage = False
+        if run_combined_storage:
             # Safety check before any scenario runs: the combined controller
             # cannot run together with either legacy storage scenario.
             # Validate once here so optional-storage warnings are not repeated.
@@ -1686,8 +1701,9 @@ class DistrictEnergyModel:
             print(f"\n {legacy_storage}: runs as "
                   "scenario_battery_plus_thermal_energy_storage with only "
                   f"{dem_scenarios.LEGACY_STORAGE_SCENARIOS[legacy_storage][0]}")
+            run_combined_storage = True
 
-        if storage_scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage'] == True:
+        if run_combined_storage:
             print('\n scenario_battery_plus_thermal_energy_storage')
             # Configuration was validated at the start of Apply scenarios
             # (legacy scenarios: in legacy_storage_scenario_config).

@@ -838,7 +838,8 @@ scen_techs = {
         'battery_energy_storage': False,
         # 'battery_energy_storage': True,
 
-        # Manual surplus-driven controller for the combined storage system:
+        # Manual surplus-driven controller for the combined storage system
+        # (ignored with a warning in optimisations):
         'scenario_battery_plus_thermal_energy_storage': False,
 
         },
