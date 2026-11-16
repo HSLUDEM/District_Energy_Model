@@ -588,3 +588,52 @@ def test_wood_gasification_hydrogen_adds_methane_to_gas_output(run_dem):
     # electricity and heat per kWh wood unchanged: eta*(1-m)*0.1 and eta*(1-m)*0.126
     assert df['u_e_wguh'].sum() / wood == pytest.approx(eta * (1 - m) * 0.1, rel=1e-6)
     assert df['v_h_wguh'].sum() / wood == pytest.approx(eta * (1 - m) * 0.126, rel=1e-6)
+
+
+def _existing_capacities(tech_instances):
+    out = {t: tech_instances[t].existing
+           for t in ['heat_pump', 'oil_boiler', 'gas_boiler', 'wood_boiler', 'electric_heater']}
+    out['solar_pvrooftop'] = sum(i._existing for i in tech_instances['solar_pvrooftop']._installations)
+    return out
+
+
+def test_short_optimisation_uses_annual_existing_capacities(run_dem, monkeypatch):
+    # A11: in optimisations, existing capacities were the peaks of the simulated days
+    # (7 days: heat pumps 1,890 kW instead of 3,450 kW, rooftop PV 2.9 MW instead of 10.0 MW),
+    # so short optimisations bought existing capacity again.
+    from district_energy_model import dem_costs
+    existing = []
+    orig_old = dem_costs.get_old_capacities
+
+    def old_capacities(tech_instances, debug=False):
+        out = orig_old(tech_instances, debug)
+        existing.append(_existing_capacities(tech_instances))
+        return out
+
+    monkeypatch.setattr(dem_costs, 'get_old_capacities', old_capacities)
+    full = run_dem({}, days=365).hourly_results()  # simulation: annual peaks
+    model = run_dem({'optimisation': OPT}, days=7)
+    assert existing[0]['heat_pump'] == pytest.approx(full['v_h_hp'].max(), rel=1e-9)
+    for t, cap in existing[0].items():
+        assert cap > 0, t
+        assert existing[1][t] == pytest.approx(cap, rel=1e-9), t
+    # the optimiser uses them (no generator renovation: all existing capacity without capex):
+    assert model.tech_instances['heat_pump'].existing == pytest.approx(existing[0]['heat_pump'], rel=1e-9)
+    objective = model.total_cost()['objective']['total']
+    assert cost_overview(model)['monetary']['total'] == pytest.approx(objective, rel=1e-4)
+
+
+def test_district_heating_categories_in_short_optimisation(run_dem):
+    # A12: grid categories with total renovation were sized with the peak heat demand of the
+    # simulated days (grid capex per kW 83 % higher in 7-day runs).
+    cfg = {'scenarios': {'demand_side': True},
+           'demand_side': {'simulation_year': {'type': 'future', 'future_year': 2050},
+                           'total_renovation': True}}
+    full = run_dem(cfg, days=365).tech_instances['district_heating']
+    model = run_dem(cfg | {'optimisation': OPT}, days=7)
+    dh = model.tech_instances['district_heating']
+    np.testing.assert_allclose(dh._kW_th_max_grid_categories, full._kW_th_max_grid_categories, rtol=1e-9)
+    np.testing.assert_allclose(dh._investment_cost_grid_categories, full._investment_cost_grid_categories,
+                               rtol=1e-9)
+    objective = model.total_cost()['objective']['total']
+    assert cost_overview(model)['monetary']['total'] == pytest.approx(objective, rel=1e-4)
