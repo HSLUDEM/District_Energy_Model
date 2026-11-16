@@ -438,16 +438,17 @@ def legacy_storage_scenario_config(scen_techs, legacy_scenario, tech_instances):
     (scenario_battery_plus_thermal_energy_storage) with only that storage.
 
     The storage is sized by the legacy settings block (capacity_kWh,
-    initial_charge), as in the former single-storage scenarios; the other
-    storage does not take part, even if it is deployed. All other settings
-    (losses, efficiency, charge rate, electricity_supply_order,
-    storage_priority, heat_pump_tes_min_electric_power_kW,
-    heat_pump_tes_capacity_factor) are those of the combined scenario.
+    initial_charge), as in the former single-storage scenarios: these are
+    written to the combined scenario's own sizes (storages.<tech>) of the
+    copy; the other storage gets size 0 and does not take part, even if it
+    is deployed. The technologies' settings (capacity_kWh_max = optimiser's
+    maximum, deployment) are not changed. All other settings (losses,
+    efficiency, charge rate, electricity_supply_order, storage_priority,
+    heat_pump_tes_min_electric_power_kW, heat_pump_tes_capacity_factor) are
+    those of the combined scenario.
 
     scen_techs is not modified (it is saved with the results); the returned
-    deep copy is the configuration of the redirected run. The size and
-    initial charge are written to the storage's technology instance, which
-    the combined scenario and the cost module read.
+    deep copy is the configuration of the redirected run.
 
     Returns
     -------
@@ -459,16 +460,6 @@ def legacy_storage_scenario_config(scen_techs, legacy_scenario, tech_instances):
     # As before, the storage technology itself must be deployed:
     dem_helper.check_tech_for_scenario(
         techs=[tech], scenario=legacy_scenario, scen_techs=scen_techs)
-
-    # The combined scenario is a manual dispatch and rejects optimisation;
-    # say so in terms of the legacy flag:
-    if scen_techs['optimisation']['enabled']:
-        raise ValueError(
-            f"The '{legacy_scenario}' scenario is a manual storage dispatch "
-            "(it runs as scenario_battery_plus_thermal_energy_storage) and "
-            "cannot be combined with optimisation. Disable optimisation or "
-            f"the '{legacy_scenario}' scenario (the optimiser dispatches "
-            f"{tech} itself if it is deployed).")
 
     settings = scen_techs[settings_key]
     cap = settings['capacity_kWh']
@@ -493,11 +484,13 @@ def legacy_storage_scenario_config(scen_techs, legacy_scenario, tech_instances):
     for flag in LEGACY_STORAGE_SCENARIOS:
         redirected['scenarios'][flag] = False
     redirected['scenarios'][combined] = True
+    # Scenario sizes: only this storage takes part (size 0 = not active),
+    # the technologies (capacity_kWh_max, deployment) are not changed:
     for other, _ in LEGACY_STORAGE_SCENARIOS.values():
-        if other != tech:
-            redirected[other]['deployment'] = False
-    redirected[tech]['capacity_kWh_max'] = float(cap)
-    redirected[tech]['initial_charge'] = float(ic)
+        redirected[combined]['storages'][other] = {
+            'capacity_kWh': float(cap) if other == tech else 0.0,
+            'initial_charge': float(ic) if other == tech else 0.0,
+            }
 
     try:
         dem_helper.validate_scenario_battery_plus_thermal_energy_storage(
@@ -506,8 +499,6 @@ def legacy_storage_scenario_config(scen_techs, legacy_scenario, tech_instances):
         raise ValueError(
             f"Scenario '{legacy_scenario}' runs as {combined} with only "
             f"{tech}: {e}") from e
-
-    tech_instances[tech].update_tech_properties(redirected[tech])
 
     return redirected
 
@@ -554,17 +545,20 @@ def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, 
 
     # Read the fixed storage properties once. Hourly flows, state and losses
     # are written through the same per-hour setters as the BES-only scenario.
+    # Sizes and initial charges are this scenario's own settings (storages);
+    # the technologies' capacity_kWh_max is only the optimiser's maximum.
+    # The scenario size is also the capacity the cost module charges.
     stores = {}
-    for key in ('bes', 'tes_decentralised'):
-        if not scen_techs[key]['deployment']:
-            continue
+    for key in dem_helper.active_combined_storages(scen_techs):
         tech = tech_instances[key]
-        cap = float(tech.get_cap())
+        size = config['storages'][key]
+        cap = float(size['capacity_kWh'])
+        tech.set_scenario_cap(cap)
         stores[key] = {
             'tech': tech, 'cap': cap, 'eta': tech.get_eta_chg_dchg(),
             'gamma': tech.get_gamma(),
             'limit': cap * scen_techs[key]['chg_dchg_per_cap_max'],
-            'initial': cap * tech.get_ic(),
+            'initial': cap * float(size['initial_charge']),
         }
 
     # Prepare the effective COP once, as in the existing TES-only scenario;

@@ -845,6 +845,21 @@ def check_tech_for_scenario(techs, scenario, scen_techs, replaced_techs=()):
             raise ValueError(printout)
 
 
+def active_combined_storages(scen_techs):
+    """
+    Storages that take part in scenario_battery_plus_thermal_energy_storage:
+    those whose technology is deployed and whose scenario size
+    (scenario_battery_plus_thermal_energy_storage.storages.<tech>.capacity_kWh)
+    is > 0. Returns a list in the order bes, tes_decentralised.
+    """
+    storages = scen_techs['scenario_battery_plus_thermal_energy_storage']['storages']
+    return [
+        tech for tech in ('bes', 'tes_decentralised')
+        if scen_techs[tech]['deployment'] is True
+        and storages[tech]['capacity_kWh'] > 0
+        ]
+
+
 def validate_scenario_battery_plus_thermal_energy_storage(scen_techs,
                                                          warn_single_storage=True):
     """Validate the configuration of the combined manual storage scenario.
@@ -854,8 +869,14 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs,
     Settings belong to
     ``scen_techs['scenario_battery_plus_thermal_energy_storage']``.
     A missing or disabled scenario is ignored. An enabled scenario requires
-    at least one deployed storage unit. With only one storage unit, emit a
-    UserWarning and continue (unless warn_single_storage is False: used when
+    at least one active storage unit. ``storages`` holds the size
+    (``capacity_kWh``, finite, >= 0) and the initial charge (``initial_charge``,
+    0-1) of ``bes`` and ``tes_decentralised`` in this scenario; a storage is
+    active if its technology is deployed and its capacity_kWh is > 0 (see
+    active_combined_storages). capacity_kWh > 0 for a technology that is not
+    deployed is an error. The technologies' capacity_kWh_max is only the
+    optimiser's maximum and is not used here. With only one active storage
+    unit, emit a UserWarning and continue (unless warn_single_storage is False: used when
     a legacy single-storage scenario runs through this scenario). This
     function does not change the configuration.
 
@@ -933,22 +954,45 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs,
             fail(f'{key} contains unknown or unsupported technologies: {unknown}.')
         return value
 
-    bes_active = deployed('bes')
-    tes_active = deployed('tes_decentralised')
+    # Sizes and initial charges of this scenario (not the technologies'
+    # capacity_kWh_max, which is only the optimiser's maximum):
+    storages = config.get('storages')
+    if (not isinstance(storages, dict)
+            or set(storages) != {'bes', 'tes_decentralised'}):
+        fail('storages must contain exactly bes and tes_decentralised.')
+    for tech in ('bes', 'tes_decentralised'):
+        size = storages[tech]
+        if not isinstance(size, dict) or set(size) != {'capacity_kWh', 'initial_charge'}:
+            fail(f'storages.{tech} must contain exactly capacity_kWh and initial_charge.')
+        for key in ('capacity_kWh', 'initial_charge'):
+            value = size[key]
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not math.isfinite(value) or value < 0):
+                fail(f'storages.{tech}.{key} must be a finite nonnegative number.')
+        if size['initial_charge'] > 1:
+            fail(f'storages.{tech}.initial_charge must be in [0, 1].')
+        if size['capacity_kWh'] > 0 and not deployed(tech):
+            fail(f'storages.{tech}.capacity_kWh is {size["capacity_kWh"]} but '
+                 f'{tech}.deployment is false. Deploy {tech} or set its '
+                 'capacity_kWh to 0.')
+
+    for tech in ('bes', 'tes_decentralised'):
+        deployed(tech)  # type check of the deployment flags
+    active = active_combined_storages(scen_techs)
+    bes_active = 'bes' in active
+    tes_active = 'tes_decentralised' in active
     # Grid supply accounts for residual electricity and its import mix.
     if not deployed('grid_supply'):
         fail('grid_supply.deployment must be true for residual electricity.')
     if not bes_active and not tes_active:
-        fail('Both bes and tes_decentralised are disabled. Enable at least '
-             'one storage technology using deployment=true.')
+        fail('No storage is active. Set storages.bes.capacity_kWh and/or '
+             'storages.tes_decentralised.capacity_kWh > 0 (the technology '
+             'must be deployed).')
 
-    # Manual dispatch needs finite sizes and explicit initial energy. Optimised
-    # initial-charge settings apply only to the separate optimisation pathway.
-    for tech in ('bes', 'tes_decentralised'):
-        if not deployed(tech):
-            continue
+    # Manual dispatch needs valid storage parameters.
+    for tech in active:
         settings = scen_techs[tech]
-        for key in ('capacity_kWh_max', 'chg_dchg_per_cap_max', 'initial_charge',
+        for key in ('chg_dchg_per_cap_max',
                     'eta_chg_dchg', 'bes_gamma' if tech == 'bes' else 'tes_gamma'):
             value = settings[key]
             if (isinstance(value, bool) or not isinstance(value, (int, float))
@@ -956,8 +1000,6 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs,
                 fail(f'{tech}.{key} must be a finite nonnegative number.')
         if not 0 < settings['eta_chg_dchg'] <= 1:
             fail(f'{tech}.eta_chg_dchg must be in (0, 1].')
-        if settings['initial_charge'] > 1:
-            fail(f'{tech}.initial_charge must be in [0, 1].')
         loss_key = 'bes_gamma' if tech == 'bes' else 'tes_gamma'
         if settings[loss_key] > 1:
             fail(f'{tech}.{loss_key} must be in [0, 1].')
@@ -1028,7 +1070,8 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs,
     if warn_single_storage and (not bes_active or not tes_active):
         inactive = 'bes' if not bes_active else 'tes_decentralised'
         warnings.warn(
-            f'{scenario}: {inactive}.deployment=False. The scenario will run '
+            f'{scenario}: {inactive} is not active (deployment=False or '
+            f'storages.{inactive}.capacity_kWh=0). The scenario will run '
             'without this storage unit. Check whether activation was forgotten.',
             UserWarning,
             stacklevel=2,

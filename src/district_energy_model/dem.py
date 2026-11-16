@@ -12,6 +12,7 @@ import numpy as np
 # import matplotlib.pylab as plt
 import time
 import copy
+import warnings
 
 from district_energy_model import dem_costs, dem_techs
 from district_energy_model import dem_demand
@@ -1645,6 +1646,20 @@ class DistrictEnergyModel:
             scenario for scenario in dem_scenarios.LEGACY_STORAGE_SCENARIOS
             if scen_techs['scenarios'][scenario] == True
             ]
+        if legacy_storage_scenarios and scen_techs['optimisation']['enabled']:
+            # Manual (simulation) storage dispatch is not used in
+            # optimisations; the optimiser sizes and dispatches the storages.
+            for scenario in legacy_storage_scenarios:
+                tech = dem_scenarios.LEGACY_STORAGE_SCENARIOS[scenario][0]
+                warnings.warn(
+                    f"scenarios.{scenario} is a manual (simulation) scenario "
+                    "and is ignored in optimisations; the optimiser sizes and "
+                    f"dispatches the storage via {tech} (deployment, "
+                    "capacity_kWh_max).",
+                    UserWarning,
+                    stacklevel=2,
+                    )
+            legacy_storage_scenarios = []
         if len(legacy_storage_scenarios) > 1:
             raise NotImplementedError(
                 "The manual storage scenarios 'battery_energy_storage' and "
@@ -1652,9 +1667,8 @@ class DistrictEnergyModel:
                 "a battery and a thermal energy storage together, deactivate "
                 "both and activate "
                 "scenarios.scenario_battery_plus_thermal_energy_storage "
-                "(sizes and initial charges from bes and tes_decentralised: "
-                "capacity_kWh_max, initial_charge; dispatch settings in "
-                "scenario_battery_plus_thermal_energy_storage)."
+                "(sizes and initial charges in "
+                "scenario_battery_plus_thermal_energy_storage.storages)."
                 )
 
         # The legacy single-storage scenarios run as the combined storage

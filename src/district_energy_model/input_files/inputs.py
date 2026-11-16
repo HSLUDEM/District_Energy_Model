@@ -825,14 +825,16 @@ scen_techs = {
         'wind_integration':False,
         # 'wind_integration':True,
         # Manual TES: runs as scenario_battery_plus_thermal_energy_storage with
-        # only tes_decentralised (size: thermal_energy_storage_scenario):
+        # only tes_decentralised (size: thermal_energy_storage_scenario);
+        # ignored (with a warning) in optimisations:
         'thermal_energy_storage':False,
         # 'thermal_energy_storage':True,
         'nuclear_phaseout':False,
         # 'nuclear_phaseout':True,
         # Manual BES: runs as scenario_battery_plus_thermal_energy_storage with
         # only bes (size: battery_energy_storage_scenario); not together with
-        # thermal_energy_storage (use the combined scenario for both):
+        # thermal_energy_storage (use the combined scenario for both);
+        # ignored (with a warning) in optimisations:
         'battery_energy_storage': False,
         # 'battery_energy_storage': True,
 
@@ -846,6 +848,15 @@ scen_techs = {
         'electricity_supply_order': [
             'solar_pvrooftop', 'solar_pvalpine', 'wind_power', 'biomass', 'hydro_power',
         ],
+        # Size [kWh] and initial charge [-] of each storage in this scenario.
+        # They define the storage's size and its cost in the simulation; the
+        # technologies' capacity_kWh_max is only the optimiser's maximum and is
+        # not used here. A storage takes part if its technology is deployed
+        # and its capacity_kWh is > 0 (> 0 with deployment False is an error).
+        'storages': {
+            'bes': {'capacity_kWh': 0.0, 'initial_charge': 0.0},
+            'tes_decentralised': {'capacity_kWh': 0.0, 'initial_charge': 0.0},
+        },
         'storage_priority': {
             'charge': ['bes', 'tes_decentralised'],
             'discharge': ['tes_decentralised', 'bes'], # tes will only provide heat and never electricity
@@ -957,14 +968,16 @@ scen_techs = {
     },
 
     # Size and initial charge of tes_decentralised in the 'thermal_energy_storage'
-    # scenario (replace capacity_kWh_max and initial_charge of tes_decentralised there):
+    # scenario (used as scenario_battery_plus_thermal_energy_storage.storages;
+    # capacity_kWh_max of tes_decentralised is only the optimiser's maximum):
     'thermal_energy_storage_scenario': {
         'capacity_kWh': 0, # [kWh] must be set (> 0) when the scenario is used
         'initial_charge': 0.0, # [-] energy stored initially is not paid for (no cyclic condition in manual scenarios)
     },
 
     # Size and initial charge of bes in the 'battery_energy_storage' scenario
-    # (replace capacity_kWh_max and initial_charge of bes there):
+    # (used as scenario_battery_plus_thermal_energy_storage.storages;
+    # capacity_kWh_max of bes is only the optimiser's maximum):
     'battery_energy_storage_scenario': {
         'capacity_kWh': 1e4,
         'initial_charge': 0.0, # [-] energy stored initially is not paid for (no cyclic condition in manual scenarios)

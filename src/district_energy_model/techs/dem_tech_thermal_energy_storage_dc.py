@@ -67,6 +67,10 @@ class ThermalEnergyStorageDC(TechCore):
         self._ic = tech_dict['initial_charge']
         self._optimized_initial_charge = tech_dict['optimized_initial_charge']
         self._chg_dchg_per_cap_max = tech_dict['chg_dchg_per_cap_max']
+        # capacity_kWh_max (_cap) is only the optimiser's maximum. The size of
+        # the storage in a manual storage scenario (simulation) is set
+        # separately (set_scenario_cap); the optimiser's result via update_cap.
+        self._scenario_cap = None
         self._lifetime = tech_dict['lifetime']
         self._capex = tech_dict['capex']
         self._interest_rate = tech_dict['interest_rate']
@@ -458,6 +462,37 @@ class ThermalEnergyStorageDC(TechCore):
     def set_cap(self, val):
         self.num_test_inf(val)
         self._cap = val
+
+    def set_scenario_cap(self, val):
+        """Size [kWh] of the storage in a manual storage scenario (simulation)."""
+        self.num_test(val)
+        self._scenario_cap = float(val)
+
+    def get_scenario_cap(self):
+        return self._scenario_cap
+
+    def get_total_capex(self):
+        """
+        Capex for the cost module:
+        - manual storage scenario (simulation): on the scenario capacity;
+        - otherwise as for all techs (TechCore, cost basis set by the cost
+          module): optimisation on the optimised capacity, simulation on the
+          highest stored energy (capacity_kWh_max is only the optimiser's
+          maximum and does not create costs there).
+        """
+        if not hasattr(self, "_capex"):
+            return 0
+        if self._scenario_cap is not None:
+            return max(self._capex*(self._scenario_cap - self.existing), 0.0)
+        return super().get_total_capex()
+
+    def get_total_maintenance(self):
+        """Maintenance on the same capacity as get_total_capex."""
+        if not hasattr(self, "_maintenance_cost"):
+            return 0
+        if self._scenario_cap is not None:
+            return self._maintenance_cost*self._scenario_cap
+        return super().get_total_maintenance()
     
     def get_ic(self):
         self.num_test(self._ic)
