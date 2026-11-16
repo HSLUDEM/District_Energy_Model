@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from conftest import ROOT, cost_overview, requires_data
+from conftest import ROOT, cost_overview, deep_update, requires_data
 
 ALL_SCENARIOS = {'demand_side': True, 'fossil_heater_retrofit': True, 'pv_integration': True,
                  'wind_integration': True, 'nuclear_phaseout': True, 'battery_energy_storage': True}
@@ -348,21 +348,28 @@ def test_simulation_charges_existing_district_heating_grid(run_dem):
     assert opex > 0
 
 
-@requires_data
-def test_simulation_charges_district_heating_grid_expansion(run_dem):
-    # A7: renovated buildings reassigned to district heating expand the grid; the
-    # expansion beyond the existing grid was free in simulations
-    sh = {'v_h_eh': 0.0, 'v_h_hp': 0.15, 'v_h_dh': 0.7, 'v_h_gb': 0.05, 'v_h_ob': 0.05,
-          'v_h_wb': 0.05, 'v_h_solar': 0.0, 'v_h_other': 0.0}
-    model = run_dem({'scenarios': {'demand_side': True},
-                     'demand_side': {'simulation_year': {'type': 'future', 'future_year': 2050},
-                                     'total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios': sh}},
-                    days=7)
+_DH70_SH = {'v_h_eh': 0.0, 'v_h_hp': 0.15, 'v_h_dh': 0.7, 'v_h_gb': 0.05, 'v_h_ob': 0.05,
+            'v_h_wb': 0.05, 'v_h_solar': 0.0, 'v_h_other': 0.0}
+_DH70 = {'scenarios': {'demand_side': True},
+         'demand_side': {'simulation_year': {'type': 'future', 'future_year': 2050},
+                         'total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios': _DH70_SH}}
+
+
+def _dh_categories(model):
     from district_energy_model.dem_costs import annuity_factor
     dh = model.tech_instances['district_heating']
-    caps = dh._kW_th_max_grid_categories
-    inv, mnt = dh._investment_cost_grid_categories, dh._maintenance_cost_grid_categories
     af = annuity_factor(dh._lifetime, dh._interest_rate)
+    return (dh, dh._kW_th_max_grid_categories, dh._investment_cost_grid_categories,
+            dh._maintenance_cost_grid_categories, af)
+
+
+@requires_data
+def test_simulation_charges_district_heating_grid_expansion(run_dem):
+    # A7: renovated buildings reassigned to district heating (70 %, 2050) expand the grid; the
+    # expansion beyond the existing grid was free in simulations. Default input
+    # district_heating.simulation_grid_category_fill = 'cheapest_first'.
+    model = run_dem(_DH70, days=7)
+    dh, caps, inv, mnt, af = _dh_categories(model)
     expansion = dh.get_v_h().max() - caps[0]
     # Hand calculation: existing grid full, the expansion in the expansion category with the
     # lowest annual cost per kW (as the optimiser chooses), if it fits there
@@ -372,6 +379,28 @@ def test_simulation_charges_district_heating_grid_expansion(run_dem):
     assert capex == pytest.approx(inv[cheapest] * expansion * af, rel=1e-9)
     assert opex == pytest.approx(mnt[0] * caps[0] + mnt[cheapest] * expansion, rel=1e-9)
     assert capex > 0
+
+
+@requires_data
+def test_simulation_grid_expansion_in_category_order(run_dem):
+    # A7: with 'category_order' the expansion fills category 1 (nearest buildings) first, then 2
+    model = run_dem(deep_update(_DH70, {'district_heating': {'simulation_grid_category_fill': 'category_order'}}),
+                    days=7)
+    dh, caps, inv, mnt, af = _dh_categories(model)
+    expansion = dh.get_v_h().max() - caps[0]
+    cat1 = min(expansion, caps[1])
+    cat2 = expansion - cat1
+    assert cat1 > 0 and 0 < cat2 <= caps[2]  # Allschwil, 7 days: category 1 full, rest in 2
+    assert [v.max() for v in dh.get_v_h_by_categories()] == pytest.approx([caps[0], cat1, cat2, 0.0], rel=1e-9)
+    capex, opex = _dh_grid_costs(model, 7)
+    assert capex == pytest.approx((inv[1] * cat1 + inv[2] * cat2) * af, rel=1e-9)
+    assert opex == pytest.approx(mnt[0] * caps[0] + mnt[1] * cat1 + mnt[2] * cat2, rel=1e-9)
+
+
+@requires_data
+def test_invalid_grid_category_fill_raises(run_dem):
+    with pytest.raises(ValueError, match='simulation_grid_category_fill'):
+        run_dem({'district_heating': {'simulation_grid_category_fill': 'nearest'}}, days=1)
 
 
 _TES_LEGACY = {'scenarios': {'pv_integration': True, 'thermal_energy_storage': True},
