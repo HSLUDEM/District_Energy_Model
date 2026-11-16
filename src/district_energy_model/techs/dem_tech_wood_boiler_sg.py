@@ -247,12 +247,13 @@ class WoodBoilerSG(TechCore):
         return techs_dict
         
     def get_installed_cap(self):
-        # Capacity built by the optimiser (energy_cap_equals) with force_cap_max or a fixed wood input,
-        # even if it is not fully used:
+        # Capacity built even if it is not fully used: with force_cap_max the deployed kW_h_max (optimisations
+        # and simulations); with a fixed wood input the capacity built by the optimiser (energy_cap_equals;
+        # optimisation only, in simulations only the operated capacity costs):
         cap = self.get_output().max()
         if self._force_cap_max and self._v_steam_max != 'inf':
             cap = max(cap, self._v_steam_max)
-        if self._wood_input_cap_type == 'fixed':
+        if self._wood_input_cap_type == 'fixed' and self.costs_from_optimisation():
             cap = max(cap, self._wood_input_cap_kg*self._hv_wood*C.CONV_MJ_to_kWh/8760*self._eta)
         return cap
 
@@ -269,10 +270,11 @@ class WoodBoilerSG(TechCore):
         return self._u_wd_kg
     
     def get_total_capex(self):
-        return self._capex*np.max(self._v_steam)
+        # Installed capacity: peak steam output, or the forced / fixed-wood capacity (see get_installed_cap):
+        return self._capex*self.get_installed_cap()
     
     def get_total_maintenance(self):
-        return self._maintenance_cost*np.max(self._v_steam)
+        return self._maintenance_cost*self.get_installed_cap()
     
     def get_energy_revenue(self):
         return 0.0

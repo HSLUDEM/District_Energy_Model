@@ -74,7 +74,7 @@ def get_replacement_capacities(tech_instances, debug=False):
     return 0
 
 
-def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=False):
+def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=False, optimisation=False):
     """
     Calculate total annualized monetary costs for all modeled technologies.
 
@@ -91,6 +91,11 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
     number_of_days : int or float
         Length of the modeled period in days. Fixed annual costs are scaled
         by `number_of_days / 365`.
+    optimisation : bool
+        False (default, simulation): technologies cause capex and maintenance
+        only for the capacity they operate (see TechCore.set_cost_basis).
+        True: costs of an optimisation result (maximum and forced capacities
+        are built).
     supply : object
         Supply object containing imported resource flows and cost data for energy cost calculation.
 
@@ -175,6 +180,10 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
         opex = 0
         energy_revenue = 0
         energy_costs = 0
+        if hasattr(tech_instances[tech], 'set_cost_basis'):
+            # Simulation: technologies cost only what is operated (maxima and
+            # forced capacities are limits of the optimisation only).
+            tech_instances[tech].set_cost_basis(optimisation)
         if tech != "pile_of_berries":  # !!! this should be adapted to the actual technologies included in the model    |||  and tech != "solarpv_rooftop" and tech != "solarthermal_rooftop"
             if tech != "grid_supply" and tech != "grid_export" and tech != "heat_demand_manual":
                 capex = tech_instances[tech].get_total_capex()
@@ -281,7 +290,7 @@ def calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=F
 #     return None
 
 
-def get_total_costs(tech_instances, supply, number_of_days, debug=False):
+def get_total_costs(tech_instances, supply, number_of_days, debug=False, optimisation=False):
     """
     Return combined monetary and CO2 cost indicators for the current system.
 
@@ -296,6 +305,9 @@ def get_total_costs(tech_instances, supply, number_of_days, debug=False):
         Supply object containing imported resource flows and CO2 intensity data.
     number_of_days : int or float
         Length of the modeled period in days.
+    optimisation : bool
+        Passed to calculate_total_annual_costs (default False: simulation;
+        True for optimisation results).
 
     Returns
     -------
@@ -309,7 +321,7 @@ def get_total_costs(tech_instances, supply, number_of_days, debug=False):
         The "monetary" entry is produced by `calculate_total_anual_costs(...)`
         and the "co2" entry by `calculate_CO2_emissions(...)`.
     """
-    monetary_costs, monetary_breakdown = calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=debug)
+    monetary_costs, monetary_breakdown = calculate_total_annual_costs(tech_instances, number_of_days, supply, debug=debug, optimisation=optimisation)
     co2_emissions, co2_emissions_breakdown = calculate_CO2_emissions(supply, tech_instances, debug=debug)
     cost_overview = {
         "monetary": monetary_costs,

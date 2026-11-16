@@ -263,7 +263,8 @@ class CHPGasTurbine(TechCore):
         return self._u_gas_kg
     
     def get_installed_cap(self):
-        # With force_cap_max, the optimiser builds kW_el_max (energy_cap_equals), even if it is not fully used:
+        # With force_cap_max, kW_el_max is deployed (optimiser: energy_cap_equals) and costed in optimisations
+        # and simulations, even if it is not fully used:
         if self._force_cap_max and self._kW_el_max != 'inf':
             return max(self.get_output().max(), self._kW_el_max)
         return self.get_output().max()

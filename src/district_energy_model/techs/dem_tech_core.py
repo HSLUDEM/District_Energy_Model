@@ -126,10 +126,33 @@ class TechCore():
         return 0
         # --> To be implemented in child class
 
+    def set_cost_basis(self, optimisation):
+        """
+        Set by the cost module before it reads the costs of this technology.
+        optimisation=True: the costs of an optimisation result; maximum
+        capacities (e.g. capacity_kWh_max of storages, updated to the optimised
+        capacity) and forced capacities (force_cap_max) are built capacities.
+        optimisation=False (simulation): only operated capacity causes capex
+        and maintenance; maxima are limits of the optimisation only. Forced
+        capacities (force_cap_max) are deployed by the user and cost in full
+        in simulations too.
+        """
+        self._costs_from_optimisation = bool(optimisation)
+
+    def costs_from_optimisation(self):
+        # Default (cost basis not set): as an optimisation, i.e. the former behaviour.
+        return getattr(self, '_costs_from_optimisation', True)
+
+    def _cap_is_built(self):
+        # Finite capacity _cap (e.g. capacity_kWh_max of storages) costed in full: in optimisations
+        # (optimised capacity) and, if forced (force_cap_max), also in simulations.
+        return (hasattr(self, '_cap') and self._cap != 'inf'
+                and (self.costs_from_optimisation() or bool(getattr(self, '_force_cap_max', False))))
+
     def get_total_capex(self):
         if not hasattr(self, "_capex"):
             return 0
-        if hasattr(self, '_cap') and self._cap != 'inf': 
+        if self._cap_is_built():
             return self._capex*(self.get_cap() - self.existing)
         if hasattr(self, "_capex_one_to_one_replacement"):
             total_capacity = self.get_output().max()
@@ -151,7 +174,7 @@ class TechCore():
     def get_total_maintenance(self):
         if not hasattr(self, "_maintenance_cost"):
             return 0
-        if hasattr(self, '_cap') and self._cap != 'inf':
+        if self._cap_is_built():
             return self._maintenance_cost*self.get_cap()
         if hasattr(self, '_maintenance_cost'):
             return self._maintenance_cost*self.get_installed_cap()

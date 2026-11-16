@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file.
 
 
 ### Fixed
+- Cost module in simulations: technologies that are not operated (e.g. central storages with a finite `capacity_kWh_max`, central plants with `kW_el_max`) no longer cause capex or maintenance; maxima are limits of the optimisation only. Capacities forced with `force_cap_max` are deployed and cost in full (capex and maintenance) in simulations too. Optimisation costs unchanged.
 - Configuration YAML files are checked for valid keywords. An error is thrown if a keyword is invalid (e.g., due to incorrect spelling). Previously, the simulation just continued.
 – Adjust upper and lower flexibility bounds if EV integration is <100% in optimization scenario (previously leading to an error).
 - Minor bugfixes
