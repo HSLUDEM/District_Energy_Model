@@ -254,7 +254,7 @@ class HeatPumpCPLT(TechCore):
         
         if self._force_cap_max:
             techs_dict[header]['constraints']['energy_cap_equals']\
-                = self._v_h_max
+                = self._v_h_max / energy_scaling_factor if self._v_h_max != 'inf' else 'inf'
         
     
         return techs_dict #, additional_techs_label_list
