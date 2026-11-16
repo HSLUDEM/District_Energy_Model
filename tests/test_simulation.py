@@ -238,3 +238,45 @@ def test_temperature_gaps_allowed_give_cop_2(run_dem):
     for cop in [hp._cops_existing, hp._cops_new]:
         assert np.all(cop[hours] == 2.0)  # before: 1.0 (NaN replaced)
         assert not np.isnan(cop).any()
+
+
+def _df_com_old_mask(df):
+    return df['GBAUP'].isna() | (df['GBAUP'] <= 8015)
+
+
+@requires_data
+def test_buildings_without_building_period_keep_their_space_heating(run_dem):
+    # A4: 62 of 2055 buildings of Wuerenlingen have no GBAUP (21 % of the space heating). With the
+    # constant renovation rate (default), GBAUP became <NA> (Int64) and these buildings were in
+    # neither the old nor the new group: -17 % space heating in the hourly profile (2050).
+    model = run_dem({'simulation': {'district_number': 4047},
+                     'scenarios': {'demand_side': True},
+                     'demand_side': {'simulation_year': {'type': 'future', 'future_year': 2050}}}, days=365)
+    df = model.df_com_yr
+    assert df['GBAUP'].isna().sum() > 0
+    buildings = df['d_h_s_yr_future_renov_adjusted'].sum()
+    assert model.energy_demand._d_h_s.sum() == pytest.approx(buildings, rel=1e-6)
+    assert model.annual_results()['d_h_s_yr'] == pytest.approx(buildings, rel=1e-6)
+
+
+@requires_data
+def test_buildings_without_building_period_count_as_old(run_dem):
+    # A28: without demand side (float GBAUP), compute_d_h_yr() put buildings without GBAUP into
+    # the new group (12 degC), while add_future_demand_col() scaled them as old (15 degC).
+    # Both treat them as old now (as if built before 1919).
+    model = run_dem({'simulation': {'district_number': 4047}}, days=1)
+    df = model.df_com_yr
+    sh = df['space_heating_demand_estimation_kWh']
+    assert sh[df['GBAUP'].isna()].sum() > 0
+    assert model.energy_demand._d_h_s_old_yr == pytest.approx(sh[_df_com_old_mask(df)].sum(), rel=1e-9)
+    assert model.energy_demand._d_h_s_new_yr == pytest.approx(sh[~_df_com_old_mask(df)].sum(), rel=1e-9)
+
+
+@requires_data
+def test_buildings_lost_in_old_new_split_raise(run_dem, monkeypatch):
+    # A4: a split that loses buildings (here: <NA> in both groups, as before the fix) must stop
+    # the model instead of silently reducing the space heating demand.
+    from district_energy_model import dem_demand
+    monkeypatch.setattr(dem_demand, 'is_old_building', lambda gbaup: gbaup.astype('Int64') <= 8015)
+    with pytest.raises(ValueError, match=r'municipality 4047.*do not add up.*Missing'):
+        run_dem({'simulation': {'district_number': 4047}}, days=1)
