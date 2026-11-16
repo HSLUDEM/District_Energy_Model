@@ -566,28 +566,37 @@ def test_forced_capacity_of_low_temperature_central_heat_pump_independent_of_ene
     assert obj[10] == pytest.approx(obj[1], rel=1e-6)
 
 
-def test_wood_gasification_hydrogen_adds_methane_to_gas_output(run_dem):
-    # A41: wguh consumed hydrogen for the methanisation of the CO2, but its gas output was only
-    # efficiency_primary per kWh wood (as wood_gasification_upgrade); the hydrogen disappeared.
-    # Gas demand is met by wguh only (no gas import, fixed gas boiler share).
-    cfg = {'wood_gasification_upgrade_hydrogen': {'deployment': True},
+
+@pytest.mark.parametrize('tech, short, inp, fluid, eta_e, eta_h', [
+    ('wood_gasification_upgrade_hydrogen', 'wguh', 'u_wd_wguh', None, 0.1, 0.126),
+    ('anaerobic_digestion_upgrade_hydrogen', 'aguh', 'u_wet_bm_aguh', False, 0.0135, 0.079),
+    ('anaerobic_digestion_upgrade_hydrogen', 'aguh', 'u_wet_bm_aguh', True, 0.0205, 0.087),
+])
+def test_hydrogen_upgrading_adds_methane_from_hydrogen_to_gas_output(run_dem, tech, short, inp, fluid, eta_e, eta_h):
+    # A41: the techs consumed hydrogen to methanise the CO2 of the raw gas, but their gas output
+    # was only efficiency_primary per kWh input; the methane from the hydrogen was missing.
+    # Gas demand is met by the tech only (no gas import, fixed gas boiler share).
+    cfg = {tech: {'deployment': True},
            'hydrogen_production': {'deployment': True},
            'supply': {'gas_import': False},
            'gas_boiler': {'fixed_demand_share': True, 'fixed_demand_share_val': 0.005},
            'district_heating': {'heat_sources': {'biomass': True}},
            'optimisation': OPT}
+    if fluid is not None:
+        cfg[tech]['fluid'] = fluid
     model = run_dem(cfg, days=2)
     df = model.hourly_results()
-    p = model.scen_techs['wood_gasification_upgrade_hydrogen']
+    p = model.scen_techs[tech]
     eta, eta_hyd, m = p['efficiency_primary'], p['efficiency_secondary'], p['methane_percentage']
-    wood, gas, hyd = df['u_wd_wguh'].sum(), df['v_gas_wguh'].sum(), df['u_hyd_wguh'].sum()
-    assert wood > 0
-    assert gas / wood == pytest.approx(eta + eta * (1 - m), rel=1e-6)  # 0.875 (before: 0.625)
-    assert hyd / wood == pytest.approx(eta * (1 - m) / eta_hyd, rel=1e-6)  # 0.298
-    assert gas - eta * wood == pytest.approx(eta_hyd * hyd, rel=1e-6)
-    # electricity and heat per kWh wood unchanged: eta*(1-m)*0.1 and eta*(1-m)*0.126
-    assert df['u_e_wguh'].sum() / wood == pytest.approx(eta * (1 - m) * 0.1, rel=1e-6)
-    assert df['v_h_wguh'].sum() / wood == pytest.approx(eta * (1 - m) * 0.126, rel=1e-6)
+    x = eta * (1 - m) / m  # methane from hydrogen per kWh input (methanised CO2)
+    u, gas, hyd = df[inp].sum(), df[f'v_gas_{short}'].sum(), df[f'u_hyd_{short}'].sum()
+    assert u > 0
+    assert gas / u == pytest.approx(eta / m, rel=1e-6)  # wguh 1.0417 (before 0.625), aguh 0.5 (before 0.3)
+    assert gas - eta * u == pytest.approx(eta_hyd * hyd, rel=1e-6)
+    assert hyd / u == pytest.approx(x / eta_hyd, rel=1e-6)
+    assert df[f'u_e_{short}'].sum() / u == pytest.approx(x * eta_e, rel=1e-6)
+    assert df[f'v_h_{short}'].sum() / u == pytest.approx(x * eta_h, rel=1e-6)
+
 
 
 def _existing_capacities(tech_instances):
