@@ -154,6 +154,11 @@ class DistrictEnergyModel:
         
             print(f"\nMunicipality: {self.com_name_}")
         
+        # Building period (GBAUP) for buildings without one (from GBAUJ or
+        # the oldest period). Applied here so that all data paths get it
+        # (master data, cached community file, custom district):
+        self.df_com_yr = dem_demand.fill_building_period(self.df_com_yr)
+
         # Stop execution if munic is on the list to be omitted:
         if self.com_nr in C.munics_omit:
             print("Model aborted.")

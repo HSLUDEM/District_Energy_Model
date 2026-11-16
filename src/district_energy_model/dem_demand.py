@@ -73,7 +73,9 @@ def is_old_building(gbaup):
     T_base_old): building period (GBAUP) <= C.GBAUP_OLD_MAX. Buildings without
     a building period count as old (as if built before 1919, the oldest
     category). Works with float (NaN) and nullable integer (<NA>) columns, so
-    that no building is in neither group.
+    that no building is in neither group. Since fill_building_period() sets
+    GBAUP for all buildings, the missing-value rule is a safety net (same
+    assumption as the fill) for data that bypasses it.
 
     Parameters
     ----------
@@ -85,6 +87,40 @@ def is_old_building(gbaup):
     pandas Series of bool
     """
     return (gbaup.isna() | (gbaup <= C.GBAUP_OLD_MAX)).astype(bool)
+
+
+def gbaup_from_gbauj(gbauj):
+    """
+    Return the GWR building period (GBAUP) for construction years (GBAUJ)
+    according to C.GBAUP_FIRST_YEAR (years before 1919: C.GBAUP_OLDEST).
+    Missing years give NaN.
+    """
+    gbauj = pd.to_numeric(gbauj, errors='coerce').astype(float)
+    codes = [C.GBAUP_OLDEST] + sorted(C.GBAUP_FIRST_YEAR)
+    first_years = [C.GBAUP_FIRST_YEAR[c] for c in sorted(C.GBAUP_FIRST_YEAR)]
+    idx = np.searchsorted(first_years, gbauj.to_numpy(), side='right')
+    out = pd.Series(np.asarray(codes, dtype=float)[np.minimum(idx, len(codes) - 1)],
+                    index=gbauj.index)
+    return out.where(gbauj.notna())
+
+
+def fill_building_period(df_com_yr):
+    """
+    Set the building period (GBAUP) of buildings without one: derived from
+    the construction year (GBAUJ) if given, otherwise the oldest period
+    (C.GBAUP_OLDEST = 8011, before 1919; conservative assumption).
+    Called once where the building data enters the model (dem.py), for
+    municipalities (master data or cached community file) and custom
+    districts. Returns a copy; the input (e.g. the cache) is not changed.
+    """
+    df_com_yr = df_com_yr.copy()
+    missing = df_com_yr['GBAUP'].isna()
+    if missing.any():
+        gbauj = df_com_yr['GBAUJ'] if 'GBAUJ' in df_com_yr.columns else pd.Series(np.nan, index=df_com_yr.index)
+        df_com_yr.loc[missing, 'GBAUP'] = (
+            gbaup_from_gbauj(gbauj[missing]).fillna(C.GBAUP_OLDEST)
+            )
+    return df_com_yr
 
 
 class EnergyDemand:

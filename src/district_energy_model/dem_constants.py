@@ -35,6 +35,17 @@ T_base_old = 15.0 # Base temperature for old buildings [°C]
 # if built before 1919 (oldest category 8011; conservative assumption).
 GBAUP_OLD_MAX = 8015
 
+# GWR building period classes (GBAUP): first construction year (GBAUJ) of each
+# class. 8011: before 1919, 8012: 1919-1945, ..., 8023: 2016 and later
+# (checked against the master data: no building with both GBAUJ and GBAUP
+# outside these limits). Used to set GBAUP for buildings without it
+# (dem_demand.fill_building_period); buildings without GBAUJ get GBAUP_OLDEST.
+GBAUP_FIRST_YEAR = {
+    8012: 1919, 8013: 1946, 8014: 1961, 8015: 1971, 8016: 1981, 8017: 1986,
+    8018: 1991, 8019: 1996, 8020: 2001, 8021: 2006, 8022: 2011, 8023: 2016,
+    }
+GBAUP_OLDEST = 8011
+
 
 # -----------------------------------------------------------------------------
 # Grid import
