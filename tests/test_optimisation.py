@@ -666,3 +666,20 @@ def test_legacy_storage_flags_are_ignored_in_optimisation(run_dem):
     costs = flagged.total_cost()
     costs = costs.get('Kostenmodul', costs)['monetary_breakdown']['tes_decentralised']
     assert costs['opex'] == pytest.approx(tes._maintenance_cost * tes.get_cap() * 7 / 365)
+
+
+@requires_data
+@requires_solver
+def test_combined_storage_scenario_is_ignored_in_optimisation(run_dem):
+    # A15: the combined manual storage scenario is ignored (with a warning) in
+    # optimisations instead of raising the validator error.
+    base = {'optimisation': OPT, 'tes_decentralised': {'deployment': True, 'capacity_kWh_max': 5e4}}
+    ref = run_dem(base)
+    sizes = {'bes': {'capacity_kWh': 1e4, 'initial_charge': 0.0},
+             'tes_decentralised': {'capacity_kWh': 2e4, 'initial_charge': 0.0}}
+    with pytest.warns(UserWarning, match='scenario_battery_plus_thermal_energy_storage is a manual'):
+        flagged = run_dem({**base,
+                           'scenarios': {'scenario_battery_plus_thermal_energy_storage': True},
+                           'scenario_battery_plus_thermal_energy_storage': {'storages': sizes}})
+    pd.testing.assert_frame_equal(flagged.hourly_results(), ref.hourly_results())
+    assert cost_overview(flagged)['monetary'] == pytest.approx(cost_overview(ref)['monetary'])
