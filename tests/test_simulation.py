@@ -384,15 +384,18 @@ def test_simulation_charges_district_heating_grid_expansion(run_dem):
 @requires_data
 def test_simulation_grid_expansion_in_category_order(run_dem):
     # A7: with 'category_order' the expansion fills category 1 (nearest buildings) first, then 2
+    # 30 days (January): the peak of the simulated days is the annual peak, so the grid categories
+    # (annual peak) and the expansion (peak of the simulated days) do not depend on where the time
+    # series are cut (A10-A12).
     model = run_dem(deep_update(_DH70, {'district_heating': {'simulation_grid_category_fill': 'category_order'}}),
-                    days=7)
+                    days=30)
     dh, caps, inv, mnt, af = _dh_categories(model)
     expansion = dh.get_v_h().max() - caps[0]
     cat1 = min(expansion, caps[1])
     cat2 = expansion - cat1
-    assert cat1 > 0 and 0 < cat2 <= caps[2]  # Allschwil, 7 days: category 1 full, rest in 2
+    assert cat1 > 0 and 0 < cat2 <= caps[2]  # Allschwil: category 1 full, rest in 2
     assert [v.max() for v in dh.get_v_h_by_categories()] == pytest.approx([caps[0], cat1, cat2, 0.0], rel=1e-9)
-    capex, opex = _dh_grid_costs(model, 7)
+    capex, opex = _dh_grid_costs(model, 30)
     assert capex == pytest.approx((inv[1] * cat1 + inv[2] * cat2) * af, rel=1e-9)
     assert opex == pytest.approx(mnt[0] * caps[0] + mnt[1] * cat1 + mnt[2] * cat2, rel=1e-9)
 
@@ -472,7 +475,8 @@ def test_generator_renovation_charges_replacement_of_remaining_boilers(run_dem):
     # so replacing end-of-life boilers was free. In 2050 all existing boilers are at the end of their
     # lifetime: the whole remaining stock (= peak after the scenarios) needs one-to-one replacement.
     from district_energy_model import dem_constants as C
-    model = run_dem(_generator_renovation(2050))
+    # Full year: the peaks are annual peaks, independent of where the time series are cut (A10-A12).
+    model = run_dem(_generator_renovation(2050), days=365)
     for tech in ['oil_boiler', 'gas_boiler']:
         assert model.scen_techs[tech]['lifetime'] <= 2050 - C.RENOVATION_YEAR
         t = model.tech_instances[tech]
@@ -498,7 +502,8 @@ def test_generator_renovation_replaces_end_of_life_share_of_remaining_stock(run_
 
     monkeypatch.setattr(dem_costs, 'get_old_capacities', old_capacities)
     year = 2040
-    model = run_dem(_generator_renovation(year, total_renovation=False))
+    # Full year: the peaks are annual peaks, independent of where the time series are cut (A10-A12).
+    model = run_dem(_generator_renovation(year, total_renovation=False), days=365)
     df, st = model.df_com_yr, model.scen_techs
     names = {'eh': 'electric_heater', 'hp': 'heat_pump', 'dh': 'district_heating', 'gb': 'gas_boiler',
              'ob': 'oil_boiler', 'wb': 'wood_boiler', 'solar': 'solarthermal_rooftop'}
