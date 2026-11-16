@@ -13,6 +13,10 @@ from district_energy_model.dem_costs import annuity_factor
 
 NUM_DH_CATEGORIES = 3 # includes category "already built", does not include category "too expensive to build"
 
+# Options for tech_dict['simulation_grid_category_fill'] (see inputs.py):
+GRID_CATEGORY_FILL_OPTIONS = ('category_order', 'cheapest_first')
+DEFAULT_GRID_CATEGORY_FILL = 'category_order'
+
 class DistrictHeating(TechCore):
     
     def __init__(self, tech_dict, com_nr, df_com_yr, df_meta, energy_demand):
@@ -252,6 +256,15 @@ class DistrictHeating(TechCore):
         self._closeness_based_dh_expansion_cost = tech_dict['closeness_based_dh_expansio_cost']
         self._capex = tech_dict['capex']
         self._maintenance_cost = tech_dict['maintenance_cost']
+        self._simulation_grid_category_fill = tech_dict.get(
+            'simulation_grid_category_fill', DEFAULT_GRID_CATEGORY_FILL
+            )
+        if self._simulation_grid_category_fill not in GRID_CATEGORY_FILL_OPTIONS:
+            raise ValueError(
+                "district_heating: invalid value for 'simulation_grid_category_fill': "
+                f"{self._simulation_grid_category_fill!r}. "
+                f"Options: {', '.join(repr(o) for o in GRID_CATEGORY_FILL_OPTIONS)}."
+                )
 
         self._source_import = tech_dict['heat_sources']['import']
         self._source_chp_gt = tech_dict['heat_sources']['chp_gt']
@@ -793,50 +806,68 @@ class DistrictHeating(TechCore):
         Split the hourly district heating output (v_h) into the grid
         categories (simulation; the optimisation takes the hub flows instead).
 
-        The categories are filled like the optimiser fills the hubs
-        (district_heating_hub_<i>): category 0 (existing grid, no investment
-        cost) first, then the expansion categories from the lowest to the
-        highest annual cost per kW (annualised investment cost plus
-        maintenance cost), each up to its capacity
-        (_kW_th_max_grid_categories). Output beyond the total capacity is
-        assigned to the last filled category with a capacity > 0 (no check,
-        the user is responsible for a feasible scenario).
+        The split is done on the peak output: category 0 (existing grid, no
+        investment cost) is filled first, then the expansion categories, each
+        up to its capacity (_kW_th_max_grid_categories), in the order given by
+        the setting 'simulation_grid_category_fill':
+        - 'category_order' (default): categories 1, 2, 3 (nearest buildings,
+          by mean connection distance, connect first);
+        - 'cheapest_first': from the lowest to the highest annual cost per kW
+          (annualised investment cost plus maintenance cost), as the
+          optimiser fills the hubs (district_heating_hub_<i>).
+        Peak output beyond the total capacity is assigned to the last filled
+        category with a capacity > 0 (no check, the user is responsible for a
+        feasible scenario).
+        Every hour is then split with the category shares at the peak
+        (v_h_cat_i(t) = v_h(t) * peak_i / peak), so the peak of each category
+        is its share of the peak. If the peak is 0, all categories are 0.
 
         The result replaces any previous split and is used by
         get_total_capex() and get_total_maintenance().
         """
         caps = self._kW_th_max_grid_categories
         n_cat = len(caps)
-        af = annuity_factor(self._lifetime, self._interest_rate)
-        order = [0] + sorted(
-            range(1, n_cat),
-            key=lambda i: (
-                self._investment_cost_grid_categories[i]*af
-                + self._maintenance_cost_grid_categories[i]
+        if self._simulation_grid_category_fill == 'cheapest_first':
+            af = annuity_factor(self._lifetime, self._interest_rate)
+            order = [0] + sorted(
+                range(1, n_cat),
+                key=lambda i: (
+                    self._investment_cost_grid_categories[i]*af
+                    + self._maintenance_cost_grid_categories[i]
+                    )
                 )
-            )
+        else: # 'category_order'
+            order = list(range(n_cat))
 
-        rest = np.asarray(self._v_h, dtype=float).copy()
-        v_h_by_categories = [np.zeros_like(rest) for _ in range(n_cat)]
+        v_h = np.asarray(self._v_h, dtype=float)
+        peak = float(np.max(v_h)) if v_h.size > 0 else 0.0
+
+        # Split the peak into the categories:
+        rest = max(peak, 0.0)
+        peak_by_categories = [0.0]*n_cat
         for i in order:
             if caps[i] == 'inf':
-                v_h_cat = rest.copy()
+                p_cat = rest
             else:
-                v_h_cat = np.minimum(rest, max(float(caps[i]), 0.0))
-            rest = rest - v_h_cat
-            v_h_by_categories[i] = v_h_cat
+                p_cat = min(rest, max(float(caps[i]), 0.0))
+            rest -= p_cat
+            peak_by_categories[i] = p_cat
 
-        if n_cat > 0 and np.any(rest > 0):
+        if n_cat > 0 and rest > 0:
             overflow_cat = order[-1]
             for i in reversed(order):
                 if caps[i] == 'inf' or caps[i] > 0:
                     overflow_cat = i
                     break
-            v_h_by_categories[overflow_cat] = (
-                v_h_by_categories[overflow_cat] + np.maximum(rest, 0.0)
-                )
+            peak_by_categories[overflow_cat] += rest
 
-        self._v_h_by_categories = v_h_by_categories
+        # Every hour is split with the shares at the peak:
+        if peak > 0:
+            self._v_h_by_categories = [
+                v_h*(p_cat/peak) for p_cat in peak_by_categories
+                ]
+        else:
+            self._v_h_by_categories = [np.zeros_like(v_h) for _ in range(n_cat)]
 
     def get_v_h_by_categories(self):
         return self._v_h_by_categories

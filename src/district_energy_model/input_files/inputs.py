@@ -204,6 +204,11 @@ scen_techs = {
         'closeness_based_dh_expansio_cost' : True,
         'capex' : 1442, #[CHF/kW] relevant if and only if closeness_based_dh_expansio_cost==False # Source: Philippen et al. (2025). CoSi modelling assumptions. SWEET-CoSi
         'maintenance_cost' : 15, # [CHF/kW/year] relevant if and only if closeness_based_dh_expansio_cost==False Source: Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
+        'simulation_grid_category_fill': 'cheapest_first', # Only affects simulations (the optimiser chooses the grid categories itself):
+            # order in which the district heating output is assigned to the grid categories for the grid costs
+            # (capex of grid expansion, maintenance). The existing grid is always filled first. Options:
+            # 'category_order': then the new categories in the order 1, 2, 3 (nearest buildings connect first; default if not given)
+            # 'cheapest_first': then the new categories from the lowest to the highest annual cost per kW, as the optimiser does
 
         'tariff_CHFpkWh':dh_tariff, # 0.15, # Average from "Faktenblatt Thermische Netze"; only used for import
         'co2_intensity': 0.108,
