@@ -9,6 +9,7 @@ import pandas as pd
 
 from input_files import inputs as inp
 from district_energy_model.techs.dem_tech_core import TechCore
+from district_energy_model.dem_costs import annuity_factor
 
 NUM_DH_CATEGORIES = 3 # includes category "already built", does not include category "too expensive to build"
 
@@ -204,6 +205,7 @@ class DistrictHeating(TechCore):
         self._investment_cost_grid_categories = []
         self._maintenance_cost_grid_categories = []
         self._kW_th_max_grid_categories = []
+        self._v_h_by_categories = [] # split refers to the old categories
         
         if self._closeness_based_dh_expansion_cost:
             self.dhn_qty = len(kW_per_category)
@@ -776,5 +778,66 @@ class DistrictHeating(TechCore):
         return maintenance_cost
     
     def update_v_h_by_categories(self, new_v_h_of_category):
+        """
+        Append the hourly heat output of the next grid category (used by the
+        optimisation, which adds the hub flows category by category). A
+        complete set from an earlier run is discarded first, so that repeated
+        runs (e.g. pareto front) do not accumulate categories.
+        """
+        if len(self._v_h_by_categories) >= len(self._kW_th_max_grid_categories):
+            self._v_h_by_categories = []
         self._v_h_by_categories.append(new_v_h_of_category)
+
+    def compute_v_h_by_categories(self):
+        """
+        Split the hourly district heating output (v_h) into the grid
+        categories (simulation; the optimisation takes the hub flows instead).
+
+        The categories are filled like the optimiser fills the hubs
+        (district_heating_hub_<i>): category 0 (existing grid, no investment
+        cost) first, then the expansion categories from the lowest to the
+        highest annual cost per kW (annualised investment cost plus
+        maintenance cost), each up to its capacity
+        (_kW_th_max_grid_categories). Output beyond the total capacity is
+        assigned to the last filled category with a capacity > 0 (no check,
+        the user is responsible for a feasible scenario).
+
+        The result replaces any previous split and is used by
+        get_total_capex() and get_total_maintenance().
+        """
+        caps = self._kW_th_max_grid_categories
+        n_cat = len(caps)
+        af = annuity_factor(self._lifetime, self._interest_rate)
+        order = [0] + sorted(
+            range(1, n_cat),
+            key=lambda i: (
+                self._investment_cost_grid_categories[i]*af
+                + self._maintenance_cost_grid_categories[i]
+                )
+            )
+
+        rest = np.asarray(self._v_h, dtype=float).copy()
+        v_h_by_categories = [np.zeros_like(rest) for _ in range(n_cat)]
+        for i in order:
+            if caps[i] == 'inf':
+                v_h_cat = rest.copy()
+            else:
+                v_h_cat = np.minimum(rest, max(float(caps[i]), 0.0))
+            rest = rest - v_h_cat
+            v_h_by_categories[i] = v_h_cat
+
+        if n_cat > 0 and np.any(rest > 0):
+            overflow_cat = order[-1]
+            for i in reversed(order):
+                if caps[i] == 'inf' or caps[i] > 0:
+                    overflow_cat = i
+                    break
+            v_h_by_categories[overflow_cat] = (
+                v_h_by_categories[overflow_cat] + np.maximum(rest, 0.0)
+                )
+
+        self._v_h_by_categories = v_h_by_categories
+
+    def get_v_h_by_categories(self):
+        return self._v_h_by_categories
     

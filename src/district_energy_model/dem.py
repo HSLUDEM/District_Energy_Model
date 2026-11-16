@@ -1851,6 +1851,13 @@ class DistrictEnergyModel:
             # Compute costs in case no optimisation is applied:
             dict_total_costs = {}
 
+            # District heating grid costs (capex of grid expansion and
+            # maintenance) are based on the output per grid category, which
+            # the optimisation takes from the hubs. In simulations, split the
+            # output into the categories:
+            if 'district_heating' in self.tech_instances:
+                self.tech_district_heating.compute_v_h_by_categories()
+
             dict_total_costs = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"], debug=False)
             model = 0
 
