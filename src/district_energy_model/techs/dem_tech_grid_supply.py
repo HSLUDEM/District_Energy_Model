@@ -187,6 +187,41 @@ class GridSupply(TechCore):
 
         return timeseries[:n_hours].astype(float)
 
+    def _read_co2_intensity_file(self, n_hours):
+        """
+        Return the hourly CO2 intensity [kgCO2/kWh] from a feather (first
+        column) or npy file. A relative co2_intensity_timeseries_filepath is
+        relative to the root directory.
+        """
+        file_path = self._co2_intensity_timeseries_filepath
+        if file_path in ('', None):
+            raise ValueError(
+                "grid_supply -> co2_intensity_mode is 'file', but "
+                "co2_intensity_timeseries_filepath is empty."
+                )
+        if not os.path.isabs(file_path):
+            file_path = os.path.join(self.paths.root_dir, file_path)
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(
+                f"CO2 intensity file not found: {file_path}. A relative "
+                "co2_intensity_timeseries_filepath is relative to root_dir."
+                )
+
+        if file_path.endswith(".feather"):
+            timeseries = pd.read_feather(file_path).to_numpy()[:, 0]
+        elif file_path.endswith(".npy"):
+            timeseries = np.load(file_path)
+        else:
+            raise ValueError("Unknown file format for timeseries of electricity co2 intensity. Use feather or npy.")
+
+        if len(timeseries) < n_hours:
+            raise ValueError(
+                f"The CO2 intensity timeseries {file_path} has "
+                f"{len(timeseries)} values, but {n_hours} are required."
+                )
+
+        return timeseries[:n_hours].astype(float)
+
     def _compute_tariff_timeseries(self, n_hours):
         """
         Compute the hourly tariff [CHF/kWh] according to tariff_mode. The
@@ -236,12 +271,7 @@ class GridSupply(TechCore):
         if self._co2_intensity_mode == 'const':
             self._co2_intensity_timeseries = self._co2_intensity_timeseries + self._constant_co2_intensity
         elif self._co2_intensity_mode == 'file':
-            if self._co2_intensity_timeseries_filepath.endswith(".feather"):
-                self._co2_intensity_timeseries = pd.read_feather(self._co2_intensity_timeseries_filepath).to_numpy()[:n_hours, 0]
-            elif self._co2_intensity_timeseries_filepath.endswith(".npy"):
-                self._co2_intensity_timeseries = np.load(self._co2_intensity_timeseries_filepath)
-            else:
-                raise ValueError("Unknown file format for timeseries of electricity co2 intensity. Use feather or npy.")
+            self._co2_intensity_timeseries = self._read_co2_intensity_file(n_hours)
         else:
             raise ValueError("Unknown mode for timeseries of electricity co2 intensity. Use 'const' or 'file'.")
 

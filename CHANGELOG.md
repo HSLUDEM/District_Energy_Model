@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file.
 - Added output file capacities.csv (optimisation runs with save_results): optimised capacities (Calliope energy_cap [kW] and storage_cap [kWh]) per technology, split into existing, one-to-one replacement and new capacity where available.
 - Added municipal retail electricity tariffs: new default `grid_supply` `tariff_mode` `munic_file` reads the tariff of the municipality and simulated year from `data/electricity/electricity_tariff_munic.feather` (CHF/kWh, excl. VAT; ElCom data, 2016-2027). If the simulated year is not in the file, the last year is used (with a warning). The modes `const` and `timeseries` remain available (`file` is deprecated, use `timeseries`). New inputs: `tariff_munic_filepath`, `tariff_year`, `tariff_factor`.
 - National generators use the tariff of `grid_supply` by default: `cost_CHFpkWh` can be omitted or set to `grid_tariff`; a number sets a different cost.
+- `grid_supply` `co2_intensity_mode` `file`: a relative `co2_intensity_timeseries_filepath` is now relative to `root_dir` (before: the working directory). An error is raised if the file is missing, the path is empty, or the timeseries has fewer than 8760 values.
 
 
 ### Fixed

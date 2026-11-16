@@ -305,11 +305,11 @@ scen_techs = {
         # 'deployment':False,
         'kW_max':'inf',
         'tariff_mode': 'munic_file', # 'munic_file': value of the municipality from a file; 'const': constant_tariff_CHFpkWh; 'timeseries': hourly values from tariff_timeseries_filepath
-        'co2_intensity_mode': 'const',
+        'co2_intensity_mode': 'const', # 'const': constant_co2_intensity; 'file': hourly values from co2_intensity_timeseries_filepath
         'tariff_munic_filepath': '', # 'munic_file': rows: municipalities (GGDENR); columns: years; values: [CHF/kWh]; '' = <root_dir>/data/electricity/electricity_tariff_munic.feather
         'tariff_year': 'auto', # 'munic_file': year of the tariff; 'auto' = simulated year, or the last year of the file (with a warning) if the simulated year is not in the file
         'tariff_timeseries_filepath': '', # 'timeseries': feather (first column) or npy file with 8760 values [CHF/kWh]
-        'co2_intensity_timeseries_filepath': '',
+        'co2_intensity_timeseries_filepath': '', # 'file': feather (first column) or npy file with 8760 values [kgCO2/kWh]; a relative path is relative to root_dir
         'constant_tariff_CHFpkWh':grid_tariff_CHFpkWh, #0.29, # 'const': [CHF/kWh] electricity tariff
         'tariff_factor':1.0, # [-] factor applied to the tariff in all modes (e.g. for future scenarios)
         'constant_co2_intensity':0.097, # [kgCO2/kWh] Source: Verband Schweizerischer Elektrizitätsunternehmen VSE CO2-Gehalt des Strommix Schweiz https://www.strom.ch/de/media/15408/download
@@ -895,8 +895,8 @@ scen_techs = {
             'future_year': 2050, # Only relevant if type == future; Options: '2030', '2035', '2040', '2050'
             },
         # 'year': 2023, # Options: 2023, 2030, 2040, 2050
-        'rcp_scenario':'RCP26',
-        'ts_type':'tas_median',
+        # 'rcp_scenario':'RCP26',
+        # 'ts_type':'tas_median',
         'ev_integration':True,
         'ev_integration_factor':100, # [%] share of electric vehicle in total fleet
         'ev_flexibility': True, # only in combination with optimisation
