@@ -519,3 +519,65 @@ def test_generator_renovation_replaces_end_of_life_share_of_remaining_stock(run_
         assert t.needs_replacement == pytest.approx(share * remaining, rel=1e-9), tech
         assert t.existing == pytest.approx((1 - share) * remaining, rel=1e-9), tech
         assert t.get_total_capex() == pytest.approx(t._capex_one_to_one_replacement * share * remaining, rel=1e-9), tech
+
+
+@requires_data
+@pytest.mark.parametrize('demand_side', [
+    {'simulation_year': {'type': 'current'}},
+    {'simulation_year': {'type': 'future', 'future_year': 2050}, 'total_renovation': False},
+    {'simulation_year': {'type': 'future', 'future_year': 2050}},
+])
+def test_short_demand_side_simulation_equals_first_days_of_full_year(run_dem, demand_side):
+    # A10: the time series were cut to number_of_days before the demand-side scenario, so the
+    # heat pump category totals (existing / one-to-one / new) were sums over the simulated days
+    # while getRelativeSharesOfHPCategories compares them with annual values: in short runs
+    # almost all heat pump heat counted as 'new' (7 days: +22 % heat pump electricity).
+    cfg = {'scenarios': {'demand_side': True}, 'demand_side': demand_side}
+    short = run_dem(cfg, days=7).hourly_results().select_dtypes('number')
+    full = run_dem(cfg, days=365).hourly_results().select_dtypes('number').iloc[:len(short)]
+    assert len(short) == 7 * 24
+    assert short['u_e_hp'].sum() > 0
+    assert short['u_e_hp'].sum() == pytest.approx(full['u_e_hp'].sum(), rel=1e-9)
+    cols = [c for c in short.columns if c in full.columns]
+    assert set(cols) == set(short.columns)
+    np.testing.assert_allclose(short[cols].to_numpy(float), full[cols].to_numpy(float), rtol=1e-9, atol=1e-6)
+
+
+@requires_data
+def test_district_heating_categories_independent_of_number_of_days(run_dem):
+    # A12: with total renovation, the district heating grid categories were sized with the peak
+    # heat demand of the simulated days (7 days in 2050: 2,616/4,630/11,927/3,427 kW instead of
+    # 4,774/8,452/21,770/6,256 kW), i.e. the grid capex per kW depended on number_of_days.
+    cfg = {'scenarios': {'demand_side': True},
+           'demand_side': {'simulation_year': {'type': 'future', 'future_year': 2050},
+                           'total_renovation': True}}
+    cats = {}
+    for days in [7, 365]:
+        dh = run_dem(cfg, days=days).tech_instances['district_heating']
+        cats[days] = (list(dh._kW_th_max_grid_categories), list(dh._investment_cost_grid_categories))
+    assert sum(cats[365][0]) > 0
+    np.testing.assert_allclose(cats[7][0], cats[365][0], rtol=1e-9)
+    np.testing.assert_allclose(cats[7][1], cats[365][1], rtol=1e-9)
+
+
+@requires_data
+def test_existing_capacities_are_annual_peaks_in_short_simulations(run_dem, monkeypatch):
+    # A11: existing capacities (dem_costs.get_old_capacities) were the peaks of the simulated
+    # days (7 days: heat pumps 1,890 kW instead of 3,450 kW), so short runs paid for existing
+    # capacity again.
+    from district_energy_model import dem_costs
+    techs = ['heat_pump', 'oil_boiler', 'gas_boiler', 'wood_boiler', 'electric_heater', 'district_heating']
+    existing = []
+    orig_old = dem_costs.get_old_capacities
+
+    def old_capacities(tech_instances, debug=False):
+        out = orig_old(tech_instances, debug)
+        existing.append({t: tech_instances[t].existing for t in techs})
+        return out
+
+    monkeypatch.setattr(dem_costs, 'get_old_capacities', old_capacities)
+    full = run_dem({}, days=365).hourly_results()
+    run_dem({}, days=7)
+    assert existing[0]['heat_pump'] == pytest.approx(full['v_h_hp'].max(), rel=1e-9)
+    for t in techs:
+        assert existing[1][t] == pytest.approx(existing[0][t], rel=1e-9), t
