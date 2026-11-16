@@ -17,6 +17,68 @@ import pandas as pd
 from district_energy_model.techs.dem_tech_core import TechCore
 
 
+def hydrogen_upgrading_ratios(eta_primary, methane_percentage, eta_hyd, eta_e, eta_h):
+    """
+    Conversion ratios of the biomass upgrading techs with hydrogen
+    (anaerobic_digestion_upgrade_hydrogen, wood_gasification_upgrade_hydrogen).
+
+    The biomass input yields a raw gas with the methane share m
+    (methane_percentage): eta_primary kWh methane per kWh input, plus CO2. The
+    CO2 is methanised with hydrogen (eta_hyd = kWh methane per kWh hydrogen).
+    Per kWh of biomass input:
+    - methane from the biomass:              eta_primary
+    - methane from hydrogen (methanised CO2): x = eta_primary*(1 - m)/m
+    - gas output:                            eta_primary + x = eta_primary/m
+    - hydrogen input:                        x/eta_hyd
+    - electricity input:                     x*eta_e
+    - heat output:                           x*eta_h
+    i.e. gas = eta_primary*input + eta_hyd*hydrogen. Electricity and heat
+    scale with the methanised CO2 (x = gas*(1 - m)).
+
+    Returns
+    -------
+    dict
+        Values per kWh input ('gas', 'methane_from_hydrogen', 'hydrogen',
+        'electricity', 'heat') and the heat per kWh gas ('heat_per_gas').
+    """
+    m = methane_percentage
+    if not 0 < m <= 1:
+        raise ValueError(f"methane_percentage must be in (0, 1]. Selected value: {m!r}.")
+    x = eta_primary*(1 - m)/m
+    gas = eta_primary + x
+    return {
+        'gas': gas,
+        'methane_from_hydrogen': x,
+        'hydrogen': x/eta_hyd,
+        'electricity': x*eta_e,
+        'heat': x*eta_h,
+        'heat_per_gas': x*eta_h/gas, # = (1 - m)*eta_h
+        }
+
+
+def hydrogen_upgrading_tech_constraints(ratios):
+    """
+    Calliope (0.6) conversion_plus constraints for the hydrogen upgrading techs
+    (primary carrier_in: biomass, primary carrier_out: gas):
+    gas = energy_eff*input; carrier_in_2/carrier_in_3 ratios are per unit of
+    the primary input, carrier_out_2 ratios per unit of the primary output.
+    """
+    return {
+        'energy_eff': ratios['gas'],
+        'carrier_ratios':{
+            'carrier_in_2':{ # per kWh biomass input
+                'electricity': ratios['electricity']
+                },
+            'carrier_in_3':{ # per kWh biomass input
+                'hydrogen': ratios['hydrogen']
+                },
+            'carrier_out_2':{ # per kWh gas output
+                'heat_biomass': ratios['heat_per_gas']
+                }
+            },
+        }
+
+
 class Biomass(TechCore):
     
     def __init__(self, tech_dict):
@@ -522,6 +584,11 @@ class AnaerobicDigestionUpgrade(TechCore): # agu
     
         
 class AnaerobicDigestionUpgradeHydrogen(TechCore): # aguh
+    """
+    Anaerobic digestion with upgrade to biomethane, the CO2 of the biogas is
+    methanised with hydrogen. Conversion: see hydrogen_upgrading_ratios()
+    (gas = eta_1/m per kWh wet biomass = eta_1*wet biomass + eta_hyd*hydrogen).
+    """
     
     def __init__(self, tech_dict):
         """
@@ -606,8 +673,12 @@ class AnaerobicDigestionUpgradeHydrogen(TechCore): # aguh
             self.__eta_h = 0.079
         
         #Assign Properties:
-        self._eta = self._eta_1 + self._eta_1*(1 - self._methane_percentage)/self._methane_percentage
         self._eta_hyd = tech_dict['efficiency_secondary']
+        self._ratios = hydrogen_upgrading_ratios(
+            self._eta_1, self._methane_percentage, self._eta_hyd,
+            self.__eta_e, self.__eta_h
+            )
+        self._eta = self._ratios['gas'] # = eta_1 + eta_1*(1 - m)/m
         self._capex = tech_dict['capital_cost']
         self._maintenance_cost = tech_dict['maintenance_cost']
         self._lifetime = tech_dict['lifetime']
@@ -688,11 +759,12 @@ class AnaerobicDigestionUpgradeHydrogen(TechCore): # aguh
         self._v_gas = np.array(v_gas_updated)
 
     def compute_u_input_carrier(self):
-        
-        self._u_wet_bm = self._v_gas/self._eta
-        self._u_hyd = self._v_gas*(1 - self._methane_percentage)/self._eta_hyd
-        self._u_e = self._v_gas*(1 - self._methane_percentage)*self.__eta_e
-        self._v_h = self._v_gas*(1 - self._methane_percentage)*self.__eta_h
+        """Given the gas output, computes the inputs and the heat output (as in generate_tech_dict())."""
+        r = self._ratios
+        self._u_wet_bm = np.asarray(self._v_gas)/r['gas']
+        self._u_hyd = self._u_wet_bm*r['hydrogen']
+        self._u_e = self._u_wet_bm*r['electricity']
+        self._v_h = self._u_wet_bm*r['heat']
     
     # def compute_v_gas(self):
         
@@ -718,18 +790,7 @@ class AnaerobicDigestionUpgradeHydrogen(TechCore): # aguh
                 },
             'constraints':{
                 'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
-                'energy_eff': self.__tech_dict['efficiency_primary'],
-                'carrier_ratios':{
-                    'carrier_in_2':{
-                        'electricity': self._eta*(1 - self._methane_percentage)*self.__eta_e
-                        },
-                    'carrier_in_3':{
-                        'hydrogen': self._eta*(1 - self._methane_percentage)/self._eta_hyd
-                        },
-                    'carrier_out_2':{
-                        'heat_biomass': (1 - self._methane_percentage)*self.__eta_h
-                        }
-                    },
+                **hydrogen_upgrading_tech_constraints(self._ratios),
                 'lifetime':self.__tech_dict['lifetime']
                 },
             'costs':{
@@ -1231,6 +1292,11 @@ class WoodGasificationUpgrade(TechCore): # wgu
             
 
 class WoodGasificationUpgradeHydrogen(TechCore): # wguh
+    """
+    Wood gasification with upgrade to biomethane, the CO2 of the raw gas is
+    methanised with hydrogen. Conversion: see hydrogen_upgrading_ratios()
+    (gas = eta/m per kWh wood = eta*wood + eta_hyd*hydrogen).
+    """
     
     def __init__(self, tech_dict):
         """
@@ -1299,6 +1365,10 @@ class WoodGasificationUpgradeHydrogen(TechCore): # wguh
         self._lifetime = tech_dict['lifetime']
 
         self._methane_percentage = tech_dict['methane_percentage']
+        self._ratios = hydrogen_upgrading_ratios(
+            self._eta, self._methane_percentage, self._eta_hyd,
+            self.__eta_e, self.__eta_h
+            )
         
         # Update input dict:
         self.__tech_dict = tech_dict
@@ -1354,35 +1424,38 @@ class WoodGasificationUpgradeHydrogen(TechCore): # wguh
     def compute_u_w(self):
         """
         Given a gas output [kWh], calculates the required wood input [kWh],
-        the required electricity input [kWh], the required hydrogen input [kWh] and the heat output [kWh].
+        the required electricity input [kWh], the required hydrogen input [kWh] and the heat output [kWh]
+        (as in generate_tech_dict()).
 
         Returns
         -------
         None.
 
         """
-        
-        self.u_w = self._v_gas/self._eta
-        self._u_hyd = self._v_gas/self._eta_hyd
-        self._u_e = self._v_gas/self.__eta_e
-        self._v_h = self._v_gas*self.__eta_h
+        r = self._ratios
+        self._u_wd = np.asarray(self._v_gas)/r['gas']
+        self._u_hyd = self._u_wd*r['hydrogen']
+        self._u_e = self._u_wd*r['electricity']
+        self._v_h = self._u_wd*r['heat']
     
     
     def compute_v_gas(self):
         """
         Given a wood input [kWh], calculates the required electricity input [kWh], 
-        the required hydrogen input [kWh], the gas output [kWh] and the heat output [kWh].
+        the required hydrogen input [kWh], the gas output [kWh] and the heat output [kWh]
+        (as in generate_tech_dict()).
 
         Returns
         -------
         None.
 
         """
-        
-        self._v_gas = self.u_w*self._eta
-        self._u_hyd = self._v_gas/self._eta_hyd
-        self._u_e = self._v_gas*self.__eta_e
-        self._v_h = self._v_gas*self.__eta_h
+        r = self._ratios
+        self._u_wd = np.asarray(self._u_wd)
+        self._v_gas = self._u_wd*r['gas']
+        self._u_hyd = self._u_wd*r['hydrogen']
+        self._u_e = self._u_wd*r['electricity']
+        self._v_h = self._u_wd*r['heat']
         
     def update_u_wd(self, u_wd_updated):        
         if len(u_wd_updated) != len(self._u_wd):
@@ -1426,18 +1499,7 @@ class WoodGasificationUpgradeHydrogen(TechCore): # wguh
                 },
             'constraints':{
                 'energy_cap_max':self.__tech_dict['capacity_kWh'] / energy_scaling_factor if self.__tech_dict['capacity_kWh'] != 'inf' else 'inf',
-                'energy_eff': self.__tech_dict['efficiency_primary'],
-                'carrier_ratios':{
-                    'carrier_in_2':{
-                        'electricity': self._eta*(1 - self._methane_percentage)*self.__eta_e
-                        },
-                    'carrier_in_3':{
-                        'hydrogen': self._eta*(1 - self._methane_percentage)/self._eta_hyd
-                        },
-                    'carrier_out_2':{
-                        'heat_biomass': (1 - self._methane_percentage)*self.__eta_h
-                        }
-                    },
+                **hydrogen_upgrading_tech_constraints(self._ratios),
                 'lifetime':self.__tech_dict['lifetime']
                 },
             'costs':{
