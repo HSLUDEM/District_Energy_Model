@@ -430,3 +430,40 @@ def test_generator_renovation_existing_capacity_reduced_once(run_dem, monkeypatc
             assert caps[f'{tech}_one_to_one_replacement'] == pytest.approx(replacement, rel=1e-6), tech
     objective = model.total_cost()['objective']['total']
     assert cost_overview(model)['monetary']['total'] == pytest.approx(objective, rel=0.01, abs=100)
+
+
+@pytest.mark.parametrize('tech, share', [('oil_boiler', 0.3), ('gas_boiler', 0.5), ('wood_boiler', 0.05)])
+def test_fixed_boiler_share_includes_one_to_one_replacement(run_dem, monkeypatch, tech, share):
+    # A14: the fixed demand share groups of the boilers listed only <tech>_old and <tech>_new, so the
+    # optimiser built new boilers at full capex and left the cheaper one-to-one replacement capacity unused.
+    from district_energy_model import dem_calliope
+    store = {}
+    orig_run = dem_calliope.CalliopeOptimiser.run_optimisation
+
+    def run_optimisation(self, *args, **kwargs):
+        opt_results, model = orig_run(self, *args, **kwargs)
+        store.update(res=opt_results, model=model, f=self.energy_scaling_factor)
+        return opt_results, model
+
+    monkeypatch.setattr(dem_calliope.CalliopeOptimiser, 'run_optimisation', run_optimisation)
+    model = run_dem({'scenarios': {'demand_side': True},
+                     'demand_side': {'simulation_year': {'type': 'future', 'future_year': 2040},
+                                     'heat_generator_renovation': True},
+                     tech: {'fixed_demand_share': True, 'fixed_demand_share_val': share},
+                     'optimisation': OPT}, days=2)
+    res, f = store['res'], store['f']
+    cap = res['energy_cap'].to_series() * f
+    cap_max = store['model'].inputs['energy_cap_max'].to_series() * f
+    prod = res['carrier_prod'].to_series() * f
+    units = [f'X1::{tech}_old', f'X1::{tech}_one_to_one_replacement', f'New_Techs::{tech}_new']
+    heat = sum(prod.loc[f'{u}::heat'].values for u in units)
+    demand = -res['carrier_con'].to_series().loc['X1::demand_heat::heat'].values * f
+    np.testing.assert_allclose(heat / demand, share, atol=1e-4)
+    one_to_one, new = cap[units[1]], cap[units[2]]
+    assert cap_max[units[1]] > 0
+    assert share * demand.max() > cap_max[units[0]] * 1.01  # the existing capacity alone is not enough
+    if new > 1e-3:  # new boilers only once the one-to-one capacity is used up
+        assert one_to_one == pytest.approx(cap_max[units[1]], rel=1e-6)
+    assert prod.loc[f'{units[1]}::heat'].sum() > 0
+    objective = model.total_cost()['objective']['total']
+    assert cost_overview(model)['monetary']['total'] == pytest.approx(objective, rel=1e-5)
