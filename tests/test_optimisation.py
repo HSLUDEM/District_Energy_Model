@@ -646,3 +646,23 @@ def test_district_heating_categories_in_short_optimisation(run_dem):
                                rtol=1e-9)
     objective = model.total_cost()['objective']['total']
     assert cost_overview(model)['monetary']['total'] == pytest.approx(objective, rel=1e-4)
+
+
+@requires_data
+@requires_solver
+def test_legacy_storage_flags_are_ignored_in_optimisation(run_dem):
+    # A15: manual storage flags are ignored (with a warning) in optimisations.
+    base = {'optimisation': OPT, 'tes_decentralised': {'deployment': True, 'capacity_kWh_max': 5e4}}
+    ref = run_dem(base)
+    with pytest.warns(UserWarning, match='ignored in optimisations'):
+        flagged = run_dem({**base, 'scenarios': {'thermal_energy_storage': True,
+                                                  'battery_energy_storage': True},
+                           'thermal_energy_storage_scenario': {'capacity_kWh': 2e4}})
+    pd.testing.assert_frame_equal(flagged.hourly_results(), ref.hourly_results())
+    assert cost_overview(flagged)['monetary'] == pytest.approx(cost_overview(ref)['monetary'])
+    # the optimiser's capacity (<= capacity_kWh_max) is the cost basis:
+    tes = flagged.tech_instances['tes_decentralised']
+    assert 0 < tes.get_cap() <= 5e4 + 1e-6
+    costs = flagged.total_cost()
+    costs = costs.get('Kostenmodul', costs)['monetary_breakdown']['tes_decentralised']
+    assert costs['opex'] == pytest.approx(tes._maintenance_cost * tes.get_cap() * 7 / 365)

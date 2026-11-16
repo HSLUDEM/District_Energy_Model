@@ -431,26 +431,81 @@ def test_thermal_energy_storage_scenario_has_losses_and_charge_rate_limit(run_de
     assert model.scen_techs['bes']['deployment'] is True
 
 
+def _storages(bes=(0.0, 0.0), tes=(0.0, 0.0)):
+    """Sizes of scenario_battery_plus_thermal_energy_storage (capacity_kWh, initial_charge)."""
+    return {'scenario_battery_plus_thermal_energy_storage': {'storages': {
+        'bes': {'capacity_kWh': bes[0], 'initial_charge': bes[1]},
+        'tes_decentralised': {'capacity_kWh': tes[0], 'initial_charge': tes[1]}}}}
+
+
+def _storage_tac(model):
+    costs = model.total_cost()['monetary_breakdown']
+    return {t: costs[t]['tac'] for t in ('bes', 'tes_decentralised') if t in costs}
+
+
 @requires_data
 def test_legacy_storage_scenarios_equal_combined_scenario_with_one_storage(run_dem):
     combined = {'scenarios': {'pv_integration': True,
                               'scenario_battery_plus_thermal_energy_storage': True}}
     cases = [
         (_TES_LEGACY,
-         {'tes_decentralised': {'deployment': True, 'capacity_kWh_max': 2e4, 'initial_charge': 0.2},
-          'bes': {'deployment': False}}),
+         {'tes_decentralised': {'deployment': True}, **_storages(tes=(2e4, 0.2))}),
         ({'scenarios': {'pv_integration': True, 'battery_energy_storage': True},
           'tes_decentralised': {'deployment': True, 'capacity_kWh_max': 5e4},  # not used
           'battery_energy_storage_scenario': {'capacity_kWh': 5e4, 'initial_charge': 0.2}},
-         {'bes': {'capacity_kWh_max': 5e4, 'initial_charge': 0.2}}),
+         _storages(bes=(5e4, 0.2))),
     ]
     for legacy_cfg, combined_cfg in cases:
-        legacy = run_dem(legacy_cfg, days=365).hourly_results()
-        direct = run_dem({**combined, **combined_cfg}, days=365).hourly_results()
-        cols = [c for c in direct.columns if c in legacy.columns]
-        assert len(cols) >= len(direct.columns) - 3
+        legacy = run_dem(legacy_cfg, days=365)
+        direct = run_dem({**combined, **combined_cfg}, days=365)
+        a, b = legacy.hourly_results(), direct.hourly_results()
+        cols = [c for c in b.columns if c in a.columns]
+        assert len(cols) >= len(b.columns) - 3
         # dtypes of the zero columns of a non-deployed storage differ (int/float)
-        pd.testing.assert_frame_equal(legacy[cols], direct[cols], check_dtype=False)
+        pd.testing.assert_frame_equal(a[cols], b[cols], check_dtype=False)
+        assert cost_overview(legacy)['monetary'] == pytest.approx(cost_overview(direct)['monetary'], rel=1e-12)
+
+
+@requires_data
+def test_combined_storage_scenario_uses_its_own_sizes(run_dem):
+    # A15: the scenario sizes (storages) define size and cost; capacity_kWh_max
+    # of the technologies is only the optimiser's maximum.
+    cfg = {'scenarios': {'pv_integration': True,
+                         'scenario_battery_plus_thermal_energy_storage': True},
+           **_storages(bes=(1e4, 0.0), tes=(2e4, 0.0))}
+    big_max = run_dem(deep_update(cfg, {'tes_decentralised': {'deployment': True, 'capacity_kWh_max': 5e5},
+                                        'bes': {'capacity_kWh_max': 3e4}}), days=365)
+    no_max = run_dem(deep_update(cfg, {'tes_decentralised': {'deployment': True}}), days=365)
+    df = big_max.hourly_results()
+    assert df['q_h_tesdc'].max() <= 2e4 + 1e-6 and df['q_e_bes'].max() <= 1e4 + 1e-6
+    assert df['u_h_tesdc'].max() <= 0.1 * 2e4 + 1e-6
+    pd.testing.assert_frame_equal(df, no_max.hourly_results())
+    assert _storage_tac(big_max) == pytest.approx(_storage_tac(no_max), rel=1e-12)
+    tes = big_max.tech_instances['tes_decentralised']
+    assert tes.get_cap() == 5e5  # maximum unchanged
+    assert big_max.total_cost()['monetary_breakdown']['tes_decentralised']['opex'] == pytest.approx(
+        tes._maintenance_cost * 2e4)
+
+
+@requires_data
+def test_legacy_storage_scenario_keeps_technology_maximum(run_dem):
+    model = run_dem(deep_update(_TES_LEGACY, {'tes_decentralised': {'capacity_kWh_max': 5e5}}), days=365)
+    ref = run_dem(_TES_LEGACY, days=365)
+    assert model.tech_instances['tes_decentralised'].get_cap() == 5e5
+    assert model.scen_techs['tes_decentralised']['capacity_kWh_max'] == 5e5
+    assert ref.tech_instances['tes_decentralised'].get_cap() == 'inf'
+    assert model.hourly_results()['q_h_tesdc'].max() <= 2e4 + 1e-6
+    # size and cost from thermal_energy_storage_scenario, not from the maximum:
+    assert _storage_tac(model) == pytest.approx(_storage_tac(ref), rel=1e-12)
+    assert _storage_tac(model)['tes_decentralised'] > 0
+
+
+@requires_data
+def test_unused_storage_maximum_costs_nothing_in_simulation(run_dem):
+    model = run_dem({'scenarios': {'pv_integration': True},
+                     'tes_decentralised': {'deployment': True, 'capacity_kWh_max': 5e4},
+                     'bes': {'capacity_kWh_max': 1e4}})
+    assert _storage_tac(model) == {'bes': 0.0, 'tes_decentralised': 0.0}
 
 
 @requires_data
