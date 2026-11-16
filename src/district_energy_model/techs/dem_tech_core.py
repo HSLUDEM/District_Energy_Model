@@ -234,13 +234,15 @@ class TechCore():
         raise AttributeError(f"No storage or flow variable found in the technology object {self}")
     
     def get_v_max(self, debug=False):
+        # Maximum capacity: the first of these attributes the tech has, else 'inf'.
+        # Same unit as self.existing (get_output().max()): kW for generators,
+        # kWh for storages (_cap; get_output() returns the storage level).
         for attr in ['_v_h_max', 'v_max', 'kw_max', 'kW_el_max', '_cap', '_p_max']:
             if hasattr(self, attr):
                 return getattr(self, attr)
-            else: 
-                if debug:
-                    warnings.warn(f"No max_capacity attribute found returning 'inf' for object {self}")
-                return 'inf'
+        if debug:
+            warnings.warn(f"No max_capacity attribute found returning 'inf' for object {self}")
+        return 'inf'
     
     def get_power_up_for_replacement(self):
         if hasattr(self, '_power_up_for_replacement'):
