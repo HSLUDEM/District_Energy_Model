@@ -613,3 +613,36 @@ def test_storage_capacity_limit_is_the_max_capacity_of_the_replacement_split(run
         t = model.tech_instances[tech]
         assert t.existing == 0
         assert t.cap_new == pytest.approx(cap - t.existing), tech
+
+
+@requires_data
+@pytest.mark.parametrize('demand_side', [
+    {'simulation_year': {'type': 'future', 'future_year': 2050}},
+    {'simulation_year': {'type': 'future', 'future_year': 2050}, 'total_renovation': False},
+])
+def test_heat_pump_cops_use_the_recomputed_heat_demand(run_dem, demand_side):
+    # A29: calculateCOPs ran before the heat demand of the demand-side scenario was recomputed,
+    # so space heating and hot water were weighted with the base profile (historic weather, no
+    # renovation) combined with the future temperatures (Allschwil 2050: COP of new heat pumps
+    # 4.17 instead of 3.88, heat pump electricity -1.1 %).
+    from district_energy_model import dem_hp_cop_calculation
+    model = run_dem({'scenarios': {'demand_side': True}, 'demand_side': demand_side}, days=365)
+    st = model.scen_techs
+    hp = model.tech_instances['heat_pump']
+    ref = dem_hp_cop_calculation.calculateCOPs(
+        paths=model.paths, df_com_yr=model.df_com_yr,
+        quality_factor_ashp_new=st['heat_pump']['quality_factor_ashp_new'],
+        quality_factor_ashp_old=st['heat_pump']['quality_factor_ashp_old'],
+        quality_factor_gshp_new=st['heat_pump']['quality_factor_gshp_new'],
+        quality_factor_gshp_old=st['heat_pump']['quality_factor_gshp_old'],
+        com_nr=model.com_nr_majority, dem_demand=model.energy_demand, weather_year=model.simulation_year,
+        consider_renovation_effects=True,
+        total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios=st['demand_side'][
+            'total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios'],
+        total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios=st['demand_side'][
+            'total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios'],
+        optimisation_enabled=False)
+    assert len(model.energy_demand.get_d_h_s()) == 8760
+    np.testing.assert_allclose(hp.get_cops_new(), np.nan_to_num(ref[1], nan=1.0), rtol=1e-9)
+    np.testing.assert_allclose(hp.get_cops_one_to_one_replacement(), np.nan_to_num(ref[2], nan=1.0), rtol=1e-9)
+    np.testing.assert_allclose(hp.get_tot_heats_for_cop_calculations(), ref[3:], rtol=1e-9)
