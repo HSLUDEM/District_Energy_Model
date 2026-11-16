@@ -457,3 +457,65 @@ def test_both_legacy_storage_scenarios_point_to_combined_scenario(run_dem):
         run_dem({'scenarios': {'thermal_energy_storage': True, 'battery_energy_storage': True},
                  'tes_decentralised': {'deployment': True},
                  'thermal_energy_storage_scenario': {'capacity_kWh': 2e4}}, days=1)
+
+
+def _generator_renovation(year, **demand_side):
+    return {'scenarios': {'demand_side': True},
+            'demand_side': {'simulation_year': {'type': 'future', 'future_year': year},
+                            'heat_generator_renovation': True, **demand_side}}
+
+
+@requires_data
+def test_generator_renovation_charges_replacement_of_remaining_boilers(run_dem):
+    # A6: the replacement capex was only charged for the peak above the base (pre-scenario) capacity
+    # minus the replaced part; after renovation and in a warmer climate the boiler peaks stay below it,
+    # so replacing end-of-life boilers was free. In 2050 all existing boilers are at the end of their
+    # lifetime: the whole remaining stock (= peak after the scenarios) needs one-to-one replacement.
+    from district_energy_model import dem_constants as C
+    model = run_dem(_generator_renovation(2050))
+    for tech in ['oil_boiler', 'gas_boiler']:
+        assert model.scen_techs[tech]['lifetime'] <= 2050 - C.RENOVATION_YEAR
+        t = model.tech_instances[tech]
+        peak = t.get_output().max()
+        assert peak > 0
+        assert t.needs_replacement == pytest.approx(peak, rel=1e-9), tech
+        assert t.existing == pytest.approx(0, abs=1e-6), tech
+        assert t.get_total_capex() == pytest.approx(t._capex_one_to_one_replacement * peak, rel=1e-9), tech
+
+
+@requires_data
+def test_generator_renovation_replaces_end_of_life_share_of_remaining_stock(run_dem, monkeypatch):
+    # A6: replacement = end-of-life share (by age, weighted with the base heat demand) of the stock
+    # remaining after the scenarios (min(base capacity, peak)); the rest is existing without capex.
+    from district_energy_model import dem_constants as C, dem_costs
+    base = {}
+    orig_old = dem_costs.get_old_capacities
+
+    def old_capacities(tech_instances, debug=False):
+        out = orig_old(tech_instances, debug)
+        base.update({t: tech_instances[t].existing for t in ['oil_boiler', 'gas_boiler']})
+        return out
+
+    monkeypatch.setattr(dem_costs, 'get_old_capacities', old_capacities)
+    year = 2040
+    model = run_dem(_generator_renovation(year, total_renovation=False))
+    df, st = model.df_com_yr, model.scen_techs
+    names = {'eh': 'electric_heater', 'hp': 'heat_pump', 'dh': 'district_heating', 'gb': 'gas_boiler',
+             'ob': 'oil_boiler', 'wb': 'wood_boiler', 'solar': 'solarthermal_rooftop'}
+    lifetimes = {f'v_h_{k}': st[t]['lifetime'] for k, t in names.items()} | {'v_h_other': 1.0}
+    lifetime = df['Heating_System'].map(lifetimes)
+    end_of_life_year = df['GBAUJ'] + lifetime
+    recently_built = end_of_life_year >= C.RENOVATION_YEAR
+    end_of_life = ((year - C.RENOVATION_YEAR) / lifetime).clip(upper=1.0)
+    end_of_life[recently_built] = (year > end_of_life_year[recently_built]).astype(float)
+    end_of_life = end_of_life.fillna(1.0)
+    for k, tech in [('ob', 'oil_boiler'), ('gb', 'gas_boiler')]:
+        weight = (df['space_heating_demand_estimation_kWh'].where(df['Heating_System'] == f'v_h_{k}', 0.0).fillna(0.0)
+                  + df['DHW_demand_estimation_kWh'].where(df['Hot_Water_System'] == f'v_hw_{k}', 0.0).fillna(0.0))
+        share = (weight * end_of_life).sum() / weight.sum()
+        assert 0.1 < share < 0.99
+        t = model.tech_instances[tech]
+        remaining = min(base[tech], t.get_output().max())
+        assert t.needs_replacement == pytest.approx(share * remaining, rel=1e-9), tech
+        assert t.existing == pytest.approx((1 - share) * remaining, rel=1e-9), tech
+        assert t.get_total_capex() == pytest.approx(t._capex_one_to_one_replacement * share * remaining, rel=1e-9), tech
