@@ -581,3 +581,35 @@ def test_existing_capacities_are_annual_peaks_in_short_simulations(run_dem, monk
     assert existing[0]['heat_pump'] == pytest.approx(full['v_h_hp'].max(), rel=1e-9)
     for t in techs:
         assert existing[1][t] == pytest.approx(existing[0][t], rel=1e-9), t
+
+
+@pytest.mark.parametrize('attrs, expected', [
+    ({'_v_h_max': 100.0, '_cap': 5.0}, 100.0),
+    ({'kW_el_max': 300.0}, 300.0),
+    ({'_cap': 5000.0, '_p_max': 7.0}, 5000.0),
+    ({'_p_max': 800.0}, 800.0),
+    ({}, 'inf'),
+])
+def test_get_v_max_checks_all_attributes_in_order(attrs, expected):
+    # A27: get_v_max() returned 'inf' after testing only '_v_h_max'
+    from district_energy_model.techs.dem_tech_core import TechCore
+
+    class Tech(TechCore):
+        def __init__(self):
+            pass
+
+    tech = Tech()
+    for k, v in attrs.items():
+        setattr(tech, k, v)
+    assert tech.get_v_max() == expected
+
+
+@requires_data
+def test_storage_capacity_limit_is_the_max_capacity_of_the_replacement_split(run_dem):
+    # A27: the replacement split of a storage with a finite capacity_kWh_max gave cap_new 'inf'
+    model = run_dem({'tes': {'deployment': True, 'capacity_kWh_max': 5000.0},
+                     'bes': {'capacity_kWh_max': 3000.0}}, days=2)
+    for tech, cap in [('tes', 5000.0), ('bes', 3000.0)]:
+        t = model.tech_instances[tech]
+        assert t.existing == 0
+        assert t.cap_new == pytest.approx(cap - t.existing), tech
