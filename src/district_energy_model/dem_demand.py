@@ -67,6 +67,26 @@ ELECTRICITY DEMAND:
     
 #     return d_e_yr
 
+def is_old_building(gbaup):
+    """
+    Return a boolean mask of the 'old' buildings (base temperature
+    T_base_old): building period (GBAUP) <= C.GBAUP_OLD_MAX. Buildings without
+    a building period count as old (as if built before 1919, the oldest
+    category). Works with float (NaN) and nullable integer (<NA>) columns, so
+    that no building is in neither group.
+
+    Parameters
+    ----------
+    gbaup : pandas Series
+        GWR building period codes (8011 ... 8023), may contain missing values.
+
+    Returns
+    -------
+    pandas Series of bool
+    """
+    return (gbaup.isna() | (gbaup <= C.GBAUP_OLD_MAX)).astype(bool)
+
+
 class EnergyDemand:
     
     def __init__(self, paths, com_nr, com_nr_majority):
@@ -1040,17 +1060,20 @@ class EnergyDemand:
         d_h_yr = d_h_s_yr + d_h_hw_yr
         
         self._d_h_s_yr = d_h_s_yr
-        self._d_h_s_new_yr = df_com.loc[~(df_com['GBAUP'] <= 8015), spaceheating_column].sum()
-        self._d_h_s_old_yr = df_com.loc[df_com['GBAUP'] <= 8015, spaceheating_column].sum()
+        old = is_old_building(df_com['GBAUP'])
+        self._d_h_s_new_yr = df_com.loc[~old, spaceheating_column].sum()
+        self._d_h_s_old_yr = df_com.loc[old, spaceheating_column].sum()
 
         if 'total_renovation_flag' in df_com.columns:
-            self._d_h_s_new_yr = (df_com.loc[~(df_com['GBAUP'] <= 8015), spaceheating_column].sum() 
-                                  + (df_com.loc[df_com['GBAUP'] <= 8015, spaceheating_column]
-                                     *df_com.loc[df_com['GBAUP'] <= 8015, 'total_renovation_flag']).sum()
+            self._d_h_s_new_yr = (df_com.loc[~old, spaceheating_column].sum() 
+                                  + (df_com.loc[old, spaceheating_column]
+                                     *df_com.loc[old, 'total_renovation_flag']).sum()
                                   )
-            self._d_h_s_old_yr = (df_com.loc[df_com['GBAUP'] <= 8015, spaceheating_column]
-                                     *(1.0 - df_com.loc[df_com['GBAUP'] <= 8015, 'total_renovation_flag'])
+            self._d_h_s_old_yr = (df_com.loc[old, spaceheating_column]
+                                     *(1.0 - df_com.loc[old, 'total_renovation_flag'])
                                   ).sum()
+
+        self._check_d_h_s_split(df_com[spaceheating_column].sum())
 
         self._d_h_hw_yr = d_h_hw_yr
         self._d_h_yr = d_h_yr
@@ -1059,6 +1082,26 @@ class EnergyDemand:
             raise Exception('Annual heat demand is zero.')
         
         return d_h_yr, d_h_s_yr, d_h_hw_yr
+
+    def _check_d_h_s_split(self, d_h_s_buildings_yr):
+        """
+        Raise a ValueError if the annual space heating demand of the old and
+        new building groups (self._d_h_s_old_yr + self._d_h_s_new_yr) does
+        not add up to the space heating demand of all buildings, i.e. if
+        buildings were lost in the split (e.g. through missing values).
+        """
+        d_h_s_split_yr = self._d_h_s_old_yr + self._d_h_s_new_yr
+        missing = d_h_s_buildings_yr - d_h_s_split_yr
+        if not abs(missing) <= C.D_H_S_SPLIT_REL_ACC*abs(d_h_s_buildings_yr):
+            share = missing/d_h_s_buildings_yr if d_h_s_buildings_yr else float('nan')
+            raise ValueError(
+                f"Space heating demand of municipality {self.com_nr}: the old "
+                f"and new building groups ({d_h_s_split_yr:.6g} kWh; old: "
+                f"{self._d_h_s_old_yr:.6g} kWh, new: {self._d_h_s_new_yr:.6g} kWh) "
+                f"do not add up to the space heating demand of all buildings "
+                f"({d_h_s_buildings_yr:.6g} kWh). Missing: {missing:.6g} kWh "
+                f"({share:.4%})."
+                )
     
     def add_future_demand_col(
             self,
@@ -1092,14 +1135,12 @@ class EnergyDemand:
             df_com_yr[new_header] = df_com_yr[yearly_heat_demand_col].copy()
             
             if distinguishByConstructionYear:
-                df_com_yr.loc[df_com_yr['GBAUP'] <= 8015, new_header] =\
+                old = is_old_building(df_com_yr['GBAUP'])
+                df_com_yr.loc[old, new_header] =\
                     df_com_yr[yearly_heat_demand_col]*scaling_factor_t15
         
-                df_com_yr.loc[df_com_yr['GBAUP'] > 8015, new_header] =\
+                df_com_yr.loc[~old, new_header] =\
                     df_com_yr[yearly_heat_demand_col]*scaling_factor_t12
-        
-                df_com_yr.loc[df_com_yr['GBAUP'].isna(), new_header] =\
-                    df_com_yr[yearly_heat_demand_col]*scaling_factor_t15
             else:
                 df_com_yr[new_header] =\
                     scaling_factor_t12*df_com_yr[yearly_heat_demand_col]
@@ -1119,14 +1160,12 @@ class EnergyDemand:
                         )
                 
                 if distinguishByConstructionYear:
-                    df_com_yr.loc[(df_com_yr['GBAUP'] <= 8015)&arg_com, new_header] =\
+                    old = is_old_building(df_com_yr['GBAUP'])
+                    df_com_yr.loc[old&arg_com, new_header] =\
                         df_com_yr[yearly_heat_demand_col]*scaling_factor_t15
             
-                    df_com_yr.loc[(df_com_yr['GBAUP'] > 8015)&arg_com, new_header] =\
+                    df_com_yr.loc[(~old)&arg_com, new_header] =\
                         df_com_yr[yearly_heat_demand_col]*scaling_factor_t12
-            
-                    df_com_yr.loc[(df_com_yr['GBAUP'].isna())&arg_com, new_header] =\
-                        df_com_yr[yearly_heat_demand_col]*scaling_factor_t15
                 else:
                     df_com_yr.loc[arg_com, new_header] =\
                         df_com_yr[yearly_heat_demand_col]*scaling_factor_t12
