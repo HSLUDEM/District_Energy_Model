@@ -706,3 +706,33 @@ def test_heat_pump_cops_use_the_recomputed_heat_demand(run_dem, demand_side):
     np.testing.assert_allclose(hp.get_cops_new(), np.nan_to_num(ref[1], nan=1.0), rtol=1e-9)
     np.testing.assert_allclose(hp.get_cops_one_to_one_replacement(), np.nan_to_num(ref[2], nan=1.0), rtol=1e-9)
     np.testing.assert_allclose(hp.get_tot_heats_for_cop_calculations(), ref[3:], rtol=1e-9)
+
+
+# A54: technologies that are not operated in a simulation (central plants,
+# central storages, ...) cause no capex/maintenance there; their maximum or
+# forced capacity is a limit of the optimisation only.
+_NOT_OPERATED = {
+    'tes': {'deployment': True, 'capacity_kWh_max': 1e5, 'force_cap_max': True},
+    'tes_decentralised': {'deployment': True, 'capacity_kWh_max': 1e5},
+    'bes': {'capacity_kWh_max': 1e5},
+    'gtes': {'deployment': True, 'capacity_kWh_max': 1e5},
+    'hes': {'deployment': True, 'capacity_kWh_max': 1e5},
+    'chp_gt': {'deployment': True, 'kW_el_max': 1e5, 'force_cap_max': True},
+    'gas_turbine_cp': {'deployment': True, 'kW_el_max': 1e5, 'force_cap_max': True},
+    'steam_turbine': {'deployment': True, 'kW_el_max': 1e5, 'force_cap_max': True},
+    'wood_boiler_sg': {'deployment': True, 'kW_h_max': 1e5, 'force_cap_max': True},
+    'waste_to_energy': {'deployment': True, 'kW_el_max': 1e5, 'force_cap_max': True},
+}
+
+
+@requires_data
+def test_not_operated_technologies_cost_nothing_in_simulation(run_dem):
+    base = run_dem({})
+    model = run_dem(_NOT_OPERATED)
+    costs = model.total_cost()['monetary_breakdown']
+    for tech in _NOT_OPERATED:
+        assert costs[tech]['annualized_capex'] == 0, tech
+        assert costs[tech]['opex'] == 0, tech
+    assert cost_overview(model)['monetary']['total'] == pytest.approx(cost_overview(base)['monetary']['total'], rel=1e-12)
+    pd.testing.assert_frame_equal(model.hourly_results()[base.hourly_results().columns], base.hourly_results(),
+                                  check_dtype=False)
