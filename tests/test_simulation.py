@@ -372,3 +372,59 @@ def test_simulation_charges_district_heating_grid_expansion(run_dem):
     assert capex == pytest.approx(inv[cheapest] * expansion * af, rel=1e-9)
     assert opex == pytest.approx(mnt[0] * caps[0] + mnt[cheapest] * expansion, rel=1e-9)
     assert capex > 0
+
+
+_TES_LEGACY = {'scenarios': {'pv_integration': True, 'thermal_energy_storage': True},
+               'tes_decentralised': {'deployment': True},
+               'thermal_energy_storage_scenario': {'capacity_kWh': 2e4, 'initial_charge': 0.2}}
+
+
+@requires_data
+def test_thermal_energy_storage_scenario_has_losses_and_charge_rate_limit(run_dem):
+    # A15: the manual TES scenario runs as the combined storage scenario with
+    # only tes_decentralised (losses, efficiency and charge rate apply).
+    model = run_dem(_TES_LEGACY, days=365)
+    df = model.hourly_results()
+    cap = 2e4
+    rate = model.scen_techs['tes_decentralised']['chg_dchg_per_cap_max'] * cap
+    assert df['u_h_tesdc'].sum() > 0
+    assert df['u_h_tesdc'].max() <= rate + 1e-6
+    assert df['v_h_tesdc'].max() <= rate + 1e-6
+    assert df['q_h_tesdc'].max() <= cap + 1e-6
+    losses = df[['l_u_h_tesdc', 'l_v_h_tesdc', 'l_q_h_tesdc']].sum()
+    assert (losses > 0).all()
+    # The user's configuration is not changed by the redirect:
+    assert model.scen_techs['scenarios']['thermal_energy_storage'] is True
+    assert model.scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage'] is False
+    assert model.scen_techs['bes']['deployment'] is True
+
+
+@requires_data
+def test_legacy_storage_scenarios_equal_combined_scenario_with_one_storage(run_dem):
+    combined = {'scenarios': {'pv_integration': True,
+                              'scenario_battery_plus_thermal_energy_storage': True}}
+    cases = [
+        (_TES_LEGACY,
+         {'tes_decentralised': {'deployment': True, 'capacity_kWh_max': 2e4, 'initial_charge': 0.2},
+          'bes': {'deployment': False}}),
+        ({'scenarios': {'pv_integration': True, 'battery_energy_storage': True},
+          'tes_decentralised': {'deployment': True, 'capacity_kWh_max': 5e4},  # not used
+          'battery_energy_storage_scenario': {'capacity_kWh': 5e4, 'initial_charge': 0.2}},
+         {'bes': {'capacity_kWh_max': 5e4, 'initial_charge': 0.2}}),
+    ]
+    for legacy_cfg, combined_cfg in cases:
+        legacy = run_dem(legacy_cfg, days=365).hourly_results()
+        direct = run_dem({**combined, **combined_cfg}, days=365).hourly_results()
+        cols = [c for c in direct.columns if c in legacy.columns]
+        assert len(cols) >= len(direct.columns) - 3
+        # dtypes of the zero columns of a non-deployed storage differ (int/float)
+        pd.testing.assert_frame_equal(legacy[cols], direct[cols], check_dtype=False)
+
+
+@requires_data
+def test_both_legacy_storage_scenarios_point_to_combined_scenario(run_dem):
+    with pytest.raises(NotImplementedError,
+                       match='scenarios.scenario_battery_plus_thermal_energy_storage'):
+        run_dem({'scenarios': {'thermal_energy_storage': True, 'battery_energy_storage': True},
+                 'tes_decentralised': {'deployment': True},
+                 'thermal_energy_storage_scenario': {'capacity_kWh': 2e4}}, days=1)
