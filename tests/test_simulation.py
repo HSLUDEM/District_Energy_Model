@@ -280,3 +280,48 @@ def test_buildings_lost_in_old_new_split_raise(run_dem, monkeypatch):
     monkeypatch.setattr(dem_demand, 'is_old_building', lambda gbaup: gbaup.astype('Int64') <= 8015)
     with pytest.raises(ValueError, match=r'municipality 4047.*do not add up.*Missing'):
         run_dem({'simulation': {'district_number': 4047}}, days=1)
+
+
+def _dh_grid_costs(model, days):
+    """District heating grid costs (annualised capex, maintenance) of the cost module, scaled to a year."""
+    dh = model.total_cost()['monetary_breakdown']['district_heating']
+    return dh['annualized_capex'] * 365 / days, dh['opex'] * 365 / days
+
+
+@requires_data
+def test_simulation_charges_existing_district_heating_grid(run_dem):
+    # A7: simulations had no grid costs (maintenance of the existing grid missing)
+    model = run_dem({}, days=7)
+    dh = model.tech_instances['district_heating']
+    peak = dh.get_v_h().max()
+    assert 0 < peak <= dh._kW_th_max_grid_categories[0]  # existing grid suffices
+    capex, opex = _dh_grid_costs(model, 7)
+    assert capex == pytest.approx(0.0)
+    assert opex == pytest.approx(dh._maintenance_cost_grid_categories[0] * peak, rel=1e-9)  # ~7.3 CHF/kW/a
+    assert opex > 0
+
+
+@requires_data
+def test_simulation_charges_district_heating_grid_expansion(run_dem):
+    # A7: renovated buildings reassigned to district heating expand the grid; the
+    # expansion beyond the existing grid was free in simulations
+    sh = {'v_h_eh': 0.0, 'v_h_hp': 0.15, 'v_h_dh': 0.7, 'v_h_gb': 0.05, 'v_h_ob': 0.05,
+          'v_h_wb': 0.05, 'v_h_solar': 0.0, 'v_h_other': 0.0}
+    model = run_dem({'scenarios': {'demand_side': True},
+                     'demand_side': {'simulation_year': {'type': 'future', 'future_year': 2050},
+                                     'total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios': sh}},
+                    days=7)
+    from district_energy_model.dem_costs import annuity_factor
+    dh = model.tech_instances['district_heating']
+    caps = dh._kW_th_max_grid_categories
+    inv, mnt = dh._investment_cost_grid_categories, dh._maintenance_cost_grid_categories
+    af = annuity_factor(dh._lifetime, dh._interest_rate)
+    expansion = dh.get_v_h().max() - caps[0]
+    # Hand calculation: existing grid full, the expansion in the expansion category with the
+    # lowest annual cost per kW (as the optimiser chooses), if it fits there
+    cheapest = min(range(1, len(caps)), key=lambda i: inv[i] * af + mnt[i])
+    assert 0 < expansion <= caps[cheapest]
+    capex, opex = _dh_grid_costs(model, 7)
+    assert capex == pytest.approx(inv[cheapest] * expansion * af, rel=1e-9)
+    assert opex == pytest.approx(mnt[0] * caps[0] + mnt[cheapest] * expansion, rel=1e-9)
+    assert capex > 0
