@@ -77,6 +77,31 @@ def test_future_climate_without_total_renovation(run_dem):
 
 
 @requires_data
+def test_constant_renovation_rate_splits_by_weight(run_dem):
+    # A3: with the constant renovation rate the building period GBAUP must not be averaged
+    # with 8023 (renovation counted twice: 100 % of space heating with the new-building profile
+    # in 2050). Old buildings (GBAUP <= 8015) get the new profile by their renovation weight.
+    ds = {'scenarios': {'demand_side': True},
+          'demand_side': {'simulation_year': {'type': 'future', 'future_year': 2050}}}
+    no_renov = run_dem(ds | {'demand_side': ds['demand_side'] | {'total_renovation': False}})
+    model = run_dem(ds)  # defaults: constant rate 0.018
+    gbaup = no_renov.df_com_yr['GBAUP'].astype(float)  # building periods (codes 8011-8023)
+    df = model.df_com_yr
+    d = df['d_h_s_yr_future_renov_adjusted']
+    w = df['total_renovation_flag'].astype(float)
+    old = gbaup <= 8015
+    assert 0.2 < (d * w).sum() / d.sum() < 0.6  # mean renovation weight (Allschwil 2050: 0.38)
+    ed = model.energy_demand
+    share_new = ed._d_h_s_new_yr / d.sum()
+    lower = (d[gbaup > 8015].sum() + (d[old] * w[old]).sum()) / d.sum()
+    upper = lower + d[gbaup.isna()].sum() / d.sum()  # buildings without GBAUP (A4)
+    assert lower - 1e-9 <= share_new <= upper + 1e-9
+    assert share_new < 0.8  # before: 1.0
+    assert ed._d_h_s_new_yr + ed._d_h_s_old_yr == pytest.approx(d.sum(), rel=0.02)
+    assert df['GBAUP'].astype(float).fillna(0).equals(gbaup.fillna(0))  # period codes not averaged
+
+
+@requires_data
 def test_cop_mode_from_file(run_dem, tmp_path):
     cop = 3.0 + 0.5 * np.sin(np.arange(8760) / 24 * 2 * np.pi)
     pd.DataFrame({'cop': cop}).to_feather(tmp_path / 'cop.feather')
