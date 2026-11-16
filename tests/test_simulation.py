@@ -244,6 +244,13 @@ def _df_com_old_mask(df):
     return df['GBAUP'].isna() | (df['GBAUP'] <= 8015)
 
 
+def _raw_building_period(com_nr):
+    """GBAUP and GBAUJ of the master data (before the fill), indexed by EGID."""
+    com = pd.read_feather(ROOT / 'data/master_data/master_data_general.feather',
+                          columns=['EGID', 'GGDENR', 'GBAUP', 'GBAUJ'])
+    return com.loc[com['GGDENR'] == com_nr].set_index('EGID')
+
+
 @requires_data
 def test_buildings_without_building_period_keep_their_space_heating(run_dem):
     # A4: 62 of 2055 buildings of Wuerenlingen have no GBAUP (21 % of the space heating). With the
@@ -253,7 +260,7 @@ def test_buildings_without_building_period_keep_their_space_heating(run_dem):
                      'scenarios': {'demand_side': True},
                      'demand_side': {'simulation_year': {'type': 'future', 'future_year': 2050}}}, days=365)
     df = model.df_com_yr
-    assert df['GBAUP'].isna().sum() > 0
+    assert _raw_building_period(4047)['GBAUP'].isna().sum() > 0
     buildings = df['d_h_s_yr_future_renov_adjusted'].sum()
     assert model.energy_demand._d_h_s.sum() == pytest.approx(buildings, rel=1e-6)
     assert model.annual_results()['d_h_s_yr'] == pytest.approx(buildings, rel=1e-6)
@@ -266,17 +273,57 @@ def test_buildings_without_building_period_count_as_old(run_dem):
     # Both treat them as old now (as if built before 1919).
     model = run_dem({'simulation': {'district_number': 4047}}, days=1)
     df = model.df_com_yr
+    raw = _raw_building_period(4047)
+    old = df['EGID'].map(raw['GBAUP'].isna() | (raw['GBAUP'] <= 8015)).astype(bool)
     sh = df['space_heating_demand_estimation_kWh']
-    assert sh[df['GBAUP'].isna()].sum() > 0
-    assert model.energy_demand._d_h_s_old_yr == pytest.approx(sh[_df_com_old_mask(df)].sum(), rel=1e-9)
-    assert model.energy_demand._d_h_s_new_yr == pytest.approx(sh[~_df_com_old_mask(df)].sum(), rel=1e-9)
+    assert sh[df['EGID'].map(raw['GBAUP'].isna()).astype(bool)].sum() > 0
+    assert model.energy_demand._d_h_s_old_yr == pytest.approx(sh[old].sum(), rel=1e-9)
+    assert model.energy_demand._d_h_s_new_yr == pytest.approx(sh[~old].sum(), rel=1e-9)
+
+
+@requires_data
+def test_buildings_without_building_period_get_the_oldest_period(run_dem):
+    # A4: buildings without GBAUP (and without GBAUJ, as all of them in the master data) get
+    # 8011 (before 1919). The cached community file keeps the raw data.
+    model = run_dem({'simulation': {'district_number': 4047}}, days=1)
+    df = model.df_com_yr.set_index('EGID')
+    raw = _raw_building_period(4047)
+    missing = raw.index[raw['GBAUP'].isna() & raw['GBAUJ'].isna()]
+    assert len(missing) > 0
+    assert df['GBAUP'].notna().all()
+    assert (df.loc[missing, 'GBAUP'] == 8011).all()
+    given = raw.index[raw['GBAUP'].notna()]
+    assert (df.loc[given, 'GBAUP'] == raw.loc[given, 'GBAUP']).all()
+    cache = pd.read_csv(f"{model.paths.com_data_dir}{model.com_name_}.csv", usecols=['GBAUP'])
+    assert cache['GBAUP'].isna().sum() == len(missing)
+
+
+def test_building_period_from_construction_year():
+    # A4: GBAUP from GBAUJ by the GWR classes (8011 before 1919, ..., 8023 from 2016).
+    from district_energy_model.dem_demand import fill_building_period
+    years = [1500, 1918, 1919, 1945, 1946, 1960, 1961, 1970, 1971, 1980, 1981, 1985, 1986, 1990,
+             1991, 1995, 1996, 2000, 2001, 2005, 2006, 2010, 2011, 2015, 2016, 2024]
+    expected = [8011, 8011] + [p for p in range(8012, 8023) for _ in (0, 1)] + [8023, 8023]
+    df = pd.DataFrame({'GBAUJ': years + [np.nan, 1990], 'GBAUP': [np.nan] * len(years) + [np.nan, 8014]})
+    out = fill_building_period(df)
+    assert out['GBAUP'].tolist() == expected + [8011, 8014]  # given GBAUP is kept
+    assert df['GBAUP'].isna().sum() == len(years) + 1  # input unchanged
+
+
+@requires_data
+def test_building_period_from_construction_year_matches_master_data():
+    # A4: the GBAUJ -> GBAUP mapping reproduces GBAUP of all buildings that have both.
+    from district_energy_model.dem_demand import gbaup_from_gbauj
+    com = pd.read_feather(ROOT / 'data/master_data/master_data_general.feather', columns=['GBAUP', 'GBAUJ']).dropna()
+    assert (gbaup_from_gbauj(com['GBAUJ']) == com['GBAUP']).all()
 
 
 @requires_data
 def test_buildings_lost_in_old_new_split_raise(run_dem, monkeypatch):
-    # A4: a split that loses buildings (here: <NA> in both groups, as before the fix) must stop
-    # the model instead of silently reducing the space heating demand.
+    # A4: a split that loses buildings (here: no fill, <NA> in both groups, as before the fix)
+    # must stop the model instead of silently reducing the space heating demand.
     from district_energy_model import dem_demand
+    monkeypatch.setattr(dem_demand, 'fill_building_period', lambda df: df)
     monkeypatch.setattr(dem_demand, 'is_old_building', lambda gbaup: gbaup.astype('Int64') <= 8015)
     with pytest.raises(ValueError, match=r'municipality 4047.*do not add up.*Missing'):
         run_dem({'simulation': {'district_number': 4047}}, days=1)
