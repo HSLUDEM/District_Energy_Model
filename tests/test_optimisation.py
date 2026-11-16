@@ -467,3 +467,33 @@ def test_fixed_boiler_share_includes_one_to_one_replacement(run_dem, monkeypatch
     assert prod.loc[f'{units[1]}::heat'].sum() > 0
     objective = model.total_cost()['objective']['total']
     assert cost_overview(model)['monetary']['total'] == pytest.approx(objective, rel=1e-5)
+
+
+@requires_data
+@requires_solver
+def test_generator_renovation_no_free_end_of_life_generators(run_dem, monkeypatch):
+    # A6/A13: in 2050 all existing decentral heat generators are at the end of their lifetime, so the
+    # optimiser must not get any capex-free existing capacity (before: base capacity minus replacement,
+    # incl. generators removed by total renovation).
+    from district_energy_model import dem_calliope, dem_constants as C
+    techs = ['heat_pump', 'electric_heater', 'oil_boiler', 'gas_boiler', 'wood_boiler']
+    caps = {}
+    orig_run = dem_calliope.CalliopeOptimiser.run_optimisation
+
+    def run_optimisation(self, *args, **kwargs):
+        opt_results, model = orig_run(self, *args, **kwargs)
+        cap = model.inputs['energy_cap_max'].to_series() * self.energy_scaling_factor
+        caps.update({lt.split('::')[-1]: v for lt, v in cap.items()})
+        return opt_results, model
+
+    monkeypatch.setattr(dem_calliope.CalliopeOptimiser, 'run_optimisation', run_optimisation)
+    model = run_dem({'scenarios': {'demand_side': True},
+                     'demand_side': {'simulation_year': {'type': 'future', 'future_year': 2050},
+                                     'heat_generator_renovation': True},
+                     'optimisation': OPT}, days=2)
+    for tech in techs:
+        assert model.scen_techs[tech]['lifetime'] <= 2050 - C.RENOVATION_YEAR
+        assert caps[f'{tech}_old'] == pytest.approx(0, abs=1e-6), tech
+        assert model.tech_instances[tech].existing == pytest.approx(0, abs=1e-6), tech
+    objective = model.total_cost()['objective']['total']
+    assert cost_overview(model)['monetary']['total'] == pytest.approx(objective, rel=0.01, abs=100)
