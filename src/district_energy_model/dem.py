@@ -1641,134 +1641,47 @@ class DistrictEnergyModel:
                     )
 
 
-        if (scen_techs['scenarios']['battery_energy_storage'] == True 
-            and scen_techs['scenarios']['thermal_energy_storage'] == True):
-
-            print("Scenarios are called with both the manual TES and BES scenarios activated."
-            "This combination is not supported, since it can and does lead to problems"
-            "in the energy balance. Please deactivate either the manual TES ('thermal_energy_storage') "
-            "or the manual "
-            "BES ('battery_energy_storage') scenario ")
-            raise NotImplementedError("Combination of TES and BES scenario not supported.")
-
-        if scen_techs['scenarios']['battery_energy_storage'] == True:
-            print('\n battery_energy_storage')
-            # Check if required technologies are deployed:
-            required_techs = [
-                'bes',
-                'solar_pvrooftop',
-                'wind_power',
-                'hydro_power',
-                'grid_supply',
-                ]
-            dem_helper.check_tech_for_scenario(
-                techs=required_techs,
-                scenario='battery_energy_storage',
-                scen_techs=scen_techs,
-                replaced_techs=self.national_counterparts
+        legacy_storage_scenarios = [
+            scenario for scenario in dem_scenarios.LEGACY_STORAGE_SCENARIOS
+            if scen_techs['scenarios'][scenario] == True
+            ]
+        if len(legacy_storage_scenarios) > 1:
+            raise NotImplementedError(
+                "The manual storage scenarios 'battery_energy_storage' and "
+                "'thermal_energy_storage' cannot be activated together. To run "
+                "a battery and a thermal energy storage together, deactivate "
+                "both and activate "
+                "scenarios.scenario_battery_plus_thermal_energy_storage "
+                "(sizes and initial charges from bes and tes_decentralised: "
+                "capacity_kWh_max, initial_charge; dispatch settings in "
+                "scenario_battery_plus_thermal_energy_storage)."
                 )
-            
-            # Apply scenario:
-            dem_scenarios.scenario_battery_energy_storage_via_pv(
-                self.energy_demand,
+
+        # The legacy single-storage scenarios run as the combined storage
+        # scenario with only their storage (size and initial charge from
+        # battery_/thermal_energy_storage_scenario). storage_scen_techs is a
+        # copy, so the saved configuration keeps the user's settings.
+        storage_scen_techs = scen_techs
+        if legacy_storage_scenarios:
+            legacy_storage = legacy_storage_scenarios[0]
+            storage_scen_techs = dem_scenarios.legacy_storage_scenario_config(
                 scen_techs,
+                legacy_storage,
                 self.tech_instances
                 )
-                
-            # -----------------------------------------------------------------
-            # Update df_scen:
-            dem_helper.update_df_results(
-                self.energy_demand,
-                self.supply,
-                self.building_inertia_flex,
-                self.tech_instances,
-                df_scen
-                )
-            
-            print('\nDone')
-            
-            #------------------------------------------------------------------
-            # Check overall energy balance:            
-            if self.toggle_energy_balance_tests:
-                dem_eb.electricity_balance_test(
-                    scen_techs=scen_techs,
-                    df_scen=df_scen,
-                    diff_accepted = C.DIFF_ACC,
-                    diff_sum_accepted = C.DIFF_SUM_ACC
-                    )
-                dem_eb.heat_balance_test(
-                    scen_techs=scen_techs,
-                    df_scen=df_scen,
-                    optimisation=False,
-                    diff_accepted = C.DIFF_ACC,
-                    diff_sum_accepted = C.DIFF_SUM_ACC,
-                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
-                    )
+            print(f"\n {legacy_storage}: runs as "
+                  "scenario_battery_plus_thermal_energy_storage with only "
+                  f"{dem_scenarios.LEGACY_STORAGE_SCENARIOS[legacy_storage][0]}")
 
-
-        if scen_techs['scenarios']['thermal_energy_storage'] == True:
-            print('\n thermal_energy_storage')
-            # Check if required technologies are deployed:
-            required_techs = [
-                'tes_decentralised',
-                'solar_pvrooftop',
-                'wind_power',
-                'hydro_power',
-                'heat_pump',
-                'grid_supply',
-                'electric_heater'
-                ]
-            dem_helper.check_tech_for_scenario(
-                techs=required_techs,
-                scenario='thermal_energy_storage',
-                scen_techs=scen_techs,
-                replaced_techs=self.national_counterparts
-                )
-            
-            # Apply scenario:
-            dem_scenarios.scenario_thermal_energy_storage_via_pv_hp(
-                self.energy_demand,
-                scen_techs,
-                self.tech_instances
-                )
-                
-            # -----------------------------------------------------------------
-            # Update df_scen:
-            dem_helper.update_df_results(
-                self.energy_demand,
-                self.supply,
-                self.building_inertia_flex,
-                self.tech_instances,
-                df_scen
-                )
-            
-            #------------------------------------------------------------------
-            # Check overall energy balance:            
-            if self.toggle_energy_balance_tests:
-                dem_eb.electricity_balance_test(
-                    scen_techs=scen_techs,
-                    df_scen=df_scen,
-                    diff_accepted = C.DIFF_ACC,
-                    diff_sum_accepted = C.DIFF_SUM_ACC
-                    )
-                dem_eb.heat_balance_test(
-                    scen_techs=scen_techs,
-                    df_scen=df_scen,
-                    optimisation=False,
-                    diff_accepted = C.DIFF_ACC,
-                    diff_sum_accepted = C.DIFF_SUM_ACC,
-                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if scen_techs['tes_sites']['deployment'] else {}
-                    )
-
-            
-        if scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage'] == True:
+        if storage_scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage'] == True:
             print('\n scenario_battery_plus_thermal_energy_storage')
-            # Configuration was validated at the start of Apply scenarios.
+            # Configuration was validated at the start of Apply scenarios
+            # (legacy scenarios: in legacy_storage_scenario_config).
             # Apply storage after demand changes and PV/wind integration.
             dem_scenarios.scenario_battery_plus_thermal_energy_storage(
                 energy_demand=self.energy_demand,
                 tech_instances=self.tech_instances,
-                scen_techs=scen_techs
+                scen_techs=storage_scen_techs
                 )
 
             #------------------------------------------------------------------

@@ -824,10 +824,15 @@ scen_techs = {
         # 'pv_integration':True,
         'wind_integration':False,
         # 'wind_integration':True,
+        # Manual TES: runs as scenario_battery_plus_thermal_energy_storage with
+        # only tes_decentralised (size: thermal_energy_storage_scenario):
         'thermal_energy_storage':False,
         # 'thermal_energy_storage':True,
         'nuclear_phaseout':False,
         # 'nuclear_phaseout':True,
+        # Manual BES: runs as scenario_battery_plus_thermal_energy_storage with
+        # only bes (size: battery_energy_storage_scenario); not together with
+        # thermal_energy_storage (use the combined scenario for both):
         'battery_energy_storage': False,
         # 'battery_energy_storage': True,
 
@@ -951,11 +956,15 @@ scen_techs = {
         'potential_integration_factor' : wppf/100, #Potential integration factor for wind
     },
 
+    # Size and initial charge of tes_decentralised in the 'thermal_energy_storage'
+    # scenario (replace capacity_kWh_max and initial_charge of tes_decentralised there):
     'thermal_energy_storage_scenario': {
-        'capacity_kWh': 0,
+        'capacity_kWh': 0, # [kWh] must be set (> 0) when the scenario is used
         'initial_charge': 0.0, # [-] energy stored initially is not paid for (no cyclic condition in manual scenarios)
     },
 
+    # Size and initial charge of bes in the 'battery_energy_storage' scenario
+    # (replace capacity_kWh_max and initial_charge of bes there):
     'battery_energy_storage_scenario': {
         'capacity_kWh': 1e4,
         'initial_charge': 0.0, # [-] energy stored initially is not paid for (no cyclic condition in manual scenarios)

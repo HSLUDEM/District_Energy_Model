@@ -58,6 +58,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Compatibility with Calliope version 0.6.10 (previously 0.6.8)
+- Manual storage scenarios `thermal_energy_storage` and `battery_energy_storage` run as `scenario_battery_plus_thermal_energy_storage` with only their storage (size and initial charge from `thermal_energy_storage_scenario` / `battery_energy_storage_scenario`). The TES now has losses, charging/discharging efficiency and a charge rate limit. Both together are still not possible (use the combined scenario).
 - Input files structure
 - Required input data
 

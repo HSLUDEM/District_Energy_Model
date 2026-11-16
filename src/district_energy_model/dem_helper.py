@@ -845,7 +845,8 @@ def check_tech_for_scenario(techs, scenario, scen_techs, replaced_techs=()):
             raise ValueError(printout)
 
 
-def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
+def validate_scenario_battery_plus_thermal_energy_storage(scen_techs,
+                                                         warn_single_storage=True):
     """Validate the configuration of the combined manual storage scenario.
 
     The activation boolean belongs to
@@ -854,7 +855,9 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
     ``scen_techs['scenario_battery_plus_thermal_energy_storage']``.
     A missing or disabled scenario is ignored. An enabled scenario requires
     at least one deployed storage unit. With only one storage unit, emit a
-    UserWarning and continue. This function does not change the configuration.
+    UserWarning and continue (unless warn_single_storage is False: used when
+    a legacy single-storage scenario runs through this scenario). This
+    function does not change the configuration.
 
     ``electricity_supply_order`` must include all deployed supported local
     generators; absent supported names may remain in the list and are skipped.
@@ -1022,7 +1025,7 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
         if math.isnan(hp_limit) or hp_limit < 0:
             fail('heat_pump.kW_th_max must be nonnegative or inf.')
 
-    if not bes_active or not tes_active:
+    if warn_single_storage and (not bes_active or not tes_active):
         inactive = 'bes' if not bes_active else 'tes_decentralised'
         warnings.warn(
             f'{scenario}: {inactive}.deployment=False. The scenario will run '
