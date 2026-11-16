@@ -499,3 +499,39 @@ def test_generator_renovation_no_free_end_of_life_generators(run_dem, monkeypatc
         assert model.tech_instances[tech].existing == pytest.approx(0, abs=1e-6), tech
     objective = model.total_cost()['objective']['total']
     assert cost_overview(model)['monetary']['total'] == pytest.approx(objective, rel=0.01, abs=100)
+
+
+def _hpcp_cfg(tmp_path, n, kw='inf', lt=False):
+    cfg = {'heat_pump_cp': {f'instance_{i + 1}': {'deployment': True, 'kW_th_max': kw, 'cop_mode': 'constant',
+                                                  'cop_constant_value': 3.0 + i} for i in range(n)},
+           'district_heating': {'demand_share_type': 'fixed', 'demand_share_val': 0.2,
+                                'heat_sources': {'import': False, 'heat_pump_cp': True, 'heat_pump_cp_lt': lt}},
+           'optimisation': OPT}
+    if lt:
+        pd.DataFrame({'v': np.full(8760, 2000.0)}).to_feather(tmp_path / 'whlt.feather')
+        cfg['heat_pump_cp_lt'] = {'deployment': True}
+        cfg['waste_heat_low_temperature'] = {'deployment': True, 'timeseries_file_path': str(tmp_path / 'whlt.feather')}
+    return cfg
+
+
+def test_electricity_for_heating_includes_all_central_heat_pump_instances(run_dem, tmp_path):
+    # A19: compute_d_e_h looked up tech_instances['heat_pump_cp'], but the instances are stored as
+    # 'heat_pump_cp_<instance key>', so their electricity was never included.
+    model = run_dem(_hpcp_cfg(tmp_path, 2, lt=True), days=2)
+    h = model.hourly_results()
+    assert h['u_e_hpcp'].sum() > 0 and h['u_e_hpcplt'].sum() > 0
+    expected = (h['u_e_hp'] + h['u_e_eh'] + h['u_e_hpcp'] + h['u_e_hpcplt']).to_numpy()
+    np.testing.assert_allclose(h['d_e_h'].to_numpy(), expected, rtol=1e-9, atol=1e-6)
+    model.energy_demand.compute_d_e_h(model.tech_instances)
+    np.testing.assert_allclose(model.energy_demand.get_d_e_h(), expected, rtol=1e-9, atol=1e-6)
+
+
+def test_unmet_district_heat_at_central_heat_pump_is_reported(run_dem, tmp_path, monkeypatch):
+    # A19: X1::heat_hpcp was not among the reported unmet demand keys (lookup of 'heat_pump_cp' in tech_list),
+    # so unmet heat there raised the internal-carrier error instead of being reported as d_h_unmet_dhn.
+    from district_energy_model import dem_helper
+    monkeypatch.setattr(dem_helper, 'unmet_demand_test', lambda *args, **kwargs: None)
+    model = run_dem(_hpcp_cfg(tmp_path, 2, kw=100), days=2)
+    h = model.hourly_results()
+    assert h['d_h_unmet_dhn'].sum() > 1000
+    assert h['v_h_hpcp'].max() == pytest.approx(200, rel=1e-6)
