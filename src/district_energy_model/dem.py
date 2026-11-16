@@ -1216,33 +1216,6 @@ class DistrictEnergyModel:
                 )
 
 
-            hps_existings_cops, hps_new_cops, hps_one_to_one_replacement_cops, tot_heat_existing, tot_heat_new, tot_heat_one_to_one = dem_hp_cop_calculation.calculateCOPs(
-                paths=self.paths,
-                df_com_yr=self.df_com_yr, 
-                quality_factor_ashp_new = scen_techs['heat_pump']['quality_factor_ashp_new'], 
-                quality_factor_ashp_old = scen_techs['heat_pump']['quality_factor_ashp_old'],
-                quality_factor_gshp_new = scen_techs['heat_pump']['quality_factor_gshp_new'], 
-                quality_factor_gshp_old = scen_techs['heat_pump']['quality_factor_gshp_old'],
-                com_nr = self.com_nr_majority,
-                dem_demand = self.energy_demand,
-                weather_year = weather_year_,
-                consider_renovation_effects=True,
-                total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios =\
-                   scen_techs['demand_side']['total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios'],
-                total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios =\
-                   scen_techs['demand_side']['total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios'],
-                optimisation_enabled = scen_techs['optimisation']['enabled'],
-                )
-
-            hps_existings_cops, hps_new_cops, hps_one_to_one_replacement_cops= dem_techs.HeatPump.select_right_cop_mode(scen_techs, 
-                              hps_existings_cops, 
-                              hps_new_cops, 
-                              hps_one_to_one_replacement_cops)
-
-            self.tech_heat_pump.set_cops_existing(hps_existings_cops)
-            self.tech_heat_pump.set_cops_new(hps_new_cops)
-            self.tech_heat_pump.set_cops_one_to_one_replacement(hps_one_to_one_replacement_cops)
-            self.tech_heat_pump.set_tot_heats_for_cop_calculations(tot_heat_existing, tot_heat_new, tot_heat_one_to_one)
             # Update district heating price categories to new heat demands after renovations
             if scen_techs['demand_side']['total_renovation']:
                 # self.yearly_heat_demand_col = 'd_h_s_yr_future_renov_adjusted'
@@ -1267,6 +1240,41 @@ class DistrictEnergyModel:
                 )
             
             # dem_hp_cop_calculation.calculateCOP_no_renov()
+
+            # Heat pump COPs and heat totals per heat pump category. Computed
+            # after the heat demand has been recomputed, so that space heating
+            # and hot water are weighted with the future (renovated) profile:
+            hps_existings_cops, hps_new_cops, hps_one_to_one_replacement_cops, tot_heat_existing, tot_heat_new, tot_heat_one_to_one = dem_hp_cop_calculation.calculateCOPs(
+                paths=self.paths,
+                df_com_yr=self.df_com_yr, 
+                quality_factor_ashp_new = scen_techs['heat_pump']['quality_factor_ashp_new'], 
+                quality_factor_ashp_old = scen_techs['heat_pump']['quality_factor_ashp_old'],
+                quality_factor_gshp_new = scen_techs['heat_pump']['quality_factor_gshp_new'], 
+                quality_factor_gshp_old = scen_techs['heat_pump']['quality_factor_gshp_old'],
+                com_nr = self.com_nr_majority,
+                dem_demand = self.energy_demand,
+                weather_year = weather_year_,
+                consider_renovation_effects=True,
+                total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios =\
+                   scen_techs['demand_side']['total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios'],
+                total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios =\
+                   scen_techs['demand_side']['total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios'],
+                optimisation_enabled = scen_techs['optimisation']['enabled'],
+                )
+
+            hps_existings_cops, hps_new_cops, hps_one_to_one_replacement_cops= dem_techs.HeatPump.select_right_cop_mode(scen_techs, 
+                              hps_existings_cops, 
+                              hps_new_cops, 
+                              hps_one_to_one_replacement_cops)
+
+            # The recomputed heat demand covers the full year; the COPs are
+            # used with the timeseries of the simulated timeframe (the heat
+            # totals of the categories remain annual values):
+            ts_len = len(self.energy_demand.get_d_e())
+            self.tech_heat_pump.set_cops_existing(hps_existings_cops[:ts_len])
+            self.tech_heat_pump.set_cops_new(hps_new_cops[:ts_len])
+            self.tech_heat_pump.set_cops_one_to_one_replacement(hps_one_to_one_replacement_cops[:ts_len])
+            self.tech_heat_pump.set_tot_heats_for_cop_calculations(tot_heat_existing, tot_heat_new, tot_heat_one_to_one)
 
             # Allocate heating systems to demand:
             self.energy_demand.compute_d_h_hr_mix(
