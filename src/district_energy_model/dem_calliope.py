@@ -3661,6 +3661,22 @@ class CalliopeOptimiser:
         
         return run_dict
     
+    def __boiler_share_techs(self, tech):
+        """
+        Return all units of a decentralised boiler (existing, one-to-one
+        replacement, new) that exist in the model, for its fixed demand
+        share. Calliope groups must not list techs that do not exist.
+        """
+        units = [
+            f"{tech}_old",
+            f"{tech}_one_to_one_replacement",
+            f"{tech}_new",
+            ]
+        return [
+            unit for unit in units
+            if unit in self.tech_list_old or unit in self.tech_list_new
+            ]
+
     # def __create_group_constraints_dict(self, rerun_eps=False, eps_n='inf'):
     def __create_group_constraints_dict(self):
         
@@ -3800,7 +3816,7 @@ class CalliopeOptimiser:
         if self.ob_fixed_demand_share:
             group_constraints_dict['ob_demand_share'] = None
             group_constraints_dict['ob_demand_share'] = {
-                'techs':['oil_boiler_old', 'oil_boiler_new'],
+                'techs':self.__boiler_share_techs('oil_boiler'),
                 'locs':['X1', 'New_Techs'],
                 'demand_share_per_timestep_equals':{
                             'heat':self.ob_fixed_demand_share_val ,
@@ -3810,7 +3826,7 @@ class CalliopeOptimiser:
         if self.gb_fixed_demand_share:
             group_constraints_dict['gb_demand_share'] = None
             group_constraints_dict['gb_demand_share'] = {
-                'techs':['gas_boiler_old', 'gas_boiler_new'],
+                'techs':self.__boiler_share_techs('gas_boiler'),
                 'locs':['X1', 'New_Techs'],
                 'demand_share_per_timestep_equals':{
                             'heat':self.gb_fixed_demand_share_val ,
@@ -3820,7 +3836,7 @@ class CalliopeOptimiser:
         if self.wb_fixed_demand_share:
             group_constraints_dict['wb_demand_share'] = None
             group_constraints_dict['wb_demand_share'] = {
-                'techs':['wood_boiler_old', 'wood_boiler_new'],
+                'techs':self.__boiler_share_techs('wood_boiler'),
                 'locs':['X1', 'New_Techs'],
                 'demand_share_per_timestep_equals':{
                             'heat':self.wb_fixed_demand_share_val ,
