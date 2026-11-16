@@ -535,3 +535,32 @@ def test_unmet_district_heat_at_central_heat_pump_is_reported(run_dem, tmp_path,
     h = model.hourly_results()
     assert h['d_h_unmet_dhn'].sum() > 1000
     assert h['v_h_hpcp'].max() == pytest.approx(200, rel=1e-6)
+
+
+def test_forced_capacity_of_low_temperature_central_heat_pump_independent_of_energy_scaling(run_dem, tmp_path,
+                                                                                            monkeypatch):
+    # A20: with force_cap_max, energy_cap_equals of heat_pump_cp_lt was not divided by the energy scaling factor.
+    from district_energy_model import dem_calliope
+    pd.DataFrame({'v': np.full(8760, 2000.0)}).to_feather(tmp_path / 'whlt.feather')
+    caps = {}
+    orig_run = dem_calliope.CalliopeOptimiser.run_optimisation
+
+    def run_optimisation(self, *args, **kwargs):
+        opt_results, model = orig_run(self, *args, **kwargs)
+        caps[self.energy_scaling_factor] = float(
+            opt_results['energy_cap'].loc['X1::heat_pump_cp_lt_exist']) * self.energy_scaling_factor
+        return opt_results, model
+
+    monkeypatch.setattr(dem_calliope.CalliopeOptimiser, 'run_optimisation', run_optimisation)
+    obj = {}
+    for scaling in [1, 10]:
+        model = run_dem({'heat_pump_cp_lt': {'deployment': True, 'kW_th_max': 3000, 'force_cap_max': True},
+                         'waste_heat_low_temperature': {'deployment': True,
+                                                        'timeseries_file_path': str(tmp_path / 'whlt.feather')},
+                         'district_heating': {'demand_share_type': 'fixed', 'demand_share_val': 0.1,
+                                              'heat_sources': {'heat_pump_cp_lt': True}},
+                         'optimisation': OPT | {'calliope_energy_scaling_factor': scaling}}, days=2)
+        obj[scaling] = model.total_cost()['objective']['total']
+    assert caps[1] == pytest.approx(3000, rel=1e-6)
+    assert caps[10] == pytest.approx(3000, rel=1e-6)
+    assert obj[10] == pytest.approx(obj[1], rel=1e-6)
