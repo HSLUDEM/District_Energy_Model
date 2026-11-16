@@ -1286,8 +1286,10 @@ class EnergyDemand:
                     ((1.0-accumulated_new_weight)*df_com_yr['d_h_s_yr_future']
                     +accumulated_new_weight*df_com_yr['d_h_s_yr_renov_future']) #adjust heat consumption
                 df_com_yr['total_renovation_flag'] = accumulated_new_weight #float between 0 and 1
-                df_com_yr['GBAUP'] = df_com_yr['GBAUP']*(1.0 - accumulated_new_weight) + accumulated_new_weight * 8023
-                df_com_yr['GBAUP'] = df_com_yr['GBAUP'].round().astype('Int64')
+                # GBAUP is kept: it is a building period code, not a number to
+                # be averaged. The renovated share of each building is given by
+                # total_renovation_flag (weight), which compute_d_h_yr() and
+                # calculateCOPs() use to split the building into old/new.
                 # 'd_h_s_yr_future'
 
             else: #use Streicher data
