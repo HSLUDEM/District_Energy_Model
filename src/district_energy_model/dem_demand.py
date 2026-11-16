@@ -1336,12 +1336,18 @@ class EnergyDemand:
 
             #replacement of technologies while calculating the total generated heat from different heat sources. 
             # This is also applied to the dhw
+            #The part of a building that is not totally renovated keeps its heat generator and the demand before
+            # total renovation (d_h_s_yr_future); the totally renovated part has the demand after total renovation
+            # (d_h_s_yr_renov_future) and is reassigned. Both add up to new_header (buildings without new_header
+            # have no space heating demand).
+            d_h_s_yr_not_renovated = df_com_yr['d_h_s_yr_future'].where(df_com_yr[new_header].notna())
+            d_h_s_yr_renovated = df_com_yr['d_h_s_yr_renov_future'].where(df_com_yr[new_header].notna())
             for systemtype in reassignment_dict_sh.keys():        
                 df_meta.loc[df_meta['GGDENR']==GGDENR, systemtype] = (
-                    df_com_yr.loc[df_com_yr['Heating_System'] == systemtype, new_header]
+                    d_h_s_yr_not_renovated.loc[df_com_yr['Heating_System'] == systemtype]
                                   *(1.0-df_com_yr.loc[df_com_yr['Heating_System'] == systemtype, 'total_renovation_flag'])
                     ).sum() + reassignment_dict_sh[systemtype]*(
-                    sum([(df_com_yr.loc[df_com_yr['Heating_System'] == k, new_header]
+                    sum([(d_h_s_yr_renovated.loc[df_com_yr['Heating_System'] == k]
                           *(df_com_yr.loc[df_com_yr['Heating_System'] == k, 'total_renovation_flag'])
                           ).sum() for k in reassignment_dict_sh.keys()])
                     )
@@ -1368,7 +1374,21 @@ class EnergyDemand:
         #For older building, they accumulate a constant probability for heat generator renewal each year, which is 1/lifetime
         #For each year between the simulation year and the data year, they accumulate some probability, e.g. for 2030, 
         # the probability of renewal is (2030 - 2023)/lifetime =~=  0.28
-        #For all the renewal probabilities, they are calculated building-wise and the probability of total renovation is deducted.
+        #For all the renewal probabilities, they are calculated building-wise and the probability of total renovation is deducted
+        # (total renovation primarily replaces the old heat generators).
+        #Each heat generator only serves the building it is installed in. Per building, the heat demand
+        # (space heating and hot water, DHW_demand_estimation_kWh, as in df_meta) is split into
+        # - d_h_s_yr_future * heat_generator_replacement_flag: old heat generator at the end of its lifetime,
+        #   replaced one-to-one in the same building,
+        # - d_h_s_yr_future * (1 - heat_generator_replacement_flag - total_renovation_flag): old heat generator
+        #   still running (existing, no capex),
+        # - d_h_s_yr_renov_future * total_renovation_flag: totally renovated, heat generator reassigned (new capacity).
+        #Per heat generator type, relative to its total heat demand after the demand side scenario (df_meta, incl.
+        # reassigned heat generators):
+        # - heat_generators_replacement_rates = heat_generators_total_power_up_for_renovation / heat_generators_total_power,
+        # - heat_generators_existing_rates = heat_generators_total_power_existing / heat_generators_total_power.
+        #Both are applied to the peak output after all scenarios, the rest of the peak is new capacity.
+        #See TechCore.set_replacement_rates().
 
         if heat_generator_renovation:
             
@@ -1401,28 +1421,46 @@ class EnergyDemand:
                 yeardelta = year-data_year
             fraction_up_for_renovation = (yeardelta)*1.0/lifetimes
             fraction_up_for_renovation[fraction_up_for_renovation > 1.0] = 1.0
+            fraction_up_for_renovation = fraction_up_for_renovation.fillna(1.0) #heating systems without lifetime
             fraction_up_for_renovation = fraction_up_for_renovation - df_com_yr['total_renovation_flag']
             
             df_com_yr.loc[~recently_built, 'heat_generator_replacement_flag'] = fraction_up_for_renovation
 
             df_com_yr.loc[df_com_yr['heat_generator_replacement_flag'] < 0.0, 'heat_generator_replacement_flag'] = 0.0
-            
+
             heat_generators_total_power_up_for_renovation = {}
+            heat_generators_total_power_existing = {}
             heat_generators_total_power = {}
             heat_generators_replacement_rates = {}
+            heat_generators_existing_rates = {}
+
+            heat_generator_existing_flag = (
+                1.0 - df_com_yr['total_renovation_flag'] - df_com_yr['heat_generator_replacement_flag']
+                ).clip(lower=0.0)
 
             for k in heat_generator_lifetimes.keys():
                 heat_generators_total_power_up_for_renovation[k] = (
-                    (df_com_yr.loc[df_com_yr['Heating_System'] == k, new_header]
+                    (df_com_yr.loc[df_com_yr['Heating_System'] == k, 'd_h_s_yr_future']
                      *(df_com_yr.loc[df_com_yr['Heating_System'] == k, 'heat_generator_replacement_flag'])).sum() 
                      + (df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'DHW_demand_estimation_kWh']
                         *(df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'heat_generator_replacement_flag'])).sum())
+                heat_generators_total_power_existing[k] = (
+                    (df_com_yr.loc[df_com_yr['Heating_System'] == k, 'd_h_s_yr_future']
+                     *(heat_generator_existing_flag.loc[df_com_yr['Heating_System'] == k])).sum() 
+                     + (df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'DHW_demand_estimation_kWh']
+                        *(heat_generator_existing_flag.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_")])).sum())
                 heat_generators_total_power[k] = (df_meta.loc[df_meta['GGDENR']==GGDENR, k]
                                                   + df_meta.loc[df_meta['GGDENR']==GGDENR, k.replace("_h_", "_hw_")])
-                heat_generators_replacement_rates[k] = (float(heat_generators_total_power_up_for_renovation[k] / heat_generators_total_power[k].iloc[0]) 
-                                                        if float(heat_generators_total_power[k].iloc[0])>0 else 0.0)
+                if float(heat_generators_total_power[k].iloc[0])>0:
+                    heat_generators_replacement_rates[k] = min(float(heat_generators_total_power_up_for_renovation[k] / heat_generators_total_power[k].iloc[0]), 1.0)
+                    heat_generators_existing_rates[k] = min(float(heat_generators_total_power_existing[k] / heat_generators_total_power[k].iloc[0]),
+                                                            1.0 - heat_generators_replacement_rates[k])
+                else:
+                    heat_generators_replacement_rates[k] = 0.0
+                    heat_generators_existing_rates[k] = 0.0
         
             scen_techs['demand_side']['heat_generator_replacement_rates'] = heat_generators_replacement_rates
+            scen_techs['demand_side']['heat_generator_existing_rates'] = heat_generators_existing_rates
             
             return df_meta
 

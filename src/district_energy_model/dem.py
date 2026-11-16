@@ -1277,18 +1277,25 @@ class DistrictEnergyModel:
             self.energy_demand.reduce_timeframe(n_days)
 
 
-            #Save amount of power generation that needs replacement for each of the existing technologies in tech instance.
+            #Save the replacement and existing rates of the heat generators in the tech instances.
+            #They are applied to the peak output after all scenarios (incl. fossil_heater_retrofit),
+            #see dem_costs.get_replacement_capacities.
             if scen_techs['demand_side']['heat_generator_renovation']:
                 
                 # (U.S.) CAN WE FIRST CHECK WHICH TECHS ARE SELECTED, AND ONLY ACT ON THOSE?
                 
                 techstoacton = {'ob': 'oil_boiler', 'gb': 'gas_boiler', 
                                 'eh': 'electric_heater', 'hp': 'heat_pump', 
-                                'wb': 'wood_boiler', 'dh': 'district_heating', 
-                                'solar': 'solarthermal_rooftop'}
+                                'wb': 'wood_boiler', 'dh': 'district_heating'}
                 for k in techstoacton.keys():
-                    power_up_for_replacement = scen_techs['demand_side']['heat_generator_replacement_rates']['v_h_'+k]*self.tech_instances[techstoacton[k]].get_v_h().max()
-                    self.tech_instances[techstoacton[k]].set_power_up_for_replacement(power_up_for_replacement)
+                    self.tech_instances[techstoacton[k]].set_replacement_rates(
+                        replacement_rate=scen_techs['demand_side']['heat_generator_replacement_rates']['v_h_'+k],
+                        existing_rate=scen_techs['demand_side']['heat_generator_existing_rates']['v_h_'+k],
+                        reference_peak=self.tech_instances[techstoacton[k]].get_output().max(),
+                        )
+                # Solar thermal (no effect on costs):
+                power_up_for_replacement = scen_techs['demand_side']['heat_generator_replacement_rates']['v_h_solar']*self.tech_instances['solarthermal_rooftop'].get_v_h().max()
+                self.tech_instances['solarthermal_rooftop'].set_power_up_for_replacement(power_up_for_replacement)
 
             
             if scen_techs['demand_side']['ev_integration']:
@@ -1376,6 +1383,24 @@ class DistrictEnergyModel:
                             tech_inst = self.tech_instances[techstoacton[techkey]]
                             replacement_factor = scen_techs['fossil_heater_retrofit'][techstoacton_fhrp_keys[techkey]]
                             scen_techs['fossil_heater_retrofit'][techstoacton_fhrp_keys[techkey]]=float(scen_techs['demand_side']['heat_generator_replacement_rates']['v_h_'+techkey])
+
+        # With heat generator renovation, the fossil heater retrofit removes the share f of the heat
+        # output of the old heaters: first the heaters at the end of their lifetime (replacement
+        # rate r), then the old heaters still running (existing rate e). Relative to the reference
+        # peak (after the demand side scenario): r' = max(r - f, 0), e' = max(e - max(f - r, 0), 0).
+        if (scen_techs['scenarios']['fossil_heater_retrofit']
+                and scen_techs['scenarios']['demand_side']
+                and scen_techs['demand_side']['heat_generator_renovation']):
+            for techkey in techstoacton.keys():
+                tech_inst = self.tech_instances[techstoacton[techkey]]
+                retrofit_factor = scen_techs['fossil_heater_retrofit'][techstoacton_fhrp_keys[techkey]]
+                replacement_rate = scen_techs['demand_side']['heat_generator_replacement_rates']['v_h_'+techkey]
+                existing_rate = scen_techs['demand_side']['heat_generator_existing_rates']['v_h_'+techkey]
+                tech_inst.set_replacement_rates(
+                    replacement_rate=max(replacement_rate - retrofit_factor, 0.0),
+                    existing_rate=max(existing_rate - max(retrofit_factor - replacement_rate, 0.0), 0.0),
+                    reference_peak=tech_inst.get_replacement_reference_peak(),
+                    )
 
         if scen_techs['scenarios']['fossil_heater_retrofit'] == True:
             print('\n fossil_heater_retrofit')

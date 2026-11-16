@@ -158,6 +158,54 @@ class TechCore():
         elif hasattr(self, 'maintenance_cost'):
             return self.maintenance_cost*self.get_output().max()
 
+    def set_replacement_rates(self, replacement_rate, existing_rate, reference_peak):
+        """
+        Heat generator renovation (demand_side.heat_generator_renovation):
+        set the shares of the old heat generators, used by
+        apply_replacement_to_remaining_stock() (see
+        demand_side.heat_generator_replacement_rates / _existing_rates).
+        Each heat generator only serves its own building, so the shares refer
+        to the heat demand of this heat generator type after the demand side
+        scenario, and are applied to its peak output at that point
+        (reference_peak). Output added by later scenarios is new capacity.
+
+        replacement_rate: share of the reference peak served by old heat
+            generators at the end of their lifetime (one-to-one replacement
+            in the same building).
+        existing_rate: share of the reference peak served by old heat
+            generators that keep running (existing capacity without capex).
+        reference_peak: peak output after the demand side scenario [kW].
+        """
+        self._replacement_rate = float(replacement_rate)
+        self._existing_rate = float(existing_rate)
+        self._replacement_reference_peak = max(float(reference_peak), 0.0)
+
+    def get_replacement_rate(self):
+        return getattr(self, '_replacement_rate', None)
+
+    def get_existing_rate(self):
+        return getattr(self, '_existing_rate', None)
+
+    def get_replacement_reference_peak(self):
+        return getattr(self, '_replacement_reference_peak', None)
+
+    def apply_replacement_to_remaining_stock(self):
+        """
+        Heat generator renovation: set the old stock of this heat generator
+        type (called once, before calculate_replacement_cap(), see
+        dem_costs.get_replacement_capacities):
+        - one-to-one replacement: replacement rate * reference peak,
+        - existing without capex: existing rate * reference peak,
+        - any peak output above that is new capacity.
+        calculate_replacement_cap() expects the old stock (existing +
+        replacement) in self.existing and the replaced part in the power up
+        for replacement. Techs without replacement rates are left unchanged.
+        """
+        if not hasattr(self, '_replacement_rate') or not hasattr(self, 'existing'):
+            return
+        self._power_up_for_replacement = self._replacement_rate*self._replacement_reference_peak
+        self.existing = (self._replacement_rate + self._existing_rate)*self._replacement_reference_peak
+
 
     # def initialise_zero(self, variables, n_days):
     #     n_hours = n_days*24
