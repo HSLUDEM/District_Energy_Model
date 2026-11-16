@@ -880,8 +880,8 @@ class AnaerobicDigestionCHP(TechCore): # aguc
         
         n_hours = n_days*24
         
-        self._v_gas = self._v_gas[:n_hours]
         self._v_e = self._v_e[:n_hours]
+        self._v_e_exp = self._v_e_exp[:n_hours]
         self._v_h = self._v_h[:n_hours]
         self._u_wet_bm = self._u_wet_bm[:n_hours]
 

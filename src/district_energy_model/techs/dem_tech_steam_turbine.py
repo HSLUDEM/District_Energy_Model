@@ -134,7 +134,7 @@ class SteamTurbine(TechCore):
         self._v_h_gtcp_con = self._v_h_gtcp_con[:n_hours]
         self._v_h_gtcp_waste = self._v_h_gtcp_waste[:n_hours]
 
-        self._v_h_wbsg = self._v_h_wbcp[:n_hours]
+        self._v_h_wbsg = self._v_h_wbsg[:n_hours]
         self._v_h_wbsg_con = self._v_h_wbsg_con[:n_hours]
         self._v_h_wbsg_waste = self._v_h_wbsg_waste[:n_hours]
         

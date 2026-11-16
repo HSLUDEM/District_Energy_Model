@@ -279,7 +279,12 @@ class EnergyDemand:
         self._d_h_flex = self._d_h_flex[:n_hours]
         self._d_h_flex_ll = self._d_h_flex_ll[:n_hours]
         self._d_h_flex_ul = self._d_h_flex_ul[:n_hours]
-        self._d_h_s_flex_ll = self._d_h_s_flex_ll[:n_hours]        
+        self._d_h_s_flex_ll = self._d_h_s_flex_ll[:n_hours]
+
+        # Daily values (EV charging):
+        self._d_e_ev_cp_dy = self._d_e_ev_cp_dy[:n_days]
+        self._f_e_ev_pot_dy = self._f_e_ev_pot_dy[:n_days]
+        self._f_e_ev_dy = self._f_e_ev_dy[:n_days]
 
     def compute_d_e_baseline_yr(
             self,

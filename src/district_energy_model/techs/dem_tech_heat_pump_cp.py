@@ -134,6 +134,13 @@ class HeatPumpCP(HeatPumpCore):
         self._cop = self._cop[:n_hours]
         self._temperature_based_cop = init_vals.copy()
 
+    def reduce_timeframe(self, n_days):
+        """
+        Reduce the hourly timeseries to the first n days.
+        """
+        super().reduce_timeframe(n_days)
+        self._temperature_based_cop = self._temperature_based_cop[:n_days*24]
+
     # def compute_v_h(self, src_h_yr, d_h_profile):
 
     #     tmp_df = pd.DataFrame({'d_h_profile':d_h_profile})        

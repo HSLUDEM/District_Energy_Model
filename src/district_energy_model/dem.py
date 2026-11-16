@@ -760,20 +760,21 @@ class DistrictEnergyModel:
         n_days = scen_techs['simulation']['number_of_days']
         ts_num = scen_techs['simulation']['number_of_days']*24 # [h] times steps (ts)
         
-        dem_helper.reduce_timeframes(
-            self.energy_demand,
-            self.supply,
-            self.tech_instances,
-            n_days
-            )
-        
         # Initialise scenario with base scenario:
         if self.scenario_generated == True:
-            df_scen = self.df_scen.iloc[:ts_num].copy()
+            df_scen = self.df_scen.copy()
             dict_yr_scen = self.dict_yr_scen
         else:
-            df_scen = self.df_base.iloc[:ts_num].copy()
+            df_scen = self.df_base.copy()
             dict_yr_scen = self.dict_yr_base
+
+        # The scenario is generated on the full timeframe of the base scenario
+        # (one year). Existing capacities, heat pump categories, district
+        # heating categories and replacement capacities are therefore based on
+        # annual peaks and totals. The timeseries are reduced to the simulated
+        # number of days only afterwards, before the optimisation and the cost
+        # module (see below).
+        n_days_full = len(df_scen)//24
      
         #----------------------------------------------------------------------
         # Update techs from base scenario:     
@@ -810,7 +811,7 @@ class DistrictEnergyModel:
                 pv_alpine_capex_numbers,
                 [0.0], 
                 tech_dict = scen_techs['solar_pvalpine'])
-            self.tech_solar_pvalpine.initialise_zero(n_days)
+            self.tech_solar_pvalpine.initialise_zero(n_days_full)
             self.tech_instances['solar_pvalpine'] = self.tech_solar_pvalpine
 
         # Heat demand manual flow
@@ -826,32 +827,32 @@ class DistrictEnergyModel:
                     "heat demand would be ignored."
                     )
             self.tech_heat_demand_manual = dem_techs.HeatDemandManual(scen_techs['heat_demand_manual'])
-            self.tech_heat_demand_manual.initialise_zero(n_days)
+            self.tech_heat_demand_manual.initialise_zero(n_days_full)
             self.tech_instances['heat_demand_manual'] = self.tech_heat_demand_manual
 
         # Waste heat flow
         if scen_techs['waste_heat']['deployment']:                
             self.tech_wh = dem_techs.WasteHeat(scen_techs['waste_heat'])
-            self.tech_wh.initialise_finite(n_days)
+            self.tech_wh.initialise_finite(n_days_full)
             self.tech_instances['waste_heat'] = self.tech_wh
 
         # Waste heat (low temperature) flow
         if scen_techs['waste_heat_low_temperature']['deployment']:                
             self.tech_whlt = dem_techs.WasteHeatLowTemperature(scen_techs['waste_heat_low_temperature'])
-            self.tech_whlt.initialise_finite(n_days)
+            self.tech_whlt.initialise_finite(n_days_full)
             self.tech_instances['waste_heat_low_temperature'] = self.tech_whlt
 
         # Deep geothermal
         if scen_techs['deep_geothermal']['deployment']:                
             self.tech_dgt = dem_techs.DeepGeothermal(scen_techs['deep_geothermal'])
-            self.tech_dgt.initialise_zero(n_days)
+            self.tech_dgt.initialise_zero(n_days_full)
             self.tech_instances['deep_geothermal'] = self.tech_dgt
 
 
         # Thermal energy storage
         if scen_techs['tes']['deployment']:                
             self.tech_tes = dem_techs.ThermalEnergyStorage(scen_techs['tes'])
-            self.tech_tes.initialise_zero(n_days)
+            self.tech_tes.initialise_zero(n_days_full)
             self.tech_instances['tes'] = self.tech_tes
 
         # Thermal energy storage
@@ -865,7 +866,7 @@ class DistrictEnergyModel:
                 tes_sites_list = dem_district_tes_availability_switzerland.tes_availability_script_externally_controlled(params)
 
             self.tech_tes_sites = dem_techs.ThermalEnergyStorageSites(scen_techs['tes_sites'], tes_sites_list)
-            self.tech_tes_sites.initialise_zero(n_days)
+            self.tech_tes_sites.initialise_zero(n_days_full)
             self.tech_instances['tes_sites'] = self.tech_tes_sites
 
         # Thermal energy storage - decentralised:
@@ -873,38 +874,38 @@ class DistrictEnergyModel:
             self.tech_tes_decentralised = dem_techs.ThermalEnergyStorageDC(
                 scen_techs['tes_decentralised']
                 )
-            self.tech_tes_decentralised.initialise_zero(n_days)
+            self.tech_tes_decentralised.initialise_zero(n_days_full)
             self.tech_instances['tes_decentralised'] =\
                 self.tech_tes_decentralised
 
         # Battery energy storage
         if scen_techs['bes']['deployment']:          
             self.tech_bes = dem_techs.BatteryEnergyStorage(scen_techs['bes'])
-            self.tech_bes.initialise_zero(n_days)
+            self.tech_bes.initialise_zero(n_days_full)
             self.tech_instances['bes'] = self.tech_bes
         
         # Pile of Berries
         if True:                
             self.tech_pile_of_berries = dem_techs.PileOfBerries(scen_techs['bes'])
-            self.tech_pile_of_berries.initialise_zero(n_days)
+            self.tech_pile_of_berries.initialise_zero(n_days_full)
             self.tech_instances['pile_of_berries'] = self.tech_pile_of_berries
 
         # Gas tank energy storage
         if scen_techs['gtes']['deployment']:                
             self.tech_gtes = dem_techs.GasTankEnergyStorage(scen_techs['gtes'])
-            self.tech_gtes.initialise_zero(n_days)
+            self.tech_gtes.initialise_zero(n_days_full)
             self.tech_instances['gtes'] = self.tech_gtes
 
         # Gas tank energy storage
         if scen_techs['ws']['deployment']:                
             self.tech_ws = dem_techs.WoodStorage(scen_techs['ws'])
-            self.tech_ws.initialise_zero(n_days)
+            self.tech_ws.initialise_zero(n_days_full)
             self.tech_instances['ws'] = self.tech_ws
 
         # Hydrogen energy storage
         if scen_techs['hes']['deployment']:                
             self.tech_hes = dem_techs.HydrogenEnergyStorage(scen_techs['hes'])
-            self.tech_hes.initialise_zero(n_days)
+            self.tech_hes.initialise_zero(n_days_full)
             self.tech_instances['hes'] = self.tech_hes
 
         # Hydrothermal gasification (hg)
@@ -913,7 +914,7 @@ class DistrictEnergyModel:
                 dem_techs.HydrothermalGasification(
                     scen_techs['hydrothermal_gasification']
                     )
-            self.tech_hydrothermal_gasification.initialise_zero(n_days)
+            self.tech_hydrothermal_gasification.initialise_zero(n_days_full)
             self.tech_instances['hydrothermal_gasification'] =\
                 self.tech_hydrothermal_gasification
         
@@ -923,7 +924,7 @@ class DistrictEnergyModel:
                 dem_techs.AnaerobicDigestionUpgrade(
                     scen_techs['anaerobic_digestion_upgrade']
                     )
-            self.tech_anaerobic_digestion_upgrade.initialise_zero(n_days)
+            self.tech_anaerobic_digestion_upgrade.initialise_zero(n_days_full)
             self.tech_instances['anaerobic_digestion_upgrade'] =\
                 self.tech_anaerobic_digestion_upgrade
         
@@ -933,7 +934,7 @@ class DistrictEnergyModel:
                 dem_techs.AnaerobicDigestionUpgradeHydrogen(
                     scen_techs['anaerobic_digestion_upgrade_hydrogen']
                     )
-            self.tech_anaerobic_digestion_upgrade_hydrogen.initialise_zero(n_days)
+            self.tech_anaerobic_digestion_upgrade_hydrogen.initialise_zero(n_days_full)
             self.tech_instances['anaerobic_digestion_upgrade_hydrogen'] =\
                 self.tech_anaerobic_digestion_upgrade_hydrogen
         
@@ -943,7 +944,7 @@ class DistrictEnergyModel:
                 dem_techs.AnaerobicDigestionCHP(
                     scen_techs['anaerobic_digestion_chp']
                     )
-            self.tech_anaerobic_digestion_chp.initialise_zero(n_days)
+            self.tech_anaerobic_digestion_chp.initialise_zero(n_days_full)
             self.tech_instances['anaerobic_digestion_chp'] =\
                 self.tech_anaerobic_digestion_chp
         
@@ -953,7 +954,7 @@ class DistrictEnergyModel:
                 dem_techs.WoodGasificationUpgrade(
                     scen_techs['wood_gasification_upgrade']
                     )
-            self.tech_wood_gasification_upgrade.initialise_zero(n_days)
+            self.tech_wood_gasification_upgrade.initialise_zero(n_days_full)
             self.tech_instances['wood_gasification_upgrade'] =\
                 self.tech_wood_gasification_upgrade
         
@@ -963,7 +964,7 @@ class DistrictEnergyModel:
                 dem_techs.WoodGasificationUpgradeHydrogen(
                     scen_techs['wood_gasification_upgrade_hydrogen']
                     )
-            self.tech_wood_gasification_upgrade_hydrogen.initialise_zero(n_days)
+            self.tech_wood_gasification_upgrade_hydrogen.initialise_zero(n_days_full)
             self.tech_instances['wood_gasification_upgrade_hydrogen'] =\
                 self.tech_wood_gasification_upgrade_hydrogen
         
@@ -973,7 +974,7 @@ class DistrictEnergyModel:
                 dem_techs.WoodGasificationCHP(
                     scen_techs['wood_gasification_chp']
                     )
-            self.tech_wood_gasification_chp.initialise_zero(n_days)
+            self.tech_wood_gasification_chp.initialise_zero(n_days_full)
             self.tech_instances['wood_gasification_chp'] =\
                 self.tech_wood_gasification_chp
 
@@ -983,42 +984,42 @@ class DistrictEnergyModel:
                 dem_techs.HydrogenProduction(
                     scen_techs['hydrogen_production']
                     )
-            self.tech_hydrogen_production.initialise_zero(n_days)
+            self.tech_hydrogen_production.initialise_zero(n_days_full)
             self.tech_instances['hydrogen_production'] =\
                 self.tech_hydrogen_production
 
         # Combined Heat and Power Gas Turbine:
         if scen_techs['chp_gt']['deployment']:
             self.tech_chp_gt = dem_techs.CHPGasTurbine(scen_techs['chp_gt'])
-            self.tech_chp_gt.initialise_zero(n_days)
+            self.tech_chp_gt.initialise_zero(n_days_full)
             self.tech_instances['chp_gt'] = self.tech_chp_gt
             
         # Gas turbine (central plant):
         if scen_techs['gas_turbine_cp']['deployment']:
             self.tech_gas_turbine_cp =\
                 dem_techs.GasTurbineCP(scen_techs['gas_turbine_cp'])
-            self.tech_gas_turbine_cp.initialise_zero(n_days)
+            self.tech_gas_turbine_cp.initialise_zero(n_days_full)
             self.tech_instances['gas_turbine_cp'] = self.tech_gas_turbine_cp
         
         # Steam turbine:
         if scen_techs['steam_turbine']['deployment']:
             self.tech_steam_turbine =\
                 dem_techs.SteamTurbine(scen_techs['steam_turbine'])
-            self.tech_steam_turbine.initialise_zero(n_days)
+            self.tech_steam_turbine.initialise_zero(n_days_full)
             self.tech_instances['steam_turbine'] = self.tech_steam_turbine
             
         # Wood boiler (central plant):
         if scen_techs['wood_boiler_sg']['deployment']:
             self.tech_wood_boiler_sg =\
                 dem_techs.WoodBoilerSG(scen_techs['wood_boiler_sg'])
-            self.tech_wood_boiler_sg.initialise_zero(n_days)
+            self.tech_wood_boiler_sg.initialise_zero(n_days_full)
             self.tech_instances['wood_boiler_sg'] = self.tech_wood_boiler_sg
             
         # Waste-to-energy plant:
         if scen_techs['waste_to_energy']['deployment']:
             self.tech_waste_to_energy =\
                 dem_techs.WasteToEnergy(scen_techs['waste_to_energy'])
-            self.tech_waste_to_energy.initialise_zero(n_days)
+            self.tech_waste_to_energy.initialise_zero(n_days_full)
             self.tech_instances['waste_to_energy'] = self.tech_waste_to_energy
                     
         # Heat pump (central plant):
@@ -1047,14 +1048,14 @@ class DistrictEnergyModel:
                     self.com_nr_majority
                 ))
                 tech_heat_pump_cp_instance.compute_cop_timeseries(self.energy_demand._d_h_profile)
-                tech_heat_pump_cp_instance.initialise_zero(n_days)
+                tech_heat_pump_cp_instance.initialise_zero(n_days_full)
                 self.tech_instances['heat_pump_cp_'+scen_tech_hpcp_key] = tech_heat_pump_cp_instance
 
         # Heat pump (central plant, from low temperature heat):
         if scen_techs['heat_pump_cp_lt']['deployment']:
             self.tech_heat_pump_cp_lt =\
                 dem_techs.HeatPumpCPLT(scen_techs['heat_pump_cp_lt'])
-            self.tech_heat_pump_cp_lt.initialise_zero(n_days)
+            self.tech_heat_pump_cp_lt.initialise_zero(n_days_full)
             self.tech_instances['heat_pump_cp_lt'] = self.tech_heat_pump_cp_lt
 
 
@@ -1062,28 +1063,28 @@ class DistrictEnergyModel:
         if scen_techs['oil_boiler_cp']['deployment']:
             self.tech_oil_boiler_cp =\
                 dem_techs.OilBoilerCP(scen_techs['oil_boiler_cp'])
-            self.tech_oil_boiler_cp.initialise_zero(n_days)
+            self.tech_oil_boiler_cp.initialise_zero(n_days_full)
             self.tech_instances['oil_boiler_cp'] = self.tech_oil_boiler_cp
 
         # Electric heater (central plant):
         if scen_techs['electric_heater_cp']['deployment']:
             self.tech_electric_heater_cp =\
                 dem_techs.ElectricHeaterCP(scen_techs['electric_heater_cp'])
-            self.tech_electric_heater_cp.initialise_zero(n_days)
+            self.tech_electric_heater_cp.initialise_zero(n_days_full)
             self.tech_instances['electric_heater_cp'] = self.tech_electric_heater_cp
 
         # Wood boiler (central plant):
         if scen_techs['wood_boiler_cp']['deployment']:
             self.tech_wood_boiler_cp =\
                 dem_techs.WoodBoilerCP(scen_techs['wood_boiler_cp'])
-            self.tech_wood_boiler_cp.initialise_zero(n_days)
+            self.tech_wood_boiler_cp.initialise_zero(n_days_full)
             self.tech_instances['wood_boiler_cp'] = self.tech_wood_boiler_cp
 
         # Gas boiler (central plant):
         if scen_techs['gas_boiler_cp']['deployment']:
             self.tech_gas_boiler_cp =\
                 dem_techs.GasBoilerCP(scen_techs['gas_boiler_cp'])
-            self.tech_gas_boiler_cp.initialise_zero(n_days)
+            self.tech_gas_boiler_cp.initialise_zero(n_days_full)
             self.tech_instances['gas_boiler_cp'] = self.tech_gas_boiler_cp
 
 
@@ -1271,10 +1272,8 @@ class DistrictEnergyModel:
             self.energy_demand.compute_d_h_hr_mix(
                 df_meta = self.df_meta,
                 tech_instances=self.tech_instances,
-                n_days=n_days
+                n_days=n_days_full
                 )
-
-            self.energy_demand.reduce_timeframe(n_days)
 
 
             #Save the replacement and existing rates of the heat generators in the tech instances.
@@ -1751,6 +1750,21 @@ class DistrictEnergyModel:
         # Prepare cost calculation by calculating the capacities that need to be replaced based on scenarios
         # (the only call; the optimiser reads the stored results via get_replacement_caps()):
         dem_costs.get_replacement_capacities(self.tech_instances)
+
+        #----------------------------------------------------------------------
+        # Reduce the timeseries to the simulated number of days:
+        # Everything that is derived from annual peaks or totals (existing
+        # capacities, heat pump categories, district heating categories,
+        # replacement capacities) has been determined on the full year above.
+        # The optimisation, the cost module and the results only cover the
+        # simulated days.
+        dem_helper.reduce_timeframes(
+            self.energy_demand,
+            self.supply,
+            self.tech_instances,
+            n_days
+            )
+        df_scen = df_scen.iloc[:ts_num].copy()
 
         """--------------------------------------------------------------------
         Apply optimisation:
