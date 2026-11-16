@@ -683,3 +683,18 @@ def test_combined_storage_scenario_is_ignored_in_optimisation(run_dem):
                            'scenario_battery_plus_thermal_energy_storage': {'storages': sizes}})
     pd.testing.assert_frame_equal(flagged.hourly_results(), ref.hourly_results())
     assert cost_overview(flagged)['monetary'] == pytest.approx(cost_overview(ref)['monetary'])
+
+
+@requires_data
+@requires_solver
+def test_cost_module_uses_maximum_and_forced_capacity_of_storages(run_dem):
+    # A54: in optimisations the optimised (forced) storage capacity is costed,
+    # as in the objective (simulations only cost operated capacity).
+    model = run_dem({'optimisation': OPT,
+                     'tes': {'deployment': True, 'capacity_kWh_max': 1e5, 'force_cap_max': True},
+                     'tes_decentralised': {'deployment': True, 'capacity_kWh_max': 1e5},
+                     'gtes': {'deployment': True, 'capacity_kWh_max': 1e5}})
+    costs = model.total_cost()['Kostenmodul']['monetary_breakdown']
+    assert model.tech_instances['tes'].get_cap() == pytest.approx(1e5, rel=1e-6)
+    assert costs['tes']['annualized_capex'] > 0
+    assert cost_overview(model)['monetary']['total'] == pytest.approx(model.total_cost()['objective']['total'], rel=1e-6, abs=1)
