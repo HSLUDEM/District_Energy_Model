@@ -34,6 +34,7 @@ All notable changes to this project will be documented in this file.
 – Adjust upper and lower flexibility bounds if EV integration is <100% in optimization scenario (previously leading to an error).
 - Minor bugfixes
 - Bug in dem_tech_district_heating.py: 100% district heating share was not possible. This has been corrected. 
+- Split of grid import into Swiss production (`m_e_ch_*`) and cross-border import (`m_e_cbimport`) no longer depends on the order of the scenarios. The Swiss part of each hour and source is limited to its value in the base split (today's demand and existing plants). A decrease of the import reduces cross-border import first; an increase first refills the Swiss part up to its limit, then adds cross-border import. Previously, the Swiss part was never refilled, so every later increase counted as cross-border import. The nuclear phase-out lowers the nuclear limit and therefore also applies after the optimisation. Only the reported mix is affected (costs and CO2 use the total import).
 
 ### Changed
 - Compatibility with Calliope version 0.6.10 (previously 0.6.8)

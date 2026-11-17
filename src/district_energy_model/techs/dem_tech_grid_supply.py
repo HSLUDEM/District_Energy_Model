@@ -61,6 +61,13 @@ class GridSupply(TechCore):
         self._m_e_ch_biomass = []
         self._m_e_ch_other = []
         self._m_co2 = []
+
+        # Upper limits of the Swiss parts of the import per source (absolute
+        # values of the base split, i.e. today's demand and existing plants);
+        # set by compute_base_grid_import():
+        self._m_e_ch_limits = None
+        # Share of the nuclear limit still available (nuclear phase-out):
+        self._nuclear_limit_factor = 1.0
         
     def update_tech_properties(self, tech_dict):
         
@@ -318,6 +325,10 @@ class GridSupply(TechCore):
         self._m_e_ch_biomass = self._m_e_ch_biomass[:n_hours]
         self._m_e_ch_other = self._m_e_ch_other[:n_hours]
         self._m_co2 = self._m_co2[:n_hours]
+        if self._m_e_ch_limits is not None:
+            self._m_e_ch_limits = {
+                key: val[:n_hours] for key, val in self._m_e_ch_limits.items()
+                }
 
         self._co2_intensity_timeseries = self._co2_intensity_timeseries[:n_hours]
         self._tariff_timeseries = self._tariff_timeseries[:n_hours]
@@ -388,6 +399,10 @@ class GridSupply(TechCore):
         
         self._m_e_ch = self._m_e - self._m_e_cbimport
 
+        # The Swiss parts of the base import are the upper limits of the
+        # Swiss parts in all later updates of the import (update_m_e()):
+        self.__set_m_e_ch_limits()
+
         self.__compute_m_co2()
 
         # return m_e_mix
@@ -412,7 +427,42 @@ class GridSupply(TechCore):
         self._m_e_ch_other = zeros.copy()
         self._m_e_cbimport = np.array(self._m_e, dtype=float)
 
+        # No Swiss parts, also in later updates of the import:
+        self.__set_m_e_ch_limits()
+
         self.__compute_m_co2()
+
+    def __set_m_e_ch_limits(self):
+        """
+        Store the current Swiss parts of the import per source as the upper
+        limits of the Swiss parts (see update_m_e()).
+        """
+        self._m_e_ch_limits = {
+            'hydro': np.array(self._m_e_ch_hydro, dtype=float),
+            'nuclear': np.array(self._m_e_ch_nuclear, dtype=float),
+            'wind': np.array(self._m_e_ch_wind, dtype=float),
+            'biomass': np.array(self._m_e_ch_biomass, dtype=float),
+            'other': np.array(self._m_e_ch_other, dtype=float),
+            }
+
+    def set_nuclear_limit_factor(self, factor):
+        """
+        Set the share of the Swiss nuclear limit that is still available
+        (nuclear phase-out) and update the import split accordingly. The
+        factor is applied to the base limit (it does not accumulate if set
+        repeatedly).
+
+        Parameters
+        ----------
+        factor : float
+            Share of the nuclear limit still available (0 to 1).
+        """
+        if not 0.0 <= factor <= 1.0:
+            raise ValueError(
+                f"Nuclear limit factor must be between 0 and 1 (value: {factor})."
+                )
+        self._nuclear_limit_factor = float(factor)
+        self.update_m_e(self._m_e)
     
     def __compute_m_co2(self):        
         self._m_co2 = self._m_e*self._co2_intensity_timeseries
@@ -446,70 +496,61 @@ class GridSupply(TechCore):
 
 
     def update_m_e(self, m_e_updated):
+        """
+        Update the total import m_e and split it into Swiss parts (per source)
+        and cross-border import.
+
+        The Swiss part of each hour and source is limited to its value in the
+        base split (today's demand and existing plants; nuclear reduced by
+        the nuclear phase-out). Cross-border import is reduced before the
+        Swiss parts, and an increase first fills the Swiss parts up to their
+        limits before cross-border import is added. The split therefore does
+        not depend on the order of the changes of the import.
+
+        Parameters
+        ----------
+        m_e_updated : array-like
+            Updated hourly total import [kWh].
+        """
+        if self._m_e_ch_limits is None:
+            raise RuntimeError(
+                "The base import split must be computed before the import is "
+                "updated (compute_base_grid_import())."
+                )
+
         self._m_e = np.array(m_e_updated, dtype=float)
 
         # Set small negative values (numerical inaccuracies of the solver) to 0:
         self._m_e[(self._m_e < 0) & (self._m_e >= C.NEG_ACC)] = 0.0
 
-        df = pd.DataFrame()
-
-        df['m_e'] = self._m_e
-        df['m_e_ch'] = self._m_e_ch
-        df['m_e_ch_hydro'] = self._m_e_ch_hydro
-        df['m_e_ch_nuclear'] = self._m_e_ch_nuclear
-        df['m_e_ch_wind'] = self._m_e_ch_wind
-        df['m_e_ch_biomass'] = self._m_e_ch_biomass
-        df['m_e_ch_other'] = self._m_e_ch_other
-        df['m_e_cbimport'] = self._m_e_cbimport
-        
-        # Where m_e = 0, set all imports to 0:
-        df.loc[df['m_e'] == 0, 'm_e_ch'] = 0
-        df.loc[df['m_e'] == 0, 'm_e_ch_hydro'] = 0
-        df.loc[df['m_e'] == 0, 'm_e_ch_nuclear'] = 0
-        df.loc[df['m_e'] == 0, 'm_e_ch_wind'] = 0
-        df.loc[df['m_e'] == 0, 'm_e_ch_biomass'] = 0
-        df.loc[df['m_e'] == 0, 'm_e_ch_other'] = 0
-        df.loc[df['m_e'] == 0, 'm_e_cbimport'] = 0
-        
-        # Update CH-import:
-        # Where the ch-import is currently larger than the total import m_e, it is
-        # downscaled to m_e (using a ratio) and all the ch-import shares are
-        # adapted accordingly.
-        df['tmp_m_e_ch_old'] = df['m_e_ch'].copy(deep = True)
-        df['tmp_m_e_ratio'] = df['m_e']/df['m_e_ch']
-        df.loc[df['m_e']==0,'tmp_m_e_ratio'] = 0
-        
-        #df_scen['tmp_m_e_ratio'].to_csv('tmp_m_e_ratio.csv')
-        
-        df.loc[df['tmp_m_e_ratio']<1,'m_e_ch'] = df['m_e_ch']*df['tmp_m_e_ratio']
-        df.loc[df['tmp_m_e_ratio']<1,'m_e_ch_hydro'] = df['m_e_ch_hydro']*df['tmp_m_e_ratio']
-        df.loc[df['tmp_m_e_ratio']<1,'m_e_ch_nuclear'] = df['m_e_ch_nuclear']*df['tmp_m_e_ratio']
-        df.loc[df['tmp_m_e_ratio']<1,'m_e_ch_wind'] = df['m_e_ch_wind']*df['tmp_m_e_ratio']
-        df.loc[df['tmp_m_e_ratio']<1,'m_e_ch_biomass'] = df['m_e_ch_biomass']*df['tmp_m_e_ratio']
-        df.loc[df['tmp_m_e_ratio']<1,'m_e_ch_other'] = df['m_e_ch_other']*df['tmp_m_e_ratio']
-        
-        self._m_e_ch = np.array(df['m_e_ch'])
-        self._m_e_ch_hydro = np.array(df['m_e_ch_hydro'])
-        self._m_e_ch_nuclear = np.array(df['m_e_ch_nuclear'])
-        self._m_e_ch_wind = np.array(df['m_e_ch_wind'])
-        self._m_e_ch_biomass = np.array(df['m_e_ch_biomass'])
-        self._m_e_ch_other = np.array(df['m_e_ch_other'])
-        self._m_e_cbimport = np.array(df['m_e_cbimport'])
-        
         # Test if all import values are >= 0:
-        if np.all(self._m_e >= 0):
-            pass
-        else:
+        if not np.all(self._m_e >= 0):
             msg = f"Not all values are >= 0 in m_e (min. value: {self._m_e.min()})."
             raise ValueError(msg)
-        
-        # Update cross-border (cb) import:
+
+        limits = dict(self._m_e_ch_limits)
+        limits['nuclear'] = limits['nuclear']*self._nuclear_limit_factor
+        limit_total = sum(limits.values())
+
+        # Swiss part: up to its limit; the sources keep the proportions of
+        # their limits:
+        self._m_e_ch = np.minimum(self._m_e, limit_total)
+        scaling = np.divide(
+            self._m_e_ch,
+            limit_total,
+            out=np.zeros(len(self._m_e)),
+            where=limit_total > 0,
+            )
+        self._m_e_ch_hydro = limits['hydro']*scaling
+        self._m_e_ch_nuclear = limits['nuclear']*scaling
+        self._m_e_ch_wind = limits['wind']*scaling
+        self._m_e_ch_biomass = limits['biomass']*scaling
+        self._m_e_ch_other = limits['other']*scaling
+
+        # Cross-border (cb) import: the rest of the import:
         self.compute_m_e_cbimport()
-        # df['m_e_cbimport'] = df['m_e'] - df['m_e_ch']
-        
+
         self.__compute_m_co2()
-        
-        del df
     
     # def update_m_e_cb_import(self, m_e_cb_import_updated):
     #     self._m_e_cb_import = np.array(m_e_cb_import_updated)        
@@ -693,12 +734,6 @@ class GridSupply(TechCore):
     def update_m_e_i(self, i, val):
         self.num_test(val)
         self._m_e[i] = float(val)
-
-    def set_m_e_ch_nuclear(self, val):
-        self._m_e_ch_nuclear = val
-
-    def set_m_e_ch(self, val):
-        self._m_e_ch = val
 
     def get_energy_costs(self):
         return np.sum(np.array(self._m_e)*self._tariff_timeseries)
