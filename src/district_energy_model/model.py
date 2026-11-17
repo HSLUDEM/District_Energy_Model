@@ -120,6 +120,14 @@ def launch(root_dir=None,
             f"Selected value: {n_days!r}."
             )
 
+    # Pareto front (not relevant if results are loaded from file):
+    if (scen_techs['optimisation']['pareto_monetary_co2']
+            and not inp.toggle_load_pareto_results):
+        dem_helper.check_pareto_inputs(
+            optimisation_enabled=scen_techs['optimisation']['enabled'],
+            N_pareto=scen_techs['optimisation']['N_pareto']
+            )
+
     # Create instance of district energy model (dem):
     dem_inst = dem.DistrictEnergyModel(
         paths = paths,

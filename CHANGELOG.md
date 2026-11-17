@@ -34,6 +34,9 @@ All notable changes to this project will be documented in this file.
 – Adjust upper and lower flexibility bounds if EV integration is <100% in optimization scenario (previously leading to an error).
 - Minor bugfixes
 - Bug in dem_tech_district_heating.py: 100% district heating share was not possible. This has been corrected. 
+- Pareto front: every point now starts from the building and municipality data as loaded. Previously, the demand-side scenario of the previous point had changed the data, so that all points after the first used a different heat demand and different existing capacities. Results of pareto fronts with the demand-side scenario change.
+- Pareto front: every point runs the same result checks as a single optimisation (unmet demand, negative values, energy balances) and contains the cost module results (`Kostenmodul`), the optimised capacities (`df_capacities`) and its own copy of `scen_techs`.
+- Pareto front: `optimisation.N_pareto` must be an integer of at least 2, and `optimisation.pareto_monetary_co2: True` requires `optimisation.enabled: True` (error instead of a late crash or a silent simulation).
 
 ### Changed
 - Compatibility with Calliope version 0.6.10 (previously 0.6.8)
