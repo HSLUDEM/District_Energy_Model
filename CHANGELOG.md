@@ -34,6 +34,8 @@ All notable changes to this project will be documented in this file.
 – Adjust upper and lower flexibility bounds if EV integration is <100% in optimization scenario (previously leading to an error).
 - Minor bugfixes
 - Bug in dem_tech_district_heating.py: 100% district heating share was not possible. This has been corrected. 
+- Wind power costs in simulations: capex and maintenance are based on the capacity added by the wind integration scenario (new capacity) and the existing capacity. Previously, the capacity was estimated from the hourly generation, which overestimated it by up to a factor of 14 (e.g. Allschwil: 187 MW instead of 13.75 MW), charged capex for existing wind power, gave negative capex with `wind_power_installed_allocation: national`, and depended on `number_of_days`. With the `national` allocation, existing wind power is not charged (as in the optimisation).
+- Wind integration scenario: the integrated capacity respects `wind_power.kWp_max` (applied to the potential with annual and with winter profile separately) and `kWp_max_systemwide` (total local capacity), as in the optimisation. Existing wind power above a limit is kept; no new capacity is added in this case.
 
 ### Changed
 - Compatibility with Calliope version 0.6.10 (previously 0.6.8)

@@ -354,11 +354,9 @@ def scenario_wind_integration(energy_demand, scen_techs, tech_instances):
     # Adjust energy accounting of technologies:
     wppif = scen_techs["wind_integration"]["potential_integration_factor"]
 
-    v_e_wp = tech_wind_power.get_v_e()
-    
-    v_e_wp_updated = v_e_wp + tech_wind_power.get_v_e_pot_remain()*wppif
-    
-    tech_wind_power.update_v_e(v_e_wp_updated)
+    # Integrate the share of the remaining potential (within the capacity
+    # limits of wind_power); also stores the new capacity for the costs:
+    tech_wind_power.integrate_potential(wppif)
     
     #--------------------------------------------------------------------------
     # Update local electricity mix:
