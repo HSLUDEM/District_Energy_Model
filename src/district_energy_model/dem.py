@@ -786,7 +786,7 @@ class DistrictEnergyModel:
         self.supply.update_m_gas(m_gas)
         self.supply.update_m_wd(m_wd)
 
-    def generate_scenario(self, scen_techs):
+    def generate_scenario(self, scen_techs, run_optimisation=True):
         
         """
         Generate scenario based on selected technolgies starting with
@@ -797,6 +797,12 @@ class DistrictEnergyModel:
             
         scen_techs : dictionary
             Dictionary containing info about technologies. 
+        run_optimisation : bool
+            Only relevant if the optimisation is enabled
+            (scen_techs['optimisation']['enabled']). If False, the scenario
+            is prepared in the same way as for an optimisation, but the
+            optimisation is not run (used for the pareto front, which runs
+            the optimisation of each point itself). Default: True.
 
         Returns
         -------
@@ -1785,26 +1791,19 @@ class DistrictEnergyModel:
         """--------------------------------------------------------------------
         Apply optimisation:
         """
-        if scen_techs['optimisation']['enabled'] == True:
-            # Reset unmet demands (must be met through scenario):
-            self.energy_demand.reset_d_e_unmet()
-            self.energy_demand.reset_d_h_unmet()
-            
-            # If activated, compute flexibility metrics:
-            self.__setup_building_inertia_flex(scen_techs)
-                        
-            from district_energy_model import dem_calliope
-            optimiser = dem_calliope.CalliopeOptimiser(
-                tech_list=self.tech_list,
-                tech_instances=self.tech_instances,
-                energy_demand=self.energy_demand,
-                supply=self.supply,
-		        building_inertia_flex=self.building_inertia_flex,
-                com_name=self.com_name_,
-                scen_techs=scen_techs,
-                # opt_metrics=scen_techs['optimisation'],
-                files_path = self.results_path
-                )
+        # Scenario prepared for an optimisation that is run by the caller:
+        prepare_only = (
+            scen_techs['optimisation']['enabled'] == True
+            and not run_optimisation
+            )
+        
+        if prepare_only:
+            # No optimisation and no costs at this stage:
+            dict_total_costs = {}
+            model = 0
+        
+        elif scen_techs['optimisation']['enabled'] == True:
+            optimiser = self.__create_optimiser(scen_techs)
             
             # dem_costs.prepare_cost_calculation(self.tech_instances)
             opt_results, model = optimiser.run_optimisation()
@@ -1862,8 +1861,10 @@ class DistrictEnergyModel:
         # df_scen = dem_emissions.add_emissions_CO2(scen_techs, df_scen)          
                 
         #----------------------------------------------------------------------
-        # Check for negative values:
-        self.__check_negative_values(df_scen)
+        # Check for negative values (optimisations: checked with the results
+        # of the optimisation):
+        if not prepare_only:
+            self.__check_negative_values(df_scen)
         
         #----------------------------------------------------------------------            
         # Change column order of df_scen:
@@ -1883,6 +1884,45 @@ class DistrictEnergyModel:
         print('\nDone')
        
     
+    def __create_optimiser(self, scen_techs):
+        """
+        Steps before an optimisation run, used for a single optimisation and
+        for each point of a pareto front: reset the unmet demand, set up the
+        building inertia flexibility (if activated) and create the optimiser.
+        The scenario must have been generated before (generate_scenario()).
+
+        Parameters
+        ----------
+        scen_techs : dictionary
+            Dictionary containing info about technologies.
+
+        Returns
+        -------
+        optimiser : dem_calliope.CalliopeOptimiser
+            Optimiser instance (optimisation not yet run).
+        """
+        # Reset unmet demands (must be met through scenario):
+        self.energy_demand.reset_d_e_unmet()
+        self.energy_demand.reset_d_h_unmet()
+        
+        # If activated, compute flexibility metrics:
+        self.__setup_building_inertia_flex(scen_techs)
+                    
+        from district_energy_model import dem_calliope
+        optimiser = dem_calliope.CalliopeOptimiser(
+            tech_list=self.tech_list,
+            tech_instances=self.tech_instances,
+            energy_demand=self.energy_demand,
+            supply=self.supply,
+            building_inertia_flex=self.building_inertia_flex,
+            com_name=self.com_name_,
+            scen_techs=scen_techs,
+            # opt_metrics=scen_techs['optimisation'],
+            files_path = self.results_path
+            )
+        
+        return optimiser
+
     def __process_optimisation_results(
             self,
             optimiser,
@@ -2079,11 +2119,11 @@ class DistrictEnergyModel:
             optimisation_enabled=True,
             N_pareto=N_pareto
             )
-
-        from district_energy_model import dem_calliope
+        scen_techs['optimisation']['enabled'] = True
         
         # ======================================================================================================
-        # Run scenario without optimisation, to generate input for pareto optimisation:
+        # Generate the scenario as for a single optimisation (without running
+        # the optimisation) and create the optimiser for one pareto point:
         def reset_optimiser():
             # Start from the data as loaded (the demand-side scenario of the
             # previous point changed the dataframes in place):
@@ -2091,29 +2131,12 @@ class DistrictEnergyModel:
             self.df_meta = self.__df_meta_input.copy(deep=True)
             
             self.scenario_generated = False
-            scen_techs['optimisation']['enabled'] = False # deactivate optimisation to generate scenario
             self.__generate_base_scenario(scen_techs)
-            self.generate_scenario(scen_techs) # generate scenario without optimisation
+            self.generate_scenario(scen_techs, run_optimisation=False)
             df_scen = self.df_scen            
             
-            # Enable optimisation:
-            scen_techs['optimisation']['enabled'] = True
-            
-            # Building inertia flexibility (not created by generate_scenario()
-            # without optimisation):
-            self.__setup_building_inertia_flex(scen_techs)
-            
-            # Create optimiser instance:        
-            optimiser = dem_calliope.CalliopeOptimiser(
-                tech_list=self.tech_list,
-                tech_instances=self.tech_instances,
-                energy_demand=self.energy_demand,
-                supply=self.supply,
-                building_inertia_flex=self.building_inertia_flex,
-                com_name=self.com_name_,
-                scen_techs=scen_techs,
-                files_path=self.results_path
-                )
+            # Create optimiser instance:
+            optimiser = self.__create_optimiser(scen_techs)
 
             return df_scen, optimiser
         

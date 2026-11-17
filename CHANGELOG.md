@@ -37,6 +37,7 @@ All notable changes to this project will be documented in this file.
 - Pareto front: every point now starts from the building and municipality data as loaded. Previously, the demand-side scenario of the previous point had changed the data, so that all points after the first used a different heat demand and different existing capacities. Results of pareto fronts with the demand-side scenario change.
 - Pareto front: every point runs the same result checks as a single optimisation (unmet demand, negative values, energy balances) and contains the cost module results (`Kostenmodul`), the optimised capacities (`df_capacities`) and its own copy of `scen_techs`.
 - Pareto front: `optimisation.N_pareto` must be an integer of at least 2, and `optimisation.pareto_monetary_co2: True` requires `optimisation.enabled: True` (error instead of a late crash or a silent simulation).
+- Pareto front: the scenario of each point is prepared in the same way as for a single optimisation. Previously, it was prepared as for a simulation, so technologies with `deployment: False` remained available to the optimiser, alpine PV was never added, and the heat generators of renovated buildings were reassigned with the rates for manual scenarios. New argument `run_optimisation` of `generate_scenario()` (default True).
 
 ### Changed
 - Compatibility with Calliope version 0.6.10 (previously 0.6.8)
