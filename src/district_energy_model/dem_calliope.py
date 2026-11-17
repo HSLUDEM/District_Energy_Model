@@ -100,6 +100,7 @@ class CalliopeOptimiser:
         
         self.rerun_eps = False
         self.eps_n = 'inf'
+        self.unmet_demand_penalty = 0.0 # penalty for unmet demand and unused supply in the objective (set by run_optimisation())
         self.dhn_share_type = False
         self.dhn_share_val = 0.0
         
@@ -872,6 +873,10 @@ class CalliopeOptimiser:
             print("\nWARNING: The solver did not prove optimality (e.g. time "
                   "limit reached). Results are feasible but may not be optimal.")
 
+        # Penalty for unmet demand and unused supply contained in the
+        # objective (removed from the monetary total costs):
+        self.unmet_demand_penalty = self.__get_unmet_demand_penalty(model)
+
         # ==========================================================
         # FOR TESTING ONLY!
         if self.opt_metrics['save_calliope_files']:
@@ -1098,6 +1103,67 @@ class CalliopeOptimiser:
             )
 
         return df_capacities
+
+    def __get_unmet_demand_penalty(self, model):
+        """
+        Return the penalty for unmet demand and unused supply that Calliope
+        adds to the objective (ensure_feasibility: bigM per unit of unmet
+        demand and unused supply), and warn about unused supply.
+        
+        Unused supply (forced generation that cannot be used) is not part of
+        the Calliope results, so the values are read from the solved backend
+        model.
+
+        Parameters
+        ----------
+        model : calliope.Model
+            Calliope model after the optimisation (the model that was built
+            and solved, also if custom constraints were added).
+
+        Returns
+        -------
+        penalty : float
+            Penalty in the units of the objective.
+        """
+        import pyomo.environ as po
+
+        bm = getattr(model, '_backend_model', None)
+        if bm is None or not hasattr(bm, 'unmet_demand'):
+            # ensure_feasibility not active: no penalty in the objective
+            return 0.0
+
+        def weighted_sum(var):
+            # Sum over loc::carrier and timesteps, weighted as in the objective:
+            return sum(
+                (v.value or 0.0)*po.value(bm.timestep_weights[idx[-1]])
+                for idx, v in var.items()
+                )
+
+        unmet = weighted_sum(bm.unmet_demand)
+        unused = weighted_sum(bm.unused_supply) # <= 0
+
+        # Unused supply is not reported elsewhere:
+        unused_kWh = -unused*self.energy_scaling_factor
+        if unused_kWh > C.DIFF_SUM_ACC:
+            unused_by_loc = {}
+            for idx, v in bm.unused_supply.items():
+                if v.value:
+                    unused_by_loc[idx[0]] = (unused_by_loc.get(idx[0], 0.0)
+                                             - v.value*self.energy_scaling_factor)
+            locs = ", ".join(
+                f"{k}: {val:.1f} kWh"
+                for k, val in sorted(unused_by_loc.items(), key=lambda x: -x[1])
+                if val > C.DIFF_SUM_ACC
+                )
+            print(
+                f"\nWARNING: Optimisation result contains unused supply "
+                f"({unused_kWh:.1f} kWh; {locs}). Generation that must be "
+                "used could not be used or exported. It is penalised with "
+                "bigM_value in the objective (not included in the monetary "
+                "total costs)."
+                )
+
+        return float(po.value(bm.bigM))*(unmet - unused)
 
     def get_optimal_output_df(self,opt_results):
         """
@@ -2231,10 +2297,20 @@ class CalliopeOptimiser:
 
         dict_total_costs['objective']['total'] =\
             float(opt_results.attrs.get("objective_function_value"))
+        # Penalty for unmet demand and unused supply (bigM_value; contained
+        # in the objective, not a cost):
+        dict_total_costs['objective']['unmet_demand_penalty'] =\
+            self.unmet_demand_penalty
 
         if objective_monetary > 0:
+            # Derived from the objective, which also contains costs added by
+            # custom constraints (e.g. minimum size of TES sites) that are not
+            # part of Calliope's cost sum. The penalty is not a cost:
             dict_total_costs['monetary']['total'] =\
-                (dict_total_costs['objective']['total'] - objective_co2*dict_total_costs['co2']['total'])/objective_monetary
+                (dict_total_costs['objective']['total']
+                 - objective_co2*dict_total_costs['co2']['total']
+                 - self.unmet_demand_penalty
+                 )/objective_monetary
 
         return dict_total_costs
     

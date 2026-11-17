@@ -34,6 +34,8 @@ All notable changes to this project will be documented in this file.
 – Adjust upper and lower flexibility bounds if EV integration is <100% in optimization scenario (previously leading to an error).
 - Minor bugfixes
 - Bug in dem_tech_district_heating.py: 100% district heating share was not possible. This has been corrected. 
+- Optimisation: the monetary total costs no longer contain the penalty for unmet demand (`bigM_value` per kWh). Previously, every kWh of unmet demand added `bigM_value` CHF to the reported total (divided by `objective_monetary`, i.e. 100,000 times more when optimising for CO2). The penalty is reported separately as `objective` → `unmet_demand_penalty`. Costs added by custom constraints (minimum size of TES sites) remain in the total.
+- Optimisation: a warning is printed if the result contains unused supply (forced generation that could not be used or exported), which was not reported before.
 
 ### Changed
 - Compatibility with Calliope version 0.6.10 (previously 0.6.8)
