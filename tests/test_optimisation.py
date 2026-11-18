@@ -397,7 +397,7 @@ def test_central_heat_pump_with_allowed_temperature_gaps(run_dem):
 
 
 def test_generator_renovation_existing_capacity_reduced_once(run_dem, monkeypatch):
-    # A1: CalliopeOptimiser called get_needs_replacement_cap() a second time, so the replacement share was
+    # A1: CalliopeOptimiser called calculate_replacement_cap() a second time, so the replacement share was
     # subtracted twice from the capex-free existing capacity of the decentral heat generators.
     from district_energy_model import dem_calliope, dem_costs
     techs = ['heat_pump', 'electric_heater', 'oil_boiler', 'gas_boiler', 'wood_boiler']
