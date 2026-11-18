@@ -40,7 +40,7 @@ def rand_cfg(r):
         c['waste_heat'] = {'deployment': True, 'timeseries_file_path': f'{I}/wh.feather', 'tariff_CHFpkWh': r.choice([0.0, 0.02])}
         c.setdefault('district_heating', {}).setdefault('heat_sources', {})['waste_heat'] = True
     if r.random() < 0.15:
-        c['heat_pump_cp'] = {'instance_1': {'deployment': True}, 'instance_2': {'deployment': True, 'cop_mode': 'constant'}}
+        c['heat_pump_cp'] = {'deployment': True, 'cop_mode': ['temperature_based', 'constant']}  # two instances
         c.setdefault('district_heating', {}).setdefault('heat_sources', {})['heat_pump_cp'] = True
     if r.random() < 0.15:
         c.setdefault('grid_supply', {})['kW_max'] = r.choice([5000, 20000])

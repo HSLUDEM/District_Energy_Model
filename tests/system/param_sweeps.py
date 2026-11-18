@@ -91,7 +91,7 @@ SWEEPS = [
     ('opt_gas_import', {**OPT, 'heat_pump': {'capex': 50000}}, 'supply.gas_import', [True, False], 'a:m_gas_yr', 'dec'),
     ('opt_wood_import', {**OPT, 'heat_pump': {'capex': 50000}}, 'supply.wood_import', [True, False], 'a:m_wd_yr', 'dec'),
     ('opt_tes_initial', {**OPT, 'tes_decentralised': {'deployment': True, 'optimized_initial_charge': False}}, 'tes_decentralised.initial_charge', [0.0, 0.5], 'obj', 'change'),
-    ('opt_hpcp_cop_mode', {**OPT, 'heat_pump_cp': {'instance_1': {'deployment': True, 'capital_cost': 100}}, 'heat_pump': {'capex': 20000}, 'district_heating': {'heat_sources': {'heat_pump_cp': True}}}, 'heat_pump_cp.instance_1.cop_mode', ['constant', 'temperature_based', 'from_file', 'from_file_adjusted_to_spf'], 'a:u_e_hpcp_yr', 'change'),
+    ('opt_hpcp_cop_mode', {**OPT, 'heat_pump_cp': {'deployment': True, 'capital_cost': 100}, 'heat_pump': {'capex': 20000}, 'district_heating': {'heat_sources': {'heat_pump_cp': True}}}, 'heat_pump_cp.cop_mode', ['constant', 'temperature_based', 'from_file', 'from_file_adjusted_to_spf'], 'a:u_e_hpcp_yr', 'change'),
     ('opt_interest', OPT, 'interest_rate_all', [0.0, 0.025, 0.08], 'obj', 'inc'),
 ]
 
@@ -119,8 +119,8 @@ def make(out):
                     set_path(cfg, path, v)
                 if path == 'grid_supply.tariff_mode' and v == 'file':
                     set_path(cfg, 'grid_supply.tariff_timeseries_filepath', f'{I}/tariff.feather')
-                if path == 'heat_pump_cp.instance_1.cop_mode' and v.startswith('from_file'):
-                    set_path(cfg, 'heat_pump_cp.instance_1.cop_timeseries_file_path', f'{I}/cop.feather')
+                if path == 'heat_pump_cp.cop_mode' and v.startswith('from_file'):
+                    set_path(cfg, 'heat_pump_cp.cop_timeseries_file_path', f'{I}/cop.feather')
                 f.write(f"sw_{sid}__{i}\t{json.dumps(cfg)}\t\n")
 
 

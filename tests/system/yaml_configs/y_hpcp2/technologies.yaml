@@ -1,3 +1,2 @@
-heat_pump_cp:
-  instance_2:
-    deployment: true
+heat_pump_cp:  # two instances, only the second one deployed
+  deployment: [false, true]

@@ -188,7 +188,7 @@ def test_tes_site_ltlt_can_be_charged_via_the_htlt_carrier(run_dem, tmp_path, mo
                      chg_dchg_per_cap_max=0.2, connected_techs={'lt': ['heatlt'], 'ht': ['obcp', 'hpcp']})
     cfg = _tes_cfg(site)
     cfg['heat_pump_cp_lt'] = {'deployment': True}
-    cfg['heat_pump_cp'] = {'instance_1': {'deployment': True}}
+    cfg['heat_pump_cp'] = {'deployment': True}
     cfg['district_heating']['heat_sources'] |= {'heat_pump_cp': True, 'heat_pump_cp_lt': True}
     cfg['grid_supply'] = {'tariff_mode': 'file', 'tariff_timeseries_filepath': str(tmp_path / 'tariff.feather')}
     cfg['optimisation'] = OPT
@@ -389,7 +389,7 @@ def test_central_heat_pump_with_allowed_temperature_gaps(run_dem):
     assert len(hours) > 24
     with pytest.warns(UserWarning, match='FAULTY TEMPERATURE DATA'):
         model = run_dem({'simulation': {'district_number': 4511, 'allow_temperature_data_gaps': True},
-                         'heat_pump_cp': {'instance_1': {'deployment': True}},
+                         'heat_pump_cp': {'deployment': True},
                          'optimisation': OPT}, days=60)
     cop = np.asarray(model.tech_instances['heat_pump_cp_instance_1'].get_cop())
     assert np.all(cop[hours] == 2.0)
@@ -502,8 +502,8 @@ def test_generator_renovation_no_free_end_of_life_generators(run_dem, monkeypatc
 
 
 def _hpcp_cfg(tmp_path, n, kw='inf', lt=False):
-    cfg = {'heat_pump_cp': {f'instance_{i + 1}': {'deployment': True, 'kW_th_max': kw, 'cop_mode': 'constant',
-                                                  'cop_constant_value': 3.0 + i} for i in range(n)},
+    cfg = {'heat_pump_cp': {'deployment': True, 'kW_th_max': kw, 'cop_mode': 'constant',
+                            'cop_constant_value': [3.0 + i for i in range(n)]},
            'district_heating': {'demand_share_type': 'fixed', 'demand_share_val': 0.2,
                                 'heat_sources': {'import': False, 'heat_pump_cp': True, 'heat_pump_cp_lt': lt}},
            'optimisation': OPT}

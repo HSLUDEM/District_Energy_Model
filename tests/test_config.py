@@ -18,26 +18,38 @@ def test_launch_does_not_modify_defaults(run_dem):
 @pytest.mark.parametrize('cfg', [
     {'solar_pv': {'potential_integration_factor': 0.7}},  # example from the documentation
     {'scenarios': {'pv_integraton': True}},
-    {'heat_pump_cp': {'instance_2': {'deploymnt': True}}},
+    {'heat_pump_cp': {'deploymnt': True}},
+    {'heat_pump_cp': {'instance_1': {'deployment': True}}},  # instance dicts were replaced by lists
 ])
 def test_config_dict_unknown_key_raises(run_dem, cfg):
     with pytest.raises(KeyError):
         run_dem(cfg, days=1)
 
 
-def test_yaml_open_dict_and_new_instance(tmp_path):
+def test_yaml_open_dict_and_list_parameters(tmp_path):
     from district_energy_model import dem_helper
     from district_energy_model.input_files import inputs as inp
     import copy
     (tmp_path / 'meta_data.yaml').write_text(
         'custom_district:\n  scaling_factors:\n    space_heating_demand_estimation_kWh: 2.0\n')
     (tmp_path / 'technologies.yaml').write_text(
-        'heat_pump_cp:\n  instance_2:\n    deployment: true\n')
+        'heat_pump_cp:\n  deployment: true\n  cop_constant_value: [3.0, 4.0]\n')
     st = dem_helper.update_scen_techs_from_yaml(tmp_path, copy.deepcopy(inp.scen_techs))
     assert st['meta_data']['custom_district']['scaling_factors'] == {'space_heating_demand_estimation_kWh': 2.0}
-    assert st['heat_pump_cp']['instance_2']['deployment'] is True
-    # Defaults of the new instance are taken from instance_1:
-    assert st['heat_pump_cp']['instance_2']['capital_cost'] == inp.scen_techs['heat_pump_cp']['instance_1']['capital_cost']
+    assert st['heat_pump_cp']['deployment'] is True
+    assert st['heat_pump_cp']['cop_constant_value'] == [3.0, 4.0]
+    # Two instances; single values apply to both:
+    instances = dem_helper.expand_list_parameters(st['heat_pump_cp'], 'heat_pump_cp')
+    assert [i['cop_constant_value'] for i in instances] == [3.0, 4.0]
+    assert all(i['capital_cost'] == inp.scen_techs['heat_pump_cp']['capital_cost'] for i in instances)
+
+
+@pytest.mark.parametrize('params', [{'kW_th_max': [100, 200], 'cop_constant_value': [3.0, 4.0, 5.0]},
+                                    {'kW_th_max': []}])
+def test_list_parameters_of_different_lengths_raise(params):
+    from district_energy_model import dem_helper
+    with pytest.raises(ValueError):
+        dem_helper.expand_list_parameters({'deployment': True, **params}, 'heat_pump_cp')
 
 
 @requires_data

@@ -71,7 +71,7 @@ CASES = {
     'wh_8784': (merge(WH(f'{D}/wh_8784.feather', tariff_CHFpkWh=0.0), {'optimisation': OPT}), 7),
     'wh_2cols': (merge(WH(f'{D}/wh_2cols.feather'), {'optimisation': OPT}), 7),
     'wh_tes_sites': (merge(WH(V, tariff_CHFpkWh=0.0), TES_SITES, {'optimisation': OPT}), 7),
-    'wh_hpcp': (merge(WH(V, tariff_CHFpkWh=0.0), {'heat_pump_cp': {'instance_1': {'deployment': True}}, 'district_heating': {'heat_sources': {'heat_pump_cp': True}}}, {'optimisation': OPT}), 7),
+    'wh_hpcp': (merge(WH(V, tariff_CHFpkWh=0.0), {'heat_pump_cp': {'deployment': True}, 'district_heating': {'heat_sources': {'heat_pump_cp': True}}}, {'optimisation': OPT}), 7),
     'wh_bern': (merge(WH(V, tariff_CHFpkWh=0.0), {'simulation': {'district_number': 351}}, {'optimisation': OPT}), 7),
     'wh_pareto': (merge(WH(V, tariff_CHFpkWh=0.0, co2_intensity=0.0), {'optimisation': {**OPT, 'pareto_monetary_co2': True, 'N_pareto': 3}}), 2),
     # --- low temperature waste heat ---

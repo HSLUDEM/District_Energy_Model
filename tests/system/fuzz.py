@@ -29,6 +29,9 @@ DH_SOURCE = {'chp_gt': 'chp_gt', 'steam_turbine': 'steam_turbine', 'oil_boiler_c
 EXPECTED = ['Combination of TES and BES scenario not supported', 'thermal_energy_storage_scenario.capacity_kWh',
             'Hydrogen is required', 'could not be computed because scen_techs', 'Fixed demand share values cannot add up',
             'makes the optimisation unbounded', 'No wind power data found']
+# Matrix cases with invalid YAML input (case name suffix -> expected exception)
+VALIDATION_CASES = {'y_docstyle': 'KeyError', 'y_pv_list': 'KeyError', 'y_hpcp_list_lengths': 'ValueError',
+                    'y_typo_instance': 'KeyError', 'y_typo_instance_param': 'KeyError'}
 
 
 def rand_cfg(r):
@@ -86,7 +89,7 @@ def rand_cfg(r):
         for t in r.sample(STORAGE, r.choice([0, 1, 2])):
             c.setdefault(t, {})['deployment'] = True
         if r.random() < 0.2:
-            c['heat_pump_cp'] = {'instance_1': {'deployment': True, 'cop_mode': r.choice(['constant', 'temperature_based'])}}
+            c['heat_pump_cp'] = {'deployment': True, 'cop_mode': r.choice(['constant', 'temperature_based'])}
             dh['heat_pump_cp'] = True
         if r.random() < 0.15:
             c['wind_power'] = {'kWp_max_systemwide': r.choice([0, 5000])}
@@ -119,7 +122,8 @@ def check(prefix):
         d = json.load(open(f))
         if d['status'] != 'OK':
             err = d.get('error', '')
-            if any(e in err for e in EXPECTED):
+            if any(e in err for e in EXPECTED) or any(
+                    d['name'].endswith(n) and err.startswith(e) for n, e in VALIDATION_CASES.items()):
                 stats['expected error'] += 1
             else:
                 stats['UNEXPECTED ERROR'] += 1

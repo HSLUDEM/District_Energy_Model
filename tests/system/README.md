@@ -71,7 +71,7 @@ unmet demand, cost module ≠ objective, CO2 mismatch).
 
 | file | cases | content |
 |---|---|---|
-| `cases/matrix.txt` | 91 | scenarios, technologies, optimisation options, YAML configurations (Allschwil 2762) |
+| `cases/matrix.txt` | 95 | scenarios, technologies, optimisation options, YAML configurations (Allschwil 2762) |
 | `cases/all_municipalities.txt` | 2110 | 7-day simulation of every municipality |
 | `cases/sample_municipalities.txt` | 108 | sample of municipalities with scenarios / optimisation |
 | `cases/weather_years.txt` | 42 | weather years 2016 / 2018 / 2019 |

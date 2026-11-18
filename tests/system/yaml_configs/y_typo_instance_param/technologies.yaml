@@ -1,3 +1,2 @@
 heat_pump_cp:
-  instance_2:
-    deploymnt: true
+  deploymnt: true
