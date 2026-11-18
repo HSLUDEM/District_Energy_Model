@@ -1296,8 +1296,8 @@ class EnergyDemand:
                 df_com_yr['total_renovation_flag'] = df_com_yr[renovation_scenario] <= year #if renovation year < simulation year--> mark for renovation
                 df_com_yr.loc[df_com_yr['total_renovation_flag'], new_header] =\
                     df_com_yr['d_h_s_yr_renov_future'] #adjust heat consumption
-                df_com_yr.loc[df_com_yr['total_renovation_flag'], "GBAUP"] =\
-                    8023 #adjust building period to get other profiles
+                # df_com_yr.loc[df_com_yr['total_renovation_flag'], "GBAUP"] =\
+                #     8023 #adjust building period to get other profiles
 
 
             #In case of total renovation, the old heat and dhw generator is thrown out.
