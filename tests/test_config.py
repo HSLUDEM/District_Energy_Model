@@ -101,7 +101,8 @@ def test_saved_scen_techs_can_be_loaded_again(run_dem, tmp_path):
     cfg_dir = tmp_path / 'cfg'
     cfg_dir.mkdir()
     shutil.copy(f'{model.results_path}/scen_techs.yaml', cfg_dir / 'technologies.yaml')
-    # The run adds demand_side.heat_generator_replacement_rates, which raised a KeyError here:
+    # The run adds demand_side.heat_generator_replacement_rates (and heat_generator_existing_rates),
+    # which raised a KeyError here:
     st = dem_helper.update_scen_techs_from_yaml(cfg_dir, copy.deepcopy(inp.scen_techs))
     assert st['demand_side']['simulation_year']['future_year'] == 2040
 

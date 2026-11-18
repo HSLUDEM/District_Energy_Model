@@ -527,58 +527,169 @@ def _generator_renovation(year, **demand_side):
 def test_generator_renovation_charges_replacement_of_remaining_boilers(run_dem):
     # A6: the replacement capex was only charged for the peak above the base (pre-scenario) capacity
     # minus the replaced part; after renovation and in a warmer climate the boiler peaks stay below it,
-    # so replacing end-of-life boilers was free. In 2050 all existing boilers are at the end of their
-    # lifetime: the whole remaining stock (= peak after the scenarios) needs one-to-one replacement.
+    # so replacing end-of-life boilers was free. In 2050 all old boilers are at the end of their
+    # lifetime: the share served by old boilers (replacement rate r) needs one-to-one replacement,
+    # the rest (reassigned by total renovation) is new.
     from district_energy_model import dem_constants as C
     # Full year: the peaks are annual peaks, independent of where the time series are cut (A10-A12).
     model = run_dem(_generator_renovation(2050), days=365)
-    for tech in ['oil_boiler', 'gas_boiler']:
+    for k, tech in [('ob', 'oil_boiler'), ('gb', 'gas_boiler')]:
         assert model.scen_techs[tech]['lifetime'] <= 2050 - C.RENOVATION_YEAR
+        rate = model.scen_techs['demand_side']['heat_generator_replacement_rates'][f'v_h_{k}']
+        assert model.scen_techs['demand_side']['heat_generator_existing_rates'][f'v_h_{k}'] == pytest.approx(0, abs=1e-12)
+        assert 0.5 < rate <= 1.0
         t = model.tech_instances[tech]
         peak = t.get_output().max()
         assert peak > 0
-        assert t.needs_replacement == pytest.approx(peak, rel=1e-9), tech
+        assert t.needs_replacement == pytest.approx(rate * peak, rel=1e-9), tech
         assert t.existing == pytest.approx(0, abs=1e-6), tech
-        assert t.get_total_capex() == pytest.approx(t._capex_one_to_one_replacement * peak, rel=1e-9), tech
+        assert t.get_total_capex() == pytest.approx(
+            t._capex_one_to_one_replacement * rate * peak + t._capex * (1 - rate) * peak, rel=1e-9), tech
 
 
-@requires_data
-def test_generator_renovation_replaces_end_of_life_share_of_remaining_stock(run_dem, monkeypatch):
-    # A6: replacement = end-of-life share (by age, weighted with the base heat demand) of the stock
-    # remaining after the scenarios (min(base capacity, peak)); the rest is existing without capex.
-    from district_energy_model import dem_constants as C, dem_costs
-    base = {}
-    orig_old = dem_costs.get_old_capacities
+_GENERATOR_NAMES = {'eh': 'electric_heater', 'hp': 'heat_pump', 'dh': 'district_heating', 'gb': 'gas_boiler',
+                    'ob': 'oil_boiler', 'wb': 'wood_boiler', 'solar': 'solarthermal_rooftop'}
 
-    def old_capacities(tech_instances, debug=False):
-        out = orig_old(tech_instances, debug)
-        base.update({t: tech_instances[t].existing for t in ['oil_boiler', 'gas_boiler']})
-        return out
 
-    monkeypatch.setattr(dem_costs, 'get_old_capacities', old_capacities)
-    year = 2040
-    # Full year: the peaks are annual peaks, independent of where the time series are cut (A10-A12).
-    model = run_dem(_generator_renovation(year, total_renovation=False), days=365)
+def _expected_generator_rates(model, year, total_renovation_flag):
+    # Each heat generator only serves its own building. Per building: replacement flag
+    # = max(age share - total_renovation_flag, 0), existing flag = 1 - total_renovation_flag - flag.
+    # The old heat generators serve the demand before total renovation (d_h_s_yr_future + hot water),
+    # the totally renovated part (demand after total renovation) is reassigned. With the total heat
+    # demand D of the type after the demand side scenario (incl. reassignment):
+    # replacement rate r = sum(d*flag) / D, existing rate e = sum(d*existing flag) / D.
+    from district_energy_model import dem_constants as C
     df, st = model.df_com_yr, model.scen_techs
-    names = {'eh': 'electric_heater', 'hp': 'heat_pump', 'dh': 'district_heating', 'gb': 'gas_boiler',
-             'ob': 'oil_boiler', 'wb': 'wood_boiler', 'solar': 'solarthermal_rooftop'}
-    lifetimes = {f'v_h_{k}': st[t]['lifetime'] for k, t in names.items()} | {'v_h_other': 1.0}
+    ds = st['demand_side']
+    lifetimes = {f'v_h_{k}': st[t]['lifetime'] for k, t in _GENERATOR_NAMES.items()} | {'v_h_other': 1.0}
     lifetime = df['Heating_System'].map(lifetimes)
     end_of_life_year = df['GBAUJ'] + lifetime
     recently_built = end_of_life_year >= C.RENOVATION_YEAR
-    end_of_life = ((year - C.RENOVATION_YEAR) / lifetime).clip(upper=1.0)
-    end_of_life[recently_built] = (year > end_of_life_year[recently_built]).astype(float)
-    end_of_life = end_of_life.fillna(1.0)
-    for k, tech in [('ob', 'oil_boiler'), ('gb', 'gas_boiler')]:
-        weight = (df['space_heating_demand_estimation_kWh'].where(df['Heating_System'] == f'v_h_{k}', 0.0).fillna(0.0)
-                  + df['DHW_demand_estimation_kWh'].where(df['Hot_Water_System'] == f'v_hw_{k}', 0.0).fillna(0.0))
-        share = (weight * end_of_life).sum() / weight.sum()
-        assert 0.1 < share < 0.99
+    age_share = ((year - C.RENOVATION_YEAR) / lifetime).clip(upper=1.0)
+    age_share[recently_built] = (year > end_of_life_year[recently_built]).astype(float)
+    age_share = age_share.fillna(1.0)
+    trf = pd.Series(total_renovation_flag, index=df.index).astype(float)
+    flag = (age_share - trf).clip(lower=0.0)
+    existing_flag = (1.0 - trf - flag).clip(lower=0.0)
+    has_demand = df['d_h_s_yr_future_renov_adjusted'].notna()
+    d_sh = df['d_h_s_yr_future'].where(has_demand).fillna(0.0)
+    d_sh_renov = df['d_h_s_yr_renov_future'].where(has_demand).fillna(0.0)
+    d_hw = df['DHW_demand_estimation_kWh'].fillna(0.0)
+    reassign_sh = ds['total_renovation_heat_generator_reassignment_rates_space_heating_for_manual_scenarios']
+    reassign_hw = ds['total_renovation_heat_generator_reassignment_rates_dhw_for_manual_scenarios']
+    renovated_sh, renovated_hw = (d_sh_renov * trf).sum(), (d_hw * trf).sum()
+    if not ds.get('total_renovation', True):
+        renovated_sh = renovated_hw = 0.0
+    rates, existing = {}, {}
+    for k in list(_GENERATOR_NAMES) + ['other']:
+        sh, hw = df['Heating_System'] == f'v_h_{k}', df['Hot_Water_System'] == f'v_hw_{k}'
+        total = ((d_sh * (1 - trf))[sh].sum() + (d_hw * (1 - trf))[hw].sum()
+                 + reassign_sh[f'v_h_{k}'] * renovated_sh + reassign_hw[f'v_hw_{k}'] * renovated_hw)
+        up = (d_sh * flag)[sh].sum() + (d_hw * flag)[hw].sum()
+        ex = (d_sh * existing_flag)[sh].sum() + (d_hw * existing_flag)[hw].sum()
+        rates[f'v_h_{k}'] = min(up / total, 1.0) if total > 0 else 0.0
+        existing[f'v_h_{k}'] = min(ex / total, 1.0 - rates[f'v_h_{k}']) if total > 0 else 0.0
+    return rates, existing
+
+
+def _constant_total_renovation_flag(model, year):
+    # Constant total renovation rate: rate per year from max(GBAUJ + 35, data year) on, at most 1.
+    from district_energy_model import dem_constants as C
+    df = model.df_com_yr
+    start = (df['GBAUJ'] + 35).clip(lower=C.RENOVATION_YEAR).fillna(C.RENOVATION_YEAR)
+    rate = model.scen_techs['demand_side']['constant_total_renovation_rate']
+    return (rate * (year - start).clip(lower=0)).clip(upper=1.0)
+
+
+@requires_data
+def test_generator_renovation_replaces_replacement_rate_of_remaining_stock(run_dem):
+    # A6: replacement = replacement rate x peak output after the demand side scenario, existing
+    # without capex = existing rate x that peak; without total renovation r + e = 1.
+    year = 2040
+    # Full year: the peaks are annual peaks, independent of where the time series are cut (A10-A12).
+    model = run_dem(_generator_renovation(year, total_renovation=False), days=365)
+    rates, existing = _expected_generator_rates(model, year, 0.0)
+    ds = model.scen_techs['demand_side']
+    assert ds['heat_generator_replacement_rates'] == pytest.approx(rates, rel=1e-9, abs=1e-12)
+    assert ds['heat_generator_existing_rates'] == pytest.approx(existing, rel=1e-9, abs=1e-12)
+    for k, tech in [('ob', 'oil_boiler'), ('gb', 'gas_boiler'), ('hp', 'heat_pump')]:
+        rate = rates[f'v_h_{k}']
+        assert 0.1 < rate < 0.99
+        assert rate + existing[f'v_h_{k}'] == pytest.approx(1.0, rel=1e-9)
         t = model.tech_instances[tech]
-        remaining = min(base[tech], t.get_output().max())
-        assert t.needs_replacement == pytest.approx(share * remaining, rel=1e-9), tech
-        assert t.existing == pytest.approx((1 - share) * remaining, rel=1e-9), tech
-        assert t.get_total_capex() == pytest.approx(t._capex_one_to_one_replacement * share * remaining, rel=1e-9), tech
+        peak = t.get_output().max()
+        assert t.get_replacement_rate() == pytest.approx(rate, rel=1e-9)
+        assert t.get_replacement_reference_peak() == pytest.approx(peak, rel=1e-12)
+        assert t.needs_replacement == pytest.approx(rate * peak, rel=1e-9), tech
+        assert t.existing == pytest.approx((1 - rate) * peak, rel=1e-9), tech
+        if tech != 'heat_pump':
+            assert t.get_total_capex() == pytest.approx(t._capex_one_to_one_replacement * rate * peak, rel=1e-9), tech
+
+
+@requires_data
+def test_generator_renovation_rate_with_constant_total_renovation_rate(run_dem):
+    # A6: with a constant total renovation rate the total renovation share w_r of a building is
+    # fractional; it replaces the old heat generator first (flag = max(a - w_r, 0)). The shares refer
+    # to the heat demand of the type after the demand side scenario, incl. heat generators reassigned
+    # by total renovation, which are new capacity.
+    year = 2040
+    model = run_dem(_generator_renovation(year, total_renovation=True, use_constant_total_renovation_rate=True),
+                    days=365)
+    trf = _constant_total_renovation_flag(model, year)
+    assert 0 < trf.max() < 1  # fractional total renovation
+    rates, existing = _expected_generator_rates(model, year, trf)
+    ds = model.scen_techs['demand_side']
+    assert ds['heat_generator_replacement_rates'] == pytest.approx(rates, rel=1e-9, abs=1e-12)
+    assert ds['heat_generator_existing_rates'] == pytest.approx(existing, rel=1e-9, abs=1e-12)
+    no_subtraction, _ = _expected_generator_rates(model, year, 0.0)
+    for k, tech in [('ob', 'oil_boiler'), ('gb', 'gas_boiler'), ('hp', 'heat_pump')]:
+        rate, ex = rates[f'v_h_{k}'], existing[f'v_h_{k}']
+        assert 0.0 < rate < no_subtraction[f'v_h_{k}'], tech
+        assert 0.0 < rate + ex < 1.0, tech  # reassigned heat generators are new
+        t = model.tech_instances[tech]
+        peak = t.get_output().max()
+        assert t.get_replacement_rate() == pytest.approx(rate, rel=1e-9)
+        assert t.get_existing_rate() == pytest.approx(ex, rel=1e-9)
+        assert t.needs_replacement == pytest.approx(rate * peak, rel=1e-9), tech
+        assert t.existing == pytest.approx(ex * peak, rel=1e-9), tech
+
+
+@requires_data
+@pytest.mark.parametrize('act_on, fossil_heater_retrofit', [(True, False), (True, True), (False, True)])
+def test_fossil_heater_retrofit_removes_end_of_life_heaters_first(run_dem, act_on, fossil_heater_retrofit):
+    # A6: the fossil_heater_retrofit floor (act_on_fossil_heater_retrofit) uses the replacement rate r.
+    # The retrofit (factor f) removes the heaters at the end of their lifetime first, then the old
+    # heaters still running: relative to the peak after the demand side scenario,
+    # r' = max(r - f, 0), e' = max(e - max(f - r, 0), 0); the rest of the remaining peak is new.
+    year = 2040
+    cfg = _generator_renovation(year, total_renovation=True, use_constant_total_renovation_rate=True,
+                                act_on_fossil_heater_retrofit=act_on)
+    factors = {'oil_boiler_replacement_factor': 0.0, 'gas_boiler_replacement_factor': 0.0,
+               'electric_boiler_replacement_factor': 0.0}
+    if fossil_heater_retrofit:
+        factors['gas_boiler_replacement_factor'] = 0.9
+        cfg['scenarios']['fossil_heater_retrofit'] = True
+        cfg['fossil_heater_retrofit'] = factors
+    model = run_dem(cfg, days=7)
+    trf = _constant_total_renovation_flag(model, year)
+    rates, existing = _expected_generator_rates(model, year, trf)
+    assert model.scen_techs['demand_side']['heat_generator_replacement_rates'] == pytest.approx(rates, rel=1e-9, abs=1e-12)
+    fhr = model.scen_techs['fossil_heater_retrofit']
+    for k, key, tech in [('ob', 'oil_boiler_replacement_factor', 'oil_boiler'),
+                         ('gb', 'gas_boiler_replacement_factor', 'gas_boiler'),
+                         ('eh', 'electric_boiler_replacement_factor', 'electric_heater')]:
+        rate, ex = rates[f'v_h_{k}'], existing[f'v_h_{k}']
+        assert 0.1 < rate < 0.9
+        # Floor: factors below r are raised to r, factors above r are kept.
+        f = max(factors[key], rate) if act_on else factors[key]
+        assert fhr[key] == pytest.approx(f, rel=1e-9), key
+        t = model.tech_instances[tech]
+        ref = t.get_replacement_reference_peak()
+        assert t.get_output().max() == pytest.approx((1 - f) * ref, rel=1e-9), tech
+        assert t.get_replacement_rate() == pytest.approx(max(rate - f, 0.0), abs=1e-12), tech
+        assert t.get_existing_rate() == pytest.approx(max(ex - max(f - rate, 0.0), 0.0), abs=1e-12), tech
+        assert t.needs_replacement == pytest.approx(max(rate - f, 0.0) * ref, rel=1e-9, abs=1e-9), tech
+        assert t.existing == pytest.approx(max(ex - max(f - rate, 0.0), 0.0) * ref, rel=1e-9, abs=1e-9), tech
 
 
 @requires_data
