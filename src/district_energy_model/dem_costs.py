@@ -66,7 +66,7 @@ def get_replacement_capacities(tech_instances, debug=False):
         if debug:
             print(f"Calculating replacement needs for technology: {tech}")
         if tech != 'grid_export' and tech != 'grid_supply' and tech != 'pile_of_berries':
-            tech_instances[tech].get_needs_replacement_cap()
+            tech_instances[tech].calculate_replacement_cap()
         if debug:
             print(f"replacement calculation for {tech} completed.\n")
     return 0

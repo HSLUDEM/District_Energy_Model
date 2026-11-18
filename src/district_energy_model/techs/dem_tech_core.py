@@ -209,7 +209,7 @@ class TechCore():
     def get_existing(self):
         self.existing = self.get_output().max()
 
-    def get_needs_replacement_cap(self, debug=False):
+    def calculate_replacement_cap(self, debug=False):
         """
         Split the existing capacity into a capex-free part and a part that
         needs one-to-one replacement, and compute the capacity left for new
@@ -271,13 +271,13 @@ class TechCore():
 
     def get_replacement_caps(self):
         """
-        Return the result of the (single) call of get_needs_replacement_cap():
+        Return the result of the (single) call of calculate_replacement_cap():
         (energy_cap_zero_capex, cap_one_to_one_replacement, cap_new).
         """
         if not hasattr(self, '_replacement_caps'):
             raise RuntimeError(
                 f"Replacement capacities of {type(self).__name__} have not "
-                "been computed yet (call get_needs_replacement_cap() once, "
+                "been computed yet (call calculate_replacement_cap() once, "
                 "see dem_costs.get_replacement_capacities)."
                 )
         return self._replacement_caps

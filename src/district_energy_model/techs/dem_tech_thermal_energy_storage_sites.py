@@ -838,7 +838,7 @@ class ThermalEnergyStorageSites(TechCore):
     def get_existing(self):
         return 0.0
 
-    def get_needs_replacement_cap(self):
+    def calculate_replacement_cap(self):
         return 0.0
     
     def calculate_annuity_factor(self):
