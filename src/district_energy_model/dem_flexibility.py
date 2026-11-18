@@ -138,6 +138,7 @@ class BuildingInertiaFlexibility:
         self._E_vs_tot = None # actual total virtual storage (vs) capacity (selected buildings) [kWh]
         self._d_h_yr_tot = None # annual heat demand [kWh]
         self._r_tot = None # Additional heat loss rate [kWh_loss/kWh_stored] per timestep
+        self._r_ts = None # Hourly loss rate of the virtual storage [kWh_loss/kWh_stored] (see set_space_heating_demand())
         self._delta_loss_max_tot = None # [kWh] Max. additional loss from upwards flexibility
         self._delta_loss_tot = None # [kWh] Actual additional loss from upwards flexibility
         self._u_h_vs_max_tot = None # [kWh] charge limit (per timestep)  
@@ -276,6 +277,9 @@ class BuildingInertiaFlexibility:
         self._q_h_drain_tot = self._q_h_drain_tot[:n_hours]
         self._l_q_h_drain_tot = self._l_q_h_drain_tot[:n_hours]
         self._sos_drain_tot = self._sos_drain_tot[:n_hours]
+
+        if self._r_ts is not None:
+            self._r_ts = self._r_ts[:n_hours]
         
     def compute_flex_metrics(self):
         
@@ -293,6 +297,40 @@ class BuildingInertiaFlexibility:
         self._E_vs_tot = 2*self._C_tot*self._delta_T_flex*C.CONV_MJ_to_kWh
         self._delta_loss_tot = self._r_tot*0.5*self._E_vs_tot
     
+    def set_space_heating_demand(self, d_h_s):
+        """
+        Compute the hourly loss rate of the virtual storage from the hourly
+        space heating demand.
+
+        At the neutral state (storage half full) the storage loss is
+        delta_loss_tot = r_tot*0.5*E_vs_tot (= H*dT for the participating
+        buildings), and the lower limit of the heat demand is reduced by the
+        same amount. In mild hours, the space heating demand d_h_s is smaller
+        than delta_loss_tot and the lower limit can only be reduced by d_h_s
+        (domestic hot water cannot be shifted). The loss rate is therefore
+        reduced in these hours, so that the loss at the neutral state is
+        min(delta_loss_tot, d_h_s) and equals the reduction of the lower limit:
+
+            r_ts = r_tot * min(1, d_h_s / delta_loss_tot)
+
+        Parameters
+        ----------
+        d_h_s : array
+            Hourly space heating demand [kWh] (same timeframe as the
+            optimisation).
+
+        Returns
+        -------
+        None.
+        """
+        d_h_s = np.asarray(d_h_s, dtype=float)
+        delta = self._delta_loss_tot
+        if delta > 0:
+            self._r_ts = self._r_tot*np.clip(d_h_s/delta, 0.0, 1.0)
+        else:
+            # No flexible buildings: loss rate is irrelevant (no storage).
+            self._r_ts = np.full(len(d_h_s), self._r_tot)
+
     def __update_metrics_dict(self):
         
         dict_metrics = {
@@ -449,9 +487,13 @@ class BuildingInertiaFlexibility:
         return techs_dict
             
     def __compute_list_l_q_h(self):
+        # Loss in timestep t: hourly loss rate of t times the storage level of
+        # the previous timestep (as in the storage balance of the
+        # optimisation; cyclic storage: the previous timestep of the first
+        # timestep is the last timestep).
         self._list_l_q_h = []
         for i, q_h in enumerate(self._list_q_h):
-            l_q_h = np.array(q_h*self._r_tot)
+            l_q_h = np.array(np.roll(q_h, 1)*self.get_r_ts())
             self._list_l_q_h.append(l_q_h)
         self._l_q_h_tot = np.sum(self._list_l_q_h, axis=0)
         
@@ -586,6 +628,14 @@ class BuildingInertiaFlexibility:
         self.positive_zero_test(self._r_tot)
         return self._r_tot
     
+    def get_r_ts(self):
+        if self._r_ts is None:
+            raise ValueError(
+                "Hourly loss rate of the virtual storage is not set "
+                "(set_space_heating_demand())."
+                )
+        return self._r_ts
+
     def get_mcr_vs(self):
         return self._mcr_vs
     

@@ -14,6 +14,7 @@ See: https://calliope.readthedocs.io/en/stable/user/advanced_constraints.html#us
 
 from pyomo.environ import ConcreteModel, Var, Binary
 import pyomo.core as po
+from calliope.backend.pyomo.util import get_param
 import numpy as np
 
 from district_energy_model import dem_constants as C
@@ -586,6 +587,7 @@ def building_inertia_flex_constraints(
     E_vs_tot_max = building_inertia_flex.get_E_vs_tot_max()
     E_vs_tot = building_inertia_flex.get_E_vs_tot()
     r_tot = building_inertia_flex.get_r_tot()
+    r_ts = building_inertia_flex.get_r_ts() # hourly loss rate of the virtual storages
     mcr_vs = building_inertia_flex.get_mcr_vs()
     
     # d_h = energy_demand.get_d_h()
@@ -644,8 +646,13 @@ def building_inertia_flex_constraints(
                     )
                 q_h_vs_tot_i += q_h_vs_tech_i
                 
-            d_h_flex_i = d_h_flex_ll[ts_i] + q_h_vs_tot_i*r_tot
-            
+            if r_ts[ts_i] == 0:
+                # No space heating demand: no loss (the virtual storage is
+                # empty, see q_h_vs_low_demand_constraint); no constraint:
+                return po.Constraint.Skip
+
+            d_h_flex_i = d_h_flex_ll[ts_i] + q_h_vs_tot_i*r_ts[ts_i]
+
             return d_h_flex_i <= d_h_flex_ul[ts_i]
         
         return d_h_flex_upper_limit_constraint_rule
@@ -656,31 +663,37 @@ def building_inertia_flex_constraints(
             """
             Rule: On average, each virtual storage must be half full (which
             is the neutral (i.e., nominal) state without over- or underheating).
-            This ensures that at least the same amount of heat was
-            delivered as without flexibility.
+            The average is weighted by the hourly loss rate r_t and uses the
+            storage level of the previous timestep, from which the loss of
+            timestep t is computed (storage balance):
+                sum_t r_t*q_(t-1) >= 0.5*E_vs*sum_t r_t
+            At half full, the loss r_t*0.5*E_vs equals the reduction of the
+            lower limit of the heat demand (min(delta, d_h_s)). Summed over
+            all virtual storages, the heat supplied minus the heat demand
+            without flexibility is sum_t r_t*(q_(t-1) - 0.5*E_vs_tot), so
+            this rule ensures that at least the same amount of heat is
+            delivered as without flexibility. Timesteps without space heating
+            demand have r_t = 0 and are not included.
             """
             ts = backend_model.timesteps # retrieve timesteps
+            loc_tech = f'X1::virtual_storage_flex_{acr}'
+            E_vs_tech = backend_model.storage_cap[loc_tech]*energy_scaling_factor
 
-            q_h_vs_tech_sum = 0 # [kWh] sum of flexible demand
-            number_of_ts = 0.0 # [kWH] number of timesteps included in the constraint
-            # Iterate over timesteps:
-            for ts_i_, flag_ in enumerate(flex_flag):
-                if flag_:
-                    # Building inertia flexibility can be applied
-                    q_h_vs_tech_i = (
-                        backend_model
-                        .storage[f'X1::virtual_storage_flex_{acr}', ts.at(ts_i_ + 1)] # Pyomo Sets are 1-indexed
-                        *energy_scaling_factor 
-                        )
-                    q_h_vs_tech_sum += q_h_vs_tech_i
-                    number_of_ts += 1
-                elif flag_ == False:
-                    # Only small d_h_s; flexibility restricted; separate constraint (q_h_vs_low_demand_constraint)
-                    pass
-
-            E_vs_tech = backend_model.storage_cap[f'X1::virtual_storage_flex_{acr}']*energy_scaling_factor
+            lhs = 0.0 # [kWh] loss-rate-weighted sum of storage levels
+            r_sum = 0.0 # [-] sum of loss rates
+            for ts_i_ in range(ts_len):
+                if r_ts[ts_i_] == 0:
+                    continue
+                if ts_i_ > 0:
+                    q_prev = backend_model.storage[loc_tech, ts.at(ts_i_)]*energy_scaling_factor # Pyomo Sets are 1-indexed
+                elif cyclic_storage:
+                    q_prev = backend_model.storage[loc_tech, ts.at(-1)]*energy_scaling_factor
+                else:
+                    q_prev = get_param(backend_model, 'storage_initial', loc_tech)*E_vs_tech
+                lhs += r_ts[ts_i_]*q_prev
+                r_sum += r_ts[ts_i_]
                    
-            return q_h_vs_tech_sum >= 0.5*E_vs_tech*number_of_ts
+            return lhs >= 0.5*E_vs_tech*r_sum
         
         return q_h_vs_constraint_rule
     
@@ -955,11 +968,107 @@ def building_inertia_flex_constraints(
         
         return demand_share_constraint_rule
     
+    def make_virtual_storage_balance_constraint_rule(ts_i, acr):
+        
+        def virtual_storage_balance_constraint_rule(backend_model):
+            """
+            Storage balance of the virtual storage with the hourly loss rate
+            r_ts (replaces Calliope's balance_storage_constraint, which only
+            supports a constant storage_loss). Same formulation as in
+            Calliope 0.6.10 (calliope/backend/pyomo/constraints/
+            energy_balance.py, balance_storage_constraint_rule) without
+            clustering.
+            """
+            ts = backend_model.timesteps # retrieve timesteps
+            t = ts.at(ts_i + 1) # Pyomo is 1-indexed
+            loc_tech = f'X1::virtual_storage_flex_{acr}'
+            loc_tech_carrier = f'{loc_tech}::heat_vs_{acr}'
+            
+            energy_eff = get_param(backend_model, 'energy_eff', (loc_tech, t))
+            if po.value(energy_eff) == 0:
+                carrier_prod = 0
+            else:
+                carrier_prod = backend_model.carrier_prod[loc_tech_carrier, t] / energy_eff
+            carrier_con = backend_model.carrier_con[loc_tech_carrier, t] * energy_eff
+            
+            if ts_i == 0 and not cyclic_storage:
+                storage_previous_step = (
+                    get_param(backend_model, 'storage_initial', loc_tech)
+                    * backend_model.storage_cap[loc_tech]
+                    )
+            else:
+                previous_step = ts.at(-1) if ts_i == 0 else ts.at(ts_i)
+                time_resolution = po.value(backend_model.timestep_resolution[previous_step])
+                storage_previous_step = (
+                    (1 - r_ts[ts_i]) ** time_resolution
+                    ) * backend_model.storage[loc_tech, previous_step]
+            
+            return (
+                backend_model.storage[loc_tech, t]
+                == storage_previous_step - carrier_prod - carrier_con
+                )
+        
+        return virtual_storage_balance_constraint_rule
+    
+    def make_virtual_storage_initial_constraint_rule(acr):
+        
+        def virtual_storage_initial_constraint_rule(backend_model):
+            """
+            Cyclic storage: the storage level carried from the last to the
+            first timestep (after the loss of the first timestep) equals the
+            initial storage level (replaces Calliope's
+            storage_initial_constraint, which uses the constant storage_loss).
+            """
+            loc_tech = f'X1::virtual_storage_flex_{acr}'
+            final_step = backend_model.timesteps.at(-1)
+            time_resolution = po.value(backend_model.timestep_resolution[final_step])
+            return (
+                backend_model.storage[loc_tech, final_step]
+                * ((1 - r_ts[0]) ** time_resolution)
+                == get_param(backend_model, 'storage_initial', loc_tech)
+                * backend_model.storage_cap[loc_tech]
+                )
+        
+        return virtual_storage_initial_constraint_rule
+    
     
     # =========================================================================
     # Add constraints to model:
     # ------------------------
     constraint_sets = []
+    
+    # Hourly loss rate of the virtual storages: Calliope's storage balance
+    # (constant storage_loss) is replaced by the custom storage balance with
+    # r_ts:
+    backend_model_ = model._backend_model
+    if hasattr(backend_model_, 'clusters'):
+        raise NotImplementedError(
+            "Building inertia flexibility is not implemented for clustered "
+            "timeseries."
+            )
+    cyclic_storage = getattr(backend_model_, '__calliope_run_config')['cyclic_storage']
+    
+    for key, acr in flex_systems.items():
+        loc_tech = f'X1::virtual_storage_flex_{acr}'
+        for t in backend_model_.timesteps:
+            backend_model_.balance_storage_constraint[loc_tech, t].deactivate()
+        for ts_i in range(ts_len):
+            model.backend.add_constraint(
+                f"virtual_storage_balance_{acr}_ts_{ts_i}_constraint",
+                constraint_sets,
+                make_virtual_storage_balance_constraint_rule(ts_i, acr)
+                )
+        if (
+                cyclic_storage
+                and hasattr(backend_model_, 'storage_initial_constraint')
+                and loc_tech in backend_model_.storage_initial_constraint
+                ):
+            backend_model_.storage_initial_constraint[loc_tech].deactivate()
+            model.backend.add_constraint(
+                f"virtual_storage_initial_{acr}_constraint",
+                constraint_sets,
+                make_virtual_storage_initial_constraint_rule(acr)
+                )
     
     # Single constraints:
     # ------------------    

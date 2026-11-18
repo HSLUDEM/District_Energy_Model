@@ -1964,6 +1964,9 @@ class DistrictEnergyModel:
                     )
 
             delta_loss_tot = self.building_inertia_flex.get_delta_loss_tot() 
+            self.building_inertia_flex.set_space_heating_demand(
+                self.energy_demand.get_d_h_s()
+                )
             self.energy_demand.compute_d_h_flex_ll(delta_loss_tot)
             self.energy_demand.compute_d_h_flex_ul(delta_loss_tot)
             self.energy_demand.compute_d_h_s_flex_ll(delta_loss_tot)

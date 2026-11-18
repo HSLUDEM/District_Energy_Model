@@ -34,6 +34,7 @@ All notable changes to this project will be documented in this file.
 – Adjust upper and lower flexibility bounds if EV integration is <100% in optimization scenario (previously leading to an error).
 - Minor bugfixes
 - Bug in dem_tech_district_heating.py: 100% district heating share was not possible. This has been corrected. 
+- Building inertia flexibility: the loss of the virtual storage is hour-dependent, r_t = r * min(1, d_h_s / delta). At the neutral state (storage half full) the loss is min(delta, d_h_s) and equals the reduction of the heat demand lower limit. Previously, the loss was delta in every hour with space heating, also in mild hours where the lower limit could only be reduced by d_h_s, which added about 1 % extra heat per year even without using the flexibility. Calliope's storage balance of the virtual storage is replaced by a custom constraint with the hourly loss rate (Calliope 0.6 only supports a constant storage_loss). The reported virtual storage losses (l_q_h_vs_*) now follow the storage balance of the optimisation (loss in hour t from the storage level of hour t-1). The constraint "virtual storage half full on average" is weighted by the hourly loss rate and uses the storage level of the previous hour (sum r_t*q_(t-1) >= 0.5*E_vs*sum r_t); this ensures that at least the heat demand without flexibility is supplied (previously, the unweighted average allowed low storage levels in mild hours to be compensated in cold hours, which added extra heat).
 
 ### Changed
 - Compatibility with Calliope version 0.6.10 (previously 0.6.8)
