@@ -335,7 +335,7 @@ scen_techs = {
 
     'grid_export':{ # grid
         'deployment':True,
-        'kW_max': None, #Defined in grid_supply
+        'kW_max': None, # not used; the grid connection capacity is grid_supply kW_max (limits import and export)
         'tariff_mode': 'const', # 'const' or 'file'
         'co2_intensity_mode': 'const',
         'tariff_timeseries_filepath': '',

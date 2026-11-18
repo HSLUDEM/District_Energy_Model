@@ -2122,6 +2122,44 @@ def check_number(value, var_name, check_positive=False):
     return value
 
 
+def check_grid_inputs(scen_techs):
+    """
+    Check the inputs of the grid connection (grid_supply, grid_export).
+
+    - Optimisation requires grid_supply (it provides the grid connection,
+      i.e. the power line to the grid node). An error is raised if
+      optimisation is enabled and grid_supply.deployment is False.
+    - grid_export.kW_max is not used: the capacity of the grid connection is
+      grid_supply.kW_max and limits import and export. A warning is printed
+      if grid_export.kW_max is set (other than None or 'inf').
+
+    Parameters
+    ----------
+    scen_techs : dict
+        Dictionary with the scenario inputs.
+
+    Returns
+    -------
+    None
+    """
+    if (
+            scen_techs['optimisation']['enabled']
+            and not scen_techs['grid_supply']['deployment']
+            ):
+        raise ValueError(
+            "grid_supply is required for optimisation (it provides the grid "
+            "connection). Set grid_supply.deployment: True."
+            )
+
+    kW_max_export = scen_techs['grid_export'].get('kW_max')
+    if kW_max_export is not None and kW_max_export != 'inf':
+        warnings.warn(
+            f"grid_export.kW_max ({kW_max_export}) is not used. The grid "
+            "connection capacity is set by grid_supply.kW_max and limits "
+            "import and export.",
+            UserWarning,
+            stacklevel=2,
+            )
 
 
 def check_temperature_data_gaps(weather_file, years, allow_gaps=False):

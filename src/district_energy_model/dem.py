@@ -2411,6 +2411,9 @@ class DistrictEnergyModel:
         opt_active = scen_techs['optimisation']['enabled']
         pareto_active = scen_techs['optimisation']['pareto_monetary_co2']
         
+        if not toggle_load_pareto_results:
+            dem_helper.check_grid_inputs(scen_techs)
+
         if toggle_load_pareto_results:
             print("\nLoading results from file ...")
             self.load_pareto_monetary_co2(filename='pareto_results')

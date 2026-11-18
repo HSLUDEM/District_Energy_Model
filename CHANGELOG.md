@@ -34,6 +34,7 @@ All notable changes to this project will be documented in this file.
 – Adjust upper and lower flexibility bounds if EV integration is <100% in optimization scenario (previously leading to an error).
 - Minor bugfixes
 - Bug in dem_tech_district_heating.py: 100% district heating share was not possible. This has been corrected. 
+- Optimisation with `grid_supply` `deployment: False` stopped with an AttributeError. An error with a clear message is now raised at the start of the run: `grid_supply` is required for optimisation (it provides the grid connection). `grid_export` `kW_max` is not used (the grid connection capacity is `grid_supply` `kW_max`, which limits import and export); a warning is printed if it is set.
 
 ### Changed
 - Compatibility with Calliope version 0.6.10 (previously 0.6.8)
