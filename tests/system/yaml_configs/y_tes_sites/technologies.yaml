@@ -1,0 +1,5 @@
+tes_sites:
+  deployment: true
+  list_generation_mode: externally_controlled
+  generation_function_parameters:
+    list_of_tes_options: []

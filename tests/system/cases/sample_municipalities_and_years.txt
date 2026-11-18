@@ -1,0 +1,150 @@
+m261_base	{"simulation": {"district_number": 261, "save_results": true}}	
+m261_allscen	{"simulation": {"district_number": 261, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m261_opt	{"simulation": {"district_number": 261, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m261_opt_ds2050	{"simulation": {"district_number": 261, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m2701_base	{"simulation": {"district_number": 2701, "save_results": true}}	
+m2701_allscen	{"simulation": {"district_number": 2701, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m2701_opt	{"simulation": {"district_number": 2701, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m2701_opt_ds2050	{"simulation": {"district_number": 2701, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m351_base	{"simulation": {"district_number": 351, "save_results": true}}	
+m351_allscen	{"simulation": {"district_number": 351, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m351_opt	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m351_opt_ds2050	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m5586_base	{"simulation": {"district_number": 5586, "save_results": true}}	
+m5586_allscen	{"simulation": {"district_number": 5586, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m5586_opt	{"simulation": {"district_number": 5586, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m5586_opt_ds2050	{"simulation": {"district_number": 5586, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m6621_base	{"simulation": {"district_number": 6621, "save_results": true}}	
+m6621_allscen	{"simulation": {"district_number": 6621, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m6621_opt	{"simulation": {"district_number": 6621, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m6621_opt_ds2050	{"simulation": {"district_number": 6621, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m230_base	{"simulation": {"district_number": 230, "save_results": true}}	
+m230_allscen	{"simulation": {"district_number": 230, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m230_opt	{"simulation": {"district_number": 230, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m230_opt_ds2050	{"simulation": {"district_number": 230, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m2549_base	{"simulation": {"district_number": 2549, "save_results": true}}	
+m2549_allscen	{"simulation": {"district_number": 2549, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m2549_opt	{"simulation": {"district_number": 2549, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m2549_opt_ds2050	{"simulation": {"district_number": 2549, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m3808_base	{"simulation": {"district_number": 3808, "save_results": true}}	
+m3808_allscen	{"simulation": {"district_number": 3808, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m3808_opt	{"simulation": {"district_number": 3808, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m3808_opt_ds2050	{"simulation": {"district_number": 3808, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m1631_base	{"simulation": {"district_number": 1631, "save_results": true}}	
+m1631_allscen	{"simulation": {"district_number": 1631, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m1631_opt	{"simulation": {"district_number": 1631, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m1631_opt_ds2050	{"simulation": {"district_number": 1631, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m1367_base	{"simulation": {"district_number": 1367, "save_results": true}}	
+m1367_allscen	{"simulation": {"district_number": 1367, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m1367_opt	{"simulation": {"district_number": 1367, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m1367_opt_ds2050	{"simulation": {"district_number": 1367, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m6076_base	{"simulation": {"district_number": 6076, "save_results": true}}	
+m6076_allscen	{"simulation": {"district_number": 6076, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m6076_opt	{"simulation": {"district_number": 6076, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m6076_opt_ds2050	{"simulation": {"district_number": 6076, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m5482_base	{"simulation": {"district_number": 5482, "save_results": true}}	
+m5482_allscen	{"simulation": {"district_number": 5482, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m5482_opt	{"simulation": {"district_number": 5482, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m5482_opt_ds2050	{"simulation": {"district_number": 5482, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m4047_base	{"simulation": {"district_number": 4047, "save_results": true}}	
+m4047_allscen	{"simulation": {"district_number": 4047, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m4047_opt	{"simulation": {"district_number": 4047, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m4047_opt_ds2050	{"simulation": {"district_number": 4047, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m6202_base	{"simulation": {"district_number": 6202, "save_results": true}}	
+m6202_allscen	{"simulation": {"district_number": 6202, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m6202_opt	{"simulation": {"district_number": 6202, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m6202_opt_ds2050	{"simulation": {"district_number": 6202, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m3787_base	{"simulation": {"district_number": 3787, "save_results": true}}	
+m3787_allscen	{"simulation": {"district_number": 3787, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m3787_opt	{"simulation": {"district_number": 3787, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m3787_opt_ds2050	{"simulation": {"district_number": 3787, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m371_base	{"simulation": {"district_number": 371, "save_results": true}}	
+m371_allscen	{"simulation": {"district_number": 371, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m371_opt	{"simulation": {"district_number": 371, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m371_opt_ds2050	{"simulation": {"district_number": 371, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m2238_base	{"simulation": {"district_number": 2238, "save_results": true}}	
+m2238_allscen	{"simulation": {"district_number": 2238, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m2238_opt	{"simulation": {"district_number": 2238, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m2238_opt_ds2050	{"simulation": {"district_number": 2238, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m3506_base	{"simulation": {"district_number": 3506, "save_results": true}}	
+m3506_allscen	{"simulation": {"district_number": 3506, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m3506_opt	{"simulation": {"district_number": 3506, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m3506_opt_ds2050	{"simulation": {"district_number": 3506, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m708_base	{"simulation": {"district_number": 708, "save_results": true}}	
+m708_allscen	{"simulation": {"district_number": 708, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m708_opt	{"simulation": {"district_number": 708, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m708_opt_ds2050	{"simulation": {"district_number": 708, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m5568_base	{"simulation": {"district_number": 5568, "save_results": true}}	
+m5568_allscen	{"simulation": {"district_number": 5568, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m5568_opt	{"simulation": {"district_number": 5568, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m5568_opt_ds2050	{"simulation": {"district_number": 5568, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m448_base	{"simulation": {"district_number": 448, "save_results": true}}	
+m448_allscen	{"simulation": {"district_number": 448, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m448_opt	{"simulation": {"district_number": 448, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m448_opt_ds2050	{"simulation": {"district_number": 448, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m5061_base	{"simulation": {"district_number": 5061, "save_results": true}}	
+m5061_allscen	{"simulation": {"district_number": 5061, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m5061_opt	{"simulation": {"district_number": 5061, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m5061_opt_ds2050	{"simulation": {"district_number": 5061, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m3762_base	{"simulation": {"district_number": 3762, "save_results": true}}	
+m3762_allscen	{"simulation": {"district_number": 3762, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m3762_opt	{"simulation": {"district_number": 3762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m3762_opt_ds2050	{"simulation": {"district_number": 3762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m3851_base	{"simulation": {"district_number": 3851, "save_results": true}}	
+m3851_allscen	{"simulation": {"district_number": 3851, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m3851_opt	{"simulation": {"district_number": 3851, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m3851_opt_ds2050	{"simulation": {"district_number": 3851, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m6252_base	{"simulation": {"district_number": 6252, "save_results": true}}	
+m6252_allscen	{"simulation": {"district_number": 6252, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m6252_opt	{"simulation": {"district_number": 6252, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m6252_opt_ds2050	{"simulation": {"district_number": 6252, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m5391_base	{"simulation": {"district_number": 5391, "save_results": true}}	
+m5391_allscen	{"simulation": {"district_number": 5391, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m5391_opt	{"simulation": {"district_number": 5391, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m5391_opt_ds2050	{"simulation": {"district_number": 5391, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+m2391_base	{"simulation": {"district_number": 2391, "save_results": true}}	
+m2391_allscen	{"simulation": {"district_number": 2391, "save_results": true}, "scenarios": {"demand_side": true, "fossil_heater_retrofit": true, "pv_integration": true, "wind_integration": true, "nuclear_phaseout": true, "battery_energy_storage": true}}	
+m2391_opt	{"simulation": {"district_number": 2391, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}}	
+m2391_opt_ds2050	{"simulation": {"district_number": 2391, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "scenarios": {"demand_side": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2050}}}	
+wy2016_m2762_base	{"simulation": {"district_number": 2762, "save_results": true}, "_launch": {"hist_data_year": 2016}}	
+wy2016_m2762_ds2040	{"simulation": {"district_number": 2762, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2016}}	
+wy2016_m2762_opt	{"simulation": {"district_number": 2762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2016}}	
+wy2017_m2762_base	{"simulation": {"district_number": 2762, "save_results": true}, "_launch": {"hist_data_year": 2017}}	
+wy2017_m2762_ds2040	{"simulation": {"district_number": 2762, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2017}}	
+wy2017_m2762_opt	{"simulation": {"district_number": 2762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2017}}	
+wy2018_m2762_base	{"simulation": {"district_number": 2762, "save_results": true}, "_launch": {"hist_data_year": 2018}}	
+wy2018_m2762_ds2040	{"simulation": {"district_number": 2762, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2018}}	
+wy2018_m2762_opt	{"simulation": {"district_number": 2762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2018}}	
+wy2019_m2762_base	{"simulation": {"district_number": 2762, "save_results": true}, "_launch": {"hist_data_year": 2019}}	
+wy2019_m2762_ds2040	{"simulation": {"district_number": 2762, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2019}}	
+wy2019_m2762_opt	{"simulation": {"district_number": 2762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2019}}	
+wy2020_m2762_base	{"simulation": {"district_number": 2762, "save_results": true}, "_launch": {"hist_data_year": 2020}}	
+wy2020_m2762_ds2040	{"simulation": {"district_number": 2762, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2020}}	
+wy2020_m2762_opt	{"simulation": {"district_number": 2762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2020}}	
+wy2021_m2762_base	{"simulation": {"district_number": 2762, "save_results": true}, "_launch": {"hist_data_year": 2021}}	
+wy2021_m2762_ds2040	{"simulation": {"district_number": 2762, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2021}}	
+wy2021_m2762_opt	{"simulation": {"district_number": 2762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2021}}	
+wy2022_m2762_base	{"simulation": {"district_number": 2762, "save_results": true}, "_launch": {"hist_data_year": 2022}}	
+wy2022_m2762_ds2040	{"simulation": {"district_number": 2762, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2022}}	
+wy2022_m2762_opt	{"simulation": {"district_number": 2762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2022}}	
+wy2016_m351_base	{"simulation": {"district_number": 351, "save_results": true}, "_launch": {"hist_data_year": 2016}}	
+wy2016_m351_ds2040	{"simulation": {"district_number": 351, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2016}}	
+wy2016_m351_opt	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2016}}	
+wy2017_m351_base	{"simulation": {"district_number": 351, "save_results": true}, "_launch": {"hist_data_year": 2017}}	
+wy2017_m351_ds2040	{"simulation": {"district_number": 351, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2017}}	
+wy2017_m351_opt	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2017}}	
+wy2018_m351_base	{"simulation": {"district_number": 351, "save_results": true}, "_launch": {"hist_data_year": 2018}}	
+wy2018_m351_ds2040	{"simulation": {"district_number": 351, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2018}}	
+wy2018_m351_opt	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2018}}	
+wy2019_m351_base	{"simulation": {"district_number": 351, "save_results": true}, "_launch": {"hist_data_year": 2019}}	
+wy2019_m351_ds2040	{"simulation": {"district_number": 351, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2019}}	
+wy2019_m351_opt	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2019}}	
+wy2020_m351_base	{"simulation": {"district_number": 351, "save_results": true}, "_launch": {"hist_data_year": 2020}}	
+wy2020_m351_ds2040	{"simulation": {"district_number": 351, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2020}}	
+wy2020_m351_opt	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2020}}	
+wy2021_m351_base	{"simulation": {"district_number": 351, "save_results": true}, "_launch": {"hist_data_year": 2021}}	
+wy2021_m351_ds2040	{"simulation": {"district_number": 351, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2021}}	
+wy2021_m351_opt	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2021}}	
+wy2022_m351_base	{"simulation": {"district_number": 351, "save_results": true}, "_launch": {"hist_data_year": 2022}}	
+wy2022_m351_ds2040	{"simulation": {"district_number": 351, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2022}}	
+wy2022_m351_opt	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2022}}	

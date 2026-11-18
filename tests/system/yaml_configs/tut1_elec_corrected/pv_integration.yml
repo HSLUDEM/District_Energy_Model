@@ -1,0 +1,2 @@
+potential_integration_factor:
+    solar_pvrooftop: [0.8, 0.8, 0.8, 0.8]

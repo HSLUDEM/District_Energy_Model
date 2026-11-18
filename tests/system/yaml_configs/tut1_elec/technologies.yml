@@ -1,0 +1,9 @@
+oil_boiler:
+    replacement_factor: 0.8
+gas_boiler:
+    replacement_factor: 0.8
+solar_pv:
+    potential_integration_factor: 0.8
+tes_decentralised:
+    deployment: true
+    capacity_kWh: 20000000

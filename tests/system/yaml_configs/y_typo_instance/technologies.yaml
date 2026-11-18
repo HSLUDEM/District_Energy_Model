@@ -1,0 +1,3 @@
+heat_pump_cp:
+  instanc_2:
+    deployment: true

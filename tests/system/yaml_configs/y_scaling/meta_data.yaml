@@ -1,0 +1,6 @@
+custom_district:
+  implemented: true
+  EGID_List: [391740, 391741, 391742, 391743, 391744, 391745, 391746, 391747, 391748, 391749, 391750, 391751, 391752, 391753, 391754, 391755, 391756, 391757, 391758, 391759, 391760, 391761, 391762, 391763, 391764]
+  custom_district_name: ys
+  scaling_factors:
+    space_heating_demand_estimation_kWh: 2.0

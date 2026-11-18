@@ -1,0 +1,42 @@
+wy2016_m2762_base	{"simulation": {"district_number": 2762, "save_results": true}, "_launch": {"hist_data_year": 2016}}	
+wy2016_m2762_ds2040	{"simulation": {"district_number": 2762, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2016}}	
+wy2016_m2762_opt	{"simulation": {"district_number": 2762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2016}}	
+wy2017_m2762_base	{"simulation": {"district_number": 2762, "save_results": true}, "_launch": {"hist_data_year": 2017}}	
+wy2017_m2762_ds2040	{"simulation": {"district_number": 2762, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2017}}	
+wy2017_m2762_opt	{"simulation": {"district_number": 2762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2017}}	
+wy2018_m2762_base	{"simulation": {"district_number": 2762, "save_results": true}, "_launch": {"hist_data_year": 2018}}	
+wy2018_m2762_ds2040	{"simulation": {"district_number": 2762, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2018}}	
+wy2018_m2762_opt	{"simulation": {"district_number": 2762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2018}}	
+wy2019_m2762_base	{"simulation": {"district_number": 2762, "save_results": true}, "_launch": {"hist_data_year": 2019}}	
+wy2019_m2762_ds2040	{"simulation": {"district_number": 2762, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2019}}	
+wy2019_m2762_opt	{"simulation": {"district_number": 2762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2019}}	
+wy2020_m2762_base	{"simulation": {"district_number": 2762, "save_results": true}, "_launch": {"hist_data_year": 2020}}	
+wy2020_m2762_ds2040	{"simulation": {"district_number": 2762, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2020}}	
+wy2020_m2762_opt	{"simulation": {"district_number": 2762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2020}}	
+wy2021_m2762_base	{"simulation": {"district_number": 2762, "save_results": true}, "_launch": {"hist_data_year": 2021}}	
+wy2021_m2762_ds2040	{"simulation": {"district_number": 2762, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2021}}	
+wy2021_m2762_opt	{"simulation": {"district_number": 2762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2021}}	
+wy2022_m2762_base	{"simulation": {"district_number": 2762, "save_results": true}, "_launch": {"hist_data_year": 2022}}	
+wy2022_m2762_ds2040	{"simulation": {"district_number": 2762, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2022}}	
+wy2022_m2762_opt	{"simulation": {"district_number": 2762, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2022}}	
+wy2016_m351_base	{"simulation": {"district_number": 351, "save_results": true}, "_launch": {"hist_data_year": 2016}}	
+wy2016_m351_ds2040	{"simulation": {"district_number": 351, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2016}}	
+wy2016_m351_opt	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2016}}	
+wy2017_m351_base	{"simulation": {"district_number": 351, "save_results": true}, "_launch": {"hist_data_year": 2017}}	
+wy2017_m351_ds2040	{"simulation": {"district_number": 351, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2017}}	
+wy2017_m351_opt	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2017}}	
+wy2018_m351_base	{"simulation": {"district_number": 351, "save_results": true}, "_launch": {"hist_data_year": 2018}}	
+wy2018_m351_ds2040	{"simulation": {"district_number": 351, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2018}}	
+wy2018_m351_opt	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2018}}	
+wy2019_m351_base	{"simulation": {"district_number": 351, "save_results": true}, "_launch": {"hist_data_year": 2019}}	
+wy2019_m351_ds2040	{"simulation": {"district_number": 351, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2019}}	
+wy2019_m351_opt	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2019}}	
+wy2020_m351_base	{"simulation": {"district_number": 351, "save_results": true}, "_launch": {"hist_data_year": 2020}}	
+wy2020_m351_ds2040	{"simulation": {"district_number": 351, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2020}}	
+wy2020_m351_opt	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2020}}	
+wy2021_m351_base	{"simulation": {"district_number": 351, "save_results": true}, "_launch": {"hist_data_year": 2021}}	
+wy2021_m351_ds2040	{"simulation": {"district_number": 351, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2021}}	
+wy2021_m351_opt	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2021}}	
+wy2022_m351_base	{"simulation": {"district_number": 351, "save_results": true}, "_launch": {"hist_data_year": 2022}}	
+wy2022_m351_ds2040	{"simulation": {"district_number": 351, "save_results": true}, "scenarios": {"demand_side": true, "wind_integration": true}, "demand_side": {"simulation_year": {"type": "future", "future_year": 2040}}, "_launch": {"hist_data_year": 2022}}	
+wy2022_m351_opt	{"simulation": {"district_number": 351, "save_results": true}, "optimisation": {"enabled": true, "solver_option_Threads": 4}, "_launch": {"hist_data_year": 2022}}	
