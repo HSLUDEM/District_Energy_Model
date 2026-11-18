@@ -764,7 +764,7 @@ scen_techs = {
         'interest_rate':interest_rate,   
         },
 
-    'heat_pump_cp': {'instance_1': { # hpcp, instance names _have_ to start with instance_
+    'heat_pump_cp':{ # hpcp #The parameters of heat_pump_cp can be lists to define several instances (one list entry per instance)! #All lists must have the same length; single values apply to all instances
         # 'deployment':True,
         'deployment':False,
         'kW_th_max': 'inf',#tech_cap_default,
@@ -783,7 +783,6 @@ scen_techs = {
         'cop_hot_temperature': 'constant_temperature',
         'cop_hot_temperature_constant_temperature_value': 70,
         'quality_factor': 0.5
-        }, 
         },
 
     'other':{ # other
