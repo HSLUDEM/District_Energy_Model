@@ -1,0 +1,8 @@
+heat_pump_cp:
+  instance_2:
+    deployment: true
+    cop_mode: constant
+    cop_constant_value: 4.0
+district_heating:
+  heat_sources:
+    heat_pump_cp: true
