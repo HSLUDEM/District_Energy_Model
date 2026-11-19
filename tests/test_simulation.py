@@ -848,3 +848,64 @@ def test_not_operated_technologies_cost_nothing_in_simulation(run_dem):
     assert cost_overview(model)['monetary']['total'] == pytest.approx(cost_overview(base)['monetary']['total'], rel=1e-12)
     pd.testing.assert_frame_equal(model.hourly_results()[base.hourly_results().columns], base.hourly_results(),
                                   check_dtype=False)
+
+
+def _total_renovation_only(year, **demand_side):
+    return {'scenarios': {'demand_side': True},
+            'demand_side': {'simulation_year': {'type': 'future', 'future_year': year},
+                            'heat_generator_renovation': False, 'total_renovation': True,
+                            'use_constant_total_renovation_rate': True, **demand_side}}
+
+
+@requires_data
+def test_total_renovation_without_generator_renovation_existing_is_remaining_stock(run_dem):
+    # A13: with total renovation but without heat generator renovation, no heat generator reaches its
+    # end of life (no one-to-one replacement). The capex-free existing capacity is the share of the
+    # old heat generators left after total renovation, applied to the peak after the demand side
+    # scenario; heat generators reassigned by total renovation are new capacity at full capex.
+    year = 2040
+    model = run_dem(_total_renovation_only(year), days=365)
+    trf = _constant_total_renovation_flag(model, year)
+    assert 0 < trf.max() < 1
+    # Without end of life, old stock = replacement + existing share of the A6 split (1 - trf per building):
+    rates, existing = _expected_generator_rates(model, year, trf)
+    ds = model.scen_techs['demand_side']
+    assert all(v == 0.0 for v in ds['heat_generator_replacement_rates'].values())
+    expected = {k: rates[k] + existing[k] for k in rates}
+    assert ds['heat_generator_existing_rates'] == pytest.approx(expected, rel=1e-9, abs=1e-12)
+    costs = model.total_cost()['monetary_breakdown']
+    for k, tech in [('ob', 'oil_boiler'), ('gb', 'gas_boiler'), ('wb', 'wood_boiler'), ('hp', 'heat_pump')]:
+        t = model.tech_instances[tech]
+        peak = t.get_output().max()
+        ex = expected[f'v_h_{k}']
+        assert 0.0 < ex < 1.0, tech  # reassigned heat generators are new
+        assert t.get_replacement_reference_peak() == pytest.approx(peak, rel=1e-9)
+        assert t.needs_replacement == 0.0, tech
+        assert t.existing == pytest.approx(ex * peak, rel=1e-9), tech
+        assert costs[tech]['annualized_capex'] > 0, tech  # new heat generators in renovated buildings
+
+
+@requires_data
+def test_total_renovation_without_generator_renovation_fossil_heater_retrofit(run_dem):
+    # A13: the fossil heater retrofit (factor f) removes old heaters: existing rate e' = max(e - f, 0).
+    f = 0.3
+    model = run_dem(_total_renovation_only(2040) | {
+        'scenarios': {'demand_side': True, 'fossil_heater_retrofit': True},
+        'fossil_heater_retrofit': {'oil_boiler_replacement_factor': f, 'gas_boiler_replacement_factor': f,
+                                   'electric_boiler_replacement_factor': f}})
+    ds = model.scen_techs['demand_side']
+    for k, tech in [('ob', 'oil_boiler'), ('gb', 'gas_boiler')]:
+        t = model.tech_instances[tech]
+        e = ds['heat_generator_existing_rates'][f'v_h_{k}']
+        assert t.get_replacement_rate() == 0.0
+        assert t.get_existing_rate() == pytest.approx(max(e - f, 0.0), rel=1e-12), tech
+        assert t.existing == pytest.approx(max(e - f, 0.0) * t.get_replacement_reference_peak(), rel=1e-9), tech
+
+
+@requires_data
+def test_without_total_renovation_existing_is_base_peak(run_dem):
+    # Without total renovation and without heat generator renovation nothing changes (A13 scope).
+    cfg = _total_renovation_only(2040, total_renovation=False)
+    model = run_dem(cfg)
+    assert 'heat_generator_existing_rates' not in model.scen_techs['demand_side']
+    assert model.tech_instances['oil_boiler'].get_existing_rate() is None

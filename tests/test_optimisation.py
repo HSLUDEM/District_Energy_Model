@@ -698,3 +698,27 @@ def test_cost_module_uses_maximum_and_forced_capacity_of_storages(run_dem):
     assert model.tech_instances['tes'].get_cap() == pytest.approx(1e5, rel=1e-6)
     assert costs['tes']['annualized_capex'] > 0
     assert cost_overview(model)['monetary']['total'] == pytest.approx(model.total_cost()['objective']['total'], rel=1e-6, abs=1)
+
+
+@requires_data
+@requires_solver
+def test_total_renovation_without_generator_renovation_only_remaining_stock_capex_free(run_dem):
+    # A13: in optimisations only the old heat generators left after total renovation are capex-free
+    # (the reassigned demand goes to 'other', so the existing share of each type is 1, applied to the
+    # peak after the demand side scenario); before, the base peak incl. removed generators was free.
+    def cfg(total_renovation):
+        return {'scenarios': {'demand_side': True},
+                'demand_side': {'simulation_year': {'type': 'future', 'future_year': 2040},
+                                'heat_generator_renovation': False, 'total_renovation': total_renovation,
+                                'use_constant_total_renovation_rate': True},
+                'optimisation': OPT}
+    model = run_dem(cfg(True), days=2)
+    model_no_renovation = run_dem(cfg(False), days=2)
+    for tech in ['oil_boiler', 'gas_boiler', 'wood_boiler']:
+        t = model.tech_instances[tech]
+        zero_capex, one_to_one, _ = t.get_replacement_caps()
+        assert t.get_existing_rate() == pytest.approx(1.0, rel=1e-12), tech
+        assert one_to_one == 0.0, tech
+        assert zero_capex == pytest.approx(t.get_replacement_reference_peak(), rel=1e-9), tech
+        base_zero_capex, _, _ = model_no_renovation.tech_instances[tech].get_replacement_caps()
+        assert zero_capex < 0.95 * base_zero_capex, tech
