@@ -712,6 +712,9 @@ def test_short_demand_side_simulation_equals_first_days_of_full_year(run_dem, de
     assert short['u_e_hp'].sum() == pytest.approx(full['u_e_hp'].sum(), rel=1e-9)
     cols = [c for c in short.columns if c in full.columns]
     assert set(cols) == set(short.columns)
+    # A42: local wood is a budget over the simulated period (pro rata in short runs), so the
+    # split of the wood demand into local and imported wood depends on number_of_days.
+    cols = [c for c in cols if c not in ('s_wd', 's_wd_rem', 'm_wd', 'm_co2_wd', 'v_co2_wd_local')]
     np.testing.assert_allclose(short[cols].to_numpy(float), full[cols].to_numpy(float), rtol=1e-9, atol=1e-6)
 
 
@@ -974,3 +977,40 @@ def test_central_heat_pump_cop_without_spf_adjustment_not_recomputed(run_dem, tm
     (inst,) = dem_helper.get_heat_pump_cp_instances(model.tech_instances)
     expected = cop_values if cop_mode == 'from_file' else np.full(8760, 3.2)
     np.testing.assert_allclose(inst.get_cop(), expected, rtol=1e-12)
+
+
+def _wood_supply(model):
+    s = model.supply
+    return (np.asarray(s.get_s_wd_pot(), dtype=float), np.asarray(s.get_s_wd(), dtype=float),
+            np.asarray(s.get_s_wd_rem(), dtype=float), np.asarray(s.get_m_wd(), dtype=float))
+
+
+@requires_data
+def test_local_wood_is_an_annual_budget_in_simulations(run_dem):
+    # A42: local wood is storable; over the full year the demand (2.39 GWh) is below
+    # the local potential (2.93 GWh), so no wood is imported (before: 0.73 GWh
+    # imported in winter while 1.27 GWh local wood stayed unused).
+    model = run_dem(days=365)
+    pot, s_wd, rem, m_wd = _wood_supply(model)
+    u_wd = np.asarray(model.tech_instances['wood_boiler'].get_u_wd(), dtype=float)
+    assert u_wd.sum() < pot.sum()
+    assert m_wd.sum() == pytest.approx(0.0, abs=1e-6)
+    assert s_wd == pytest.approx(u_wd, rel=1e-12)
+    assert (s_wd > pot + 1e-9).any()  # local wood shifted to winter hours
+    assert (rem >= 0).all()
+    assert rem.sum() == pytest.approx(pot.sum() - s_wd.sum(), rel=1e-9)
+
+
+@requires_data
+def test_local_wood_budget_exceeded_constant_local_share(run_dem):
+    # A42: in a winter week the demand exceeds the (pro-rata) budget; the budget is
+    # used completely, with the same local share in every hour.
+    model = run_dem(days=7)
+    pot, s_wd, rem, m_wd = _wood_supply(model)
+    u_wd = np.asarray(model.tech_instances['wood_boiler'].get_u_wd(), dtype=float)
+    assert u_wd.sum() > pot.sum()
+    assert s_wd.sum() == pytest.approx(pot.sum(), rel=1e-9)
+    assert s_wd + m_wd == pytest.approx(u_wd, rel=1e-9)
+    share = pot.sum() / u_wd.sum()
+    assert s_wd == pytest.approx(u_wd * share, rel=1e-9)
+    assert rem == pytest.approx(np.zeros_like(rem), abs=1e-6)

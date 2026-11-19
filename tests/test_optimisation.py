@@ -751,3 +751,24 @@ def test_total_renovation_without_generator_renovation_only_remaining_stock_cape
         assert zero_capex == pytest.approx(t.get_replacement_reference_peak(), rel=1e-9), tech
         base_zero_capex, _, _ = model_no_renovation.tech_instances[tech].get_replacement_caps()
         assert zero_capex < 0.95 * base_zero_capex, tech
+
+
+@requires_data
+@requires_solver
+def test_local_wood_is_an_annual_budget_in_optimisations(run_dem):
+    # A42: without wood import and without wood storage, wood boilers can use local
+    # wood above the flat hourly potential, as long as the budget of the period is kept
+    # (before: infeasible, the hourly demand peaks exceed 1/8760 of the potential).
+    model = run_dem({'optimisation': OPT,
+                     'supply': {'wood_import': False},
+                     'wood_boiler': {'fixed_demand_share': True, 'fixed_demand_share_val': 0.01}})
+    s = model.supply
+    pot = np.asarray(s.get_s_wd_pot(), dtype=float)
+    s_wd = np.asarray(s.get_s_wd(), dtype=float)
+    rem = np.asarray(s.get_s_wd_rem(), dtype=float)
+    assert s_wd.sum() > 0
+    assert s_wd.sum() <= pot.sum() * (1 + 1e-6)
+    assert (s_wd > pot * (1 + 1e-6)).any()
+    assert (rem >= 0).all()
+    assert rem.sum() == pytest.approx(pot.sum() - s_wd.sum(), rel=1e-6, abs=1e-3)
+    assert cost_overview(model)['monetary']['total'] == pytest.approx(model.total_cost()['objective']['total'], rel=1e-6, abs=1)
