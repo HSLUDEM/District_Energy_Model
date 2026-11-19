@@ -1283,6 +1283,12 @@ class DistrictEnergyModel:
                 n_days=n_days_full
                 )
 
+            # Central heat pumps with cop_mode 'from_file_adjusted_to_spf':
+            # the SPF adjustment is weighted with the heat demand profile,
+            # which has just been recomputed (A36):
+            for hpcp_inst in dem_helper.get_heat_pump_cp_instances(self.tech_instances):
+                hpcp_inst.recompute_cop_for_heat_profile(self.energy_demand._d_h_profile)
+
 
             #Save the replacement and existing rates of the heat generators in the tech instances.
             #They are applied to the peak output after all scenarios (incl. fossil_heater_retrofit),

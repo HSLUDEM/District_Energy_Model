@@ -134,6 +134,23 @@ class HeatPumpCP(HeatPumpCore):
         self._cop = self._cop[:n_hours]
         self._temperature_based_cop = init_vals.copy()
 
+    def recompute_cop_for_heat_profile(self, d_h_profile):
+        """
+        Recompute the COP timeseries for a new heat demand profile (e.g. after
+        the demand-side scenario has recomputed the heat demand). Only the
+        cop_mode 'from_file_adjusted_to_spf' depends on the heat demand
+        profile; in all other modes the COP is left unchanged. The length of
+        the existing COP timeseries is kept.
+
+        Returns True if the COP was recomputed.
+        """
+        if self._cop_mode != 'from_file_adjusted_to_spf':
+            return False
+        n_hours = len(self._cop)
+        self.compute_cop_timeseries(np.asarray(d_h_profile, dtype=float))
+        self._cop = self._cop[:n_hours]
+        return True
+
     def reduce_timeframe(self, n_days):
         """
         Reduce the hourly timeseries to the first n days.
