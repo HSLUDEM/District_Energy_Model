@@ -158,6 +158,54 @@ class TechCore():
         elif hasattr(self, 'maintenance_cost'):
             return self.maintenance_cost*self.get_output().max()
 
+    def set_replacement_rates(self, replacement_rate, existing_rate, reference_peak):
+        """
+        Heat generator renovation (demand_side.heat_generator_renovation):
+        set the shares of the old heat generators, used by
+        apply_replacement_to_remaining_stock() (see
+        demand_side.heat_generator_replacement_rates / _existing_rates).
+        Each heat generator only serves its own building, so the shares refer
+        to the heat demand of this heat generator type after the demand side
+        scenario, and are applied to its peak output at that point
+        (reference_peak). Output added by later scenarios is new capacity.
+
+        replacement_rate: share of the reference peak served by old heat
+            generators at the end of their lifetime (one-to-one replacement
+            in the same building).
+        existing_rate: share of the reference peak served by old heat
+            generators that keep running (existing capacity without capex).
+        reference_peak: peak output after the demand side scenario [kW].
+        """
+        self._replacement_rate = float(replacement_rate)
+        self._existing_rate = float(existing_rate)
+        self._replacement_reference_peak = max(float(reference_peak), 0.0)
+
+    def get_replacement_rate(self):
+        return getattr(self, '_replacement_rate', None)
+
+    def get_existing_rate(self):
+        return getattr(self, '_existing_rate', None)
+
+    def get_replacement_reference_peak(self):
+        return getattr(self, '_replacement_reference_peak', None)
+
+    def apply_replacement_to_remaining_stock(self):
+        """
+        Heat generator renovation: set the old stock of this heat generator
+        type (called once, before calculate_replacement_cap(), see
+        dem_costs.get_replacement_capacities):
+        - one-to-one replacement: replacement rate * reference peak,
+        - existing without capex: existing rate * reference peak,
+        - any peak output above that is new capacity.
+        calculate_replacement_cap() expects the old stock (existing +
+        replacement) in self.existing and the replaced part in the power up
+        for replacement. Techs without replacement rates are left unchanged.
+        """
+        if not hasattr(self, '_replacement_rate') or not hasattr(self, 'existing'):
+            return
+        self._power_up_for_replacement = self._replacement_rate*self._replacement_reference_peak
+        self.existing = (self._replacement_rate + self._existing_rate)*self._replacement_reference_peak
+
 
     # def initialise_zero(self, variables, n_days):
     #     n_hours = n_days*24
@@ -186,13 +234,15 @@ class TechCore():
         raise AttributeError(f"No storage or flow variable found in the technology object {self}")
     
     def get_v_max(self, debug=False):
+        # Maximum capacity: the first of these attributes the tech has, else 'inf'.
+        # Same unit as self.existing (get_output().max()): kW for generators,
+        # kWh for storages (_cap; get_output() returns the storage level).
         for attr in ['_v_h_max', 'v_max', 'kw_max', 'kW_el_max', '_cap', '_p_max']:
             if hasattr(self, attr):
                 return getattr(self, attr)
-            else: 
-                if debug:
-                    warnings.warn(f"No max_capacity attribute found returning 'inf' for object {self}")
-                return 'inf'
+        if debug:
+            warnings.warn(f"No max_capacity attribute found returning 'inf' for object {self}")
+        return 'inf'
     
     def get_power_up_for_replacement(self):
         if hasattr(self, '_power_up_for_replacement'):
@@ -209,11 +259,26 @@ class TechCore():
     def get_existing(self):
         self.existing = self.get_output().max()
 
-    def get_needs_replacement_cap(self, debug=False):
+    def calculate_replacement_cap(self, debug=False):
+        """
+        Split the existing capacity into a capex-free part and a part that
+        needs one-to-one replacement, and compute the capacity left for new
+        installations.
+
+        The results are stored in self.existing (overwritten with the
+        capex-free part), self.needs_replacement and self.cap_new, and the
+        returned triple is kept for get_replacement_caps().
+
+        Must be called only once per scenario (see
+        dem_costs.get_replacement_capacities): it reads self.existing and
+        overwrites it, so a second call would subtract the replacement
+        share again. Use get_replacement_caps() to read the results.
+        """
         if hasattr(self, 'existing'):
             energy_cap_old = self.existing
         else:
-            return 0,0,self.get_v_max()
+            self._replacement_caps = (0, 0, self.get_v_max())
+            return self._replacement_caps
         needs_replacement = self.get_power_up_for_replacement()
 
         energy_cap_zero_capex = energy_cap_old-needs_replacement if energy_cap_old>=needs_replacement else 0.0
@@ -242,6 +307,7 @@ class TechCore():
         self.existing = energy_cap_zero_capex
         self.needs_replacement = cap_one_to_one_replacement
         self.cap_new = cap_new
+        self._replacement_caps = (energy_cap_zero_capex, cap_one_to_one_replacement, cap_new)
 
         if debug:
             print(f"Energy cap old: {energy_cap_old}")
@@ -252,3 +318,16 @@ class TechCore():
             print(f"Cap new: {cap_new}")
 
         return energy_cap_zero_capex, cap_one_to_one_replacement, cap_new
+
+    def get_replacement_caps(self):
+        """
+        Return the result of the (single) call of calculate_replacement_cap():
+        (energy_cap_zero_capex, cap_one_to_one_replacement, cap_new).
+        """
+        if not hasattr(self, '_replacement_caps'):
+            raise RuntimeError(
+                f"Replacement capacities of {type(self).__name__} have not "
+                "been computed yet (call calculate_replacement_cap() once, "
+                "see dem_costs.get_replacement_capacities)."
+                )
+        return self._replacement_caps

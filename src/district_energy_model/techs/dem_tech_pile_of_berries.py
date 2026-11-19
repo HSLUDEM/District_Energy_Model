@@ -144,6 +144,7 @@ class PileOfBerries(TechCore):
         self._l_u_jam = self._l_u_jam[:n_hours]
         self._l_v_jam = self._l_v_jam[:n_hours]
         self._l_q_jam = self._l_q_jam[:n_hours]
+        self.jam = self.jam[:n_hours]
         self._sos = self._sos[:n_hours]
         
     def initialise_zero(self, n_days):

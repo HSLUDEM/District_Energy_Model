@@ -887,7 +887,6 @@ class CalliopeOptimiser:
             'steam_turbine': 'heat_st',
             'tes': 'heat_tes',
             'waste_to_energy': 'heat_wte',
-            'heat_pump_cp': 'heat_hpcp',
             'heat_pump_cp_lt': 'heat_hpcplt',
             'oil_boiler_cp': 'heat_obcp',
             'electric_heater_cp': 'heat_ehcp',
@@ -899,6 +898,9 @@ class CalliopeOptimiser:
         for tech, carrier in dhn_carriers.items():
             if tech in self.tech_list:
                 keys['d_h_unmet_dhn'].append('X1::'+carrier)
+        # All central heat pump instances share the carrier heat_hpcp:
+        if self.heat_pump_cp_deployed:
+            keys['d_h_unmet_dhn'].append('X1::heat_hpcp')
 
         return keys
 
@@ -2483,7 +2485,7 @@ class CalliopeOptimiser:
         # Add user-selected techologies:
         # =============================
         if 'heat_pump' in self.tech_list:
-            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_heat_pump.get_needs_replacement_cap()
+            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_heat_pump.get_replacement_caps()
 
             techs_dict, additional_techs_label = self.tech_heat_pump.create_techs_dict(
                 techs_dict, 
@@ -2520,7 +2522,7 @@ class CalliopeOptimiser:
             self.tech_list_new.append('heat_pump_new')
 
         if 'electric_heater' in self.tech_list:
-            energy_cap_eh, needs_replacement, _ = self.tech_electric_heater.get_needs_replacement_cap()
+            energy_cap_eh, needs_replacement, _ = self.tech_electric_heater.get_replacement_caps()
         
             techs_dict = self.tech_electric_heater.create_techs_dict(
                     techs_dict, 
@@ -2535,7 +2537,7 @@ class CalliopeOptimiser:
            
         if 'oil_boiler' in self.tech_list:
 
-            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_oil_boiler.get_needs_replacement_cap()
+            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_oil_boiler.get_replacement_caps()
 
             techs_dict = self.tech_oil_boiler.create_techs_dict(
                 techs_dict, 
@@ -2571,7 +2573,7 @@ class CalliopeOptimiser:
                  
         if 'gas_boiler' in self.tech_list:
 
-            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_gas_boiler.get_needs_replacement_cap()
+            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_gas_boiler.get_replacement_caps()
 
             techs_dict = self.tech_gas_boiler.create_techs_dict(
                 techs_dict, 
@@ -2608,7 +2610,7 @@ class CalliopeOptimiser:
            
         if 'wood_boiler' in self.tech_list:
             
-            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_wood_boiler.get_needs_replacement_cap()
+            energy_cap_zero_capex, cap_one_to_one_replacement, cap_new = self.tech_wood_boiler.get_replacement_caps()
 
             techs_dict = self.tech_wood_boiler.create_techs_dict(
                 techs_dict, 
@@ -2796,7 +2798,7 @@ class CalliopeOptimiser:
             self.tech_list_new.append('wind_power_new')
             
         if 'hydro_power' in self.tech_list:
-            energy_cap, _ , _ = self.tech_hydro_power.get_needs_replacement_cap()
+            energy_cap, _ , _ = self.tech_hydro_power.get_replacement_caps()
             
             techs_dict = self.tech_hydro_power.create_techs_dict(
                 techs_dict=techs_dict,
@@ -3658,6 +3660,22 @@ class CalliopeOptimiser:
         
         return run_dict
     
+    def __boiler_share_techs(self, tech):
+        """
+        Return all units of a decentralised boiler (existing, one-to-one
+        replacement, new) that exist in the model, for its fixed demand
+        share. Calliope groups must not list techs that do not exist.
+        """
+        units = [
+            f"{tech}_old",
+            f"{tech}_one_to_one_replacement",
+            f"{tech}_new",
+            ]
+        return [
+            unit for unit in units
+            if unit in self.tech_list_old or unit in self.tech_list_new
+            ]
+
     # def __create_group_constraints_dict(self, rerun_eps=False, eps_n='inf'):
     def __create_group_constraints_dict(self):
         
@@ -3797,7 +3815,7 @@ class CalliopeOptimiser:
         if self.ob_fixed_demand_share:
             group_constraints_dict['ob_demand_share'] = None
             group_constraints_dict['ob_demand_share'] = {
-                'techs':['oil_boiler_old', 'oil_boiler_new'],
+                'techs':self.__boiler_share_techs('oil_boiler'),
                 'locs':['X1', 'New_Techs'],
                 'demand_share_per_timestep_equals':{
                             'heat':self.ob_fixed_demand_share_val ,
@@ -3807,7 +3825,7 @@ class CalliopeOptimiser:
         if self.gb_fixed_demand_share:
             group_constraints_dict['gb_demand_share'] = None
             group_constraints_dict['gb_demand_share'] = {
-                'techs':['gas_boiler_old', 'gas_boiler_new'],
+                'techs':self.__boiler_share_techs('gas_boiler'),
                 'locs':['X1', 'New_Techs'],
                 'demand_share_per_timestep_equals':{
                             'heat':self.gb_fixed_demand_share_val ,
@@ -3817,7 +3835,7 @@ class CalliopeOptimiser:
         if self.wb_fixed_demand_share:
             group_constraints_dict['wb_demand_share'] = None
             group_constraints_dict['wb_demand_share'] = {
-                'techs':['wood_boiler_old', 'wood_boiler_new'],
+                'techs':self.__boiler_share_techs('wood_boiler'),
                 'locs':['X1', 'New_Techs'],
                 'demand_share_per_timestep_equals':{
                             'heat':self.wb_fixed_demand_share_val ,

@@ -236,3 +236,8 @@ class HydroPower(TechCore):
     
 
     
+    def get_installed_cap(self):
+        # The existing plants are kept (in the optimisation: energy_cap_equals the
+        # existing capacity, i.e. the annual peak), even if the simulated days do
+        # not use them fully:
+        return max(self.get_output().max(), getattr(self, 'existing', 0.0))

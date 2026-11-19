@@ -29,6 +29,23 @@ DENSITY_oil_kgpl = 0.9 # Density of oil [kg/l]
 T_base_new = 12.0 # Base temperature for new buildings [°C]
 T_base_old = 15.0 # Base temperature for old buildings [°C]
 
+# Old/new classification by building period (GWR code GBAUP): buildings with
+# GBAUP <= GBAUP_OLD_MAX (built before 1981) are 'old' (T_base_old), the others
+# 'new' (T_base_new). Buildings without a building period count as old, i.e. as
+# if built before 1919 (oldest category 8011; conservative assumption).
+GBAUP_OLD_MAX = 8015
+
+# GWR building period classes (GBAUP): first construction year (GBAUJ) of each
+# class. 8011: before 1919, 8012: 1919-1945, ..., 8023: 2016 and later
+# (checked against the master data: no building with both GBAUJ and GBAUP
+# outside these limits). Used to set GBAUP for buildings without it
+# (dem_demand.fill_building_period); buildings without GBAUJ get GBAUP_OLDEST.
+GBAUP_FIRST_YEAR = {
+    8012: 1919, 8013: 1946, 8014: 1961, 8015: 1971, 8016: 1981, 8017: 1986,
+    8018: 1991, 8019: 1996, 8020: 2001, 8021: 2006, 8022: 2011, 8023: 2016,
+    }
+GBAUP_OLDEST = 8011
+
 
 # -----------------------------------------------------------------------------
 # Grid import
@@ -86,6 +103,10 @@ NEG_ACC_REL = 1e-6 # accepted negative values relative to the largest absolute v
 
 # Accepted share of unmet demand in optimisation (annual unmet demand / annual demand):
 UNMET_SHARE_ACC = 1e-3
+
+# Accepted relative difference between the annual space heating demand of all
+# buildings and the sum of the old and new building groups (compute_d_h_yr):
+D_H_S_SPLIT_REL_ACC = 1e-6
 
 # Accepted constraint violation (one timestep) by solver:
 MAX_VIOLATION_kWh = 0.05 # 1e-6

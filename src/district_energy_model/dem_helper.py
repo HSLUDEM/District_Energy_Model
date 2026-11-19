@@ -11,6 +11,7 @@ import numpy as np
 # import sys
 import os
 import math
+import warnings
 import re
 import yaml
 import warnings
@@ -39,6 +40,22 @@ _ConfigLoader.add_implicit_resolver(
     |\.(?:nan|NaN|NAN))$''', re.X),
     list('-+0123456789.'))
 
+def get_heat_pump_cp_instances(tech_instances):
+    """
+    Return all central heat pump instances (HeatPumpCP) in tech_instances.
+
+    Central heat pumps can have several instances, stored under the keys
+    'heat_pump_cp_<instance key>' (e.g. 'heat_pump_cp_instance_1'), never
+    under 'heat_pump_cp'. The low-temperature central heat pump
+    ('heat_pump_cp_lt', class HeatPumpCPLT) is a separate tech and is not
+    included.
+    """
+    from district_energy_model.techs.dem_tech_heat_pump_cp import HeatPumpCP
+    return [
+        inst for inst in tech_instances.values()
+        if isinstance(inst, HeatPumpCP)
+        ]
+
 def _normalise_inf(value):
     """
     Return value with infinite floats replaced by 'inf', the notation for
@@ -58,9 +75,7 @@ def _add_new_config_key(dst, tmpl, key):
     Check whether a key that does not exist in scen_techs may be added.
 
     Allowed are any keys in a dict that is empty by default (e.g.
-    meta_data.custom_district.scaling_factors) and new instances of techs
-    with several instances (e.g. heat_pump_cp.instance_2). New instances
-    are initialised with the default values of instance_1 and added to dst.
+    meta_data.custom_district.scaling_factors).
 
     Parameters
     ----------
@@ -76,26 +91,54 @@ def _add_new_config_key(dst, tmpl, key):
     bool
         True if the key may be added.
     """
-    if isinstance(tmpl, dict) and len(tmpl) == 0:
-        return True
-    if (
-            str(key).startswith('instance_')
-            and isinstance(tmpl, dict)
-            and 'instance_1' in tmpl
-            ):
-        dst[key] = copy.deepcopy(tmpl['instance_1'])
-        return True
-    return False
+    return isinstance(tmpl, dict) and len(tmpl) == 0
 
 def _config_template_child(tmpl, key):
     """Return the default node for key (see _add_new_config_key)."""
     if not isinstance(tmpl, dict):
         return {}
-    if key in tmpl:
-        return tmpl[key]
-    if str(key).startswith('instance_') and 'instance_1' in tmpl:
-        return tmpl['instance_1']
-    return {}
+    return tmpl.get(key, {})
+
+def expand_list_parameters(tech_dict, tech_name):
+    """
+    Split a tech dict whose parameters may be lists into one dict per
+    instance (e.g. heat_pump_cp). Single values apply to all instances.
+
+    Parameters
+    ----------
+    tech_dict : dict
+        Technology parameters (subset of scen_techs).
+    tech_name : str
+        Name of the technology in scen_techs (for error messages).
+
+    Raises
+    ------
+    ValueError
+        If lists of different lengths or empty lists are given.
+
+    Returns
+    -------
+    list of dict
+        One tech dict per instance (with single values only).
+    """
+    list_lengths = {
+        k: len(v) for k, v in tech_dict.items() if isinstance(v, list)
+        }
+    n_instances = set(list_lengths.values()) - {1}
+    if 0 in n_instances or len(n_instances) > 1:
+        raise ValueError(
+            f"{tech_name}: all parameters given as lists must have the same "
+            f"(non-zero) length. List lengths: {list_lengths}"
+            )
+    n_instances = n_instances.pop() if n_instances else 1
+
+    return [
+        {
+            k: (v[0] if len(v) == 1 else v[i]) if isinstance(v, list) else v
+            for k, v in tech_dict.items()
+            }
+        for i in range(n_instances)
+        ]
 
 def update_scen_techs_from_config(scen_techs: Dict[str, Any],
                                   config_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -107,8 +150,8 @@ def update_scen_techs_from_config(scen_techs: Dict[str, Any],
       a KeyError is raised (same as for YAML configuration files).
     - If an upstream key exists, only the specified downstream keys are updated;
       other downstream keys in scen_techs are kept as-is.
-    - Exceptions: keys in dicts that are empty by default and new tech
-      instances (see _add_new_config_key).
+    - Exception: keys in dicts that are empty by default (see
+      _add_new_config_key).
 
     Parameters
     ----------
@@ -759,6 +802,196 @@ def check_tech_for_scenario(techs, scenario, scen_techs):
                 )
             
             raise ValueError(printout)
+
+
+def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
+    """Validate the configuration of the combined manual storage scenario.
+
+    The activation boolean belongs to
+    ``scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage']``.
+    Settings belong to
+    ``scen_techs['scenario_battery_plus_thermal_energy_storage']``.
+    A missing or disabled scenario is ignored. An enabled scenario requires
+    at least one deployed storage unit. With only one storage unit, emit a
+    UserWarning and continue. This function does not change the configuration.
+
+    ``electricity_supply_order`` must include all deployed supported local
+    generators; absent supported names may remain in the list and are skipped.
+    Grid supply and storage units are not local generators in this list.
+    ``storage_priority`` contains charge and discharge orders, each listing
+    bes and tes_decentralised exactly once. Disabled storage units remain in
+    the configured lists and are skipped during dispatch.
+    ``heat_pump_tes_min_electric_power_kW`` is a finite nonnegative electrical
+    power threshold for additional HP-driven TES charging (0 disables it).
+    ``tes_charge_heat_source_order`` is
+    checked only when TES is deployed. It selects heat_pump and/or
+    direct_electric (an independent tank heater, even without building EH).
+    ``tes_direct_max_electric_power_kW`` limits total direct charging power
+    and must be finite and nonnegative; zero disables this charging path.
+
+    This validates configuration only; conversion paths, capacity limits and
+    energy balances must also be enforced by the scenario implementation.
+
+    Raises
+    ------
+    ValueError
+        If an enabled configuration is inconsistent or has invalid types.
+    """
+    scenario = 'scenario_battery_plus_thermal_energy_storage'
+
+    def fail(message):
+        raise ValueError(f"{scenario}: {message}")
+
+    if not isinstance(scen_techs, dict):
+        fail('scen_techs must be a dictionary.')
+    scenarios = scen_techs.get('scenarios', {})
+    if not isinstance(scenarios, dict):
+        fail('scenarios must be a dictionary.')
+    if scenario not in scenarios:
+        return
+    enabled = scenarios[scenario]
+    if not isinstance(enabled, bool):
+        fail('scenario activation in scenarios must be a boolean.')
+    if not enabled:
+        return
+    # A manual priority controller must not pre-dispatch storage for Gurobi;
+    # the optimiser determines its own storage operation and conversion paths.
+    if scen_techs.get('optimisation', {}).get('enabled', False):
+        fail('This is a manual scenario. Disable optimisation, or disable '
+             'the combined scenario when running the optimiser.')
+    config = scen_techs.get(scenario)
+    if not isinstance(config, dict):
+        fail('scenario settings must be a separate top-level dictionary.')
+
+    def deployed(tech):
+        settings = scen_techs.get(tech)
+        if not isinstance(settings, dict):
+            fail(f"Missing technology settings for '{tech}'.")
+        value = settings.get('deployment')
+        if not isinstance(value, bool):
+            fail(f"{tech}.deployment must be a boolean.")
+        return value
+
+    def ordered_sources(key, supported):
+        value = config.get(key)
+        if not isinstance(value, list) or any(
+                not isinstance(item, str) for item in value):
+            fail(f'{key} must be a list of technology names.')
+        if len(value) != len(set(value)):
+            fail(f'{key} contains duplicate technologies.')
+        unknown = sorted(set(value) - set(supported))
+        if unknown:
+            fail(f'{key} contains unknown or unsupported technologies: {unknown}.')
+        return value
+
+    bes_active = deployed('bes')
+    tes_active = deployed('tes_decentralised')
+    # Grid supply accounts for residual electricity and its import mix.
+    if not deployed('grid_supply'):
+        fail('grid_supply.deployment must be true for residual electricity.')
+    if not bes_active and not tes_active:
+        fail('Both bes and tes_decentralised are disabled. Enable at least '
+             'one storage technology using deployment=true.')
+
+    # Manual dispatch needs finite sizes and explicit initial energy. Optimised
+    # initial-charge settings apply only to the separate optimisation pathway.
+    for tech in ('bes', 'tes_decentralised'):
+        if not deployed(tech):
+            continue
+        settings = scen_techs[tech]
+        for key in ('capacity_kWh_max', 'chg_dchg_per_cap_max', 'initial_charge',
+                    'eta_chg_dchg', 'bes_gamma' if tech == 'bes' else 'tes_gamma'):
+            value = settings[key]
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not math.isfinite(value) or value < 0):
+                fail(f'{tech}.{key} must be a finite nonnegative number.')
+        if not 0 < settings['eta_chg_dchg'] <= 1:
+            fail(f'{tech}.eta_chg_dchg must be in (0, 1].')
+        if settings['initial_charge'] > 1:
+            fail(f'{tech}.initial_charge must be in [0, 1].')
+        loss_key = 'bes_gamma' if tech == 'bes' else 'tes_gamma'
+        if settings[loss_key] > 1:
+            fail(f'{tech}.{loss_key} must be in [0, 1].')
+
+    for old_scenario in ('battery_energy_storage', 'thermal_energy_storage'):
+        if scenarios.get(old_scenario, False):
+            fail(f"Disable the legacy scenario '{old_scenario}' to avoid "
+                 'running multiple storage controllers.')
+
+    if 'prioritize_tes_over_bes' in config:
+        fail('prioritize_tes_over_bes has been replaced by storage_priority: '
+             'use charge and discharge lists.')
+    priorities = config.get('storage_priority')
+    if not isinstance(priorities, dict):
+        fail('storage_priority must contain charge and discharge lists.')
+    if set(priorities) != {'charge', 'discharge'}:
+        fail('storage_priority must contain exactly charge and discharge.')
+    for direction in ('charge', 'discharge'):
+        order = priorities[direction]
+        if (not isinstance(order, list)
+                or any(not isinstance(tech, str) for tech in order)
+                or len(order) != 2
+                or set(order) != {'bes', 'tes_decentralised'}):
+            fail(f'storage_priority.{direction} must list bes and '
+                 'tes_decentralised exactly once.')
+
+    threshold = config.get('heat_pump_tes_min_electric_power_kW')
+    if (isinstance(threshold, bool)
+            or not isinstance(threshold, (int, float))
+            or not math.isfinite(threshold)
+            or threshold < 0):
+        fail('heat_pump_tes_min_electric_power_kW must be a finite '
+             'nonnegative number in kW (0 disables the threshold).')
+
+    generators = ('solar_pvrooftop', 'solar_pvalpine', 'wind_power',
+                  'biomass', 'hydro_power')
+    order = ordered_sources('electricity_supply_order', generators)
+    active_generators = {tech for tech in generators if deployed(tech)}
+    missing = sorted(active_generators - set(order))
+    # Keep disabled/absent supported names in the order so deployment changes
+    # do not require rewriting it; the mix function skips absent objects.
+    if missing:
+        fail(f'electricity_supply_order omits deployed generators: {missing}.')
+
+    if tes_active:
+        key = 'tes_charge_heat_source_order'
+        heat_sources = ordered_sources(key, ('heat_pump', 'direct_electric'))
+        if not heat_sources:
+            fail(f'{key} must not be empty when TES is deployed.')
+        # Validate the independent tank heater's own electrical power limit;
+        # building EH deployment and power do not constrain this charging path.
+        if 'direct_electric' in heat_sources:
+            limit = config.get('tes_direct_max_electric_power_kW')
+            if (isinstance(limit, bool) or not isinstance(limit, (int, float))
+                    or not math.isfinite(limit) or limit < 0):
+                fail('tes_direct_max_electric_power_kW must be a finite '
+                     'nonnegative number (0 disables direct charging).')
+        # HP charging still requires an actual connected HP.
+        if 'heat_pump' in heat_sources and not deployed('heat_pump'):
+            fail('HP charging requires heat_pump.deployment=true.')
+        # As in the TES-only scenario, discharge always replaces HP heat;
+        # no separate list of eligible building heating technologies is needed.
+        if not deployed('heat_pump'):
+            fail('TES discharge requires heat_pump.deployment=true.')
+        if not scen_techs['tes_decentralised']['connections']['heat_pump']:
+            fail('TES discharge requires the TES heat_pump connection.')
+        # Zero means no extra HP power; infinity means no configured power cap.
+        hp_limit = scen_techs['heat_pump']['kW_th_max']
+        try:
+            hp_limit = float(hp_limit)
+        except (ValueError, TypeError):
+            fail('heat_pump.kW_th_max must be nonnegative or inf.')
+        if math.isnan(hp_limit) or hp_limit < 0:
+            fail('heat_pump.kW_th_max must be nonnegative or inf.')
+
+    if not bes_active or not tes_active:
+        inactive = 'bes' if not bes_active else 'tes_decentralised'
+        warnings.warn(
+            f'{scenario}: {inactive}.deployment=False. The scenario will run '
+            'without this storage unit. Check whether activation was forgotten.',
+            UserWarning,
+            stacklevel=2,
+        )
 
 
 # def multi_objective_weights(steps):

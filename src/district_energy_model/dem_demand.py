@@ -67,6 +67,62 @@ ELECTRICITY DEMAND:
     
 #     return d_e_yr
 
+def is_old_building(gbaup):
+    """
+    Return a boolean mask of the 'old' buildings (base temperature
+    T_base_old): building period (GBAUP) <= C.GBAUP_OLD_MAX. Buildings without
+    a building period count as old (as if built before 1919, the oldest
+    category). Works with float (NaN) and nullable integer (<NA>) columns, so
+    that no building is in neither group. Since fill_building_period() sets
+    GBAUP for all buildings, the missing-value rule is a safety net (same
+    assumption as the fill) for data that bypasses it.
+
+    Parameters
+    ----------
+    gbaup : pandas Series
+        GWR building period codes (8011 ... 8023), may contain missing values.
+
+    Returns
+    -------
+    pandas Series of bool
+    """
+    return (gbaup.isna() | (gbaup <= C.GBAUP_OLD_MAX)).astype(bool)
+
+
+def gbaup_from_gbauj(gbauj):
+    """
+    Return the GWR building period (GBAUP) for construction years (GBAUJ)
+    according to C.GBAUP_FIRST_YEAR (years before 1919: C.GBAUP_OLDEST).
+    Missing years give NaN.
+    """
+    gbauj = pd.to_numeric(gbauj, errors='coerce').astype(float)
+    codes = [C.GBAUP_OLDEST] + sorted(C.GBAUP_FIRST_YEAR)
+    first_years = [C.GBAUP_FIRST_YEAR[c] for c in sorted(C.GBAUP_FIRST_YEAR)]
+    idx = np.searchsorted(first_years, gbauj.to_numpy(), side='right')
+    out = pd.Series(np.asarray(codes, dtype=float)[np.minimum(idx, len(codes) - 1)],
+                    index=gbauj.index)
+    return out.where(gbauj.notna())
+
+
+def fill_building_period(df_com_yr):
+    """
+    Set the building period (GBAUP) of buildings without one: derived from
+    the construction year (GBAUJ) if given, otherwise the oldest period
+    (C.GBAUP_OLDEST = 8011, before 1919; conservative assumption).
+    Called once where the building data enters the model (dem.py), for
+    municipalities (master data or cached community file) and custom
+    districts. Returns a copy; the input (e.g. the cache) is not changed.
+    """
+    df_com_yr = df_com_yr.copy()
+    missing = df_com_yr['GBAUP'].isna()
+    if missing.any():
+        gbauj = df_com_yr['GBAUJ'] if 'GBAUJ' in df_com_yr.columns else pd.Series(np.nan, index=df_com_yr.index)
+        df_com_yr.loc[missing, 'GBAUP'] = (
+            gbaup_from_gbauj(gbauj[missing]).fillna(C.GBAUP_OLDEST)
+            )
+    return df_com_yr
+
+
 class EnergyDemand:
     
     def __init__(self, paths, com_nr, com_nr_majority):
@@ -228,7 +284,12 @@ class EnergyDemand:
         self._d_h_flex = self._d_h_flex[:n_hours]
         self._d_h_flex_ll = self._d_h_flex_ll[:n_hours]
         self._d_h_flex_ul = self._d_h_flex_ul[:n_hours]
-        self._d_h_s_flex_ll = self._d_h_s_flex_ll[:n_hours]        
+        self._d_h_s_flex_ll = self._d_h_s_flex_ll[:n_hours]
+
+        # Daily values (EV charging):
+        self._d_e_ev_cp_dy = self._d_e_ev_cp_dy[:n_days]
+        self._f_e_ev_pot_dy = self._f_e_ev_pot_dy[:n_days]
+        self._f_e_ev_dy = self._f_e_ev_dy[:n_days]
 
     def compute_d_e_baseline_yr(
             self,
@@ -399,14 +460,12 @@ class EnergyDemand:
         # -----------------------------------------------
         # Additional techs:
                 
-        if 'heat_pump_cp' in tech_instances:
-            hpcp_inst = tech_instances['heat_pump_cp']
+        # Central heat pumps (one tech instance per scen_techs['heat_pump_cp']
+        # instance, stored as 'heat_pump_cp_<instance key>'):
+        for hpcp_inst in dem_helper.get_heat_pump_cp_instances(tech_instances):
             if len(hpcp_inst.get_u_e()) == 0:
                 raise ValueError("u_e_hpcp must be computed first!")
-            else:
-                u_e_hpcp = hpcp_inst.get_u_e()
-
-            d_e_h += np.array(u_e_hpcp)
+            d_e_h += np.array(hpcp_inst.get_u_e())
 
         if 'heat_pump_cp_lt' in tech_instances:
             hpcplt_inst = tech_instances['heat_pump_cp_lt']
@@ -420,6 +479,11 @@ class EnergyDemand:
         d_e_h_yr = sum(d_e_h)
         
         
+        # The independent tank heater is not included in building EH input.
+        # HP tank charging is already in u_e_hp, so only direct input is added.
+        if 'tes_decentralised' in tech_instances:
+            d_e_h += np.array(tech_instances['tes_decentralised'].get_u_e_direct())
+            d_e_h_yr = d_e_h.sum()
         self._d_e_h = d_e_h
         self._d_e_h_yr = d_e_h_yr
         
@@ -565,6 +629,8 @@ class EnergyDemand:
             raise ValueError("d_e_updated must have the same length as d_e!")
             
         self._d_e = np.array(d_e_updated)
+        # Keep annual demand consistent when manual storage changes the series.
+        self._d_e_yr = self._d_e.sum()
         
     def update_d_e_i(self, i, val):   
         self.num_test(val)         
@@ -668,6 +734,8 @@ class EnergyDemand:
         """
         
         self._d_e_h = np.array(d_e_h_udpated)
+        # TES discharge/charging changes annual heating electricity as well.
+        self._d_e_h_yr = self._d_e_h.sum()
         
     def update_d_e_h_i(self, i, val):
         self.num_test(val)
@@ -1038,17 +1106,20 @@ class EnergyDemand:
         d_h_yr = d_h_s_yr + d_h_hw_yr
         
         self._d_h_s_yr = d_h_s_yr
-        self._d_h_s_new_yr = df_com.loc[~(df_com['GBAUP'] <= 8015), spaceheating_column].sum()
-        self._d_h_s_old_yr = df_com.loc[df_com['GBAUP'] <= 8015, spaceheating_column].sum()
+        old = is_old_building(df_com['GBAUP'])
+        self._d_h_s_new_yr = df_com.loc[~old, spaceheating_column].sum()
+        self._d_h_s_old_yr = df_com.loc[old, spaceheating_column].sum()
 
         if 'total_renovation_flag' in df_com.columns:
-            self._d_h_s_new_yr = (df_com.loc[~(df_com['GBAUP'] <= 8015), spaceheating_column].sum() 
-                                  + (df_com.loc[df_com['GBAUP'] <= 8015, spaceheating_column]
-                                     *df_com.loc[df_com['GBAUP'] <= 8015, 'total_renovation_flag']).sum()
+            self._d_h_s_new_yr = (df_com.loc[~old, spaceheating_column].sum() 
+                                  + (df_com.loc[old, spaceheating_column]
+                                     *df_com.loc[old, 'total_renovation_flag']).sum()
                                   )
-            self._d_h_s_old_yr = (df_com.loc[df_com['GBAUP'] <= 8015, spaceheating_column]
-                                     *(1.0 - df_com.loc[df_com['GBAUP'] <= 8015, 'total_renovation_flag'])
+            self._d_h_s_old_yr = (df_com.loc[old, spaceheating_column]
+                                     *(1.0 - df_com.loc[old, 'total_renovation_flag'])
                                   ).sum()
+
+        self._check_d_h_s_split(df_com[spaceheating_column].sum())
 
         self._d_h_hw_yr = d_h_hw_yr
         self._d_h_yr = d_h_yr
@@ -1057,6 +1128,26 @@ class EnergyDemand:
             raise Exception('Annual heat demand is zero.')
         
         return d_h_yr, d_h_s_yr, d_h_hw_yr
+
+    def _check_d_h_s_split(self, d_h_s_buildings_yr):
+        """
+        Raise a ValueError if the annual space heating demand of the old and
+        new building groups (self._d_h_s_old_yr + self._d_h_s_new_yr) does
+        not add up to the space heating demand of all buildings, i.e. if
+        buildings were lost in the split (e.g. through missing values).
+        """
+        d_h_s_split_yr = self._d_h_s_old_yr + self._d_h_s_new_yr
+        missing = d_h_s_buildings_yr - d_h_s_split_yr
+        if not abs(missing) <= C.D_H_S_SPLIT_REL_ACC*abs(d_h_s_buildings_yr):
+            share = missing/d_h_s_buildings_yr if d_h_s_buildings_yr else float('nan')
+            raise ValueError(
+                f"Space heating demand of municipality {self.com_nr}: the old "
+                f"and new building groups ({d_h_s_split_yr:.6g} kWh; old: "
+                f"{self._d_h_s_old_yr:.6g} kWh, new: {self._d_h_s_new_yr:.6g} kWh) "
+                f"do not add up to the space heating demand of all buildings "
+                f"({d_h_s_buildings_yr:.6g} kWh). Missing: {missing:.6g} kWh "
+                f"({share:.4%})."
+                )
     
     def add_future_demand_col(
             self,
@@ -1090,14 +1181,12 @@ class EnergyDemand:
             df_com_yr[new_header] = df_com_yr[yearly_heat_demand_col].copy()
             
             if distinguishByConstructionYear:
-                df_com_yr.loc[df_com_yr['GBAUP'] <= 8015, new_header] =\
+                old = is_old_building(df_com_yr['GBAUP'])
+                df_com_yr.loc[old, new_header] =\
                     df_com_yr[yearly_heat_demand_col]*scaling_factor_t15
         
-                df_com_yr.loc[df_com_yr['GBAUP'] > 8015, new_header] =\
+                df_com_yr.loc[~old, new_header] =\
                     df_com_yr[yearly_heat_demand_col]*scaling_factor_t12
-        
-                df_com_yr.loc[df_com_yr['GBAUP'].isna(), new_header] =\
-                    df_com_yr[yearly_heat_demand_col]*scaling_factor_t15
             else:
                 df_com_yr[new_header] =\
                     scaling_factor_t12*df_com_yr[yearly_heat_demand_col]
@@ -1117,14 +1206,12 @@ class EnergyDemand:
                         )
                 
                 if distinguishByConstructionYear:
-                    df_com_yr.loc[(df_com_yr['GBAUP'] <= 8015)&arg_com, new_header] =\
+                    old = is_old_building(df_com_yr['GBAUP'])
+                    df_com_yr.loc[old&arg_com, new_header] =\
                         df_com_yr[yearly_heat_demand_col]*scaling_factor_t15
             
-                    df_com_yr.loc[(df_com_yr['GBAUP'] > 8015)&arg_com, new_header] =\
+                    df_com_yr.loc[(~old)&arg_com, new_header] =\
                         df_com_yr[yearly_heat_demand_col]*scaling_factor_t12
-            
-                    df_com_yr.loc[(df_com_yr['GBAUP'].isna())&arg_com, new_header] =\
-                        df_com_yr[yearly_heat_demand_col]*scaling_factor_t15
                 else:
                     df_com_yr.loc[arg_com, new_header] =\
                         df_com_yr[yearly_heat_demand_col]*scaling_factor_t12
@@ -1209,16 +1296,18 @@ class EnergyDemand:
                     ((1.0-accumulated_new_weight)*df_com_yr['d_h_s_yr_future']
                     +accumulated_new_weight*df_com_yr['d_h_s_yr_renov_future']) #adjust heat consumption
                 df_com_yr['total_renovation_flag'] = accumulated_new_weight #float between 0 and 1
-                df_com_yr['GBAUP'] = df_com_yr['GBAUP']*(1.0 - accumulated_new_weight) + accumulated_new_weight * 8023
-                df_com_yr['GBAUP'] = df_com_yr['GBAUP'].round().astype('Int64')
+                # GBAUP is kept: it is a building period code, not a number to
+                # be averaged. The renovated share of each building is given by
+                # total_renovation_flag (weight), which compute_d_h_yr() and
+                # calculateCOPs() use to split the building into old/new.
                 # 'd_h_s_yr_future'
 
             else: #use Streicher data
                 df_com_yr['total_renovation_flag'] = df_com_yr[renovation_scenario] <= year #if renovation year < simulation year--> mark for renovation
                 df_com_yr.loc[df_com_yr['total_renovation_flag'], new_header] =\
                     df_com_yr['d_h_s_yr_renov_future'] #adjust heat consumption
-                df_com_yr.loc[df_com_yr['total_renovation_flag'], "GBAUP"] =\
-                    8023 #adjust building period to get other profiles
+                # df_com_yr.loc[df_com_yr['total_renovation_flag'], "GBAUP"] =\
+                #     8023 #adjust building period to get other profiles
 
 
             #In case of total renovation, the old heat and dhw generator is thrown out.
@@ -1257,12 +1346,18 @@ class EnergyDemand:
 
             #replacement of technologies while calculating the total generated heat from different heat sources. 
             # This is also applied to the dhw
+            #The part of a building that is not totally renovated keeps its heat generator and the demand before
+            # total renovation (d_h_s_yr_future); the totally renovated part has the demand after total renovation
+            # (d_h_s_yr_renov_future) and is reassigned. Both add up to new_header (buildings without new_header
+            # have no space heating demand).
+            d_h_s_yr_not_renovated = df_com_yr['d_h_s_yr_future'].where(df_com_yr[new_header].notna())
+            d_h_s_yr_renovated = df_com_yr['d_h_s_yr_renov_future'].where(df_com_yr[new_header].notna())
             for systemtype in reassignment_dict_sh.keys():        
                 df_meta.loc[df_meta['GGDENR']==GGDENR, systemtype] = (
-                    df_com_yr.loc[df_com_yr['Heating_System'] == systemtype, new_header]
+                    d_h_s_yr_not_renovated.loc[df_com_yr['Heating_System'] == systemtype]
                                   *(1.0-df_com_yr.loc[df_com_yr['Heating_System'] == systemtype, 'total_renovation_flag'])
                     ).sum() + reassignment_dict_sh[systemtype]*(
-                    sum([(df_com_yr.loc[df_com_yr['Heating_System'] == k, new_header]
+                    sum([(d_h_s_yr_renovated.loc[df_com_yr['Heating_System'] == k]
                           *(df_com_yr.loc[df_com_yr['Heating_System'] == k, 'total_renovation_flag'])
                           ).sum() for k in reassignment_dict_sh.keys()])
                     )
@@ -1289,7 +1384,21 @@ class EnergyDemand:
         #For older building, they accumulate a constant probability for heat generator renewal each year, which is 1/lifetime
         #For each year between the simulation year and the data year, they accumulate some probability, e.g. for 2030, 
         # the probability of renewal is (2030 - 2023)/lifetime =~=  0.28
-        #For all the renewal probabilities, they are calculated building-wise and the probability of total renovation is deducted.
+        #For all the renewal probabilities, they are calculated building-wise and the probability of total renovation is deducted
+        # (total renovation primarily replaces the old heat generators).
+        #Each heat generator only serves the building it is installed in. Per building, the heat demand
+        # (space heating and hot water, DHW_demand_estimation_kWh, as in df_meta) is split into
+        # - d_h_s_yr_future * heat_generator_replacement_flag: old heat generator at the end of its lifetime,
+        #   replaced one-to-one in the same building,
+        # - d_h_s_yr_future * (1 - heat_generator_replacement_flag - total_renovation_flag): old heat generator
+        #   still running (existing, no capex),
+        # - d_h_s_yr_renov_future * total_renovation_flag: totally renovated, heat generator reassigned (new capacity).
+        #Per heat generator type, relative to its total heat demand after the demand side scenario (df_meta, incl.
+        # reassigned heat generators):
+        # - heat_generators_replacement_rates = heat_generators_total_power_up_for_renovation / heat_generators_total_power,
+        # - heat_generators_existing_rates = heat_generators_total_power_existing / heat_generators_total_power.
+        #Both are applied to the peak output after all scenarios, the rest of the peak is new capacity.
+        #See TechCore.set_replacement_rates().
 
         if heat_generator_renovation:
             
@@ -1322,28 +1431,46 @@ class EnergyDemand:
                 yeardelta = year-data_year
             fraction_up_for_renovation = (yeardelta)*1.0/lifetimes
             fraction_up_for_renovation[fraction_up_for_renovation > 1.0] = 1.0
+            fraction_up_for_renovation = fraction_up_for_renovation.fillna(1.0) #heating systems without lifetime
             fraction_up_for_renovation = fraction_up_for_renovation - df_com_yr['total_renovation_flag']
             
             df_com_yr.loc[~recently_built, 'heat_generator_replacement_flag'] = fraction_up_for_renovation
 
             df_com_yr.loc[df_com_yr['heat_generator_replacement_flag'] < 0.0, 'heat_generator_replacement_flag'] = 0.0
-            
+
             heat_generators_total_power_up_for_renovation = {}
+            heat_generators_total_power_existing = {}
             heat_generators_total_power = {}
             heat_generators_replacement_rates = {}
+            heat_generators_existing_rates = {}
+
+            heat_generator_existing_flag = (
+                1.0 - df_com_yr['total_renovation_flag'] - df_com_yr['heat_generator_replacement_flag']
+                ).clip(lower=0.0)
 
             for k in heat_generator_lifetimes.keys():
                 heat_generators_total_power_up_for_renovation[k] = (
-                    (df_com_yr.loc[df_com_yr['Heating_System'] == k, new_header]
+                    (df_com_yr.loc[df_com_yr['Heating_System'] == k, 'd_h_s_yr_future']
                      *(df_com_yr.loc[df_com_yr['Heating_System'] == k, 'heat_generator_replacement_flag'])).sum() 
                      + (df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'DHW_demand_estimation_kWh']
                         *(df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'heat_generator_replacement_flag'])).sum())
+                heat_generators_total_power_existing[k] = (
+                    (df_com_yr.loc[df_com_yr['Heating_System'] == k, 'd_h_s_yr_future']
+                     *(heat_generator_existing_flag.loc[df_com_yr['Heating_System'] == k])).sum() 
+                     + (df_com_yr.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_"), 'DHW_demand_estimation_kWh']
+                        *(heat_generator_existing_flag.loc[df_com_yr['Hot_Water_System'] == k.replace("_h_", "_hw_")])).sum())
                 heat_generators_total_power[k] = (df_meta.loc[df_meta['GGDENR']==GGDENR, k]
                                                   + df_meta.loc[df_meta['GGDENR']==GGDENR, k.replace("_h_", "_hw_")])
-                heat_generators_replacement_rates[k] = (float(heat_generators_total_power_up_for_renovation[k] / heat_generators_total_power[k].iloc[0]) 
-                                                        if float(heat_generators_total_power[k].iloc[0])>0 else 0.0)
+                if float(heat_generators_total_power[k].iloc[0])>0:
+                    heat_generators_replacement_rates[k] = min(float(heat_generators_total_power_up_for_renovation[k] / heat_generators_total_power[k].iloc[0]), 1.0)
+                    heat_generators_existing_rates[k] = min(float(heat_generators_total_power_existing[k] / heat_generators_total_power[k].iloc[0]),
+                                                            1.0 - heat_generators_replacement_rates[k])
+                else:
+                    heat_generators_replacement_rates[k] = 0.0
+                    heat_generators_existing_rates[k] = 0.0
         
             scen_techs['demand_side']['heat_generator_replacement_rates'] = heat_generators_replacement_rates
+            scen_techs['demand_side']['heat_generator_existing_rates'] = heat_generators_existing_rates
             
             return df_meta
 

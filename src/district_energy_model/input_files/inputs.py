@@ -204,6 +204,11 @@ scen_techs = {
         'closeness_based_dh_expansio_cost' : True,
         'capex' : 1442, #[CHF/kW] relevant if and only if closeness_based_dh_expansio_cost==False # Source: Philippen et al. (2025). CoSi modelling assumptions. SWEET-CoSi
         'maintenance_cost' : 15, # [CHF/kW/year] relevant if and only if closeness_based_dh_expansio_cost==False Source: Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
+        'simulation_grid_category_fill': 'cheapest_first', # Only affects simulations (the optimiser chooses the grid categories itself):
+            # order in which the district heating output is assigned to the grid categories for the grid costs
+            # (capex of grid expansion, maintenance). The existing grid is always filled first. Options:
+            # 'category_order': then the new categories in the order 1, 2, 3 (nearest buildings connect first; default if not given)
+            # 'cheapest_first': then the new categories from the lowest to the highest annual cost per kW, as the optimiser does
 
         'tariff_CHFpkWh':dh_tariff, # 0.15, # Average from "Faktenblatt Thermische Netze"; only used for import
         'co2_intensity': 0.108,
@@ -764,7 +769,7 @@ scen_techs = {
         'interest_rate':interest_rate,   
         },
 
-    'heat_pump_cp': {'instance_1': { # hpcp, instance names _have_ to start with instance_
+    'heat_pump_cp':{ # hpcp #The parameters of heat_pump_cp can be lists to define several instances (one list entry per instance)! #All lists must have the same length; single values apply to all instances
         # 'deployment':True,
         'deployment':False,
         'kW_th_max': 'inf',#tech_cap_default,
@@ -783,7 +788,6 @@ scen_techs = {
         'cop_hot_temperature': 'constant_temperature',
         'cop_hot_temperature_constant_temperature_value': 70,
         'quality_factor': 0.5
-        }, 
         },
 
     'other':{ # other
@@ -804,10 +808,34 @@ scen_techs = {
         'thermal_energy_storage':False,
         # 'thermal_energy_storage':True,
         'nuclear_phaseout':False,
-
+        # 'nuclear_phaseout':True,
         'battery_energy_storage': False,
+        # 'battery_energy_storage': True,
+
+        # Manual surplus-driven controller for the combined storage system:
+        'scenario_battery_plus_thermal_energy_storage': False,
 
         },
+
+    # Settings for the combined battery and thermal energy storage scenario:
+    'scenario_battery_plus_thermal_energy_storage': {
+        'electricity_supply_order': [
+            'solar_pvrooftop', 'solar_pvalpine', 'wind_power', 'biomass', 'hydro_power',
+        ],
+        'storage_priority': {
+            'charge': ['bes', 'tes_decentralised'],
+            'discharge': ['tes_decentralised', 'bes'], # tes will only provide heat and never electricity
+        },
+        # Minimum electrical power for additional HP operation to charge TES.
+        # Provisional value; 0.0 disables the threshold. Not a space-heating limit.
+        'heat_pump_tes_min_electric_power_kW': 1.0,
+        # Total electrical power of the independent TES heater, not per building.
+        # 3 kW is a small-storage starting value; 0 disables direct charging.
+        'tes_direct_max_electric_power_kW': 3.0,
+        # Direct tank charging is independent of the building EH at 100%
+        # conversion efficiency, with no minimum operating threshold.
+        'tes_charge_heat_source_order': ['heat_pump', 'direct_electric'],
+    },
                              
     'optimisation':{ # note: objective weights will be overriden in case of pareto front computation (i.e. toggle_create_pareto_monetary_vs_co2 = True)
         'enabled':False,

@@ -42,6 +42,7 @@ class ThermalEnergyStorageDC(TechCore):
         self._l_v_h = [] # discharging losses [kWh]
         self._l_q_h = [] # storage losses [kWh]
         self._sos = [] # state of charge [-]
+        self._u_e_direct = []
         
         
             
@@ -124,6 +125,10 @@ class ThermalEnergyStorageDC(TechCore):
         df['l_v_h_tesdc'] = self.get_l_v_h() # discharging losses [kWh]
         df['l_q_h_tesdc'] = self.get_l_q_h() # storage losses [kWh]
         df['sos_tesdc'] = self.get_sos() # state of charge [-]
+        # Independent tank-heater input at unity efficiency, separate from
+        # building EH input/output and included in total TES heat input.
+        df['u_e_tesdc_direct'] = self._u_e_direct
+        df['u_h_tesdc_direct'] = self._u_e_direct
         
         return df
     
@@ -151,6 +156,8 @@ class ThermalEnergyStorageDC(TechCore):
         self._l_v_h = self._l_v_h[:n_hours]
         self._l_q_h = self._l_q_h[:n_hours]
         self._sos = self._sos[:n_hours]
+        # Match the charging diagnostics to the selected simulation horizon.
+        self._u_e_direct = self._u_e_direct[:n_hours]
         
     def initialise_zero(self, n_days):
         n_hours = n_days*24
@@ -164,6 +171,8 @@ class ThermalEnergyStorageDC(TechCore):
         self._l_v_h = init_vals.copy() # discharging losses [kWh]
         self._l_q_h = init_vals.copy() # storage losses [kWh]
         self._sos = init_vals.copy() # state of charge [-]
+        # Other scenarios and optimisation retain zero direct tank electricity.
+        self._u_e_direct = init_vals.copy()
         
     def initialise_q_h_0(self):
         self._q_h[0] = self.get_ic()
@@ -184,6 +193,31 @@ class ThermalEnergyStorageDC(TechCore):
         self.num_test(val)
         self._sos[i] = float(val)
 
+
+    def update_l_u_h_i(self, i, val):
+        # Match the BES per-hour interface for thermal charging losses.
+        self.num_test(val)
+        self._l_u_h[i] = float(val)
+
+    def update_l_v_h_i(self, i, val):
+        # Match the BES per-hour interface for thermal discharging losses.
+        self.num_test(val)
+        self._l_v_h[i] = float(val)
+
+    def update_l_q_h_i(self, i, val):
+        # Record transition losses at the preceding hour, as BES-only does.
+        self.num_test(val)
+        self._l_q_h[i] = float(val)
+
+    def update_u_e_direct_i(self, i, direct_input):
+        """Record independent tank-heater input, separate from building EH."""
+        # Unity efficiency makes this equal to heat before TES charge losses.
+        self.num_test(direct_input)
+        self._u_e_direct[i] = float(direct_input)
+
+    def get_u_e_direct(self):
+        # Demand aggregation adds this input separately from the building EH.
+        return self._u_e_direct
 
     def update_u_h(self, u_h_updated):
         if len(u_h_updated) != len(self._u_h):

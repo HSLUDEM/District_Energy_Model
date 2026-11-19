@@ -110,6 +110,8 @@ class CHPGasTurbine(TechCore):
         self._u_gas_kg = self._u_gas_kg[:n_hours]
         self._v_e = self._v_e[:n_hours]
         self._v_h = self._v_h[:n_hours]
+        self._v_h_con = self._v_h_con[:n_hours]
+        self._v_h_waste = self._v_h_waste[:n_hours]
         
     def initialise_zero(self, n_days):
         n_hours = n_days*24
