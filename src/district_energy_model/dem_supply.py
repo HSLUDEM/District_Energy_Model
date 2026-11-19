@@ -382,17 +382,44 @@ class Supply(TechCore):
     
     def compute_s_h_wood_consumption(self, u_wd_wb):
         """
-        Cover the wood demand u_wd_wb with local wood as far as available
-        (simulation). Updates the consumed (_s_wd) and remaining (_s_wd_rem)
+        Cover the wood demand u_wd_wb with local wood as far as the annual
+        budget allows (simulation). Local wood is storable, so the budget is
+        the potential summed over the modelled period, not the hourly
+        potential. If demand exceeds the budget, every hour takes the same
+        local share. Updates the consumed (_s_wd) and remaining (_s_wd_rem)
         local wood and returns the wood that must be imported.
         """
         u_wd_wb = np.array(u_wd_wb, dtype=float)
-        s_wd_pot = self.get_s_wd_pot()
-        s_wd = np.minimum(u_wd_wb, s_wd_pot) # Local wood consumed by the wood boiler.
-        self.update_s_wd(s_wd)
-        self.update_s_wd_rem(s_wd_pot - s_wd)
+        budget = float(np.sum(self.get_s_wd_pot()))
+        demand = float(np.sum(u_wd_wb))
+        if demand > budget:
+            local_share = budget/demand
+        else:
+            local_share = 1.0
+        s_wd = u_wd_wb*local_share # Local wood consumed by the wood boiler.
+        self.update_s_wd_consumption(s_wd)
         
-        return u_wd_wb - s_wd # Imported wood is required wherever demand exceeds the local supply.
+        return u_wd_wb - s_wd # Imported wood is required where the annual budget does not cover demand.
+    
+    def update_s_wd_consumption(self, s_wd):
+        """
+        Set the consumed local wood and the remaining local wood. The
+        remaining wood is the unused part of the budget, spread along the
+        potential profile (consumption may exceed the hourly potential).
+        """
+        s_wd = np.array(s_wd, dtype=float)
+        s_wd_pot = self.get_s_wd_pot()
+        budget = float(np.sum(s_wd_pot))
+        if budget > 0:
+            rem_share = max(1.0 - float(np.sum(s_wd))/budget, 0.0)
+        else:
+            rem_share = 0.0
+        self.update_s_wd(s_wd)
+        self.update_s_wd_rem(s_wd_pot*rem_share)
+    
+    def get_s_wd_budget(self):
+        """Local wood available over the modelled period [kWh]."""
+        return float(np.sum(self.get_s_wd_pot()))
     
     def compute_s_y_wet_biomass(self):
         return sum(self.compute_s_h_wet_biomass())

@@ -467,7 +467,6 @@ class CalliopeOptimiser:
         # ---------------------------------------------------------------------
 
         supply_wet_biomass = self.supply.get_s_wet_bm_pot()
-        supply_wood = self.supply.get_s_wd_pot()
                 
         if 'wind_power' in self.tech_list:
             wp_resource_annual = self.tech_wind_power.get_v_e_pot_annual_kWhpkW() # [kWh/kW] Generation profile type 'annual' (geared towards all year production)
@@ -560,7 +559,6 @@ class CalliopeOptimiser:
         # solar_th_resource_new = pd.Series(solar_th_resource_new, index=date_index)
 
         supply_wet_biomass = pd.Series(supply_wet_biomass, index=date_index)
-        supply_wood = pd.Series(supply_wood, index=date_index)
         wp_resource_annual = pd.Series(wp_resource_annual, index=date_index)
         wp_resource_winter = pd.Series(wp_resource_winter, index=date_index)
         hydro_resource = pd.Series(hydro_resource, index=date_index)
@@ -609,7 +607,6 @@ class CalliopeOptimiser:
         # df_solar_th_resource_new = solar_th_resource_new.to_frame('v_h_solar_th')
 
         df_supply_wet_biomass = supply_wet_biomass.to_frame('s_wet_bm')
-        df_supply_wood = supply_wood.to_frame('s_wd')
         df_wp_resource_annual = wp_resource_annual.to_frame('v_e_wp')
         df_wp_resource_winter = wp_resource_winter.to_frame('v_e_wp')
         df_hydro_resource = hydro_resource.to_frame('v_e_hydro')
@@ -659,7 +656,6 @@ class CalliopeOptimiser:
             # 'solar_th_resource_old':df_solar_th_resource_old,
             # 'solar_th_resource_new':df_solar_th_resource_new,            
             'wet_biomass_resource': df_supply_wet_biomass / self.energy_scaling_factor,
-            'wood_resource': df_supply_wood / self.energy_scaling_factor,
             'wp_resource_annual': df_wp_resource_annual, #/ self.energy_scaling_factor,
             'wp_resource_winter': df_wp_resource_winter, #/ self.energy_scaling_factor,
             'hydro_resource': df_hydro_resource / self.energy_scaling_factor,
@@ -1543,9 +1539,8 @@ class CalliopeOptimiser:
         s_wet_bm = opt_results['carrier_prod'].loc['Limited_Supplies::wet_biomass_supply::wet_biomass'].values*self.energy_scaling_factor
         s_wd = opt_results['carrier_prod'].loc['Limited_Supplies::wood_supply::wood'].values*self.energy_scaling_factor        
         self.supply.update_s_wet_bm(s_wet_bm)
-        self.supply.update_s_wd(s_wd)
         self.supply.update_s_wet_bm_rem(self.supply.get_s_wet_bm_pot() - s_wet_bm)
-        self.supply.update_s_wd_rem(self.supply.get_s_wd_pot() - s_wd)
+        self.supply.update_s_wd_consumption(s_wd) # Also sets the remaining local wood.
         
         # ------------------- 
         # Hydro Power (local):
@@ -3311,8 +3306,8 @@ class CalliopeOptimiser:
                 
         loc_dict['Limited_Supplies']['techs']['wet_biomass_supply']['constraints.resource'] =\
             'df=wet_biomass_resource:s_wet_bm'
-        loc_dict['Limited_Supplies']['techs']['wood_supply']['constraints.resource'] =\
-            'df=wood_resource:s_wd'#
+        # Local wood: no hourly limit (wood is storable); the annual budget is
+        # set as group constraint 'local_wood_budget'.
         # Update coordinates:
         loc_dict['X1']['coordinates']['lat'] = 1 
         loc_dict['X1']['coordinates']['lon'] = 1
@@ -3743,6 +3738,15 @@ class CalliopeOptimiser:
                         'emissions_co2':self.eps_n,
                         }
                     }
+
+        # Local wood: annual budget (potential summed over the modelled period):
+        group_constraints_dict['local_wood_budget'] = {
+            'techs':['wood_supply'],
+            'locs':['Limited_Supplies'],
+            'carrier_prod_max':{
+                'wood':self.supply.get_s_wd_budget() / self.energy_scaling_factor,
+                },
+            }
 
         # Max. total wind power capacity (existing and new, all locations):
         if 'wind_power' in self.tech_list:
