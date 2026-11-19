@@ -76,9 +76,11 @@ def scenario_traffic_electrification(energy_demand, scen_techs, tech_instances,
     When traffic_electrification is off, retain the baseline drive mix.
     The calculations remain in dem_mobility, independent of demand_side.
     """
+    had_mobility = energy_demand.get_mobility() is not None
     configure_mobility(energy_demand, scen_techs, supply, reference_profiles,
                        scenario=True)
-    if scen_techs.get('mobility', {}).get('enabled', False):
+    # Removing a previous mobility demand also changes the electricity balance.
+    if scen_techs.get('mobility', {}).get('enabled', False) or had_mobility:
         dem_eb.get_local_electricity_mix(energy_demand, tech_instances)
         grid_supply = tech_instances['grid_supply']
         grid_supply.update_m_e(grid_supply.get_m_e())
