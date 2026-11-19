@@ -145,6 +145,13 @@ class HeatPumpCPLT(TechCore):
         self.num_test(self._hpcplt_cop)
         return self._hpcplt_cop
                 
+    def get_installed_cap(self):
+        # With force_cap_max, the optimiser builds kW_th_max (energy_cap_equals), even if it is not fully used
+        # (get_output() is the heat output v_h in kW_th, same unit as kW_th_max):
+        if self._force_cap_max and self._v_h_max != 'inf':
+            return max(self.get_output().max(), self._v_h_max)
+        return self.get_output().max()
+
     def get_v_h(self):
         if len(self._v_h)==0:
             raise ValueError()

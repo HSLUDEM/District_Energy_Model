@@ -151,6 +151,13 @@ class HeatPumpCP(HeatPumpCore):
         self._cop = self._cop[:n_hours]
         return True
 
+    def get_installed_cap(self):
+        # With force_cap_max, the optimiser builds kW_th_max (energy_cap_equals), even if it is not fully used
+        # (get_output() is the heat output v_h in kW_th, same unit as kW_th_max):
+        if self._force_cap_max and self._v_h_max != 'inf':
+            return max(self.get_output().max(), self._v_h_max)
+        return self.get_output().max()
+
     def reduce_timeframe(self, n_days):
         """
         Reduce the hourly timeseries to the first n days.
