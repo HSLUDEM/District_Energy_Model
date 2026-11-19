@@ -130,7 +130,9 @@ class TechCore():
         if not hasattr(self, "_capex"):
             return 0
         if hasattr(self, '_cap') and self._cap != 'inf': 
-            return self._capex*(self.get_cap() - self.existing)
+            # Never negative (as in the branch below), e.g. if the existing
+            # capacity were ever larger than the selected capacity:
+            return self._capex*max(0.0, self.get_cap() - self.existing)
         if hasattr(self, "_capex_one_to_one_replacement"):
             total_capacity = self.get_output().max()
             if total_capacity <= self.existing:

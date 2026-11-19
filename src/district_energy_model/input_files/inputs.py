@@ -352,7 +352,7 @@ scen_techs = {
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg': 0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
-        'tes_gamma':0.001,
+        'tes_gamma': 0.00008, # [/h] 0.001,
         'capacity_kWh_max':tes_cap*1e6 if tes_cap != 'inf' else 'inf',
         'force_cap_max':False, # implement max. storage capacity (kWh)
         'chg_dchg_per_cap_max':0.01, # max. charge/discharge (kW) per storage cap (kWh) per timestep
