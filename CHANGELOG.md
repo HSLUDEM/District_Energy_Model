@@ -35,6 +35,7 @@ All notable changes to this project will be documented in this file.
 - Minor bugfixes
 - Bug in dem_tech_district_heating.py: 100% district heating share was not possible. This has been corrected. 
 <<<<<<< HEAD
+<<<<<<< HEAD
 - Pareto front: every point now starts from the building and municipality data as loaded. Previously, the demand-side scenario of the previous point had changed the data, so that all points after the first used a different heat demand and different existing capacities. Results of pareto fronts with the demand-side scenario change.
 - Pareto front: every point runs the same result checks as a single optimisation (unmet demand, negative values, energy balances) and contains the cost module results (`Kostenmodul`), the optimised capacities (`df_capacities`) and its own copy of `scen_techs`.
 - Pareto front: `optimisation.N_pareto` must be an integer of at least 2, and `optimisation.pareto_monetary_co2: True` requires `optimisation.enabled: True` (error instead of a late crash or a silent simulation).
@@ -45,6 +46,9 @@ All notable changes to this project will be documented in this file.
 - Wind power costs in simulations: capex and maintenance are based on the capacity added by the wind integration scenario (new capacity) and the existing capacity. Previously, the capacity was estimated from the hourly generation, which overestimated it by up to a factor of 14 (e.g. Allschwil: 187 MW instead of 13.75 MW), charged capex for existing wind power, gave negative capex with `wind_power_installed_allocation: national`, and depended on `number_of_days`. With the `national` allocation, existing wind power is not charged (as in the optimisation).
 - Wind integration scenario: the integrated capacity respects `wind_power.kWp_max` (applied to the potential with annual and with winter profile separately) and `kWp_max_systemwide` (total local capacity), as in the optimisation. Existing wind power above a limit is kept; no new capacity is added in this case.
 >>>>>>> fix/A8-wind-capacity-simulation
+=======
+- Split of grid import into Swiss production (`m_e_ch_*`) and cross-border import (`m_e_cbimport`) no longer depends on the order of the scenarios. The Swiss part of each hour and source is limited to its value in the base split (today's demand and existing plants). A decrease of the import reduces cross-border import first; an increase first refills the Swiss part up to its limit, then adds cross-border import. Previously, the Swiss part was never refilled, so every later increase counted as cross-border import. The nuclear phase-out lowers the nuclear limit and therefore also applies after the optimisation. Only the reported mix is affected (costs and CO2 use the total import).
+>>>>>>> fix/A16-import-split
 
 ### Changed
 - Compatibility with Calliope version 0.6.10 (previously 0.6.8)

@@ -148,7 +148,7 @@ def scenario_heater_oil_to_hp(energy_demand, scen_techs, tech_instances):
     #--------------------------------------------------------------------------
     # Update local electricity mix:
     dem_eb.get_local_electricity_mix(energy_demand, tech_instances)
-    tech_grid_supply.compute_m_e_cbimport()
+    tech_grid_supply.update_m_e(tech_grid_supply.get_m_e())
     
     #--------------------------------------------------------------------------
     # Run tests for import:
@@ -225,7 +225,7 @@ def scenario_heater_gas_to_hp(energy_demand, scen_techs, tech_instances):
     #--------------------------------------------------------------------------
     # Update local electricity mix:
     dem_eb.get_local_electricity_mix(energy_demand, tech_instances)
-    tech_grid_supply.compute_m_e_cbimport()
+    tech_grid_supply.update_m_e(tech_grid_supply.get_m_e())
     
     #--------------------------------------------------------------------------
     # Run tests for import:
@@ -385,15 +385,6 @@ def scenario_nuclear_phaseout(
 
     tech_grid_supply = tech_instances['grid_supply']
 
-    m_e = tech_grid_supply.get_m_e()
-    m_e_cbimport = tech_grid_supply.get_m_e_cbimport()
-    m_e_ch = tech_grid_supply.get_m_e_ch()
-    m_e_ch_hydro = tech_grid_supply.get_m_e_ch_hydro()
-    m_e_ch_nuclear = tech_grid_supply.get_m_e_ch_nuclear()
-    m_e_ch_wind = tech_grid_supply.get_m_e_ch_wind()
-    m_e_ch_biomass = tech_grid_supply.get_m_e_ch_biomass()
-    m_e_ch_other = tech_grid_supply.get_m_e_ch_other()
-
     power_nuc_tot = np.sum(npp_powers)
     powers_still_available = np.sum([npp_powers[i] 
                                     if year < planned_shutdown[i] 
@@ -402,19 +393,10 @@ def scenario_nuclear_phaseout(
 
     nuclear_fraction = powers_still_available / power_nuc_tot
 
-    m_e_ch_nuclear_new = nuclear_fraction * m_e_ch_nuclear
-
-    m_e_ch_new = (m_e_ch_hydro
-              + m_e_ch_nuclear_new
-              + m_e_ch_wind
-              + m_e_ch_biomass
-              + m_e_ch_other)
-
-    tech_grid_supply.set_m_e_ch_nuclear(m_e_ch_nuclear_new)
-
-    tech_grid_supply.set_m_e_ch(m_e_ch_new)
-
-    tech_grid_supply.compute_m_e_cbimport()
+    # The limit of the Swiss nuclear part of the import is reduced (also for
+    # all later updates of the import, e.g. after the optimisation); the
+    # missing nuclear electricity is covered by cross-border import:
+    tech_grid_supply.set_nuclear_limit_factor(nuclear_fraction)
 
     __test_import_balance(tech_grid_supply)   
 
