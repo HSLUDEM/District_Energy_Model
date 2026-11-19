@@ -8,8 +8,11 @@ Created on Mon Mar 20 11:46:14 2023
 import copy
 import pandas as pd
 import numpy as np
+import pyarrow.compute as pa_compute
+import pyarrow.feather as pa_feather
 # import sys
 import os
+import json
 import math
 import warnings
 import re
@@ -1306,6 +1309,36 @@ def save_calliope_dicts_to_yaml(
         run_dict
         )
     
+def _get_master_files_info(master_file_general_path, master_file_year_path):
+    """
+    Return file name, size and modification time of the general and the
+    year-specific master file. Stored next to a community file to detect
+    whether the master data changed since the community file was created.
+    """
+    info = {}
+    for key, path in [
+            ('master_file_general', master_file_general_path),
+            ('master_file_year', master_file_year_path),
+            ]:
+        stat = os.stat(path)
+        info[key] = {
+            'file': os.path.basename(path),
+            'size': stat.st_size,
+            'mtime_ns': stat.st_mtime_ns,
+            }
+    return info
+
+def _read_master_files_info(master_info_path):
+    """
+    Return the master files info stored next to a community file, or None if
+    the file is missing or cannot be read.
+    """
+    try:
+        with open(master_info_path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
 def get_com_files(com_nr,
                  master_data_dir,
                  com_data_dir,
@@ -1343,38 +1376,64 @@ def get_com_files(com_nr,
     com_yr_file_path = com_data_dir + com_yr_file_name
     
     create_directory_if_not(com_data_dir)
-    
+
+    master_file_general_path = master_data_dir + master_file_general
+    master_file_year_path = master_data_dir + master_file_year
+
+    # The community file is a cache of the municipality's rows of the master
+    # files. Next to it, the size and modification time of the master files
+    # it was built from are stored. If they differ from the current master
+    # files (or are missing), the community file is rebuilt:
+    master_info_path = com_yr_file_path[:-len('.csv')] + '.master_data.json'
+    master_info = _get_master_files_info(
+        master_file_general_path,
+        master_file_year_path
+        )
+
     file_exist = os.path.isfile(com_yr_file_path)
-    
-    if file_exist == False:
-        # read general and year-specific master file:
-        master_file_general_path = master_data_dir + master_file_general
-        df_master_general = pd.read_feather(master_file_general_path)
-        
-        master_file_year_path = master_data_dir + master_file_year
+    file_up_to_date = (
+        file_exist
+        and _read_master_files_info(master_info_path) == master_info
+        )
+
+    if not file_up_to_date:
+        if file_exist:
+            print(
+                f"Master data changed since {com_yr_file_name} was created. "
+                "The community file is rebuilt.")
+
+        # Read the municipality's rows of the general master file (filtering
+        # before converting to pandas avoids loading all buildings):
+        tbl_master_general = pa_feather.read_table(master_file_general_path)
+        tbl_master_general = tbl_master_general.filter(
+            pa_compute.equal(tbl_master_general['GGDENR'], com_nr)
+            )
+        df_master_general = tbl_master_general.to_pandas()
+
         df_master_year = pd.read_feather(master_file_year_path)
-        
-        # Merge to one master file:
-        df_master = df_master_general.merge(
+
+        # Merge to the community data:
+        df_com_yr = df_master_general.merge(
             df_master_year,
             on="EGID",
             how="left"
         )
-        
-        # create new csv file with community data:
-        com_mask = df_master['GGDENR'] == com_nr
-        df_com_yr = df_master[com_mask]
-        # Write to a temporary file first, so that an interrupted run cannot
-        # leave an incomplete community file behind:
+
+        # Write to temporary files first, so that an interrupted run cannot
+        # leave an incomplete community file behind. The master data info is
+        # written last, so that an interrupted run leads to a rebuild:
         com_yr_file_path_tmp = f"{com_yr_file_path}.{os.getpid()}.tmp"
         df_com_yr.to_csv(com_yr_file_path_tmp)
         os.replace(com_yr_file_path_tmp, com_yr_file_path)
-        
-    elif file_exist == True:
+
+        master_info_path_tmp = f"{master_info_path}.{os.getpid()}.tmp"
+        with open(master_info_path_tmp, 'w') as f:
+            json.dump(master_info, f, indent=4)
+        os.replace(master_info_path_tmp, master_info_path)
+
+    else:
         # read community file:
         df_com_yr = pd.read_csv(com_yr_file_path)
-    else:
-        raise(Exception("Community file not found?"))
     
     # com_name for wind_power File:
     # com_name_wp = com_name
