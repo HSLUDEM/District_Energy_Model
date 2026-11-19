@@ -2124,6 +2124,37 @@ def check_number(value, var_name, check_positive=False):
 
 
 
+def check_pareto_inputs(optimisation_enabled, N_pareto):
+    """
+    Check the inputs for the computation of a pareto front
+    (optimisation.pareto_monetary_co2 = True).
+
+    Parameters
+    ----------
+    optimisation_enabled : bool
+        Value of optimisation.enabled.
+    N_pareto : int
+        Number of points on the pareto front (optimisation.N_pareto).
+
+    Returns
+    -------
+    n/a
+    """
+    if not optimisation_enabled:
+        raise ValueError(
+            "optimisation.pareto_monetary_co2 = True requires "
+            "optimisation.enabled = True (the pareto front is computed with "
+            "optimisations)."
+            )
+
+    # The first and the last point are the two single-objective optima:
+    if isinstance(N_pareto, bool) or not isinstance(N_pareto, int) or N_pareto < 2:
+        raise ValueError(
+            "optimisation.N_pareto must be an integer of at least 2. "
+            f"Selected value: {N_pareto!r}."
+            )
+
+
 def check_temperature_data_gaps(weather_file, years, allow_gaps=False):
     """
     Check the temperature data of the given years for gaps (NaN values).
