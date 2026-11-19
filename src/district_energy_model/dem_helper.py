@@ -40,6 +40,22 @@ _ConfigLoader.add_implicit_resolver(
     |\.(?:nan|NaN|NAN))$''', re.X),
     list('-+0123456789.'))
 
+def get_heat_pump_cp_instances(tech_instances):
+    """
+    Return all central heat pump instances (HeatPumpCP) in tech_instances.
+
+    Central heat pumps can have several instances, stored under the keys
+    'heat_pump_cp_<instance key>' (e.g. 'heat_pump_cp_instance_1'), never
+    under 'heat_pump_cp'. The low-temperature central heat pump
+    ('heat_pump_cp_lt', class HeatPumpCPLT) is a separate tech and is not
+    included.
+    """
+    from district_energy_model.techs.dem_tech_heat_pump_cp import HeatPumpCP
+    return [
+        inst for inst in tech_instances.values()
+        if isinstance(inst, HeatPumpCP)
+        ]
+
 def _normalise_inf(value):
     """
     Return value with infinite floats replaced by 'inf', the notation for

@@ -455,15 +455,12 @@ class EnergyDemand:
         # -----------------------------------------------
         # Additional techs:
                 
-        for tech_name, hpcp_inst in tech_instances.items():
-            if not tech_name.startswith('heat_pump_cp_instance_'):
-                continue
+        # Central heat pumps (one tech instance per scen_techs['heat_pump_cp']
+        # instance, stored as 'heat_pump_cp_<instance key>'):
+        for hpcp_inst in dem_helper.get_heat_pump_cp_instances(tech_instances):
             if len(hpcp_inst.get_u_e()) == 0:
                 raise ValueError("u_e_hpcp must be computed first!")
-            else:
-                u_e_hpcp = hpcp_inst.get_u_e()
-
-            d_e_h += np.array(u_e_hpcp)
+            d_e_h += np.array(hpcp_inst.get_u_e())
 
         if 'heat_pump_cp_lt' in tech_instances:
             hpcplt_inst = tech_instances['heat_pump_cp_lt']

@@ -880,7 +880,6 @@ class CalliopeOptimiser:
             'steam_turbine': 'heat_st',
             'tes': 'heat_tes',
             'waste_to_energy': 'heat_wte',
-            'heat_pump_cp': 'heat_hpcp',
             'heat_pump_cp_lt': 'heat_hpcplt',
             'oil_boiler_cp': 'heat_obcp',
             'electric_heater_cp': 'heat_ehcp',
@@ -892,6 +891,9 @@ class CalliopeOptimiser:
         for tech, carrier in dhn_carriers.items():
             if tech in self.tech_list:
                 keys['d_h_unmet_dhn'].append('X1::'+carrier)
+        # All central heat pump instances share the carrier heat_hpcp:
+        if self.heat_pump_cp_deployed:
+            keys['d_h_unmet_dhn'].append('X1::heat_hpcp')
 
         return keys
 
