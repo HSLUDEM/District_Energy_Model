@@ -200,6 +200,10 @@ class EnergyDemand:
         
         # Other:
         self._d_h_profile = [] # [-] Hourly normed (normed to 1) heat demand profile
+        # Retain an independent full-year building-heating reference. Hourly
+        # storage operation and reduce_timeframe must never overwrite it.
+        self._annual_heating_profile = None
+        self._annual_heat_sources = {}
         
         # Read temperature profiles:
         weather_data_dir = self.paths.weather_data_delta_method_dir
@@ -472,11 +476,6 @@ class EnergyDemand:
         d_e_h_yr = sum(d_e_h)
         
         
-        # The independent tank heater is not included in building EH input.
-        # HP tank charging is already in u_e_hp, so only direct input is added.
-        if 'tes_decentralised' in tech_instances:
-            d_e_h += np.array(tech_instances['tes_decentralised'].get_u_e_direct())
-            d_e_h_yr = d_e_h.sum()
         self._d_e_h = d_e_h
         self._d_e_h_yr = d_e_h_yr
         
@@ -1922,6 +1921,38 @@ class EnergyDemand:
                     self._vs_drain_flag[i] = 'idle'
 
             
+    def set_annual_heating_reference(self, profile, heat_sources):
+        """Record full-year heat allocation before truncation or storage use."""
+        # Copy the complete 365-day hourly profile so subsequent demand changes
+        # cannot mutate this reference through a shared array.
+        profile = np.array(profile, dtype=float, copy=True)
+        if (profile.shape != (8760,) or not np.isfinite(profile).all()
+                or (profile < 0).any()):
+            raise ValueError('Annual heating reference requires 8760 finite nonnegative hourly values.')
+        sources = {key: float(value) for key, value in heat_sources.items()}
+        if any(not np.isfinite(value) or value < 0 for value in sources.values()):
+            raise ValueError('Annual heating allocation must be finite and nonnegative.')
+        self._annual_heating_profile = profile
+        self._annual_heat_sources = sources
+
+    def get_annual_hp_peak_kW(self):
+        """Return annual HP building-heating peak, excluding all TES charging."""
+        # Missing annual data must not silently fall back to a short simulation
+        # or an infinite capacity. A valid zero-heat year returns exactly zero.
+        profile = getattr(self, '_annual_heating_profile', None)
+        if profile is None:
+            raise ValueError('Annual HP peak requires a complete 8760-hour heating reference before TES dispatch.')
+        return float(profile.max() * self._annual_heat_sources.get('heat_pump', 0.0))
+
+    def transfer_annual_heat_to_hp(self, source, fraction):
+        """Mirror a building-heater retrofit in the separate annual reference."""
+        # All these decentralised technologies use the same heating profile.
+        # Transfer their annual heat with the exact fraction used by dispatch.
+        sources = self._annual_heat_sources
+        shifted = sources.get(source, 0.0) * fraction
+        sources[source] = sources.get(source, 0.0) - shifted
+        sources['heat_pump'] = sources.get('heat_pump', 0.0) + shifted
+
     def __compute_d_h_profile(self, n_days = 365):
         
         d_h_profile = np.array(self._d_h)/self._d_h_yr
@@ -2055,7 +2086,18 @@ class EnergyDemand:
             Dataframe with hourly time-series of partial heat demand.
         """
         
-        # d_h_profile = df_base['d_h']/df_base['d_h'].sum()
+        # Capture the annual allocation before the simulation profile is cut.
+        # Repeating this after renovation replaces the old reference rather
+        # than retaining capacities based on pre-renovation heating demand.
+        if len(self._d_h) == 8760:
+            annual_profile = (np.asarray(self._d_h, dtype=float) / self._d_h_yr
+                              if self._d_h_yr > 0 else np.zeros(8760))
+            self.set_annual_heating_reference(annual_profile, dict(zip(heat_labels, heat_values)))
+        else:
+            # Other callers may provide partial data, but combined TES dispatch
+            # must reject it rather than reuse a stale or partial annual peak.
+            self._annual_heating_profile = None
+            self._annual_heat_sources = {}
         self.__compute_d_h_profile(n_days)
         # for heating_type in zip(heat_labels, heat_values):
         #     df_base[heating_type[0]] = heating_type[1]*d_h_profile

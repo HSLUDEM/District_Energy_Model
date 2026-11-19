@@ -12,6 +12,7 @@ Functions to create scenarios for the district energy model.
 
 import numpy as np
 import pandas as pd
+import warnings
 
 from district_energy_model import dem_helper
 from district_energy_model import dem_energy_balance as dem_eb
@@ -56,6 +57,9 @@ def scenario_heater_electric_to_hp(energy_demand, scen_techs, tech_instances):
     u_e_hp = tech_heat_pump.get_u_e()
     v_h_hp_updated = v_h_hp + tmp_v_h_shifted
     tech_heat_pump.update_v_h(v_h_hp_updated)
+    # Apply the same replacement to the full-year reference, which is kept
+    # separately from the shortened and later storage-modified HP time series.
+    energy_demand.transfer_annual_heat_to_hp('electric_heater', replacement_factor)
     u_e_hp_updated = tech_heat_pump.get_u_e()
     tmp_u_e_additional = u_e_hp_updated - u_e_hp - tmp_u_e_shifted
 
@@ -134,6 +138,8 @@ def scenario_heater_oil_to_hp(energy_demand, scen_techs, tech_instances):
     u_e_hp = tech_heat_pump.get_u_e()
     v_h_hp_updated = v_h_hp + tmp_v_h_shifted
     tech_heat_pump.update_v_h(v_h_hp_updated)
+    # Keep the annual fleet reference consistent with oil-to-HP replacement.
+    energy_demand.transfer_annual_heat_to_hp('oil_boiler', replacement_factor)
     u_e_hp_updated = tech_heat_pump.get_u_e()
     tmp_u_e_additional = u_e_hp_updated - u_e_hp
 
@@ -211,6 +217,8 @@ def scenario_heater_gas_to_hp(energy_demand, scen_techs, tech_instances):
     u_e_hp = tech_heat_pump.get_u_e()
     v_h_hp_updated = v_h_hp + tmp_v_h_shifted
     tech_heat_pump.update_v_h(v_h_hp_updated)
+    # Keep the annual fleet reference consistent with gas-to-HP replacement.
+    energy_demand.transfer_annual_heat_to_hp('gas_boiler', replacement_factor)
     u_e_hp_updated = tech_heat_pump.get_u_e()
     tmp_u_e_additional = u_e_hp_updated - u_e_hp
     
@@ -1102,16 +1110,24 @@ def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, 
         if not np.isfinite(cops).all() or (cops < 1).any():
             raise ValueError('TES heat-pump operation requires finite COP values >= 1.')
     hp_limit = float(scen_techs['heat_pump']['kW_th_max'])
-
-    # The independent tank heater has its own electrical power limit. One-hour
-    # timesteps make this numerically equal to its maximum hourly input in kWh.
-    direct_limit = float(config['tes_direct_max_electric_power_kW'])
+    if 'tes_decentralised' in stores:
+        # Freeze a full-year, pre-storage reference. Never infer it from this
+        # run's shortened HP series or from HP output after charging the TES.
+        annual_peak = energy_demand.get_annual_hp_peak_kW()
+        hp_limit = min(hp_limit, annual_peak * config['heat_pump_tes_capacity_factor'])
+        # Report both thermal powers once so the inferred fleet capacity can
+        # be checked in the normal run_dem_local console output.
+        print(f' HP annual building-heating peak: {annual_peak:.3f} kW_th; '
+              f'total HP limit for TES dispatch: {hp_limit:.3f} kW_th')
+        if annual_peak == 0 and stores['tes_decentralised']['cap'] > 0:
+            warnings.warn(
+                'Combined storage: annual HP building-heating peak is zero; '
+                'HP charging of TES is disabled because no fleet capacity '
+                'can be inferred.', UserWarning, stacklevel=2)
 
     # Walk forward in time; standing losses occur between consecutive hours,
     # while the first hour starts at the explicitly configured initial charge.
     for i in range(count):
-        # Track the independent tank heater without changing the building EH.
-        direct_charging = 0.0
         for key, store in stores.items():
             tech = store['tech']
             previous = ((tech.get_q_e() if key == 'bes' else tech.get_q_h())[i - 1]
@@ -1178,35 +1194,24 @@ def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, 
                 surplus -= charged
                 continue
 
-            # Try each TES conversion path once. HP charging respects remaining
-            # thermal HP power and the optional threshold on feasible input kW.
-            # DEM timesteps are one hour, so kWh per timestep equals average kW.
-            for source in config['tes_charge_heat_source_order']:
-                heat_room = max(feasible - store['charge'], 0.0)
-                # Stop this bounded conversion pass when either resource is
-                # exhausted, including tiny floating-point remainders at zero.
-                if surplus <= 0 or heat_room <= 0:
-                    break
-                if source == 'heat_pump':
-                    electric_input = min(surplus, heat_room / cops[i],
-                                         max(hp_limit - hp_heat[i], 0.0) / cops[i])
-                    if electric_input < config['heat_pump_tes_min_electric_power_kW']:
-                        continue
-                    heat_input = electric_input * cops[i]
-                    hp_heat[i] += heat_input
-                else:
-                    # The tank heater is independent of building EH deployment
-                    # and converts surplus at 100%, within its own power limit.
-                    electric_input = min(surplus, heat_room, direct_limit)
-                    heat_input = electric_input
-                    direct_charging += heat_input
-                store['charge'] += heat_input
-                store['level'] += heat_input * store['eta']
-                # Count each conversion load once during dispatch. Later demand
-                # aggregation reads HP input and the independent tank input.
-                demand[i] += electric_input
-                heating_electricity[i] += electric_input
-                surplus = max(surplus - electric_input, 0.0)
+            # Only the HP charges TES, using remaining renewable surplus within
+            # the existing HP thermal-power, TES charging-rate and space limits.
+            # Hourly timesteps make electrical kWh equal to average input kW.
+            electric_input = min(surplus, feasible / cops[i],
+                                 max(hp_limit - hp_heat[i], 0.0) / cops[i])
+            minimum = config['heat_pump_tes_min_electric_power_kW']
+            # A positive threshold must be exceeded by the feasible input;
+            # zero disables the threshold. Unused surplus goes to the next store.
+            if electric_input <= 0 or (minimum > 0 and electric_input <= minimum):
+                continue
+            heat_input = electric_input * cops[i]
+            hp_heat[i] += heat_input
+            store['charge'] = heat_input
+            store['level'] += heat_input * store['eta']
+            # HP input includes TES charging, so record its electricity once.
+            demand[i] += electric_input
+            heating_electricity[i] += electric_input
+            surplus = max(surplus - electric_input, 0.0)
 
         # Check this hour's ledger before writing the final flows and state.
         # Losses and efficiencies are unchanged; only their recording now uses
@@ -1236,7 +1241,6 @@ def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, 
                 tech.update_q_h_i(i, level)
                 tech.update_l_u_h_i(i, charged * (1.0 - eta))
                 tech.update_l_v_h_i(i, discharged * (1.0 / eta - 1.0))
-                tech.update_u_e_direct_i(i, direct_charging)
             tech.update_sos_i(i, level / store['cap'] if store['cap'] > 0 else 0.0)
 
         # Update HP and demand in the same hour, as in TES-only. The HP setter

@@ -2332,7 +2332,7 @@ class DistrictEnergyModel:
             df_scen=self.df_scen,   
             tes_sites_plotting_inf=tes_sites_plotting_inf,
             building_inertia_flex=self.building_inertia_flex,
-            # Only combined dispatch has exactly HP and direct TES charging.
+            # Show hourly HP charging input for the HP-only combined scenario.
             combined_storage=self.scen_techs['scenarios'].get(
                 'scenario_battery_plus_thermal_energy_storage', False),
             )
