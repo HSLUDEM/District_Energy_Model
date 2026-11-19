@@ -38,6 +38,8 @@ All notable changes to this project will be documented in this file.
 - Pareto front: every point runs the same result checks as a single optimisation (unmet demand, negative values, energy balances) and contains the cost module results (`Kostenmodul`), the optimised capacities (`df_capacities`) and its own copy of `scen_techs`.
 - Pareto front: `optimisation.N_pareto` must be an integer of at least 2, and `optimisation.pareto_monetary_co2: True` requires `optimisation.enabled: True` (error instead of a late crash or a silent simulation).
 - Pareto front: the scenario of each point is prepared in the same way as for a single optimisation. Previously, it was prepared as for a simulation, so technologies with `deployment: False` remained available to the optimiser, alpine PV was never added, and the heat generators of renovated buildings were reassigned with the rates for manual scenarios. New argument `run_optimisation` of `generate_scenario()` (default True).
+- Optimisation: the monetary total costs no longer contain the penalty for unmet demand (`bigM_value` per kWh). Previously, every kWh of unmet demand added `bigM_value` CHF to the reported total (divided by `objective_monetary`, i.e. 100,000 times more when optimising for CO2). The penalty is reported separately as `objective` → `unmet_demand_penalty`. Costs added by custom constraints (minimum size of TES sites) remain in the total.
+- Optimisation: a warning is printed if the result contains unused supply (forced generation that could not be used or exported), which was not reported before.
 
 ### Changed
 - Compatibility with Calliope version 0.6.10 (previously 0.6.8)
