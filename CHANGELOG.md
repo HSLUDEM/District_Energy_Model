@@ -34,6 +34,7 @@ All notable changes to this project will be documented in this file.
 – Adjust upper and lower flexibility bounds if EV integration is <100% in optimization scenario (previously leading to an error).
 - Minor bugfixes
 - Bug in dem_tech_district_heating.py: 100% district heating share was not possible. This has been corrected. 
+- Community files in `data/community_data/` (cached building data of a municipality) were never updated: after a change of the master data, the old building data was used without notice. The size and modification time of the master files are now stored next to each community file (`<name>.master_data.json`); if they differ from the current master files, or the info file is missing (community files created before this fix), the community file is rebuilt and a message is printed. Building a community file now reads only the municipality's rows of the general master file (about 4 s instead of 10 s; same data). 
 
 ### Changed
 - Compatibility with Calliope version 0.6.10 (previously 0.6.8)
