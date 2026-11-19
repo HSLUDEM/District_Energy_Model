@@ -1392,7 +1392,7 @@ class EnergyDemand:
         #Both are applied to the peak output after all scenarios, the rest of the peak is new capacity.
         #See TechCore.set_replacement_rates().
 
-        if heat_generator_renovation:
+        if heat_generator_renovation or total_renovation_activated:
             
             df_com_yr['heat_generator_replacement_flag'] = 0.0
 
@@ -1407,28 +1407,32 @@ class EnergyDemand:
                 'v_h_other': scen_techs['other']['lifetime'],
             }
 
-            build_year_plus_lifetime = df_com_yr['GBAUJ'] + df_com_yr['Heating_System'].map(heat_generator_lifetimes)
+            # Without heat generator renovation no heat generator reaches its end of life (replacement
+            # flag 0): with total renovation, the old heat generators of the renovated part are removed,
+            # the rest is existing (A13).
+            if heat_generator_renovation:
+                build_year_plus_lifetime = df_com_yr['GBAUJ'] + df_com_yr['Heating_System'].map(heat_generator_lifetimes)
 
 
-            lifetimes = df_com_yr['Heating_System'].map(heat_generator_lifetimes)
+                lifetimes = df_com_yr['Heating_System'].map(heat_generator_lifetimes)
 
-            recently_built = (data_year <= build_year_plus_lifetime)
+                recently_built = (data_year <= build_year_plus_lifetime)
 
-            df_com_yr.loc[recently_built, 'heat_generator_replacement_flag'] = (year > build_year_plus_lifetime).astype(float) - df_com_yr.loc[recently_built, 'total_renovation_flag']
+                df_com_yr.loc[recently_built, 'heat_generator_replacement_flag'] = (year > build_year_plus_lifetime).astype(float) - df_com_yr.loc[recently_built, 'total_renovation_flag']
 
             
 
-            yeardelta = 0.0
-            if year-data_year>0:
-                yeardelta = year-data_year
-            fraction_up_for_renovation = (yeardelta)*1.0/lifetimes
-            fraction_up_for_renovation[fraction_up_for_renovation > 1.0] = 1.0
-            fraction_up_for_renovation = fraction_up_for_renovation.fillna(1.0) #heating systems without lifetime
-            fraction_up_for_renovation = fraction_up_for_renovation - df_com_yr['total_renovation_flag']
+                yeardelta = 0.0
+                if year-data_year>0:
+                    yeardelta = year-data_year
+                fraction_up_for_renovation = (yeardelta)*1.0/lifetimes
+                fraction_up_for_renovation[fraction_up_for_renovation > 1.0] = 1.0
+                fraction_up_for_renovation = fraction_up_for_renovation.fillna(1.0) #heating systems without lifetime
+                fraction_up_for_renovation = fraction_up_for_renovation - df_com_yr['total_renovation_flag']
             
-            df_com_yr.loc[~recently_built, 'heat_generator_replacement_flag'] = fraction_up_for_renovation
+                df_com_yr.loc[~recently_built, 'heat_generator_replacement_flag'] = fraction_up_for_renovation
 
-            df_com_yr.loc[df_com_yr['heat_generator_replacement_flag'] < 0.0, 'heat_generator_replacement_flag'] = 0.0
+                df_com_yr.loc[df_com_yr['heat_generator_replacement_flag'] < 0.0, 'heat_generator_replacement_flag'] = 0.0
 
             heat_generators_total_power_up_for_renovation = {}
             heat_generators_total_power_existing = {}
