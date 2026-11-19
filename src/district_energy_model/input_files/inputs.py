@@ -895,8 +895,6 @@ scen_techs = {
             'future_year': 2050, # Only relevant if type == future; Options: '2030', '2035', '2040', '2050'
             },
         # 'year': 2023, # Options: 2023, 2030, 2040, 2050
-        'rcp_scenario':'RCP26',
-        'ts_type':'tas_median',
         'ev_integration':True,
         'ev_integration_factor':100, # [%] share of electric vehicle in total fleet
         'ev_flexibility': True, # only in combination with optimisation

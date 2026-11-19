@@ -40,6 +40,9 @@ All notable changes to this project will be documented in this file.
 - Input files structure
 - Required input data
 
+### Removed
+- Inputs `demand_side` `rcp_scenario` and `ts_type`: they had no effect (the future space heating demand is scaled with heating degree days from the temperature data of the simulated year). YAML config files or a `config_dict` that still contain them now stop with an "unknown key" error; remove the two keys. The commented-out old HDD scaling function in dem_demand.py, the only code that used them, was deleted.
+
 ## [0.1.0] – 2026-03-23
 Stable release.
 
