@@ -821,20 +821,24 @@ def test_heat_pump_cops_use_the_recomputed_heat_demand(run_dem, demand_side):
 
 
 # A54: technologies that are not operated in a simulation (central plants,
-# central storages, ...) cause no capex/maintenance there; their maximum or
-# forced capacity is a limit of the optimisation only.
+# central storages, ...) cause no capex/maintenance there; their maximum
+# capacity is a limit of the optimisation only. A capacity forced with
+# force_cap_max is deployed by the user and costs in full (capex and
+# maintenance) in simulations too.
 _NOT_OPERATED = {
-    'tes': {'deployment': True, 'capacity_kWh_max': 1e5, 'force_cap_max': True},
+    'tes': {'deployment': True, 'capacity_kWh_max': 1e5},
     'tes_decentralised': {'deployment': True, 'capacity_kWh_max': 1e5},
     'bes': {'capacity_kWh_max': 1e5},
     'gtes': {'deployment': True, 'capacity_kWh_max': 1e5},
     'hes': {'deployment': True, 'capacity_kWh_max': 1e5},
-    'chp_gt': {'deployment': True, 'kW_el_max': 1e5, 'force_cap_max': True},
-    'gas_turbine_cp': {'deployment': True, 'kW_el_max': 1e5, 'force_cap_max': True},
-    'steam_turbine': {'deployment': True, 'kW_el_max': 1e5, 'force_cap_max': True},
-    'wood_boiler_sg': {'deployment': True, 'kW_h_max': 1e5, 'force_cap_max': True},
-    'waste_to_energy': {'deployment': True, 'kW_el_max': 1e5, 'force_cap_max': True},
+    'chp_gt': {'deployment': True, 'kW_el_max': 1e5},
+    'gas_turbine_cp': {'deployment': True, 'kW_el_max': 1e5},
+    'steam_turbine': {'deployment': True, 'kW_el_max': 1e5},
+    'wood_boiler_sg': {'deployment': True, 'kW_h_max': 1e5},
+    'waste_to_energy': {'deployment': True, 'kW_el_max': 1e5},
 }
+_FORCED = {tech: {**cfg, 'force_cap_max': True} for tech, cfg in _NOT_OPERATED.items()
+           if tech in ('tes', 'chp_gt', 'gas_turbine_cp', 'steam_turbine', 'wood_boiler_sg', 'waste_to_energy')}
 
 
 @requires_data
@@ -846,6 +850,28 @@ def test_not_operated_technologies_cost_nothing_in_simulation(run_dem):
         assert costs[tech]['annualized_capex'] == 0, tech
         assert costs[tech]['opex'] == 0, tech
     assert cost_overview(model)['monetary']['total'] == pytest.approx(cost_overview(base)['monetary']['total'], rel=1e-12)
+    pd.testing.assert_frame_equal(model.hourly_results()[base.hourly_results().columns], base.hourly_results(),
+                                  check_dtype=False)
+
+
+@requires_data
+def test_forced_capacities_cost_in_full_in_simulation(run_dem):
+    base = run_dem({})
+    model = run_dem(_FORCED)
+    costs = model.total_cost()['monetary_breakdown']
+    for tech in _FORCED:
+        inst = model.tech_instances[tech]
+        if tech == 'tes':
+            cap = inst.get_cap()
+        else:
+            cap = inst.get_installed_cap()
+            assert inst.get_output().max() < 1e5, tech  # not operated at the forced capacity
+        assert cap == pytest.approx(1e5, rel=1e-9), tech
+        assert inst.get_total_capex() == pytest.approx(inst._capex*(1e5 - inst.existing), rel=1e-9), tech
+        assert inst.get_total_maintenance() == pytest.approx(inst._maintenance_cost*1e5, rel=1e-9), tech
+        assert costs[tech]['annualized_capex'] > 0, tech
+        assert costs[tech]['opex'] > 0 or inst._maintenance_cost == 0, tech  # tes: maintenance_cost 0
+    assert cost_overview(model)['monetary']['total'] > cost_overview(base)['monetary']['total']
     pd.testing.assert_frame_equal(model.hourly_results()[base.hourly_results().columns], base.hourly_results(),
                                   check_dtype=False)
 
@@ -909,3 +935,42 @@ def test_without_total_renovation_existing_is_base_peak(run_dem):
     model = run_dem(cfg)
     assert 'heat_generator_existing_rates' not in model.scen_techs['demand_side']
     assert model.tech_instances['oil_boiler'].get_existing_rate() is None
+
+
+@requires_data
+def test_central_heat_pump_spf_adjustment_uses_the_recomputed_heat_demand(run_dem, tmp_path):
+    # A36: the central heat pump COP with cop_mode 'from_file_adjusted_to_spf' was scaled to
+    # the target SPF with the base heat demand profile, before the demand-side scenario
+    # recomputed it. The SPF weighted with the final profile must equal the target.
+    from district_energy_model import dem_helper
+    hours = np.arange(8760)
+    cop_file = tmp_path / 'cop_hpcp.feather'
+    pd.DataFrame({'cop': 3.0 + 1.5 * np.cos(2 * np.pi * (hours / 8760 - 0.55))}).to_feather(cop_file)
+    hpcp = {'deployment': True, 'cop_mode': 'from_file_adjusted_to_spf',
+            'cop_timeseries_file_path': str(cop_file), 'spf_to_target': 3.5}
+    model = run_dem({'heat_pump_cp': hpcp, 'scenarios': {'demand_side': True},
+                     'demand_side': {'simulation_year': {'type': 'future', 'future_year': 2050}}},
+                    days=365)
+    profile = np.asarray(model.energy_demand._d_h_profile, dtype=float)
+    (inst,) = dem_helper.get_heat_pump_cp_instances(model.tech_instances)
+    cop = np.asarray(inst.get_cop(), dtype=float)
+    assert len(cop) == len(profile) == 8760
+    assert profile.sum() / (profile / cop).sum() == pytest.approx(3.5, rel=1e-9)
+
+
+@requires_data
+@pytest.mark.parametrize('cop_mode', ['from_file', 'constant'])
+def test_central_heat_pump_cop_without_spf_adjustment_not_recomputed(run_dem, tmp_path, cop_mode):
+    # A36: only 'from_file_adjusted_to_spf' depends on the heat demand profile.
+    from district_energy_model import dem_helper
+    cop_values = 2.5 + np.arange(8760) % 24 / 24
+    cop_file = tmp_path / 'cop_hpcp.feather'
+    pd.DataFrame({'cop': cop_values}).to_feather(cop_file)
+    hpcp = {'deployment': True, 'cop_mode': cop_mode, 'cop_timeseries_file_path': str(cop_file),
+            'cop_constant_value': 3.2}
+    model = run_dem({'heat_pump_cp': hpcp, 'scenarios': {'demand_side': True},
+                     'demand_side': {'simulation_year': {'type': 'future', 'future_year': 2050}}},
+                    days=365)
+    (inst,) = dem_helper.get_heat_pump_cp_instances(model.tech_instances)
+    expected = cop_values if cop_mode == 'from_file' else np.full(8760, 3.2)
+    np.testing.assert_allclose(inst.get_cop(), expected, rtol=1e-12)
