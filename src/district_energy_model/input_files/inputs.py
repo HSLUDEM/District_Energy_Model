@@ -237,7 +237,7 @@ scen_techs = {
         'eta_overall': 0.23*0.95,
         'lifetime':25,
         'base_capex':2079, #capex per installed kWp power. This is not the same as the peak of the solar PV production; Source: Photovoltaikmarkt:Lionel Bloch, Planair SA Yannick Sauter, Planair SA Florent Jacqmin, Planair SA Preisbeobachtungsstudie 2024 https://pubdb.bfe.admin.ch/de/publication/download/12228capex per installed kWp power. This is not the same as the peak of the solar PV production. Source: Photovoltaikmarkt: Preisbeobachtungsstudie 2024 Lionel Bloch, Planair SA Yannick Sauter, Planair SA Florent Jacqmin, Planair SA Preisbeobachtungsstudie 2024 https://pubdb.bfe.admin.ch/de/publication/download/12227
-        'base_maintenance_cost': 0.03, # Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
+        'base_maintenance_cost': 37.0, # [CHF/kWp/year]
         'interest_rate':interest_rate,
         'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
         'only_use_installed':False,
@@ -249,7 +249,7 @@ scen_techs = {
         'eta_overall': -1.0, #Not used by code.
         'lifetime':25,
         'base_capex':4370, #capex per installed kWp power. upper limit, Quelle: Harnessing solar power in the Alps: A study on the financial viability of mountain PV systems (RePEc:eee:appene:v:375:y:2024:i:c:s0306261924014028)This is not the same as the peak of the solar PV production.
-        'base_maintenance_cost': 13.0,
+        'base_maintenance_cost': 45.0, # [CHF/kWp/year] 
         'interest_rate':interest_rate,
         'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
         'only_use_installed':False,
@@ -264,7 +264,7 @@ scen_techs = {
         'interest_rate':interest_rate,
         'base_capex': 1950, # [CHF/kW_th] Source: Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
         'base_capex_one_to_one_replacement': 1000, #[CHF/kW_th] does nothing
-        'base_maintenance_cost': 10, # [CHF/kW_th/year]
+        'base_maintenance_cost': 9, # [CHF/kW_th/year]
         'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
         'only_use_installed': False
         },

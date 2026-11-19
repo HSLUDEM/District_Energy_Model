@@ -37,6 +37,7 @@ All notable changes to this project will be documented in this file.
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 - Pareto front: every point now starts from the building and municipality data as loaded. Previously, the demand-side scenario of the previous point had changed the data, so that all points after the first used a different heat demand and different existing capacities. Results of pareto fronts with the demand-side scenario change.
 - Pareto front: every point runs the same result checks as a single optimisation (unmet demand, negative values, energy balances) and contains the cost module results (`Kostenmodul`), the optimised capacities (`df_capacities`) and its own copy of `scen_techs`.
 - Pareto front: `optimisation.N_pareto` must be an integer of at least 2, and `optimisation.pareto_monetary_co2: True` requires `optimisation.enabled: True` (error instead of a late crash or a silent simulation).
@@ -50,6 +51,7 @@ All notable changes to this project will be documented in this file.
 - Optimisation with `grid_supply` `deployment: False` stopped with an AttributeError. An error with a clear message is now raised at the start of the run: `grid_supply` is required for optimisation (it provides the grid connection). `grid_export` `kW_max` is not used (the grid connection capacity is `grid_supply` `kW_max`, which limits import and export); a warning is printed if it is set.
 - Community files in `data/community_data/` (cached building data of a municipality) were never updated: after a change of the master data, the old building data was used without notice. The size and modification time of the master files are now stored next to each community file (`<name>.master_data.json`); if they differ from the current master files, or the info file is missing (community files created before this fix), the community file is rebuilt and a message is printed. Building a community file now reads only the municipality's rows of the general master file (about 4 s instead of 10 s; same data). 
 - Cost module: the CAPEX of technologies with a fixed capacity (storages, `capacity_kWh_max` or optimised `storage_cap`) is limited to zero from below, as for all other technologies. No effect on current results (existing storage capacity is always zero).
+- `TechCore.get_v_max()` checked only the first capacity attribute (`_v_h_max`) and returned 'inf' for all other technologies; it now checks all listed attributes. No effect on current results (the value is not used for the affected technologies).
 
 ### Changed
 - Compatibility with Calliope version 0.6.10 (previously 0.6.8)

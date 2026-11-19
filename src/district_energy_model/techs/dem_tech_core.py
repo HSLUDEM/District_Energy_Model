@@ -191,10 +191,10 @@ class TechCore():
         for attr in ['_v_h_max', 'v_max', 'kw_max', 'kW_el_max', '_cap', '_p_max']:
             if hasattr(self, attr):
                 return getattr(self, attr)
-            else: 
-                if debug:
-                    warnings.warn(f"No max_capacity attribute found returning 'inf' for object {self}")
-                return 'inf'
+        # None of the attributes exists:
+        if debug:
+            warnings.warn(f"No max_capacity attribute found returning 'inf' for object {self}")
+        return 'inf'
     
     def get_power_up_for_replacement(self):
         if hasattr(self, '_power_up_for_replacement'):
