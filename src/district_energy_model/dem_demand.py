@@ -1404,7 +1404,7 @@ class EnergyDemand:
                 'v_h_ob': scen_techs['oil_boiler']['lifetime'],
                 'v_h_wb': scen_techs['wood_boiler']['lifetime'],
                 'v_h_solar': scen_techs['solarthermal_rooftop']['lifetime'],
-                'v_h_other': 1.0,
+                'v_h_other': scen_techs['other']['lifetime'],
             }
 
             build_year_plus_lifetime = df_com_yr['GBAUJ'] + df_com_yr['Heating_System'].map(heat_generator_lifetimes)

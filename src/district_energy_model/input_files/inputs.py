@@ -791,7 +791,8 @@ scen_techs = {
         },
 
     'other':{ # other
-        'deployment':True
+        'deployment':True,
+        'lifetime': 20 #affects renovations in manual scenarios
         },
               
     'scenarios':{
