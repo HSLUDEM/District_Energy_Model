@@ -566,6 +566,35 @@ def test_forced_capacity_of_low_temperature_central_heat_pump_independent_of_ene
     assert obj[10] == pytest.approx(obj[1], rel=1e-6)
 
 
+@pytest.mark.parametrize('force', [True, False])
+@pytest.mark.parametrize('tech', ['heat_pump_cp_lt', 'heat_pump_cp'])
+def test_cost_module_uses_forced_capacity_of_central_heat_pumps(run_dem, tmp_path, tech, force):
+    # A53: HeatPumpCP / HeatPumpCPLT had no get_installed_cap override, so the cost module sized them on the
+    # peak output although the optimiser builds kW_th_max with force_cap_max (energy_cap_equals).
+    # Peak output without forcing: heat_pump_cp_lt ~2286 kW (limited by the waste heat), heat_pump_cp ~3233 kW.
+    kw = 3000 if tech == 'heat_pump_cp_lt' else 4000
+    if tech == 'heat_pump_cp_lt':
+        pd.DataFrame({'v': np.full(8760, 2000.0)}).to_feather(tmp_path / 'whlt.feather')
+        cfg = {'heat_pump_cp_lt': {'deployment': True, 'kW_th_max': kw, 'force_cap_max': force},
+               'waste_heat_low_temperature': {'deployment': True, 'timeseries_file_path': str(tmp_path / 'whlt.feather')},
+               'district_heating': {'demand_share_type': 'fixed', 'demand_share_val': 0.1,
+                                    'heat_sources': {'heat_pump_cp_lt': True}}}
+    else:
+        cfg = {'heat_pump_cp': {'deployment': True, 'kW_th_max': kw, 'force_cap_max': force,
+                                'cop_mode': 'constant', 'cop_constant_value': [3.0]},
+               'district_heating': {'demand_share_type': 'fixed', 'demand_share_val': 0.1,
+                                    'heat_sources': {'import': False, 'heat_pump_cp': True}}}
+    model = run_dem(cfg | {'optimisation': OPT})
+    keys = [k for k in model.tech_instances if k.startswith(tech) and (tech != 'heat_pump_cp' or k != 'heat_pump_cp_lt')]
+    assert len(keys) == 1, keys
+    hp = model.tech_instances[keys[0]]
+    peak = hp.get_output().max()
+    assert 0 < peak < 0.9 * kw
+    assert hp.get_installed_cap() == pytest.approx(kw if force else peak, rel=1e-9)
+    assert cost_overview(model)['monetary']['total'] == pytest.approx(model.total_cost()['objective']['total'],
+                                                                      rel=1e-6, abs=1)
+
+
 
 @pytest.mark.parametrize('tech, short, inp, fluid, eta_e, eta_h', [
     ('wood_gasification_upgrade_hydrogen', 'wguh', 'u_wd_wguh', None, 0.1, 0.126),
