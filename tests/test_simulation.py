@@ -670,7 +670,8 @@ def test_fossil_heater_retrofit_removes_end_of_life_heaters_first(run_dem, act_o
         factors['gas_boiler_replacement_factor'] = 0.9
         cfg['scenarios']['fossil_heater_retrofit'] = True
         cfg['fossil_heater_retrofit'] = factors
-    model = run_dem(cfg, days=7)
+    # Full year: the output peak and the reference peak refer to the same horizon (late time cut, A10).
+    model = run_dem(cfg, days=365)
     trf = _constant_total_renovation_flag(model, year)
     rates, existing = _expected_generator_rates(model, year, trf)
     assert model.scen_techs['demand_side']['heat_generator_replacement_rates'] == pytest.approx(rates, rel=1e-9, abs=1e-12)
