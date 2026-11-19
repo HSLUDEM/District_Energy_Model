@@ -29,6 +29,25 @@ def _save_html_figure(fig, file_html):
     plotly_plot(fig, filename=file_html, auto_open=False)
 
 
+def plot_mobility_comparison(df_base, df_scenario, results_path,
+                            daily_base, daily_scenario):
+    """Compare complete passenger-car end energy for the simulated timeframe."""
+    from pathlib import Path
+    count = len(df_scenario)
+    fig = go.Figure()
+    for name, frame, daily in (
+            ('Baseline', df_base.iloc[:count], daily_base.iloc[:count // 24]),
+            ('Scenario', df_scenario, daily_scenario)):
+        fig.add_trace(go.Bar(
+            name=name, x=['Electricity (BEV + PHEV)', 'Petrol', 'Diesel'],
+            y=[float(frame['d_e_ev'].sum()) / 1000,
+               float(daily['m_petrol'].sum()) / 1000,
+               float(daily['m_diesel'].sum()) / 1000]))
+    fig.update_layout(barmode='group', title='Passenger-car end energy',
+                      yaxis_title='Energy in simulated period [MWh]')
+    _save_html_figure(fig, str(Path(results_path) / 'mobility_energy.html'))
+
+
 def _write_html(self, file, *args, **kwargs):
     _save_html_figure(self, file)
 
@@ -299,6 +318,14 @@ def hourly_results_to_file(dir_path, df_scen, filename = 'hourly_results.csv'):
     
     df_scen.to_csv(file)
     
+def mobility_daily_results_to_file(dir_path, df_daily,
+                                   filename='mobility_daily_results.csv'):
+    """Publish daily fuel (L/kWh) and distance (km), without hourly allocation."""
+    from pathlib import Path
+    if not df_daily.empty:
+        df_daily.to_csv(Path(dir_path) / filename)
+
+
 def flexibility_metrics_to_file(
         dir_path,
         flexibility_instance,

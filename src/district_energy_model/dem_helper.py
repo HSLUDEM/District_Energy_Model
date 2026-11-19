@@ -398,6 +398,11 @@ def update_df_results(
         df_results
         ):
     
+    # Remove obsolete hourly traffic columns when refreshing an existing frame.
+    traffic_columns = [col for col in df_results.columns
+                       if col in ('m_petrol', 'm_diesel', 'm_petrol_l', 'm_diesel_l')
+                       or col.startswith(('d_mobility_', 'm_co2_petrol_', 'm_co2_diesel_'))]
+    df_results.drop(columns=traffic_columns, inplace=True)
     # Setting all values to 0
     df_results.loc[:, :] = 0
     
@@ -423,8 +428,14 @@ def update_df_results(
             * supply.supply_tech_dict['msw_share_fossile']
             )
 
-    # Compute total CO2 emissions and add column (v_CO2_tot):
-    co2_columns = [col for col in df_results.columns if col.startswith('v_co2') or col.startswith('m_co2')]
+    # Allocate fixed fossil traffic emissions uniformly over the simulated hours.
+    # This is an accounting allocation, not the timing of driving or refuelling.
+    n_hours = len(df_results)
+    mobility_co2 = sum(supply.get_mobility_period_emissions(n_hours).values())
+    df_results['m_co2_mobility'] = mobility_co2 / n_hours if n_hours else 0.0
+    co2_columns = [col for col in df_results.columns
+                   if col != 'v_co2_tot'
+                   and (col.startswith('v_co2') or col.startswith('m_co2'))]
     df_results['v_co2_tot'] = df_results[co2_columns].sum(axis=1)
 
         
@@ -1446,12 +1457,47 @@ def get_df_simulation_profiles(
     
     return df_simulation_profiles_combined
 
-def create_dict_yr(df_base):
+def create_mobility_daily_results(energy_demand, supply, n_hours):
+    mobility = energy_demand.get_mobility()
+    if mobility is None:
+        return pd.DataFrame(index=pd.RangeIndex(0, name='day'))
+    return mobility.get_daily_results(n_hours).join(
+        supply.get_mobility_daily_results(n_hours))
+
+
+def create_dict_yr(df_base, energy_demand=None, supply=None):
+    """Simulated-period sums, including uniformly allocated fossil traffic CO2.
+
+    Historical `_yr` names are retained, including for shorter simulations.
+    Summing hourly `v_co2_tot` already includes fossil traffic exactly once.
+    """
     columns = df_base.columns
     dict_yr = {}
     
     for column in columns:
         dict_yr[column + '_yr'] = df_base[column].sum()
+
+    if energy_demand is not None and supply is not None:
+        daily = create_mobility_daily_results(energy_demand, supply, len(df_base))
+        if not daily.empty:
+            for column in daily.columns:
+                dict_yr[column + '_yr'] = float(daily[column].sum())
+            emissions = supply.get_mobility_period_emissions(len(df_base))
+            if 'm_co2_mobility_yr' in dict_yr:
+                # A slice of an hourly frame retains the original uniform
+                # allocation, rather than reverting to the fuel timing profile.
+                emissions = supply.get_mobility_period_emissions()
+                total = sum(emissions.values())
+                factor = dict_yr['m_co2_mobility_yr'] / total if total else 0.0
+                emissions = {name: value * factor for name, value in emissions.items()}
+            for name, value in emissions.items():
+                dict_yr['m_co2_' + name + '_yr'] = value
+            if 'm_co2_mobility_yr' not in dict_yr:
+                # Compatibility with frames created before hourly allocation.
+                dict_yr['m_co2_mobility_yr'] = sum(emissions.values())
+                dict_yr['v_co2_tot_yr'] += dict_yr['m_co2_mobility_yr']
+            dict_yr['v_co2_excl_mobility_fuels_yr'] = (
+                dict_yr['v_co2_tot_yr'] - dict_yr['m_co2_mobility_yr'])
         
     return dict_yr
 

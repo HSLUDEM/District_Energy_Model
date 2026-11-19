@@ -56,6 +56,10 @@ class Supply(TechCore):
         self._m_oil = [0.0]*8760
         self._m_gas = [0.0]*8760        
         self._m_wd = [0.0]*8760
+        self._m_petrol = np.zeros(8760)  # [kWh] passenger-car fuel imports
+        self._m_diesel = np.zeros(8760)
+        self._m_petrol_l = np.zeros(8760)
+        self._m_diesel_l = np.zeros(8760)
         
         # Annual values:
         self._s_hydroL_yr = ...
@@ -75,6 +79,7 @@ class Supply(TechCore):
         df['m_oil'] = self.get_m_oil()
         df['m_gas'] = self.get_m_gas()
         df['m_wd'] = self.get_m_wd()        
+        # Traffic fuels are published daily; their CO2 is a period total.
         
         # CO2 emissions of fuels (included in v_co2_tot):
         df['m_co2_oil'] = self.get_m_oil()*self.supply_tech_dict['co2_content_oil']
@@ -118,6 +123,46 @@ class Supply(TechCore):
         self._m_oil = self._m_oil[:n_hours]
         self._m_gas = self._m_gas[:n_hours]        
         self._m_wd = self._m_wd[:n_hours]
+        self._m_petrol = self._m_petrol[:n_hours]
+        self._m_diesel = self._m_diesel[:n_hours]
+        self._m_petrol_l = self._m_petrol_l[:n_hours]
+        self._m_diesel_l = self._m_diesel_l[:n_hours]
+
+    def update_mobility(self, mobility):
+        """Prescribed traffic imports, kept separate from boiler heating oil."""
+        if mobility is None:
+            self._m_petrol = np.zeros(len(self._m_oil))
+            self._m_diesel = np.zeros(len(self._m_oil))
+            self._m_petrol_l = np.zeros(len(self._m_oil))
+            self._m_diesel_l = np.zeros(len(self._m_oil))
+        else:
+            self._m_petrol_l = mobility.petrol_l.copy()
+            self._m_diesel_l = mobility.diesel_l.copy()
+            self._m_petrol = self._m_petrol_l * mobility.petrol_kWhpl
+            self._m_diesel = self._m_diesel_l * mobility.diesel_kWhpl
+
+    def get_mobility_daily_results(self, n_hours):
+        """Daily fuel quantities without an artificial hourly consumption output."""
+        if n_hours <= 0 or n_hours % 24 or n_hours > len(self.get_m_petrol()):
+            raise ValueError('Daily fuel results require complete available days.')
+        return pd.DataFrame({
+            'm_petrol': self.get_m_petrol()[:n_hours].reshape(-1, 24).sum(axis=1),
+            'm_diesel': self.get_m_diesel()[:n_hours].reshape(-1, 24).sum(axis=1),
+            'm_petrol_l': self.get_m_petrol_l()[:n_hours].reshape(-1, 24).sum(axis=1),
+            'm_diesel_l': self.get_m_diesel_l()[:n_hours].reshape(-1, 24).sum(axis=1),
+        }, index=pd.RangeIndex(1, n_hours // 24 + 1, name='day'))
+
+    def get_mobility_period_emissions(self, n_hours=None):
+        """Fossil CO2 components in kg for the simulated period, not per hour."""
+        return {
+            f'{fuel}_{part}': float(np.sum(getattr(self, f'get_m_{fuel}_l')()[:n_hours]))
+            * self.supply_tech_dict.get(f'co2_{fuel}_{part}_kgpl', 0.0)
+            for fuel in ('petrol', 'diesel')
+            for part in ('combustion', 'upstream')
+        }
+
+    def get_mobility_co2(self):
+        return float(sum(self.get_mobility_period_emissions().values()))
         
     def create_supply_dict_oil(
             self,
@@ -541,6 +586,22 @@ class Supply(TechCore):
     def get_m_wd(self):
         self.len_test(self._m_wd)
         return self._m_wd
+
+    def get_m_petrol(self):
+        self.len_test(self._m_petrol)
+        return self._m_petrol
+
+    def get_m_diesel(self):
+        self.len_test(self._m_diesel)
+        return self._m_diesel
+
+    def get_m_petrol_l(self):
+        self.len_test(self._m_petrol_l)
+        return self._m_petrol_l
+
+    def get_m_diesel_l(self):
+        self.len_test(self._m_diesel_l)
+        return self._m_diesel_l
 
 
 # sirnach_wet.to_frame(sirnach_wet, 'wet_biomass')
