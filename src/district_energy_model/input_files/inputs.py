@@ -447,7 +447,7 @@ scen_techs = {
         'hes_gamma':0.0,
         'capacity_kWh_max':hes_cap*1e6 if hes_cap != 'inf' else 'inf',
         'chg_dchg_per_cap_max':0.1, # max. charge/discharge (kW) per storage cap (kWh) per timestep
-        'initial_charge':1.0,#hes_ic,
+        'initial_charge': hes_ic,
         'optimized_initial_charge': True, #optimize the intial=final sos. This disables initial_charge
         'lifetime':25,
         'interest_rate':interest_rate,
