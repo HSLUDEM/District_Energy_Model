@@ -78,9 +78,6 @@ class WoodBoilerCP(TechCore):
         self._interest_rate = tech_dict['interest_rate']
         self._capex = tech_dict['capex']
         self._maintenance_cost = tech_dict['maintenance_cost']
-        # self._fixed_demand_share = tech_dict['fixed_demand_share']
-        # self._fixed_demand_share_val = tech_dict['fixed_demand_share_val']
-        # self._only_allow_existing = tech_dict['only_allow_existing']
         
         # Update tech dict:
         self.__tech_dict = tech_dict
@@ -227,17 +224,6 @@ class WoodBoilerCP(TechCore):
             raise ValueError("u_wd_wbcp_kg has not yet been computed!")        
         return self._u_wd_kg
         
-    # def get_fixed_demand_share(self):
-    #     return self._fixed_demand_share
-    
-    # def get_fixed_demand_share_val(self):
-    #     self.num_test(self._fixed_demand_share_val)
-    #     return self._fixed_demand_share_val
-    
-    # def get_only_allow_existing(self):
-    #     return self._only_allow_existing
-
-
 
     
     

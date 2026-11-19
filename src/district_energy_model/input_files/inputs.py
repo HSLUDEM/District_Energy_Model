@@ -734,9 +734,6 @@ scen_techs = {
         # 'replacement_factor':fhrp/100,
         'capex':160, # [CHF/kW_th] Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW gas boiler
         'maintenance_cost': 3.95, # [CHF/kW/year] Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob) costs for 2000kW gas boiler
-        # 'fixed_demand_share':False, # If set to 'True', a fixed share (per timestep) of the total heat demand will be served by this tech
-        # 'fixed_demand_share_val':0.0, # [-] Only relevant if fixed_demand_share == True; the share(per timestep) of the total heat demand served by this tech;
-        # 'only_allow_existing':False, # Only relevant for optimisation; if set to 'True', only the existing (allready installed) capacity can be used; CAREFUL: Avoid conflict with fixed_demand_share.
         },
 
     

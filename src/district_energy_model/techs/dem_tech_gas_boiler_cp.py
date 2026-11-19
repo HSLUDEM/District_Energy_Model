@@ -80,10 +80,6 @@ class GasBoilerCP(TechCore):
         self._capex = tech_dict['capex']
         self._maintenance_cost = tech_dict['maintenance_cost']
 
-        # self._fixed_demand_share = tech_dict['fixed_demand_share']
-        # self._fixed_demand_share_val = tech_dict['fixed_demand_share_val']
-        # self._only_allow_existing = tech_dict['only_allow_existing']
-
 
         # Update tech dict:
         self.__tech_dict = tech_dict
@@ -328,14 +324,7 @@ class GasBoilerCP(TechCore):
         if len(self._u_gas_kg)==0:
             raise ValueError("u_gas_gbcp_kg has not yet been computed!")        
         return self._u_gas_kg
-            
-    def get_fixed_demand_share(self):
-        return self._fixed_demand_share
-    
-    def get_fixed_demand_share_val(self):
-        self.num_test(self._fixed_demand_share_val)
-        return self._fixed_demand_share_val
-    
+                
 
     
   
