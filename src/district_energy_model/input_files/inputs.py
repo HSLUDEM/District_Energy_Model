@@ -264,7 +264,7 @@ scen_techs = {
         'interest_rate':interest_rate,
         'base_capex': 1950, # [CHF/kW_th] Source: Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
         'base_capex_one_to_one_replacement': 1000, #[CHF/kW_th] does nothing
-        'base_maintenance_cost': 12, # [CHF/kW_th/year]
+        'base_maintenance_cost': 9, # [CHF/kW_th/year]
         'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
         'only_use_installed': False
         },
