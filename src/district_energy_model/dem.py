@@ -554,7 +554,7 @@ class DistrictEnergyModel:
         # Total electricity demand (hourly and annual):
         self.energy_demand.compute_d_e()
         # A mobility-enabled base includes today's complete drive mix.
-        self.__configure_mobility(scen_techs, scenario=False)
+        self.__configure_mobility(scen_techs)
         
         """--------------------------------------------------------------------
         Reset unmet demand:
@@ -695,58 +695,26 @@ class DistrictEnergyModel:
                 diff_sum_accepted = C.DIFF_SUM_ACC
                 )
         
-        dict_yr = dem_helper.create_dict_yr(df_base)
+        self.df_mobility_daily_base = dem_helper.create_mobility_daily_results(
+            self.energy_demand, self.supply, len(df_base))
+        dict_yr = dem_helper.create_dict_yr(df_base, self.energy_demand, self.supply)
         del df_interim
         return df_base, dict_yr
 
-    def __configure_mobility(self, scen_techs, scenario):
-        """Replace the legacy EV increment with a complete passenger-car balance."""
-        config = scen_techs.get('mobility', {})
-        active_scenario = scen_techs['scenarios'].get('traffic_electrification', False)
-        if not isinstance(config.get('enabled', False), bool):
-            raise ValueError('mobility.enabled must be a boolean.')
-        if not isinstance(active_scenario, bool):
-            raise ValueError('scenarios.traffic_electrification must be a boolean.')
-        if active_scenario and not config.get('enabled', False):
-            raise ValueError('scenarios.traffic_electrification requires '
-                             'mobility.enabled = True.')
-        if not config.get('enabled', False):
-            # Keep the historical EV path unchanged when the feature is off.
-            if self.energy_demand.get_mobility() is not None:
-                self.energy_demand.update_mobility(None)
-                n = len(self.energy_demand.get_d_e())
-                self.energy_demand.update_d_e_ev_cp(np.zeros(n), n // 24)
-                self.energy_demand.update_d_e_ev_pd(np.zeros(n))
-                self.energy_demand.update_d_e_ev_pu(np.zeros(n))
-                self.energy_demand.update_f_e_ev_pot_dy(np.zeros(n // 24))
-                self.energy_demand.update_d_e_ev(np.zeros(n))
-                self.energy_demand.compute_d_e()
-            self.supply.update_mobility(None)
-            return
-        # Validate both mixes even when only the baseline is being calculated.
-        dem_mobility.validate_shares(config['baseline_shares_percent'])
-        dem_mobility.validate_shares(config['scenario_shares_percent'])
-        if not isinstance(config['ev_flexibility'], bool):
-            raise ValueError('mobility.ev_flexibility must be a boolean.')
+    def __get_mobility_reference(self, scen_techs):
+        """Cache the unscaled references shared by baseline and traffic scenario."""
+        if scen_techs.get('mobility', {}).get('enabled', False) is not True:
+            return None
         if not hasattr(self, '_mobility_reference'):
             self._mobility_reference = dem_mobility.read_reference_profiles(
                 self.paths, self.com_nr, self.com_percent_2)
-        mix = ('scenario_shares_percent' if scenario and active_scenario
-               else 'baseline_shares_percent')
-        n = len(self.energy_demand.get_d_e())
-        mobility = dem_mobility.MobilityDemand(
-            self._mobility_reference, config[mix], scen_techs['supply'], n)
-        self.energy_demand.update_mobility(mobility)
-        charging = mobility.charging_profiles()
-        self.energy_demand.update_d_e_ev_cp(charging['cp'], n // 24)
-        self.energy_demand.update_d_e_ev_pd(charging['pd'])
-        self.energy_demand.update_d_e_ev_pu(charging['pu'])
-        self.energy_demand.update_f_e_ev_pot_dy(charging['fe'])
-        self.energy_demand.update_d_e_ev(charging['cp'])
-        self.energy_demand.compute_d_e()
-        # Copy to avoid mutating caller/default configuration dictionaries.
-        self.supply.supply_tech_dict = copy.deepcopy(scen_techs['supply'])
-        self.supply.update_mobility(mobility)
+        return self._mobility_reference
+
+    def __configure_mobility(self, scen_techs):
+        """Set up baseline traffic independently of the scenario switch."""
+        dem_scenarios.configure_mobility(
+            self.energy_demand, scen_techs, self.supply,
+            self.__get_mobility_reference(scen_techs))
 
     def __allocate_fuel_imports(self):
         """
@@ -1147,10 +1115,13 @@ class DistrictEnergyModel:
         #----------------------------------------------------------------------
         # Independent of demand-side heat/weather scenarios. Recalculate from
         # the unscaled reference each time, never from a prior scenario's load.
-        self.__configure_mobility(scen_techs, scenario=True)
+        dem_scenarios.scenario_traffic_electrification(
+            energy_demand=self.energy_demand,
+            scen_techs=scen_techs,
+            tech_instances=self.tech_instances,
+            supply=self.supply,
+            reference_profiles=self.__get_mobility_reference(scen_techs))
         if scen_techs.get('mobility', {}).get('enabled', False):
-            dem_eb.get_local_electricity_mix(self.energy_demand, self.tech_instances)
-            self.tech_grid_supply.update_m_e(self.tech_grid_supply.get_m_e())
             dem_helper.update_df_results(
                 self.energy_demand, self.supply, self.building_inertia_flex,
                 self.tech_instances, df_scen)
@@ -1888,7 +1859,9 @@ class DistrictEnergyModel:
         arg = df_scen.columns.argsort()
         df_scen = df_scen[df_scen.columns[arg]]
         
-        dict_yr_scen = dem_helper.create_dict_yr(df_scen)
+        self.df_mobility_daily_scen = dem_helper.create_mobility_daily_results(
+            self.energy_demand, self.supply, len(df_scen))
+        dict_yr_scen = dem_helper.create_dict_yr(df_scen, self.energy_demand, self.supply)
         
         #----------------------------------------------------------------------        
         self.scen_techs = scen_techs
@@ -2054,7 +2027,9 @@ class DistrictEnergyModel:
             tech_instances=self.tech_instances,
             df_results=df_scen
             )
-        dict_yr_scen = dem_helper.create_dict_yr(df_scen)
+        daily_mobility = dem_helper.create_mobility_daily_results(
+            self.energy_demand, self.supply, len(df_scen))
+        dict_yr_scen = dem_helper.create_dict_yr(df_scen, self.energy_demand, self.supply)
         
         #--------------------------------------
         # Check overall energy balance:
@@ -2083,6 +2058,7 @@ class DistrictEnergyModel:
         # Save results to dict:
         tmp_results_eps_min = {'eps_n':eps_min} # in this case: eps_n = eps_min
         tmp_results_eps_min['df_scen'] = df_scen
+        tmp_results_eps_min['df_mobility_daily'] = daily_mobility
         tmp_results_eps_min['dict_yr_scen'] = dict_yr_scen
         tmp_results_eps_min['dict_total_costs'] = dict_total_costs
         tmp_results_eps_min['scen_techs'] = scen_techs
@@ -2116,7 +2092,9 @@ class DistrictEnergyModel:
             tech_instances=self.tech_instances,
             df_results=df_scen
             )
-        dict_yr_scen = dem_helper.create_dict_yr(df_scen)
+        daily_mobility = dem_helper.create_mobility_daily_results(
+            self.energy_demand, self.supply, len(df_scen))
+        dict_yr_scen = dem_helper.create_dict_yr(df_scen, self.energy_demand, self.supply)
         
         #--------------------------------------
         # Check overall energy balance:
@@ -2146,6 +2124,7 @@ class DistrictEnergyModel:
         # Save results to dict:
         tmp_results_eps_max = {'eps_n':eps_max} # in this case: eps_n = eps_max
         tmp_results_eps_max['df_scen'] = df_scen
+        tmp_results_eps_max['df_mobility_daily'] = daily_mobility
         tmp_results_eps_max['dict_yr_scen'] = dict_yr_scen
         tmp_results_eps_max['dict_total_costs'] = dict_total_costs
         tmp_results_eps_max['scen_techs'] = scen_techs
@@ -2213,7 +2192,9 @@ class DistrictEnergyModel:
                 tech_instances=self.tech_instances,
                 df_results=df_scen
                 )
-            dict_yr_scen = dem_helper.create_dict_yr(df_scen)
+            daily_mobility = dem_helper.create_mobility_daily_results(
+                self.energy_demand, self.supply, len(df_scen))
+            dict_yr_scen = dem_helper.create_dict_yr(df_scen, self.energy_demand, self.supply)
             
             #--------------------------------------
             # Check overall energy balance:
@@ -2240,6 +2221,7 @@ class DistrictEnergyModel:
             # Save results to dict:
             tmp_results_eps_n = {'eps_n':eps_n} # [kgCO2]
             tmp_results_eps_n['df_scen'] = df_scen
+            tmp_results_eps_n['df_mobility_daily'] = daily_mobility
             tmp_results_eps_n['dict_yr_scen'] = dict_yr_scen
             tmp_results_eps_n['dict_total_costs'] = dict_total_costs
             tmp_results_eps_n['scen_techs'] = scen_techs
@@ -2277,6 +2259,8 @@ class DistrictEnergyModel:
             if self.scenario_generated == True:
                 dem_output.input_to_file(self.results_path, self.list_input_data)
                 dem_output.hourly_results_to_file(self.results_path, self.df_scen)
+                dem_output.mobility_daily_results_to_file(
+                    self.results_path, self.df_mobility_daily_scen)
                 dem_output.scen_techs_to_file(self.results_path, self.scen_techs_input)
                 dem_output.annual_results_to_file(self.results_path, self.dict_yr_scen)
                 dem_output.total_costs_to_file(self.results_path, self.dict_total_costs)
@@ -2288,6 +2272,10 @@ class DistrictEnergyModel:
             else:
                 return
         elif self.pareto_results_generated == True:
+            for index, result in enumerate(self.pareto_results):
+                dem_output.mobility_daily_results_to_file(
+                    self.results_path, result['df_mobility_daily'],
+                    filename=f'mobility_daily_results_pareto_{index}.csv')
             # Save results to pickle file:
             dem_helper.save_to_pickle(
                 obj=self.pareto_results,
@@ -2302,6 +2290,8 @@ class DistrictEnergyModel:
         elif self.scenario_generated == True:
             dem_output.input_to_file(self.results_path, self.list_input_data)
             dem_output.hourly_results_to_file(self.results_path, self.df_scen)
+            dem_output.mobility_daily_results_to_file(
+                self.results_path, self.df_mobility_daily_scen)
             dem_output.scen_techs_to_file(self.results_path, self.scen_techs_input)
             dem_output.annual_results_to_file(self.results_path, self.dict_yr_scen)
             dem_output.total_costs_to_file(self.results_path, self.dict_total_costs)
@@ -2317,7 +2307,8 @@ class DistrictEnergyModel:
         if (not (self.pareto_results_generated or self.pareto_results_loaded)
                 and self.scen_techs.get('mobility', {}).get('enabled', False)):
             dem_output.plot_mobility_comparison(
-                self.df_base, self.df_scen, self.results_path)
+                self.df_base, self.df_scen, self.results_path,
+                self.df_mobility_daily_base, self.df_mobility_daily_scen)
         if self.pareto_results_generated or self.pareto_results_loaded:
             pareto_results=self.pareto_results
             self.dict_yr_scen = 0.0
@@ -2403,6 +2394,10 @@ class DistrictEnergyModel:
         
     def hourly_results(self):
         return self.df_scen
+
+    def mobility_daily_results(self):
+        """Daily traffic fuels and equivalent distances for the current scenario."""
+        return self.df_mobility_daily_scen.copy()
     
     def annual_results(self):
         return self.dict_yr_scen

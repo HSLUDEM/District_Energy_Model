@@ -10,14 +10,78 @@ Functions to create scenarios for the district energy model.
 
 """
 
+import copy
+
 import numpy as np
 import pandas as pd
 
 from district_energy_model import dem_helper
 from district_energy_model import dem_energy_balance as dem_eb
 from district_energy_model import dem_constants as C
+from district_energy_model import dem_mobility
 
-# pd.options.mode.chained_assignment = None
+def configure_mobility(energy_demand, scen_techs, supply, reference_profiles,
+                       scenario=False):
+    """Apply baseline or scenario traffic using the shared mobility calculations."""
+    config = scen_techs.get('mobility', {})
+    active_scenario = scen_techs['scenarios'].get('traffic_electrification', False)
+    if not isinstance(config.get('enabled', False), bool):
+        raise ValueError('mobility.enabled must be a boolean.')
+    if not isinstance(active_scenario, bool):
+        raise ValueError('scenarios.traffic_electrification must be a boolean.')
+    if active_scenario and not config.get('enabled', False):
+        raise ValueError('scenarios.traffic_electrification requires '
+                         'mobility.enabled = True.')
+    if not config.get('enabled', False):
+        if energy_demand.get_mobility() is not None:
+            energy_demand.update_mobility(None)
+            n = len(energy_demand.get_d_e())
+            energy_demand.update_d_e_ev_cp(np.zeros(n), n // 24)
+            energy_demand.update_d_e_ev_pd(np.zeros(n))
+            energy_demand.update_d_e_ev_pu(np.zeros(n))
+            energy_demand.update_f_e_ev_pot_dy(np.zeros(n // 24))
+            energy_demand.update_d_e_ev(np.zeros(n))
+            energy_demand.compute_d_e()
+        supply.update_mobility(None)
+        return
+    dem_mobility.validate_shares(config['baseline_shares_percent'])
+    if 'scenario_shares_percent' in config:
+        raise ValueError('Replace mobility.scenario_shares_percent with '
+                         'mobility.scenario_bev_share_percent.')
+    scenario_shares = dem_mobility.shares_from_bev_percent(
+        config['scenario_bev_share_percent'], config['baseline_shares_percent'])
+    if not isinstance(config['ev_flexibility'], bool):
+        raise ValueError('mobility.ev_flexibility must be a boolean.')
+    shares = (scenario_shares if scenario and active_scenario
+              else config['baseline_shares_percent'])
+    n = len(energy_demand.get_d_e())
+    mobility = dem_mobility.MobilityDemand(
+        reference_profiles, shares, scen_techs['supply'], n)
+    energy_demand.update_mobility(mobility)
+    charging = mobility.charging_profiles()
+    energy_demand.update_d_e_ev_cp(charging['cp'], n // 24)
+    energy_demand.update_d_e_ev_pd(charging['pd'])
+    energy_demand.update_d_e_ev_pu(charging['pu'])
+    energy_demand.update_f_e_ev_pot_dy(charging['fe'])
+    energy_demand.update_d_e_ev(charging['cp'])
+    energy_demand.compute_d_e()
+    supply.supply_tech_dict = copy.deepcopy(scen_techs['supply'])
+    supply.update_mobility(mobility)
+
+
+def scenario_traffic_electrification(energy_demand, scen_techs, tech_instances,
+                                     supply, reference_profiles):
+    """Apply the traffic scenario and refresh its electricity supply balance.
+
+    When traffic_electrification is off, retain the baseline drive mix.
+    The calculations remain in dem_mobility, independent of demand_side.
+    """
+    configure_mobility(energy_demand, scen_techs, supply, reference_profiles,
+                       scenario=True)
+    if scen_techs.get('mobility', {}).get('enabled', False):
+        dem_eb.get_local_electricity_mix(energy_demand, tech_instances)
+        grid_supply = tech_instances['grid_supply']
+        grid_supply.update_m_e(grid_supply.get_m_e())
 
 def scenario_heater_electric_to_hp(energy_demand, scen_techs, tech_instances):    
     """

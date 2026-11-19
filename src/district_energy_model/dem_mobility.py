@@ -38,6 +38,23 @@ def validate_shares(shares):
     return values
 
 
+def shares_from_bev_percent(bev_percent, baseline_shares_percent):
+    """Keep the baseline's relative non-BEV mix for a prescribed BEV share."""
+    baseline = validate_shares(baseline_shares_percent)
+    if (isinstance(bev_percent, (bool, str)) or not np.isscalar(bev_percent)
+            or not np.isfinite(bev_percent) or not 0 <= bev_percent <= 100):
+        raise ValueError('mobility.scenario_bev_share_percent must be between 0 and 100.')
+    non_bev = sum(value for drive, value in baseline.items() if drive != 'bev')
+    if non_bev == 0 and bev_percent != 100:
+        raise ValueError('A non-BEV baseline mix is required below 100 percent BEV.')
+    remaining = 100.0 - float(bev_percent)
+    return {
+        drive: (float(bev_percent) if drive == 'bev'
+                else remaining * value / non_bev if non_bev else 0.0)
+        for drive, value in baseline.items()
+    }
+
+
 def read_reference_profiles(paths, com_nr, com_percent):
     """Read unchanged municipality CP/PD/PU/FE references, before any scaling."""
     profiles = {}
@@ -82,7 +99,8 @@ class MobilityDemand:
                                  'finite, non-negative values.')
             self.profiles[key] = values[:count].copy()
 
-        ev = _positive(supply, 'ev_consumption_kWhp100km')
+        eth_reference = _positive(supply, 'eth_reference_consumption_kWhp100km')
+        bev = _positive(supply, 'ev_consumption_kWhp100km')
         petrol = _positive(supply, 'petrol_consumption_Lp100km')
         diesel = _positive(supply, 'diesel_consumption_Lp100km')
         phev_p = _positive(supply, 'phev_petrol_consumption_Lp100km')
@@ -97,7 +115,7 @@ class MobilityDemand:
             for part in ('combustion', 'upstream'):
                 _positive(supply, f'co2_{fuel}_{part}_kgpl', allow_zero=True)
 
-        units_100km = self.profiles['cp'] / ev
+        units_100km = self.profiles['cp'] / eth_reference
         self.km = units_100km * 100
         s = self.shares
         self.petrol_l = units_100km * (s['petrol'] * petrol
@@ -106,16 +124,22 @@ class MobilityDemand:
                                       + s['phev_diesel'] * phev_d)
         self.phev_electricity = units_100km * (
             s['phev_petrol'] * phev_pe + s['phev_diesel'] * phev_de)
-        self.electricity = self.profiles['cp'] * s['bev'] + self.phev_electricity
+        self._phev_charging_scale = (
+            s['phev_petrol'] * phev_pe + s['phev_diesel'] * phev_de) / eth_reference
+        self._charging_scale = s['bev'] * bev / eth_reference + self._phev_charging_scale
+        self.electricity = units_100km * s['bev'] * bev + self.phev_electricity
 
     def charging_profiles(self):
-        """Only BEV load is flexible. PHEV charging stays at its base profile."""
-        bev = self.shares['bev']
+        """Scale ETH flexibility by combined BEV/PHEV electricity demand.
+
+        PHEV are assumed to have the same relative flexibility per kWh as BEV.
+        Their electricity/fuel consumption totals remain prescribed.
+        """
         return {
             'cp': self.electricity.copy(),
-            'pd': self.profiles['pd'] * bev + self.phev_electricity,
-            'pu': self.profiles['pu'] * bev + self.phev_electricity,
-            'fe': self.profiles['fe'] * bev,
+            'pd': self.profiles['pd'] * self._charging_scale,
+            'pu': self.profiles['pu'] * self._charging_scale,
+            'fe': self.profiles['fe'] * self._charging_scale,
         }
 
     def reduce_timeframe(self, n_days):
@@ -126,10 +150,23 @@ class MobilityDemand:
             self.profiles[key] = self.profiles[key][:count]
 
     def update_df_results(self, df, actual_electricity):
-        df['d_mobility_km'] = self.km
+        """Publish electricity hourly; distance is published separately by day."""
         df['d_e_mobility_reference'] = self.profiles['cp']
-        df['d_e_mobility_phev'] = self.phev_electricity
-        df['d_e_mobility_bev'] = np.asarray(actual_electricity) - self.phev_electricity
+        # Shared charging is allocated proportionally, not separately optimised.
+        phev_fraction = (self._phev_charging_scale / self._charging_scale
+                         if self._charging_scale > 0 else 0.0)
+        actual = np.asarray(actual_electricity)
+        df['d_e_mobility_phev'] = actual * phev_fraction
+        df['d_e_mobility_bev'] = actual * (1.0 - phev_fraction)
+        return df
+
+    def get_daily_results(self, n_hours):
+        """Daily reference-allocated distances, not observed driving times."""
+        if n_hours <= 0 or n_hours % 24 or n_hours > len(self.km):
+            raise ValueError('Daily mobility results require complete available days.')
+        km = self.km[:n_hours].reshape(-1, 24).sum(axis=1)
+        df = pd.DataFrame({'d_mobility_km': km},
+                          index=pd.RangeIndex(1, len(km) + 1, name='day'))
         for drive, share in self.shares.items():
-            df[f'd_mobility_{drive}_km'] = self.km * share
+            df[f'd_mobility_{drive}_km'] = km * share
         return df
