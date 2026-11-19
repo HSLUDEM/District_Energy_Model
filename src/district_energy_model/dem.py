@@ -1735,11 +1735,7 @@ class DistrictEnergyModel:
         if scen_techs['scenarios']['nuclear_phaseout'] == True:
             print('\n nuclear_phaseout')
 
-            
-            # Reset unmet demands (must be met through scenario):
-            self.energy_demand.reset_d_e_unmet()
-            self.energy_demand.reset_d_h_unmet()
-            
+                        
             dem_scenarios.scenario_nuclear_phaseout(
                 scen_techs=scen_techs,
                 tech_instances = self.tech_instances,
