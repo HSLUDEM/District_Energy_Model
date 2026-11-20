@@ -104,6 +104,10 @@ NEG_ACC_REL = 1e-6 # accepted negative values relative to the largest absolute v
 # Accepted share of unmet demand in optimisation (annual unmet demand / annual demand):
 UNMET_SHARE_ACC = 1e-3
 
+# Accepted relative difference between the optimiser's total costs (monetary, CO2)
+# and the cost module (Kostenmodul) after an optimisation:
+COST_CONSISTENCY_REL_ACC = 1e-6
+
 # Accepted relative difference between the annual space heating demand of all
 # buildings and the sum of the old and new building groups (compute_d_h_yr):
 D_H_S_SPLIT_REL_ACC = 1e-6

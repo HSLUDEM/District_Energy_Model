@@ -572,6 +572,51 @@ def unmet_demand_test(df_scen, share_accepted=1e-3):
                 )
 
 
+def cost_consistency_test(dict_total_costs, rel_accepted=1e-6):
+
+    """
+    Checks after an optimisation that the total costs of the optimiser
+    (monetary and CO2, from Calliope) match the cost module (Kostenmodul,
+    computed by DEM from the energy flows). A difference means that one of
+    the two calculations is wrong, e.g. a cost that Calliope did not
+    receive.
+
+    Parameters
+    ----------
+    dict_total_costs : dictionary
+        Total costs of the optimisation, with the keys 'monetary', 'co2' and
+        'Kostenmodul' (see DistrictEnergyModel.__process_optimisation_results).
+    rel_accepted : float
+        Accepted difference relative to the larger absolute value [-].
+
+    Returns
+    -------
+    n/a
+    """
+
+    cost_overview = dict_total_costs['Kostenmodul']['cost_overview']
+    totals = {
+        'monetary [CHF]':(
+            dict_total_costs['monetary']['total'],
+            cost_overview['monetary']['total']
+            ),
+        'CO2 [kg]':(
+            dict_total_costs['co2']['total'],
+            cost_overview['co2']
+            ),
+        }
+
+    for name, (total_opt, total_km) in totals.items():
+        diff = total_opt - total_km
+        if abs(diff) > rel_accepted*max(abs(total_opt), abs(total_km), 1.0):
+            print(f"Cost consistency test for {name} not successful!")
+            raise Exception(
+                f"Total {name} of the optimiser ({total_opt:.2f}) differs from "
+                f"the cost module ({total_km:.2f}) by {diff:.2f} "
+                f"(accepted: {rel_accepted:.0e} relative)."
+                )
+
+
 def create_results_directory(arg_path, arg_results_dir_name):
 
     base_path = Path(arg_path)

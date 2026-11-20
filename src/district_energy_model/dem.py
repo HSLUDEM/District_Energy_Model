@@ -2093,6 +2093,10 @@ class DistrictEnergyModel:
                 df_scen=df_scen,
                 share_accepted=C.UNMET_SHARE_ACC
                 )
+            dem_helper.cost_consistency_test(
+                dict_total_costs=dict_total_costs,
+                rel_accepted=C.COST_CONSISTENCY_REL_ACC
+                )
 
         return dict_total_costs, df_capacities
 

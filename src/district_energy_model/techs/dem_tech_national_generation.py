@@ -601,7 +601,13 @@ class NationalGeneration(TechCore):
                         'interest_rate':0.0,
                         },
                     'emissions_co2':{
-                        'om_prod':self._co2_intensity[g] * energy_scaling_factor, # [kgCO2/kWh]
+                        # Time series, not a scalar: Calliope 0.6.10 replaces a
+                        # scalar om_prod with NaN (= 0) when the same tech has a
+                        # df= om_prod in another cost class (monetary above) and
+                        # another tech has a df= om_prod in this cost class
+                        # (grid_supply), see add_time_dimension() in
+                        # calliope/preprocess/time.py.
+                        'om_prod':f'df=national_generation_co2:{g}', # [kgCO2/kWh]
                         }
                     }
                 }
@@ -635,6 +641,14 @@ class NationalGeneration(TechCore):
         if self._cost[gen_name] == COST_GRID_TARIFF:
             return self._grid_supply.get_tariff_timeseries()[:n_hours]
         return np.full(n_hours, float(self._cost[gen_name]))
+
+    def get_co2_intensity_timeseries(self, gen_name):
+        """
+        Return the hourly CO2 intensity of a generator [kgCO2/kWh] (constant
+        value co2_intensity; a time series for Calliope, see create_techs_dict).
+        """
+        n_hours = len(self._v_e_pot_gen[gen_name])
+        return np.full(n_hours, self._co2_intensity[gen_name])
 
     def get_co2_intensity(self, gen_name):
         return self._co2_intensity[gen_name]
