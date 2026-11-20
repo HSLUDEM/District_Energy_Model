@@ -26,6 +26,7 @@ from district_energy_model import dem_constants as C
 from district_energy_model import dem_create_custom_district
 from district_energy_model import dem_flexibility
 from district_energy_model import dem_solar_preprocessing_switzerland
+from district_energy_model.techs import dem_tech_national_generation as dem_nat
 
 from district_energy_model import dem_district_tes_availability_switzerland
 
@@ -107,6 +108,11 @@ class DistrictEnergyModel:
         # Switch energy balance tests ON/OFF:
         self.toggle_energy_balance_tests = toggle_energy_balance_tests
 
+        # National generation: check configuration (e.g. conflicts with local
+        # techs) and get local techs replaced by national generators:
+        dem_nat.check_national_generation_config(scen_techs)
+        self.national_counterparts = dem_nat.get_local_counterparts(scen_techs)
+
         self.com_nr_majority = copy.deepcopy(self.com_nr)
 
         if scen_techs['meta_data']['custom_district']['implemented'] == True:
@@ -165,6 +171,21 @@ class DistrictEnergyModel:
             print(f"Munic {self.com_name_} not included in model as it is on the list "
                   "of municipalities to omit (see dem_constants.py).")
             raise ValueError("Municipality Number marked as to omit.")
+        
+        # Building and municipality data as loaded. The demand-side scenario
+        # changes self.df_com_yr and self.df_meta in place, so they are
+        # restored before each point of a pareto front:
+        self.__df_com_yr_input = self.df_com_yr.copy(deep=True)
+        self.__df_meta_input = self.df_meta.copy(deep=True)
+        
+        # National generation: storage hydro power must not be contained in
+        # both the national profiles and the local hydro power:
+        dem_nat.check_hydro_storage_counterpart(
+            scen_techs,
+            self.df_meta,
+            self.com_nr,
+            self.com_name_
+            )
         
         # Input data directories:
         self.simulation_data_dir = paths.simulation_data_dir
@@ -269,6 +290,9 @@ class DistrictEnergyModel:
         self.scenario_generated = False
         self.pareto_results_generated = False
         self.pareto_results_loaded = False
+
+        # Optimised capacities (only available after an optimisation):
+        self.df_capacities = None
         
     def __generate_base_scenario(self, scen_techs):
         """
@@ -507,7 +531,9 @@ class DistrictEnergyModel:
         
         self.tech_grid_supply = dem_techs.GridSupply(
             self.paths,
-            scen_techs['grid_supply']
+            scen_techs['grid_supply'],
+            com_nr = self.com_nr_majority,
+            simulation_year = self.simulation_year
             )
         self.tech_instances['grid_supply'] = self.tech_grid_supply
 
@@ -517,6 +543,20 @@ class DistrictEnergyModel:
             )
         self.tech_grid_export.initialise_zero(365)
         self.tech_instances['grid_export'] = self.tech_grid_export
+
+        if dem_nat.is_deployed(scen_techs):
+            self.tech_national_generation = dem_techs.NationalGeneration(
+                data_dir = dem_nat.resolve_data_dir(
+                    scen_techs['national_generation']['data_dir'],
+                    self.paths.root_dir,
+                    self.paths.national_generation_dir
+                    ),
+                com_nr = self.com_nr,
+                com_percent_2 = self.com_percent_2,
+                tech_dict = scen_techs['national_generation'],
+                grid_supply = self.tech_grid_supply
+                )
+            self.tech_instances['national_generation'] = self.tech_national_generation
 
         self.tech_other = dem_techs.Other(0)
         self.tech_instances['other'] = self.tech_other
@@ -610,7 +650,19 @@ class DistrictEnergyModel:
             
         self.tech_hydro_power.update_v_e_pot(self.supply.get_s_hydro())
         self.tech_hydro_power.update_v_e(self.supply.get_s_hydro())
-        
+
+        """--------------------------------------------------------------------
+        Local generation replaced by national generators:
+        """
+        # The existing generation of local techs that are part of a national
+        # generation profile is removed (otherwise counted twice):
+        if 'hydro_power' in self.national_counterparts:
+            self.tech_hydro_power.update_v_e(
+                np.zeros(len(self.tech_hydro_power.get_v_e()))
+                )
+        if 'wind_power' in self.national_counterparts:
+            self.tech_wind_power.remove_existing_generation()
+
         """--------------------------------------------------------------------
         Electricity mix: self-consumption (cons), export (exp), import (m):
         """
@@ -635,7 +687,12 @@ class DistrictEnergyModel:
         """--------------------------------------------------------------------
         Grid Import:
         """
-        self.tech_grid_supply.compute_base_grid_import()
+        if 'national_generation' in self.tech_instances:
+            # National generation is modelled explicitly; the remaining
+            # import is not split by the national electricity mix:
+            self.tech_grid_supply.compute_base_grid_import_without_split()
+        else:
+            self.tech_grid_supply.compute_base_grid_import()
         
         if self.toggle_energy_balance_tests:
             sum_a = dem_helper.get_m_e_ch_sum(self.tech_grid_supply)
@@ -734,7 +791,7 @@ class DistrictEnergyModel:
         self.supply.update_m_gas(m_gas)
         self.supply.update_m_wd(m_wd)
 
-    def generate_scenario(self, scen_techs):
+    def generate_scenario(self, scen_techs, run_optimisation=True):
         
         """
         Generate scenario based on selected technolgies starting with
@@ -745,6 +802,12 @@ class DistrictEnergyModel:
             
         scen_techs : dictionary
             Dictionary containing info about technologies. 
+        run_optimisation : bool
+            Only relevant if the optimisation is enabled
+            (scen_techs['optimisation']['enabled']). If False, the scenario
+            is prepared in the same way as for an optimisation, but the
+            optimisation is not run (used for the pareto front, which runs
+            the optimisation of each point itself). Default: True.
 
         Returns
         -------
@@ -788,6 +851,9 @@ class DistrictEnergyModel:
                 # Removed before the optimisation, i.e. after the manual
                 # scenarios (which rely on the existing techs):
                 techs_not_deployed.append(tech_name)
+            elif tech_name in self.national_counterparts:
+                print(f"\nNote: {tech_name} is replaced by national generation "
+                      "(kept in the simulation with zero generation).")
             else:
                 # Removing a tech would drop its existing generation without
                 # reallocating it, violating the energy balances.
@@ -1169,8 +1235,6 @@ class DistrictEnergyModel:
                 df_meta = self.df_meta,
                 weather_year=weather_year_,
                 hist_data_year=self.hist_data_year,
-                rcp_scenario=scen_techs['demand_side']['rcp_scenario'],
-                ts_type=scen_techs['demand_side']['ts_type'],
                 yearly_heat_demand_col='space_heating_demand_estimation_kWh',
                 new_header = 'd_h_s_yr_future',
                 writeToMeta = True,
@@ -1185,8 +1249,6 @@ class DistrictEnergyModel:
                 # year=scen_techs['demand_side']['year'],
                 weather_year=weather_year_,
                 hist_data_year=self.hist_data_year,
-                rcp_scenario=scen_techs['demand_side']['rcp_scenario'],
-                ts_type=scen_techs['demand_side']['ts_type'],
                 yearly_heat_demand_col='heat_energy_demand_renov_estimate_kWh',
                 new_header = 'd_h_s_yr_renov_future',
                 writeToMeta = False,
@@ -1437,7 +1499,8 @@ class DistrictEnergyModel:
             dem_helper.check_tech_for_scenario(
                 techs=required_techs,
                 scenario='fossil_heater_retrofit',
-                scen_techs=scen_techs
+                scen_techs=scen_techs,
+                replaced_techs=self.national_counterparts
                 )
 
             # Apply scenario:
@@ -1492,7 +1555,8 @@ class DistrictEnergyModel:
             dem_helper.check_tech_for_scenario(
                 techs=required_techs,
                 scenario='pv_integration',
-                scen_techs=scen_techs
+                scen_techs=scen_techs,
+                replaced_techs=self.national_counterparts
                 )
             
             # Apply scenario:
@@ -1537,7 +1601,8 @@ class DistrictEnergyModel:
             dem_helper.check_tech_for_scenario(
                 techs=required_techs,
                 scenario='wind_integration',
-                scen_techs=scen_techs
+                scen_techs=scen_techs,
+                replaced_techs=self.national_counterparts
                 )
             
             # Apply scenario:
@@ -1599,7 +1664,8 @@ class DistrictEnergyModel:
             dem_helper.check_tech_for_scenario(
                 techs=required_techs,
                 scenario='battery_energy_storage',
-                scen_techs=scen_techs
+                scen_techs=scen_techs,
+                replaced_techs=self.national_counterparts
                 )
             
             # Apply scenario:
@@ -1655,7 +1721,8 @@ class DistrictEnergyModel:
             dem_helper.check_tech_for_scenario(
                 techs=required_techs,
                 scenario='thermal_energy_storage',
-                scen_techs=scen_techs
+                scen_techs=scen_techs,
+                replaced_techs=self.national_counterparts
                 )
             
             # Apply scenario:
@@ -1786,92 +1853,30 @@ class DistrictEnergyModel:
         """--------------------------------------------------------------------
         Apply optimisation:
         """
-        if scen_techs['optimisation']['enabled'] == True:
-            # Reset unmet demands (must be met through scenario):
-            self.energy_demand.reset_d_e_unmet()
-            self.energy_demand.reset_d_h_unmet()
-            
-            # If activated, compute flexibility metrics:
-            self.__setup_building_inertia_flex(scen_techs)
-                        
-            from district_energy_model import dem_calliope
-            optimiser = dem_calliope.CalliopeOptimiser(
-                tech_list=self.tech_list,
-                tech_instances=self.tech_instances,
-                energy_demand=self.energy_demand,
-                supply=self.supply,
-		        building_inertia_flex=self.building_inertia_flex,
-                com_name=self.com_name_,
-                scen_techs=scen_techs,
-                # opt_metrics=scen_techs['optimisation'],
-                files_path = self.results_path
-                )
+        # Scenario prepared for an optimisation that is run by the caller:
+        prepare_only = (
+            scen_techs['optimisation']['enabled'] == True
+            and not run_optimisation
+            )
+        
+        if prepare_only:
+            # No optimisation and no costs at this stage:
+            dict_total_costs = {}
+            model = 0
+        
+        elif scen_techs['optimisation']['enabled'] == True:
+            optimiser = self.__create_optimiser(scen_techs)
             
             # dem_costs.prepare_cost_calculation(self.tech_instances)
             opt_results, model = optimiser.run_optimisation()
-            dict_total_costs =\
-                optimiser.get_optimal_output_df(
-                opt_results=opt_results
-                )
-                
-            dict_total_costs["Kostenmodul"] = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"], debug=False, optimisation=True)
-                
-            # -------------------------------------------------------------
-            # Update df_scen:
-            dem_helper.update_df_results(
-                energy_demand=self.energy_demand,
-                supply=self.supply,
-		        building_inertia_flex=self.building_inertia_flex,
-                tech_instances=self.tech_instances,
-                df_results=df_scen
-                )
 
-            # Unmet demand is only penalised (bigM_value) by the optimiser,
-            # so it must be reported explicitly:
-            for col in ['d_h_unmet', 'd_h_unmet_dhn', 'd_e_unmet']:
-                unmet_kWh = df_scen[col].sum() if col in df_scen.columns else 0.0
-                if unmet_kWh > C.DIFF_SUM_ACC:
-                    print(
-                        f"\nWARNING: Optimisation result contains unmet demand "
-                        f"({col}: {unmet_kWh:.1f} kWh). The demand could not "
-                        "be met with the selected technologies and constraints, "
-                        "or the solver returned an inaccurate solution "
-                        "(check solver options, e.g. solver_option_FeasibilityTol)."
-                        )
-
-            # Heat co-produced by biomass technologies that district heating cannot take is curtailed:
-            curt_kWh = df_scen['v_h_bm_curt'].sum() if 'v_h_bm_curt' in df_scen.columns else 0.0
-            if curt_kWh > C.DIFF_SUM_ACC:
-                print(
-                    f"\nWARNING: {curt_kWh:.1f} kWh of heat co-produced by biomass "
-                    "technologies were curtailed (v_h_bm_curt): district heating did "
-                    "not take all of it (district_heating.heat_sources.biomass is False, "
-                    "or district heating needs less heat than the biomass technologies produce)."
-                    )
-
-            if self.toggle_energy_balance_tests:
-                dem_eb.electricity_balance_test(
-                    scen_techs=scen_techs,
+            # Read results, compute costs, update df_scen and check results:
+            dict_total_costs, self.df_capacities =\
+                self.__process_optimisation_results(
+                    optimiser=optimiser,
+                    opt_results=opt_results,
                     df_scen=df_scen,
-                    optimisation=True,
-                    diff_accepted = C.DIFF_ACC,
-                    diff_sum_accepted = C.DIFF_SUM_ACC
-                    )
-                dem_eb.heat_balance_test(
-                    scen_techs=scen_techs,
-                    df_scen=df_scen,
-                    diff_accepted = C.DIFF_ACC,
-                    diff_sum_accepted = C.DIFF_SUM_ACC,
-                    tes_sites_plotting_inf = (
-                        self
-                        .tech_tes_sites
-                        .get_plotting_information()
-                        if scen_techs['tes_sites']['deployment'] else {}
-                        )
-                    )
-                dem_helper.unmet_demand_test(
-                    df_scen=df_scen,
-                    share_accepted=C.UNMET_SHARE_ACC
+                    scen_techs=scen_techs
                     )
 
         else:
@@ -1925,20 +1930,10 @@ class DistrictEnergyModel:
         # df_scen = dem_emissions.add_emissions_CO2(scen_techs, df_scen)          
                 
         #----------------------------------------------------------------------
-        # Check for negative values:
-        if self.toggle_energy_balance_tests:
-            exempted_columns_ = ['d_e_ev_cp_dev', 'd_e_ev_cp_dev_neg']
-            for c in df_scen.columns:
-                if c.startswith("sos") or c.startswith("soc"):
-                    exempted_columns_.append(c)
-                    
-            dem_helper.positive_values_test_df(
-                df_values = df_scen,
-                description = 'df_scen',
-                error_accepted=C.NEG_ACC,
-                exempted_columns=exempted_columns_,
-                relative_error_accepted=C.NEG_ACC_REL
-                )
+        # Check for negative values (optimisations: checked with the results
+        # of the optimisation):
+        if not prepare_only:
+            self.__check_negative_values(df_scen)
         
         #----------------------------------------------------------------------            
         # Change column order of df_scen:
@@ -1958,6 +1953,168 @@ class DistrictEnergyModel:
         print('\nDone')
        
     
+    def __create_optimiser(self, scen_techs):
+        """
+        Steps before an optimisation run, used for a single optimisation and
+        for each point of a pareto front: reset the unmet demand, set up the
+        building inertia flexibility (if activated) and create the optimiser.
+        The scenario must have been generated before (generate_scenario()).
+
+        Parameters
+        ----------
+        scen_techs : dictionary
+            Dictionary containing info about technologies.
+
+        Returns
+        -------
+        optimiser : dem_calliope.CalliopeOptimiser
+            Optimiser instance (optimisation not yet run).
+        """
+        # Reset unmet demands (must be met through scenario):
+        self.energy_demand.reset_d_e_unmet()
+        self.energy_demand.reset_d_h_unmet()
+        
+        # If activated, compute flexibility metrics:
+        self.__setup_building_inertia_flex(scen_techs)
+                    
+        from district_energy_model import dem_calliope
+        optimiser = dem_calliope.CalliopeOptimiser(
+            tech_list=self.tech_list,
+            tech_instances=self.tech_instances,
+            energy_demand=self.energy_demand,
+            supply=self.supply,
+            building_inertia_flex=self.building_inertia_flex,
+            com_name=self.com_name_,
+            scen_techs=scen_techs,
+            # opt_metrics=scen_techs['optimisation'],
+            files_path = self.results_path
+            )
+        
+        return optimiser
+
+    def __process_optimisation_results(
+            self,
+            optimiser,
+            opt_results,
+            df_scen,
+            scen_techs,
+            storage_balance_tests=False
+            ):
+        """
+        Steps after an optimisation run, used for a single optimisation and
+        for each point of a pareto front: read the results, compute the costs,
+        update df_scen, report unmet demand and curtailed heat, and check the
+        energy balances and the unmet demand.
+
+        Parameters
+        ----------
+        optimiser : dem_calliope.CalliopeOptimiser
+            Optimiser instance after run_optimisation().
+        opt_results : 
+            Results returned by optimiser.run_optimisation().
+        df_scen : pandas dataframe
+            Dataframe with hourly values (updated in place).
+        scen_techs : dictionary
+            Dictionary containing info about technologies.
+        storage_balance_tests : bool
+            If True, the heat balance test also checks the balances of the
+            thermal energy storages (see dem_eb.heat_balance_test()).
+
+        Returns
+        -------
+        dict_total_costs : dictionary
+            Total costs split by type (monetary, co2, Kostenmodul).
+        df_capacities : pandas dataframe
+            Optimised capacities.
+        """
+        dict_total_costs =\
+            optimiser.get_optimal_output_df(
+            opt_results=opt_results
+            )
+        df_capacities = optimiser.get_capacities(opt_results)
+            
+        dict_total_costs["Kostenmodul"] = dem_costs.get_total_costs(self.tech_instances, self.supply, scen_techs["simulation"]["number_of_days"], debug=False, optimisaiton=True)
+            
+        # -------------------------------------------------------------
+        # Update df_scen:
+        dem_helper.update_df_results(
+            energy_demand=self.energy_demand,
+            supply=self.supply,
+            building_inertia_flex=self.building_inertia_flex,
+            tech_instances=self.tech_instances,
+            df_results=df_scen
+            )
+
+        # Unmet demand is only penalised (bigM_value) by the optimiser,
+        # so it must be reported explicitly:
+        for col in ['d_h_unmet', 'd_h_unmet_dhn', 'd_e_unmet']:
+            unmet_kWh = df_scen[col].sum() if col in df_scen.columns else 0.0
+            if unmet_kWh > C.DIFF_SUM_ACC:
+                print(
+                    f"\nWARNING: Optimisation result contains unmet demand "
+                    f"({col}: {unmet_kWh:.1f} kWh). The demand could not "
+                    "be met with the selected technologies and constraints, "
+                    "or the solver returned an inaccurate solution "
+                    "(check solver options, e.g. solver_option_FeasibilityTol)."
+                    )
+
+        # Heat co-produced by biomass technologies that district heating cannot take is curtailed:
+        curt_kWh = df_scen['v_h_bm_curt'].sum() if 'v_h_bm_curt' in df_scen.columns else 0.0
+        if curt_kWh > C.DIFF_SUM_ACC:
+            print(
+                f"\nWARNING: {curt_kWh:.1f} kWh of heat co-produced by biomass "
+                "technologies were curtailed (v_h_bm_curt): district heating did "
+                "not take all of it (district_heating.heat_sources.biomass is False, "
+                "or district heating needs less heat than the biomass technologies produce)."
+                )
+
+        if self.toggle_energy_balance_tests:
+            dem_eb.electricity_balance_test(
+                scen_techs=scen_techs,
+                df_scen=df_scen,
+                optimisation=True,
+                diff_accepted = C.DIFF_ACC,
+                diff_sum_accepted = C.DIFF_SUM_ACC
+                )
+            dem_eb.heat_balance_test(
+                scen_techs=scen_techs,
+                df_scen=df_scen,
+                optimisation=storage_balance_tests,
+                diff_accepted = C.DIFF_ACC,
+                diff_sum_accepted = C.DIFF_SUM_ACC,
+                tes_sites_plotting_inf = (
+                    self
+                    .tech_tes_sites
+                    .get_plotting_information()
+                    if scen_techs['tes_sites']['deployment'] else {}
+                    )
+                )
+            dem_helper.unmet_demand_test(
+                df_scen=df_scen,
+                share_accepted=C.UNMET_SHARE_ACC
+                )
+
+        return dict_total_costs, df_capacities
+
+    def __check_negative_values(self, df_scen):
+        """
+        Check the hourly results for negative values (only if the energy
+        balance tests are switched on).
+        """
+        if self.toggle_energy_balance_tests:
+            exempted_columns_ = ['d_e_ev_cp_dev', 'd_e_ev_cp_dev_neg']
+            for c in df_scen.columns:
+                if c.startswith("sos") or c.startswith("soc"):
+                    exempted_columns_.append(c)
+                    
+            dem_helper.positive_values_test_df(
+                df_values = df_scen,
+                description = 'df_scen',
+                error_accepted=C.NEG_ACC,
+                exempted_columns=exempted_columns_,
+                relative_error_accepted=C.NEG_ACC_REL
+                )
+
     def __setup_building_inertia_flex(self, scen_techs):
         """
         Create the building inertia flexibility (if activated) and the
@@ -1977,6 +2134,9 @@ class DistrictEnergyModel:
                     )
 
             delta_loss_tot = self.building_inertia_flex.get_delta_loss_tot() 
+            self.building_inertia_flex.set_space_heating_demand(
+                self.energy_demand.get_d_h_s()
+                )
             self.energy_demand.compute_d_h_flex_ll(delta_loss_tot)
             self.energy_demand.compute_d_h_flex_ul(delta_loss_tot)
             self.energy_demand.compute_d_h_s_flex_ll(delta_loss_tot)
@@ -2010,8 +2170,9 @@ class DistrictEnergyModel:
         pareto_results : list
             List of optimisation results. Each items in the list is a dict
             containing the results of one optimisation. Data in this
-            dict can be accessed via the following keys:'eps_n',
-            'dict_yr_scen', 'dict_total_costs', 'scen_techs', 'input_data'.
+            dict can be accessed via the following keys:'eps_n', 'df_scen',
+            'dict_yr_scen', 'dict_total_costs', 'df_capacities', 'scen_techs'
+            (copy of scen_techs as used for this point), 'input_data'.
 
         """
         
@@ -2024,39 +2185,59 @@ class DistrictEnergyModel:
             # f. Run single-objective optimisation for each epsilon, with the
             #    constraint total_cost_co2 <= eps_n
         
-        # ENERGY-BALANCE TEST AFTER EACH RUN!!!
-        
-        from district_energy_model import dem_calliope
+        # Check the inputs before any optimisation is run (optimisation is
+        # enabled by this method):
+        dem_helper.check_pareto_inputs(
+            optimisation_enabled=True,
+            N_pareto=N_pareto
+            )
+        scen_techs['optimisation']['enabled'] = True
         
         # ======================================================================================================
-        # Run scenario without optimisation, to generate input for pareto optimisation:
+        # Generate the scenario as for a single optimisation (without running
+        # the optimisation) and create the optimiser for one pareto point:
         def reset_optimiser():
+            # Start from the data as loaded (the demand-side scenario of the
+            # previous point changed the dataframes in place):
+            self.df_com_yr = self.__df_com_yr_input.copy(deep=True)
+            self.df_meta = self.__df_meta_input.copy(deep=True)
+            
             self.scenario_generated = False
-            scen_techs['optimisation']['enabled'] = False # deactivate optimisation to generate scenario
             self.__generate_base_scenario(scen_techs)
-            self.generate_scenario(scen_techs) # generate scenario without optimisation
+            self.generate_scenario(scen_techs, run_optimisation=False)
             df_scen = self.df_scen            
             
-            # Enable optimisation:
-            scen_techs['optimisation']['enabled'] = True
-            
-            # Building inertia flexibility (not created by generate_scenario()
-            # without optimisation):
-            self.__setup_building_inertia_flex(scen_techs)
-            
-            # Create optimiser instance:        
-            optimiser = dem_calliope.CalliopeOptimiser(
-                tech_list=self.tech_list,
-                tech_instances=self.tech_instances,
-                energy_demand=self.energy_demand,
-                supply=self.supply,
-                building_inertia_flex=self.building_inertia_flex,
-                com_name=self.com_name_,
-                scen_techs=scen_techs,
-                files_path=self.results_path
-                )
+            # Create optimiser instance:
+            optimiser = self.__create_optimiser(scen_techs)
 
             return df_scen, optimiser
+        
+        # ======================================================================================================
+        # Results of one pareto point (same steps and checks as after a single
+        # optimisation):
+        def get_point_results(optimiser, opt_results, df_scen):
+            dict_total_costs, df_capacities =\
+                self.__process_optimisation_results(
+                    optimiser=optimiser,
+                    opt_results=opt_results,
+                    df_scen=df_scen,
+                    scen_techs=scen_techs,
+                    storage_balance_tests=True
+                    )
+            self.__check_negative_values(df_scen)
+            
+            point_results = {
+                'df_scen':df_scen,
+                'dict_yr_scen':dem_helper.create_dict_yr(df_scen),
+                'dict_total_costs':dict_total_costs,
+                'df_capacities':df_capacities,
+                # Copy, as scen_techs is changed for the following points
+                # (e.g. objective weights):
+                'scen_techs':copy.deepcopy(scen_techs),
+                'input_data':self.get_input_data(),
+                }
+            
+            return point_results
         
         # Set all objective-weights to 0:
         scen_techs['optimisation']['objective_monetary'] = 0.0
@@ -2066,27 +2247,6 @@ class DistrictEnergyModel:
         
         
         df_scen, optimiser = reset_optimiser()
-        
-        # # Run scenario without optimisation, to generate input for pareto optimisation:
-        # scen_techs['optimisation']['enabled'] = False # deactivate optimisation to generate scenario
-        # self.generate_scenario(scen_techs) # generate scenario without optimisation
-        # df_scen = self.df_scen            
-        
-        # # Enable optimisation:
-        # scen_techs['optimisation']['enabled'] = True      
-        
-        
-        # # ---------------------------------------------------------------------
-        # # Create optimiser instance:        
-        # optimiser = dem_calliope.CalliopeOptimiser(
-        #     tech_list=self.tech_list,
-        #     tech_instances=self.tech_instances,
-        #     energy_demand=self.energy_demand,
-        #     supply=self.supply,
-        #     com_name=self.com_name_,
-        #     opt_metrics=scen_techs['optimisation'],
-        #     files_path=paths.results_path
-        #     )
 
         # ---------------------------------------------------------------------
         # Run optimisation for co2 objective to obtain eps_min:
@@ -2098,52 +2258,13 @@ class DistrictEnergyModel:
         # Run optimisation:
         opt_results, _ = optimiser.run_optimisation()
         
-        dict_total_costs =\
-            optimiser.get_optimal_output_df(
-            opt_results=opt_results
-            )
+        # Results and checks:
+        point_results = get_point_results(optimiser, opt_results, df_scen)
         
-        # Update df_scen and dict_yr_scen:
-        dem_helper.update_df_results(
-            energy_demand=self.energy_demand,
-            supply=self.supply,
-            building_inertia_flex=self.building_inertia_flex,
-            tech_instances=self.tech_instances,
-            df_results=df_scen
-            )
-        dict_yr_scen = dem_helper.create_dict_yr(df_scen)
-        
-        #--------------------------------------
-        # Check overall energy balance:
-        
-        if self.toggle_energy_balance_tests:
-            dem_eb.electricity_balance_test(
-                scen_techs=scen_techs,
-                df_scen=df_scen,
-                optimisation=True,
-                diff_accepted = C.DIFF_ACC,
-                diff_sum_accepted = C.DIFF_SUM_ACC
-                )
-            dem_eb.heat_balance_test(
-                scen_techs=scen_techs,
-                df_scen=df_scen,
-                optimisation=True,
-                diff_accepted = C.DIFF_ACC,
-                diff_sum_accepted = C.DIFF_SUM_ACC,
-                tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
-                )
-        
-        #--------------------------------------
-        
-        eps_min = dict_total_costs['co2']['total'] # [kgCO2]
+        eps_min = point_results['dict_total_costs']['co2']['total'] # [kgCO2]
                 
         # Save results to dict:
-        tmp_results_eps_min = {'eps_n':eps_min} # in this case: eps_n = eps_min
-        tmp_results_eps_min['df_scen'] = df_scen
-        tmp_results_eps_min['dict_yr_scen'] = dict_yr_scen
-        tmp_results_eps_min['dict_total_costs'] = dict_total_costs
-        tmp_results_eps_min['scen_techs'] = scen_techs
-        tmp_results_eps_min['input_data'] = self.get_input_data()
+        tmp_results_eps_min = {'eps_n':eps_min, **point_results} # in this case: eps_n = eps_min
         
         # ---------------------------------------------------------------------
         # Run optimisation for monetary objective to obtain eps_max:
@@ -2160,55 +2281,13 @@ class DistrictEnergyModel:
         # Run optimisation:
         opt_results, model = optimiser.run_optimisation()
         
-        dict_total_costs =\
-            optimiser.get_optimal_output_df(
-            opt_results=opt_results
-            )
-            
-        # Update df_scen and dict_yr_scen:
-        dem_helper.update_df_results(
-            energy_demand=self.energy_demand,
-            supply=self.supply,
-            building_inertia_flex=self.building_inertia_flex,
-            tech_instances=self.tech_instances,
-            df_results=df_scen
-            )
-        dict_yr_scen = dem_helper.create_dict_yr(df_scen)
+        # Results and checks:
+        point_results = get_point_results(optimiser, opt_results, df_scen)
         
-        #--------------------------------------
-        # Check overall energy balance:
-        
-        if self.toggle_energy_balance_tests:
-            dem_eb.electricity_balance_test(
-                scen_techs=scen_techs,
-                df_scen=df_scen,
-                optimisation=True,
-                diff_accepted = C.DIFF_ACC,
-                diff_sum_accepted = C.DIFF_SUM_ACC
-                )
-            dem_eb.heat_balance_test(
-                scen_techs=scen_techs,
-                df_scen=df_scen,
-                optimisation=True,
-                diff_accepted = C.DIFF_ACC,
-                diff_sum_accepted = C.DIFF_SUM_ACC,
-                tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
-                )
-        
-        #--------------------------------------
-        
-        eps_max = dict_total_costs['co2']['total'] # [kgCO2]
-        # print(f"\n\n EPS MAX: {eps_max} oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo")
+        eps_max = point_results['dict_total_costs']['co2']['total'] # [kgCO2]
         
         # Save results to dict:
-        tmp_results_eps_max = {'eps_n':eps_max} # in this case: eps_n = eps_max
-        tmp_results_eps_max['df_scen'] = df_scen
-        tmp_results_eps_max['dict_yr_scen'] = dict_yr_scen
-        tmp_results_eps_max['dict_total_costs'] = dict_total_costs
-        tmp_results_eps_max['scen_techs'] = scen_techs
-        tmp_results_eps_max['input_data'] = self.get_input_data()
-        
-        # pareto_results.append(tmp_dict_results)
+        tmp_results_eps_max = {'eps_n':eps_max, **point_results} # in this case: eps_n = eps_max
 
         
         # ---------------------------------------------------------------------
@@ -2257,53 +2336,11 @@ class DistrictEnergyModel:
                 eps_n=eps_n
                 )
             
-            dict_total_costs =\
-                optimiser.get_optimal_output_df(
-                opt_results=opt_results
-                )
-                
-            # Update df_scen and dict_yr_scen:
-            dem_helper.update_df_results(
-                energy_demand=self.energy_demand,
-                supply=self.supply,
-                building_inertia_flex=self.building_inertia_flex,
-                tech_instances=self.tech_instances,
-                df_results=df_scen
-                )
-            dict_yr_scen = dem_helper.create_dict_yr(df_scen)
-            
-            #--------------------------------------
-            # Check overall energy balance:
-            
-            if self.toggle_energy_balance_tests:
-                dem_eb.electricity_balance_test(
-                    scen_techs=scen_techs,
-                    df_scen=df_scen,
-                    optimisation=True,
-                    diff_accepted = C.DIFF_ACC,
-                    diff_sum_accepted = C.DIFF_SUM_ACC
-                    )
-                dem_eb.heat_balance_test(
-                    scen_techs=scen_techs,
-                    df_scen=df_scen,
-                    optimisation=True,
-                    diff_accepted = C.DIFF_ACC,
-                    diff_sum_accepted = C.DIFF_SUM_ACC,
-                    tes_sites_plotting_inf = self.tech_tes_sites.get_plotting_information() if self.scen_techs['tes_sites']['deployment'] else {}
-                    )
-            
-            #--------------------------------------
+            # Results and checks:
+            point_results = get_point_results(optimiser, opt_results, df_scen)
             
             # Save results to dict:
-            tmp_results_eps_n = {'eps_n':eps_n} # [kgCO2]
-            tmp_results_eps_n['df_scen'] = df_scen
-            tmp_results_eps_n['dict_yr_scen'] = dict_yr_scen
-            tmp_results_eps_n['dict_total_costs'] = dict_total_costs
-            tmp_results_eps_n['scen_techs'] = scen_techs
-            tmp_results_eps_n['input_data'] = self.get_input_data()
-            
-            kgCO2_ = dict_total_costs['co2']['total']
-            # print(f"\nkgCO2: {kgCO2_}")
+            tmp_results_eps_n = {'eps_n':eps_n, **point_results} # [kgCO2]
             
             pareto_results.append(tmp_results_eps_n)
             
@@ -2341,6 +2378,8 @@ class DistrictEnergyModel:
                     self.results_path,
                     self.building_inertia_flex,
                     )
+                if self.df_capacities is not None:
+                    dem_output.capacities_to_file(self.results_path, self.df_capacities)
 
             else:
                 return
@@ -2366,6 +2405,8 @@ class DistrictEnergyModel:
                 self.results_path,
                 self.building_inertia_flex,
                 )
+            if self.df_capacities is not None:
+                dem_output.capacities_to_file(self.results_path, self.df_capacities)
 
         else:
             raise(Exception('No Scenario has been generated!'))
@@ -2420,12 +2461,20 @@ class DistrictEnergyModel:
         opt_active = scen_techs['optimisation']['enabled']
         pareto_active = scen_techs['optimisation']['pareto_monetary_co2']
         
+        if not toggle_load_pareto_results:
+            dem_helper.check_grid_inputs(scen_techs)
+
         if toggle_load_pareto_results:
             print("\nLoading results from file ...")
             self.load_pareto_monetary_co2(filename='pareto_results')
 
         # elif toggle_create_pareto_monetary_vs_co2:
-        elif opt_active and pareto_active:
+        elif pareto_active:
+            # Raises an error if the optimisation is not enabled:
+            dem_helper.check_pareto_inputs(
+                optimisation_enabled=opt_active,
+                N_pareto=scen_techs['optimisation']['N_pareto']
+                )
             print("\nCreating pareto front: monetary vs. CO2")
             self.generate_pareto_monetary_co2(
                 scen_techs=scen_techs,

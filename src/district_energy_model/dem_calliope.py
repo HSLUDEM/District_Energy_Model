@@ -21,6 +21,8 @@ CHANGES THAT MUST BE REVERTED EVENTUALLY:
 """
 
 
+import re
+
 import pandas as pd
 import numpy as np
 
@@ -98,6 +100,7 @@ class CalliopeOptimiser:
         
         self.rerun_eps = False
         self.eps_n = 'inf'
+        self.unmet_demand_penalty = 0.0 # penalty for unmet demand and unused supply in the objective (set by run_optimisation())
         self.dhn_share_type = False
         self.dhn_share_val = 0.0
         
@@ -173,6 +176,9 @@ class CalliopeOptimiser:
 
         if 'grid_export' in self.tech_list:
             self.tech_grid_export = tech_instances['grid_export']
+
+        if 'national_generation' in self.tech_list:
+            self.tech_national_generation = tech_instances['national_generation']
 
         if 'other' in self.tech_list:
             self.tech_other = tech_instances['other']
@@ -619,6 +625,18 @@ class CalliopeOptimiser:
                                     "tariff_timeseries": grid_supply_resource_tariff_timeseries * self.energy_scaling_factor,
                                     "co2_intensity_timeseries": grid_supply_resource_co2_intensity_timeseries * self.energy_scaling_factor
                                 })
+        if 'national_generation' in self.tech_list:
+            df_national_generation_resource = pd.DataFrame(
+                {g: self.tech_national_generation.get_v_e_pot(g)
+                 for g in self.tech_national_generation.get_generators()},
+                index=date_index
+                )
+            df_national_generation_cost = pd.DataFrame(
+                {g: self.tech_national_generation.get_cost_timeseries(g)
+                 for g in self.tech_national_generation.get_generators()},
+                index=date_index
+                )
+        
         df_grid_export_timeseries = pd.DataFrame({
                                     "tariff_timeseries": - grid_export_resource_tariff_timeseries * self.energy_scaling_factor,
                                     "co2_intensity_timeseries": - grid_export_resource_co2_intensity_timeseries * self.energy_scaling_factor
@@ -672,6 +690,12 @@ class CalliopeOptimiser:
         for k in df_heat_pump_cp_cops.keys():
             timeseries_dataframes[k] = df_heat_pump_cp_cops[k]
         
+        if 'national_generation' in self.tech_list:
+            timeseries_dataframes['national_generation'] =\
+                df_national_generation_resource / self.energy_scaling_factor
+            timeseries_dataframes['national_generation_cost'] =\
+                df_national_generation_cost * self.energy_scaling_factor
+        
         
         # dftpv = timeseries_dataframes['pvrooftop_resource']
         # for key in timeseries_dataframes.keys():
@@ -715,6 +739,11 @@ class CalliopeOptimiser:
             self.custom_constraints = True
 
         if (self.ev_flex_flag or self.building_inertia_flex_flag):
+            self.custom_constraints = True
+
+        if 'national_generation' in self.tech_list:
+            # No-export and national-before-import constraints for national
+            # generation (binary variables):
             self.custom_constraints = True
 
         if self.custom_constraints:
@@ -780,6 +809,30 @@ class CalliopeOptimiser:
                     energy_scaling_factor=self.energy_scaling_factor,
                     fixed_share_techs=fixed_share_techs
                     )
+            
+            if 'national_generation' in self.tech_list:
+                self.national_export_big_M = self.__get_national_export_big_M()
+                
+                model = dem_calliope_cc.national_generation_no_export_constraints(
+                    model=model,
+                    national_techs=self.tech_list_national,
+                    v_e_nat_pot=self.tech_national_generation.get_v_e_pot_tot(),
+                    big_M_export=self.national_export_big_M,
+                    energy_scaling_factor=self.energy_scaling_factor
+                    )
+                
+                (
+                    self.national_import_big_M,
+                    self.national_import_big_M_is_grid_cap
+                    ) = self.__get_national_import_big_M()
+                
+                model = dem_calliope_cc.national_generation_before_import_constraints(
+                    model=model,
+                    national_techs=self.tech_list_national,
+                    v_e_nat_pot=self.tech_national_generation.get_v_e_pot_tot(),
+                    big_M_import=self.national_import_big_M,
+                    energy_scaling_factor=self.energy_scaling_factor
+                    )
  
         
         #----------------------------------------------------------------------
@@ -815,6 +868,10 @@ class CalliopeOptimiser:
         if termination == 'feasible':
             print("\nWARNING: The solver did not prove optimality (e.g. time "
                   "limit reached). Results are feasible but may not be optimal.")
+
+        # Penalty for unmet demand and unused supply contained in the
+        # objective (removed from the monetary total costs):
+        self.unmet_demand_penalty = self.__get_unmet_demand_penalty(model)
 
         # ==========================================================
         # FOR TESTING ONLY!
@@ -926,6 +983,185 @@ class CalliopeOptimiser:
                 "only_allow_existing, deployment)."
                 )
             raise RuntimeError(msg)
+    def get_capacities(self, opt_results):
+        """
+        Optimised capacities of the DEM technologies: Calliope decision
+        variables energy_cap [kW] and storage_cap [kWh], summed over all
+        locations and multiplied by the energy scaling factor.
+
+        The Calliope techs of a DEM tech are assigned to existing, one-to-one
+        replacement and new capacity where their names allow it:
+            <tech>_old                       existing
+            <tech>_one_to_one_replacement    replacement
+            <tech>_new                       new
+            <tech>, <tech>_exist(s)          total only (no split)
+            solar installations: <..>_installation_<i>_occupied (existing),
+                                 <..>_installation_<i>_unoccupied (new)
+            district_heating: district_heating_hub_<i> (grid; import excluded)
+            tes_sites: tes_site_<..>
+        Supply and demand techs, transmission lines, hubs and helper techs
+        are not included. energy_cap refers to the output of a tech (e.g. PV:
+        peak of the generation profile in kW, not kWp).
+
+        Parameters
+        ----------
+        opt_results : xarray
+            Results from calliope optimisation.
+
+        Returns
+        -------
+        df_capacities : pandas dataframe
+            One row per DEM tech with Calliope capacities. Columns: tech,
+            existing_kW, replacement_kW, new_kW, total_kW, storage_kWh,
+            calliope_techs. Split columns are NaN if the tech is not split.
+        """
+
+        # Not part of the capacity output (same as in the cost module):
+        techs_excluded = [
+            'grid_supply', 'grid_export', 'national_generation',
+            'pile_of_berries', 'heat_demand_manual',
+            ]
+        installation_prefix = {
+            'solar_pvrooftop': 'solar_pvrooftop_installation_',
+            'solar_pvalpine': 'solar_pvalpine_installation_',
+            'solarthermal_rooftop': 'solar_solarthermalrooftop_installation_',
+            }
+        suffix_part = {
+            '_old': 'existing',
+            '_one_to_one_replacement': 'replacement',
+            '_new': 'new',
+            '': 'total',
+            '_exist': 'total',
+            '_exists': 'total',
+            }
+
+        def get_part(tech, calliope_tech):
+            if tech in installation_prefix:
+                if not calliope_tech.startswith(installation_prefix[tech]):
+                    return None
+                if calliope_tech.endswith('_unoccupied'):
+                    return 'new'
+                if calliope_tech.endswith('_occupied'):
+                    return 'existing'
+                return None
+            if tech == 'district_heating':
+                if re.fullmatch(r'district_heating_hub_\d+', calliope_tech):
+                    return 'total'
+                return None
+            if tech == 'tes_sites':
+                return 'total' if calliope_tech.startswith('tes_site_') else None
+            for suffix, part in suffix_part.items():
+                if calliope_tech == tech + suffix:
+                    return part
+            return None
+
+        # Capacities per Calliope tech (index of results: '<loc>::<tech>'):
+        caps = {}
+        for var in ['energy_cap', 'storage_cap']:
+            if var in opt_results:
+                s = opt_results[var].to_series()*self.energy_scaling_factor
+                caps[var] = s.groupby(lambda lt: lt.split('::', 1)[1]).sum()
+            else:
+                caps[var] = pd.Series(dtype=float)
+
+        rows = []
+        for tech in self.tech_list:
+            if tech in techs_excluded:
+                continue
+            parts = {
+                c: get_part(tech, c)
+                for c in caps['energy_cap'].index.union(caps['storage_cap'].index)
+                }
+            parts = {c: p for c, p in parts.items() if p is not None}
+            if not parts:
+                continue
+
+            e_cap = caps['energy_cap']
+            e_parts = {c: p for c, p in parts.items() if c in e_cap.index}
+            row = {'tech': tech}
+            for part in ['existing', 'replacement', 'new']:
+                if 'total' in e_parts.values() or not e_parts:
+                    row[f'{part}_kW'] = np.nan
+                else:
+                    row[f'{part}_kW'] = sum(
+                        e_cap[c] for c, p in e_parts.items() if p == part
+                        )
+            row['total_kW'] = sum(e_cap[c] for c in e_parts) if e_parts else np.nan
+            s_parts = [c for c in parts if c in caps['storage_cap'].index]
+            row['storage_kWh'] = (
+                sum(caps['storage_cap'][c] for c in s_parts) if s_parts else np.nan
+                )
+            row['calliope_techs'] = ';'.join(sorted(parts))
+            rows.append(row)
+
+        df_capacities = pd.DataFrame(
+            rows,
+            columns=['tech', 'existing_kW', 'replacement_kW', 'new_kW',
+                     'total_kW', 'storage_kWh', 'calliope_techs'],
+            )
+
+        return df_capacities
+
+    def __get_unmet_demand_penalty(self, model):
+        """
+        Return the penalty for unmet demand and unused supply that Calliope
+        adds to the objective (ensure_feasibility: bigM per unit of unmet
+        demand and unused supply), and warn about unused supply.
+        
+        Unused supply (forced generation that cannot be used) is not part of
+        the Calliope results, so the values are read from the solved backend
+        model.
+
+        Parameters
+        ----------
+        model : calliope.Model
+            Calliope model after the optimisation (the model that was built
+            and solved, also if custom constraints were added).
+
+        Returns
+        -------
+        penalty : float
+            Penalty in the units of the objective.
+        """
+        import pyomo.environ as po
+
+        bm = getattr(model, '_backend_model', None)
+        if bm is None or not hasattr(bm, 'unmet_demand'):
+            # ensure_feasibility not active: no penalty in the objective
+            return 0.0
+
+        def weighted_sum(var):
+            # Sum over loc::carrier and timesteps, weighted as in the objective:
+            return sum(
+                (v.value or 0.0)*po.value(bm.timestep_weights[idx[-1]])
+                for idx, v in var.items()
+                )
+
+        unmet = weighted_sum(bm.unmet_demand)
+        unused = weighted_sum(bm.unused_supply) # <= 0
+
+        # Unused supply is not reported elsewhere:
+        unused_kWh = -unused*self.energy_scaling_factor
+        if unused_kWh > C.DIFF_SUM_ACC:
+            unused_by_loc = {}
+            for idx, v in bm.unused_supply.items():
+                if v.value:
+                    unused_by_loc[idx[0]] = (unused_by_loc.get(idx[0], 0.0)
+                                             - v.value*self.energy_scaling_factor)
+            locs = ", ".join(
+                f"{k}: {val:.1f} kWh"
+                for k, val in sorted(unused_by_loc.items(), key=lambda x: -x[1])
+                if val > C.DIFF_SUM_ACC
+                )
+            print(
+                f"\nWARNING: Optimisation result contains unused supply "
+                f"({unused_kWh:.1f} kWh; {locs}). Generation that must be "
+                "used could not be used or exported. It is penalised with "
+                "bigM_value in the objective (not included in the monetary "
+                "total costs)."
+                )
+
+        return float(po.value(bm.bigM))*(unmet - unused)
 
     def get_optimal_output_df(self,opt_results):
         """
@@ -1850,6 +2086,22 @@ class CalliopeOptimiser:
             self.tech_grid_export.update_f_e(f_e)
 
         # -------------------
+        # National generation:
+        if 'national_generation' in self.tech_list:
+            dict_v_e_nat = {
+                g: opt_results['carrier_prod'].loc[f'Grid_Connection_Node::national_{g}::electricity'].values*self.energy_scaling_factor
+                for g in self.tech_national_generation.get_generators()
+                }
+            
+            # Set small negative values (numerical inaccuracies of the solver) to 0:
+            for g, v_e in dict_v_e_nat.items():
+                v_e[(v_e < 0) & (v_e >= C.NEG_ACC)] = 0.0
+            
+            self.tech_national_generation.update_v_e(dict_v_e_nat)
+            
+            self.__check_national_generation_results(opt_results)
+
+        # -------------------
         # Thermal energy storage: # LOSSES TO BE ADDED
         if 'tes' in self.tech_list:
             v_h_tes = opt_results['carrier_prod'].loc['X1::tes::heat_tes'].values*self.energy_scaling_factor
@@ -2042,10 +2294,20 @@ class CalliopeOptimiser:
 
         dict_total_costs['objective']['total'] =\
             float(opt_results.attrs.get("objective_function_value"))
+        # Penalty for unmet demand and unused supply (bigM_value; contained
+        # in the objective, not a cost):
+        dict_total_costs['objective']['unmet_demand_penalty'] =\
+            self.unmet_demand_penalty
 
         if objective_monetary > 0:
+            # Derived from the objective, which also contains costs added by
+            # custom constraints (e.g. minimum size of TES sites) that are not
+            # part of Calliope's cost sum. The penalty is not a cost:
             dict_total_costs['monetary']['total'] =\
-                (dict_total_costs['objective']['total'] - objective_co2*dict_total_costs['co2']['total'])/objective_monetary
+                (dict_total_costs['objective']['total']
+                 - objective_co2*dict_total_costs['co2']['total']
+                 - self.unmet_demand_penalty
+                 )/objective_monetary
 
         return dict_total_costs
     
@@ -2313,6 +2575,7 @@ class CalliopeOptimiser:
             'hydro_power': '#0000FF',
             'wind_power': '#3333FF',
             'grid_supply':'#C5ABE3',
+            'national_generation':'#8D6FB8',
             'grid_export':"#98EBDD",
             'tes':'#EF008C',
             'tes_sites':'#EF008C',
@@ -2817,6 +3080,16 @@ class CalliopeOptimiser:
                 )
             
             self.tech_list_grid_connection.append('grid_supply')
+
+        if 'national_generation' in self.tech_list:
+            techs_dict, self.tech_list_national = self.tech_national_generation.create_techs_dict(
+                techs_dict,
+                colors['national_generation'],
+                energy_scaling_factor = self.energy_scaling_factor
+                )
+            
+            # National generation is supplied via the grid connection:
+            self.tech_list_grid_connection += self.tech_list_national
 
         if 'grid_export' in self.tech_list:
             techs_dict = self.tech_grid_export.create_techs_dict(
@@ -3605,7 +3878,144 @@ class CalliopeOptimiser:
         #     }
 
         return links_dict
-    
+
+    def __estimate_national_export_big_M(self):
+        """
+        Return an estimate of the upper bound of the hourly electricity export
+        [kWh], used as big-M in the no-export constraint of national generation
+        if set to 'auto': twice the sum of the peak values of the electricity
+        and heat demand, the local electricity generation potentials, and the
+        available national generation. If the bound becomes binding, an error
+        is raised after the optimisation
+        (see __check_national_generation_results).
+        """
+        peaks = [
+            np.max(self.energy_demand.get_d_e()),
+            np.max(self.energy_demand.get_d_h()),
+            np.max(self.tech_national_generation.get_v_e_pot_tot()),
+            ]
+        local_techs = {
+            'solar_pvrooftop':'tech_solar_pvrooftop',
+            'solar_pvalpine':'tech_solar_pvalpine',
+            'wind_power':'tech_wind_power',
+            'hydro_power':'tech_hydro_power',
+            }
+        for tech_name, attr in local_techs.items():
+            if tech_name in self.tech_list:
+                try:
+                    v_e_pot = np.array(getattr(self, attr).get_v_e_pot(), dtype=float)
+                except (ValueError, AttributeError):
+                    continue # potential not available
+                if len(v_e_pot) > 0:
+                    peaks.append(np.max(v_e_pot))
+
+        return 2.0*float(np.sum(peaks))
+
+    def __get_national_export_big_M(self):
+        """
+        Return the upper bound of the hourly electricity export [kWh] used in
+        the no-export constraint of national generation (big-M).
+        """
+        big_M = self.tech_national_generation.get_export_big_M()
+        if big_M != 'auto':
+            return float(big_M)
+        return self.__estimate_national_export_big_M()
+
+    def __get_national_import_big_M(self):
+        """
+        Return the upper bound of the hourly grid import [kWh] used in the
+        national-before-import constraint (big-M), and whether it is the grid
+        connection capacity (grid_supply kW_max). The grid connection capacity
+        is used if it is finite (physical bound, may be binding). Otherwise
+        ('auto'), the bound is estimated as twice the sum of the peak values
+        of the electricity and heat demand (the grid import cannot exceed the
+        electricity consumption; the electricity used for heating is at most
+        the heat generated). If the estimated bound becomes binding, an error
+        is raised after the optimisation (see __check_national_generation_results).
+        """
+        big_M = self.tech_national_generation.get_import_big_M()
+        if big_M != 'auto':
+            return float(big_M), False
+        if 'grid_supply' in self.tech_list:
+            kW_max = self.tech_grid_supply._kW_max
+            if kW_max != 'inf' and np.isfinite(float(kW_max)):
+                return float(kW_max), True
+        big_M = 2.0*(
+            np.max(self.energy_demand.get_d_e())
+            + np.max(self.energy_demand.get_d_h())
+            )
+        return float(big_M), False
+
+    def __check_national_generation_results(self, opt_results):
+        """
+        Check the optimisation results for the custom constraints of national
+        generation:
+            - raise an error if the export or grid import reaches the upper
+              bound (big-M), i.e. if the bound may restrict the result;
+            - print a warning if national generation is used and electricity
+              is exported in the same timestep, or if electricity is imported
+              from the grid while national generation is curtailed (beyond the
+              solver tolerance).
+        """
+        n_hours = len(self.energy_demand.get_d_e())
+        export = np.zeros(n_hours)
+
+        if 'carrier_export' in opt_results:
+            arr = opt_results['carrier_export']
+            for ltc in arr['loc_tech_carriers_export'].values:
+                if str(ltc).split('::')[-1] in dem_calliope_cc.ELECTRICITY_EXPORT_CARRIERS:
+                    export += arr.loc[ltc].values*self.energy_scaling_factor
+        if 'grid_export' in self.tech_list:
+            export += -opt_results['carrier_con'].loc['Grid_Connection_Node::grid_export::electricity'].values*self.energy_scaling_factor
+
+        m_e = np.zeros(n_hours)
+        if 'grid_supply' in self.tech_list:
+            m_e = opt_results['carrier_prod'].loc['Grid_Connection_Node::grid_supply::electricity'].values*self.energy_scaling_factor
+
+        if hasattr(self, 'national_export_big_M') and export.max() >= 0.999*self.national_export_big_M:
+            raise RuntimeError(
+                "The hourly electricity export reached the upper bound used in "
+                "the no-export constraint of national generation "
+                f"({self.national_export_big_M:.1f} kWh). The bound may restrict "
+                "the result. Increase national_generation -> export_big_M_kWh "
+                "and rerun the model."
+                )
+
+        if (
+                hasattr(self, 'national_import_big_M')
+                and not self.national_import_big_M_is_grid_cap
+                and m_e.max() >= 0.999*self.national_import_big_M
+                ):
+            raise RuntimeError(
+                "The hourly grid import reached the upper bound used in the "
+                "national-before-import constraint of national generation "
+                f"({self.national_import_big_M:.1f} kWh). The bound may restrict "
+                "the result. Increase national_generation -> import_big_M_kWh "
+                "and rerun the model."
+                )
+
+        v_e_nat = self.tech_national_generation.get_v_e_tot()
+        v_e_nat_curt = self.tech_national_generation.get_v_e_pot_tot() - v_e_nat
+
+        overlap = np.minimum(v_e_nat, export).max()
+        if overlap > C.DIFF_ACC:
+            print(
+                "\nWARNING: National generation is used and electricity is "
+                f"exported in the same timestep (max. {overlap:.4f} kWh). "
+                "This should be prevented by the no-export constraint; check "
+                "the solver tolerances (e.g. integrality tolerance)."
+                )
+
+        overlap = np.minimum(m_e, v_e_nat_curt).max()
+        if overlap > C.DIFF_ACC:
+            print(
+                "\nWARNING: Electricity is imported from the grid while national "
+                f"generation is curtailed in the same timestep (max. {overlap:.4f} kWh). "
+                "This should be prevented by the national-before-import "
+                "constraint; check the solver tolerances (e.g. integrality "
+                "tolerance)."
+                )
+
     def __create_run_dict(self):
         
         # Adjust MIPGap if Storage techs are selected (to reduce runtime)

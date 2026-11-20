@@ -14,6 +14,7 @@ See: https://calliope.readthedocs.io/en/stable/user/advanced_constraints.html#us
 
 from pyomo.environ import ConcreteModel, Var, Binary
 import pyomo.core as po
+from calliope.backend.pyomo.util import get_param
 import numpy as np
 
 from district_energy_model import dem_constants as C
@@ -586,6 +587,7 @@ def building_inertia_flex_constraints(
     E_vs_tot_max = building_inertia_flex.get_E_vs_tot_max()
     E_vs_tot = building_inertia_flex.get_E_vs_tot()
     r_tot = building_inertia_flex.get_r_tot()
+    r_ts = building_inertia_flex.get_r_ts() # hourly loss rate of the virtual storages
     mcr_vs = building_inertia_flex.get_mcr_vs()
     
     # d_h = energy_demand.get_d_h()
@@ -644,8 +646,13 @@ def building_inertia_flex_constraints(
                     )
                 q_h_vs_tot_i += q_h_vs_tech_i
                 
-            d_h_flex_i = d_h_flex_ll[ts_i] + q_h_vs_tot_i*r_tot
-            
+            if r_ts[ts_i] == 0:
+                # No space heating demand: no loss (the virtual storage is
+                # empty, see q_h_vs_low_demand_constraint); no constraint:
+                return po.Constraint.Skip
+
+            d_h_flex_i = d_h_flex_ll[ts_i] + q_h_vs_tot_i*r_ts[ts_i]
+
             return d_h_flex_i <= d_h_flex_ul[ts_i]
         
         return d_h_flex_upper_limit_constraint_rule
@@ -656,31 +663,37 @@ def building_inertia_flex_constraints(
             """
             Rule: On average, each virtual storage must be half full (which
             is the neutral (i.e., nominal) state without over- or underheating).
-            This ensures that at least the same amount of heat was
-            delivered as without flexibility.
+            The average is weighted by the hourly loss rate r_t and uses the
+            storage level of the previous timestep, from which the loss of
+            timestep t is computed (storage balance):
+                sum_t r_t*q_(t-1) >= 0.5*E_vs*sum_t r_t
+            At half full, the loss r_t*0.5*E_vs equals the reduction of the
+            lower limit of the heat demand (min(delta, d_h_s)). Summed over
+            all virtual storages, the heat supplied minus the heat demand
+            without flexibility is sum_t r_t*(q_(t-1) - 0.5*E_vs_tot), so
+            this rule ensures that at least the same amount of heat is
+            delivered as without flexibility. Timesteps without space heating
+            demand have r_t = 0 and are not included.
             """
             ts = backend_model.timesteps # retrieve timesteps
+            loc_tech = f'X1::virtual_storage_flex_{acr}'
+            E_vs_tech = backend_model.storage_cap[loc_tech]*energy_scaling_factor
 
-            q_h_vs_tech_sum = 0 # [kWh] sum of flexible demand
-            number_of_ts = 0.0 # [kWH] number of timesteps included in the constraint
-            # Iterate over timesteps:
-            for ts_i_, flag_ in enumerate(flex_flag):
-                if flag_:
-                    # Building inertia flexibility can be applied
-                    q_h_vs_tech_i = (
-                        backend_model
-                        .storage[f'X1::virtual_storage_flex_{acr}', ts.at(ts_i_ + 1)] # Pyomo Sets are 1-indexed
-                        *energy_scaling_factor 
-                        )
-                    q_h_vs_tech_sum += q_h_vs_tech_i
-                    number_of_ts += 1
-                elif flag_ == False:
-                    # Only small d_h_s; flexibility restricted; separate constraint (q_h_vs_low_demand_constraint)
-                    pass
-
-            E_vs_tech = backend_model.storage_cap[f'X1::virtual_storage_flex_{acr}']*energy_scaling_factor
+            lhs = 0.0 # [kWh] loss-rate-weighted sum of storage levels
+            r_sum = 0.0 # [-] sum of loss rates
+            for ts_i_ in range(ts_len):
+                if r_ts[ts_i_] == 0:
+                    continue
+                if ts_i_ > 0:
+                    q_prev = backend_model.storage[loc_tech, ts.at(ts_i_)]*energy_scaling_factor # Pyomo Sets are 1-indexed
+                elif cyclic_storage:
+                    q_prev = backend_model.storage[loc_tech, ts.at(-1)]*energy_scaling_factor
+                else:
+                    q_prev = get_param(backend_model, 'storage_initial', loc_tech)*E_vs_tech
+                lhs += r_ts[ts_i_]*q_prev
+                r_sum += r_ts[ts_i_]
                    
-            return q_h_vs_tech_sum >= 0.5*E_vs_tech*number_of_ts
+            return lhs >= 0.5*E_vs_tech*r_sum
         
         return q_h_vs_constraint_rule
     
@@ -955,11 +968,107 @@ def building_inertia_flex_constraints(
         
         return demand_share_constraint_rule
     
+    def make_virtual_storage_balance_constraint_rule(ts_i, acr):
+        
+        def virtual_storage_balance_constraint_rule(backend_model):
+            """
+            Storage balance of the virtual storage with the hourly loss rate
+            r_ts (replaces Calliope's balance_storage_constraint, which only
+            supports a constant storage_loss). Same formulation as in
+            Calliope 0.6.10 (calliope/backend/pyomo/constraints/
+            energy_balance.py, balance_storage_constraint_rule) without
+            clustering.
+            """
+            ts = backend_model.timesteps # retrieve timesteps
+            t = ts.at(ts_i + 1) # Pyomo is 1-indexed
+            loc_tech = f'X1::virtual_storage_flex_{acr}'
+            loc_tech_carrier = f'{loc_tech}::heat_vs_{acr}'
+            
+            energy_eff = get_param(backend_model, 'energy_eff', (loc_tech, t))
+            if po.value(energy_eff) == 0:
+                carrier_prod = 0
+            else:
+                carrier_prod = backend_model.carrier_prod[loc_tech_carrier, t] / energy_eff
+            carrier_con = backend_model.carrier_con[loc_tech_carrier, t] * energy_eff
+            
+            if ts_i == 0 and not cyclic_storage:
+                storage_previous_step = (
+                    get_param(backend_model, 'storage_initial', loc_tech)
+                    * backend_model.storage_cap[loc_tech]
+                    )
+            else:
+                previous_step = ts.at(-1) if ts_i == 0 else ts.at(ts_i)
+                time_resolution = po.value(backend_model.timestep_resolution[previous_step])
+                storage_previous_step = (
+                    (1 - r_ts[ts_i]) ** time_resolution
+                    ) * backend_model.storage[loc_tech, previous_step]
+            
+            return (
+                backend_model.storage[loc_tech, t]
+                == storage_previous_step - carrier_prod - carrier_con
+                )
+        
+        return virtual_storage_balance_constraint_rule
+    
+    def make_virtual_storage_initial_constraint_rule(acr):
+        
+        def virtual_storage_initial_constraint_rule(backend_model):
+            """
+            Cyclic storage: the storage level carried from the last to the
+            first timestep (after the loss of the first timestep) equals the
+            initial storage level (replaces Calliope's
+            storage_initial_constraint, which uses the constant storage_loss).
+            """
+            loc_tech = f'X1::virtual_storage_flex_{acr}'
+            final_step = backend_model.timesteps.at(-1)
+            time_resolution = po.value(backend_model.timestep_resolution[final_step])
+            return (
+                backend_model.storage[loc_tech, final_step]
+                * ((1 - r_ts[0]) ** time_resolution)
+                == get_param(backend_model, 'storage_initial', loc_tech)
+                * backend_model.storage_cap[loc_tech]
+                )
+        
+        return virtual_storage_initial_constraint_rule
+    
     
     # =========================================================================
     # Add constraints to model:
     # ------------------------
     constraint_sets = []
+    
+    # Hourly loss rate of the virtual storages: Calliope's storage balance
+    # (constant storage_loss) is replaced by the custom storage balance with
+    # r_ts:
+    backend_model_ = model._backend_model
+    if hasattr(backend_model_, 'clusters'):
+        raise NotImplementedError(
+            "Building inertia flexibility is not implemented for clustered "
+            "timeseries."
+            )
+    cyclic_storage = getattr(backend_model_, '__calliope_run_config')['cyclic_storage']
+    
+    for key, acr in flex_systems.items():
+        loc_tech = f'X1::virtual_storage_flex_{acr}'
+        for t in backend_model_.timesteps:
+            backend_model_.balance_storage_constraint[loc_tech, t].deactivate()
+        for ts_i in range(ts_len):
+            model.backend.add_constraint(
+                f"virtual_storage_balance_{acr}_ts_{ts_i}_constraint",
+                constraint_sets,
+                make_virtual_storage_balance_constraint_rule(ts_i, acr)
+                )
+        if (
+                cyclic_storage
+                and hasattr(backend_model_, 'storage_initial_constraint')
+                and loc_tech in backend_model_.storage_initial_constraint
+                ):
+            backend_model_.storage_initial_constraint[loc_tech].deactivate()
+            model.backend.add_constraint(
+                f"virtual_storage_initial_{acr}_constraint",
+                constraint_sets,
+                make_virtual_storage_initial_constraint_rule(acr)
+                )
     
     # Single constraints:
     # ------------------    
@@ -1059,5 +1168,216 @@ def building_inertia_flex_constraints(
                 constraint_sets,
                 make_q_h_vs_low_demand_constraint_rule(ts_i)
                 )
+    
+    return model
+
+
+# Carriers of electricity that can leave the system via carrier_export:
+ELECTRICITY_EXPORT_CARRIERS = ('electricity', 'wp_electricity')
+
+def get_electricity_export_flows(backend_model):
+    """
+    Return the electricity export flows of the Calliope backend model.
+
+    Returns
+    -------
+    export_ltcs : list of str
+        loc::tech::carrier entries of carrier_export (tech-level export).
+    grid_export_ltc : str or None
+        loc::tech::carrier entry of the grid export tech (carrier_con), if
+        present.
+    """
+    export_ltcs = []
+    if hasattr(backend_model, 'loc_tech_carriers_export'):
+        export_ltcs = [
+            ltc for ltc in backend_model.loc_tech_carriers_export
+            if ltc.split('::')[-1] in ELECTRICITY_EXPORT_CARRIERS
+            ]
+    
+    grid_export_ltc = 'Grid_Connection_Node::grid_export::electricity'
+    if grid_export_ltc not in backend_model.loc_tech_carriers_con:
+        grid_export_ltc = None
+    
+    return export_ltcs, grid_export_ltc
+
+
+def national_generation_no_export_constraints(
+        model,
+        national_techs,
+        v_e_nat_pot,
+        big_M_export,
+        energy_scaling_factor
+        ):
+    """
+    Prevent the export of national generation. In each timestep in which
+    national generation is available, a binary variable decides whether
+    national generation is used (1) or electricity is exported (0); both at the
+    same time is not possible. Without this constraint, national generation
+    could cover the local demand while local generation is exported, which
+    is an export of national generation (e.g. if its cost or emissions are
+    lower than the export revenue or export credit).
+
+        sum_g P_nat,g(t) <= A(t) * b(t)
+        E(t) <= M * (1 - b(t))
+
+    P_nat,g: national generation used; A: available national generation;
+    E: total electricity export (tech-level export and grid export);
+    M: upper bound of the hourly export (big-M); b: binary variable.
+
+    Parameters
+    ----------
+    model : Calliope model
+        Calliope model instance (built with build_only = True).
+    national_techs : list of str
+        Names of the Calliope techs of the national generators.
+    v_e_nat_pot : array
+        Total available national generation per timestep [kWh].
+    big_M_export : float
+        Upper bound of the total electricity export per timestep [kWh].
+    energy_scaling_factor : float
+        Scaling factor of energy values in the Calliope model.
+
+    Returns
+    -------
+    Calliope model
+        Calliope model instance.
+    """
+    backend_model = model._backend_model
+    
+    export_ltcs, grid_export_ltc = get_electricity_export_flows(backend_model)
+    
+    if len(export_ltcs) == 0 and grid_export_ltc is None:
+        # No export possible; no constraint required.
+        return model
+    
+    national_ltcs = [
+        f'Grid_Connection_Node::{tech}::electricity' for tech in national_techs
+        ]
+    
+    # Timesteps with available national generation:
+    ts_active = [i for i, val in enumerate(v_e_nat_pot) if val > 0]
+    
+    varname_binary = 'national_generation_use_binary'
+    backend_model.add_component(varname_binary, Var(ts_active, within=Binary))
+    binary = getattr(backend_model, varname_binary)
+    
+    big_M = big_M_export / energy_scaling_factor
+    
+    def make_national_use_constraint_rule(ts_i):
+        def national_use_constraint_rule(backend_model):
+            ts = backend_model.timesteps.at(ts_i + 1) # Pyomo Sets are 1-indexed
+            p_nat = sum(backend_model.carrier_prod[ltc, ts] for ltc in national_ltcs)
+            avail = v_e_nat_pot[ts_i] / energy_scaling_factor
+            return p_nat <= avail * binary[ts_i]
+        return national_use_constraint_rule
+    
+    def make_no_export_constraint_rule(ts_i):
+        def no_export_constraint_rule(backend_model):
+            ts = backend_model.timesteps.at(ts_i + 1) # Pyomo Sets are 1-indexed
+            export = sum(backend_model.carrier_export[ltc, ts] for ltc in export_ltcs)
+            if grid_export_ltc is not None:
+                export += -backend_model.carrier_con[grid_export_ltc, ts] # carrier_con is negative
+            return export <= big_M * (1 - binary[ts_i])
+        return no_export_constraint_rule
+    
+    for ts_i in ts_active:
+        model.backend.add_constraint(
+            f'national_generation_use_ts_{ts_i}_constraint',
+            [],
+            make_national_use_constraint_rule(ts_i)
+            )
+        model.backend.add_constraint(
+            f'national_generation_no_export_ts_{ts_i}_constraint',
+            [],
+            make_no_export_constraint_rule(ts_i)
+            )
+    
+    return model
+
+
+def national_generation_before_import_constraints(
+        model,
+        national_techs,
+        v_e_nat_pot,
+        big_M_import,
+        energy_scaling_factor
+        ):
+    """
+    Use national generation before cross-border import: in each timestep in
+    which national generation is available, electricity can only be imported
+    from the grid (grid_supply) if all available national generation is used.
+    A binary variable decides whether grid import is allowed (1) or not (0):
+
+        sum_g P_nat,g(t) >= A(t) * z(t)
+        M(t) <= M_G * z(t)
+
+    P_nat,g: national generation used (P_nat,g <= A_g, i.e. the first
+    constraint implies P_nat,g = A_g for all generators if z = 1);
+    A: available national generation; M: grid import; M_G: upper bound of the
+    hourly grid import (big-M); z: binary variable.
+
+    Parameters
+    ----------
+    model : Calliope model
+        Calliope model instance (built with build_only = True).
+    national_techs : list of str
+        Names of the Calliope techs of the national generators.
+    v_e_nat_pot : array
+        Total available national generation per timestep [kWh].
+    big_M_import : float
+        Upper bound of the grid import per timestep [kWh].
+    energy_scaling_factor : float
+        Scaling factor of energy values in the Calliope model.
+
+    Returns
+    -------
+    Calliope model
+        Calliope model instance.
+    """
+    backend_model = model._backend_model
+    
+    grid_supply_ltc = 'Grid_Connection_Node::grid_supply::electricity'
+    if grid_supply_ltc not in backend_model.loc_tech_carriers_prod:
+        # No grid import possible; no constraint required.
+        return model
+    
+    national_ltcs = [
+        f'Grid_Connection_Node::{tech}::electricity' for tech in national_techs
+        ]
+    
+    # Timesteps with available national generation:
+    ts_active = [i for i, val in enumerate(v_e_nat_pot) if val > 0]
+    
+    varname_binary = 'national_generation_import_binary'
+    backend_model.add_component(varname_binary, Var(ts_active, within=Binary))
+    binary = getattr(backend_model, varname_binary)
+    
+    big_M = big_M_import / energy_scaling_factor
+    
+    def make_national_full_use_constraint_rule(ts_i):
+        def national_full_use_constraint_rule(backend_model):
+            ts = backend_model.timesteps.at(ts_i + 1) # Pyomo Sets are 1-indexed
+            p_nat = sum(backend_model.carrier_prod[ltc, ts] for ltc in national_ltcs)
+            avail = v_e_nat_pot[ts_i] / energy_scaling_factor
+            return p_nat >= avail * binary[ts_i]
+        return national_full_use_constraint_rule
+    
+    def make_import_constraint_rule(ts_i):
+        def import_constraint_rule(backend_model):
+            ts = backend_model.timesteps.at(ts_i + 1) # Pyomo Sets are 1-indexed
+            return backend_model.carrier_prod[grid_supply_ltc, ts] <= big_M * binary[ts_i]
+        return import_constraint_rule
+    
+    for ts_i in ts_active:
+        model.backend.add_constraint(
+            f'national_generation_full_use_ts_{ts_i}_constraint',
+            [],
+            make_national_full_use_constraint_rule(ts_i)
+            )
+        model.backend.add_constraint(
+            f'national_generation_before_import_ts_{ts_i}_constraint',
+            [],
+            make_import_constraint_rule(ts_i)
+            )
     
     return model

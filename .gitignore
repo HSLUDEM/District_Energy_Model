@@ -8,6 +8,7 @@
 
 # ignore specific files:
 # ---------------------
+CLAUDE.md
 settings.json
 config/config_files/*.yml
 config/config_files/*.yaml
@@ -26,6 +27,7 @@ data/
 data/*
 **/tmp*
 **/dev_us_*
+doc/DEM_code_audit.md
 
 # ignore directories:
 # ------------------

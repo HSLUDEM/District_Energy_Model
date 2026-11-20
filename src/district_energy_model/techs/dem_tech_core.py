@@ -152,8 +152,12 @@ class TechCore():
     def get_total_capex(self):
         if not hasattr(self, "_capex"):
             return 0
+
         if self._cap_is_built():
-            return self._capex*(self.get_cap() - self.existing)
+            # Never negative (as in the branch below), e.g. if the existing
+            # capacity were ever larger than the selected capacity:
+            return self._capex*(0.0, self.get_cap() - self.existing)
+
         if hasattr(self, "_capex_one_to_one_replacement"):
             total_capacity = self.get_output().max()
             if total_capacity <= self.existing:
@@ -263,6 +267,7 @@ class TechCore():
         for attr in ['_v_h_max', 'v_max', 'kw_max', 'kW_el_max', '_cap', '_p_max']:
             if hasattr(self, attr):
                 return getattr(self, attr)
+        # None of the attributes exists:
         if debug:
             warnings.warn(f"No max_capacity attribute found returning 'inf' for object {self}")
         return 'inf'

@@ -1148,8 +1148,6 @@ class EnergyDemand:
             df_meta,
             weather_year,
             hist_data_year,
-            rcp_scenario,
-            ts_type,
             yearly_heat_demand_col='space_heating_demand_estimation_kWh',
             new_header = 'd_h_s_yr_future',
             writeToMeta = True,
@@ -1165,8 +1163,6 @@ class EnergyDemand:
                     com_nr = self.com_nr,
                     weather_year=weather_year,
                     hist_data_year=hist_data_year,
-                    rcp_scenario=rcp_scenario,
-                    ts_type=ts_type,
                     )
                 
             # Create additional column for future heat demand:
@@ -1193,8 +1189,6 @@ class EnergyDemand:
                         com_nr = com_nr,
                         weather_year=weather_year,
                         hist_data_year=hist_data_year,
-                        rcp_scenario=rcp_scenario,
-                        ts_type=ts_type,
                         )
                 
                 if distinguishByConstructionYear:
@@ -1473,80 +1467,11 @@ class EnergyDemand:
         return df_meta
 
 
-    # def __get_d_h_s_scaling_factors(
-    #         self,
-    #         com_nr,
-    #         weather_year,
-    #         rcp_scenario='RCP26',
-    #         ts_type='tas_median'
-    #         ):
-    #     """
-    #     Obtain scaling factor for future space heating demand.
-    #     Based on heating degree days (HDD).
-
-    #     Parameters
-    #     ----------
-    #     year : TYPE
-    #         DESCRIPTION.
-
-    #     Returns
-    #     -------
-    #     None.
-
-    #     """
-        
-    #     valid_years = {2016,2017,2018,2019,2020,2021,2022,2023,2030,2040,2050}
-    #     if weather_year in valid_years:
-    #         pass
-    #     else:
-    #         msg = (
-    #             f"Value for selected year ({weather_year}) is invalid. "
-    #             "Options are 2023, 2030, 2040, or 2050.")
-    #         raise ValueError(msg)
-        
-    #     # Scaling factor for future demand:
-    #     hdd_munic_file_current = self.paths.master_data_dir + 'HDD_and_HDH_profiles/HDD_Municipality_2023.feather'
-    #     hdd_munic_file_future = self.paths.master_data_dir + f'HDD_and_HDH_profiles/HDD_Municipality_{str(weather_year)}.feather'
-        
-    #     df_hdd_current = pd.read_feather(hdd_munic_file_current)
-    #     df_hdd_future = pd.read_feather(hdd_munic_file_future)
-        
-    #     header_current_t12 = "HDD_12_2023"
-    #     header_current_t15 = "HDD_15_2023"
-        
-    #     if weather_year==2023:
-    #         header_future_t12 = "HDD_12_2023"
-    #         header_future_t15 = "HDD_15_2023"
-    #     else:        
-    #         header_future_t12 = f"HDD_12_{str(weather_year)}_{rcp_scenario}_{ts_type}"
-    #         header_future_t15 = f"HDD_15_{str(weather_year)}_{rcp_scenario}_{ts_type}"
-
-    #     hdd_current_t12 = df_hdd_current.loc[
-    #         df_hdd_current['GGDENR'] == com_nr, header_current_t12
-    #         ].values[0]
-    #     hdd_future_t12 = df_hdd_future.loc[
-    #         df_hdd_future['GGDENR'] == com_nr, header_future_t12
-    #         ].values[0]
-
-    #     hdd_current_t15 = df_hdd_current.loc[
-    #         df_hdd_current['GGDENR'] == com_nr, header_current_t15
-    #         ].values[0]
-    #     hdd_future_t15 = df_hdd_future.loc[
-    #         df_hdd_future['GGDENR'] == com_nr, header_future_t15
-    #         ].values[0]
-        
-    #     scaling_factor_t12 = hdd_future_t12/hdd_current_t12
-    #     scaling_factor_t15 = hdd_future_t15/hdd_current_t15
-        
-    #     return scaling_factor_t12, scaling_factor_t15
-
     def __get_d_h_s_scaling_factors(
             self,
             com_nr,
             weather_year,
             hist_data_year,
-            rcp_scenario='RCP26',
-            ts_type='tas_median'
             ):
         """
         Obtain scaling factor for future space heating demand.
@@ -1563,13 +1488,13 @@ class EnergyDemand:
 
         """
         
-        valid_years = {2016,2017,2018,2019,2020,2021,2022,2023,2030,2040,2050}
+        valid_years = {2016,2017,2018,2019,2020,2021,2022,2023,2030,2035,2040,2050}
         if weather_year in valid_years:
             pass
         else:
             msg = (
                 f"Value for selected year ({weather_year}) is invalid. "
-                "Options are 2016-2023, 2030, 2040, or 2050.")
+                "Options are 2016-2023, 2030, 2035, 2040, or 2050.")
             raise ValueError(msg)
             
         if weather_year == hist_data_year:

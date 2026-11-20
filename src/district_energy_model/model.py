@@ -122,6 +122,13 @@ def launch(root_dir=None,
 
     # Check list parameters (several instances) before the model is set up:
     dem_helper.expand_list_parameters(scen_techs['heat_pump_cp'], 'heat_pump_cp')
+    # Pareto front (not relevant if results are loaded from file):
+    if (scen_techs['optimisation']['pareto_monetary_co2']
+            and not inp.toggle_load_pareto_results):
+        dem_helper.check_pareto_inputs(
+            optimisation_enabled=scen_techs['optimisation']['enabled'],
+            N_pareto=scen_techs['optimisation']['N_pareto']
+            )
 
     # Create instance of district energy model (dem):
     dem_inst = dem.DistrictEnergyModel(

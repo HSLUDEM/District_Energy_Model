@@ -10,6 +10,16 @@ import pandas as pd
 
 from district_energy_model.techs.dem_tech_core import TechCore
 
+
+def _capacity_limit_kW(value):
+    """
+    Return a capacity limit [kW] as float ('inf' stands for unlimited).
+    """
+    if isinstance(value, str) and value.lower() == 'inf':
+        return float('inf')
+    return float(value)
+
+
 class WindPower(TechCore):
     
     """
@@ -74,6 +84,7 @@ class WindPower(TechCore):
         self.p_max_winter = ...
         self.p_e_wp = ... # currently installed capacity
         self._cap_opt = None # [kW] capacities (total, new) from optimisation, if available
+        self._cap_new_sim = 0.0 # [kW] new capacity added in a simulation (wind integration scenario)
         
         # Initialize properties:
         self.update_tech_properties(tech_dict)
@@ -1023,8 +1034,93 @@ class WindPower(TechCore):
     def __compute_v_e_pot_remain(self):        
         self._v_e_pot_remain = (self._v_e_pot - self._v_e - self._v_e_ch)
         
-    def update_v_e(self, v_e_updated):
+    def remove_existing_generation(self):
+        """
+        Remove the currently installed wind power (capacity and generation,
+        incl. the share allocated to national generation v_e_ch). Used if the
+        installed wind power is part of a national generation profile.
+        """
+        self.p_e_wp = 0.0
+        self._cap_new_sim = 0.0
+        self._v_e = np.zeros(len(self._v_e))
+        self._v_e_ch = np.zeros(len(self._v_e_ch))
+
+        # Recompute potentials (aligned with installed generation):
+        self.compute_v_e_pot()
+
+    def integrate_potential(self, integration_factor):
+        """
+        Integrate a share of the remaining wind power potential (simulation,
+        wind integration scenario) and store the new capacity for the cost
+        calculation.
         
+        The new capacity is integration_factor times the remaining potential
+        capacity, with the limits of the optimisation: kWp_max limits the
+        potential with 'annual' and with 'winter' profile separately, and
+        kWp_max_systemwide limits the total local capacity (existing and new).
+        Existing wind power is kept, also if it exceeds a limit (no new
+        capacity is added in this case).
+
+        Parameters
+        ----------
+        integration_factor : float
+            Share of the remaining potential to be integrated [-].
+
+        Returns
+        -------
+        cap_new_kW : float
+            New capacity [kW] added by this call.
+        """
+        p_e = self.get_p_e_kW()
+        kWp_max = _capacity_limit_kW(self._kWp_max)
+        kWp_max_systemwide = _capacity_limit_kW(self._kWp_max_systemwide)
+
+        # Potential capacity per profile type within kWp_max:
+        cap_annual = min(kWp_max, self.p_max_annual)
+        cap_winter = min(kWp_max, self.p_max_winter)
+
+        # Remaining potential capacity (existing wind power uses the 'annual'
+        # potential first, as in compute_v_e() and in the optimisation):
+        if p_e <= cap_annual:
+            cap_remain = (cap_annual - p_e) + cap_winter
+        else:
+            cap_remain = max(0.0, cap_winter - (p_e - cap_annual))
+
+        # Share of the remaining potential that is integrated:
+        share = integration_factor
+        cap_new = share*cap_remain
+
+        # Total local capacity within kWp_max_systemwide:
+        cap_new_allowed = max(
+            0.0,
+            kWp_max_systemwide - self.get_local_existing_capacity() - self._cap_new_sim
+            )
+        if cap_new > cap_new_allowed:
+            cap_new = cap_new_allowed
+            share = cap_new/cap_remain # cap_remain > 0, as cap_new > 0
+
+        # Hourly generation of the remaining potential:
+        if cap_annual == self.p_max_annual and cap_winter == self.p_max_winter:
+            # kWp_max not limiting (aligned with the existing generation in
+            # compute_v_e_pot()):
+            v_e_remain = self._v_e_pot_remain
+        else:
+            v_e_pot_limited = (
+                self._v_e_pot_annual_kWhpkW*cap_annual
+                + self._v_e_pot_winter_kWhpkW*cap_winter
+                )
+            v_e_remain = np.maximum(
+                v_e_pot_limited - self._v_e - self._v_e_ch,
+                0.0
+                )
+
+        self.update_v_e(self._v_e + v_e_remain*share)
+        self._cap_new_sim += cap_new
+
+        return cap_new
+
+    def update_v_e(self, v_e_updated):
+
         if len(v_e_updated) != len(self._v_e):
             raise ValueError("v_e_updated must have the same length as v_e!")
             
@@ -1207,14 +1303,21 @@ class WindPower(TechCore):
         """
         self._cap_opt = (cap_total_kW, cap_new_kW)
 
+    def get_local_existing_capacity(self):
+        """
+        Existing capacity [kW] that is local wind power. With
+        wind_power_installed_allocation 'national', the existing wind power
+        is part of the national generation (as in the optimisation).
+        """
+        if self._installed_allocation == 'local':
+            return self.p_e_wp
+        return 0.0
+
     def get_total_capex(self):
         if self._cap_opt is not None:
             return self._cap_opt[1]*self._capex
-        cap = [x/y for x, y in zip(self._v_e, self._v_e_pot_annual_kWhpkW) if y != 0] 
-        if cap == []:
-            return 0.0
-        capex = (max(cap) - self.get_existing())*self._capex
-        return capex
+        # Simulation: new capacity from the wind integration scenario:
+        return self._cap_new_sim*self._capex
             
     def get_energy_costs(self):
         return 0.0
@@ -1222,10 +1325,10 @@ class WindPower(TechCore):
     def get_total_maintenance(self):
         if self._cap_opt is not None:
             return self._maintenance_cost*self._cap_opt[0]
-        cap = [x/y for x, y in zip(self._v_e, self._v_e_pot_annual_kWhpkW) if y != 0] 
-        if cap == []:
-            return 0.0
-        return self._maintenance_cost*max(cap)
+        # Simulation: local existing and new capacity:
+        return self._maintenance_cost*(
+            self.get_local_existing_capacity() + self._cap_new_sim
+            )
     
     def get_energy_revenue(self):
         return self._export_subsidy*np.sum(self._v_e_exp)

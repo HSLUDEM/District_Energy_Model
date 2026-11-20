@@ -34,6 +34,8 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes=False,
     then exist. Grid supply is always required, even if there are no sources.
 
     PV sources are allocated and updated per installation.
+    If national generation is deployed, it covers the demand remaining after
+    local generation (proportional dispatch) before the grid supplies the rest.
     Updates present generators' consumption/export and grid import in place.
     Returns None. Does not decide storage operation or change demand.
     """
@@ -135,7 +137,13 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes=False,
 
     # Required import:
     m_e = d_e_remain
-    
+
+    # National generation (if deployed) covers the required import as far as
+    # available; the grid supplies the rest:
+    if 'national_generation' in tech_instances:
+        v_e_nat = tech_instances['national_generation'].dispatch(m_e)
+        m_e = np.maximum(np.array(m_e) - v_e_nat, 0.0)
+
     #--------------------------------------------------------------------------
     # Update local renewable tech objects:
     
@@ -152,75 +160,6 @@ def get_local_electricity_mix(energy_demand, tech_instances, with_bes=False,
     #--------------------------------------------------------------------------
     # Update import:
     tech_grid_supply.add_m_e(np.array(m_e))
-
-def update_m_e(m_e_updated, tech_grid_supply):
-    """
-    Update the import m_e including the splits (e.g. m_e_ch_hydro,
-    m_e_ch_nuclear, etc...) based on updated total import values m_e_new.
-    
-    The following energy flows are updated:
-        - m_e_ch
-        - m_e_ch_hydro
-        - m_e_ch_nuclear
-        - m_e_ch_wind
-        - m_e_ch_biomass
-        - m_e_ch_other
-        - m_e_cbimport
-
-    Parameters
-    ----------
-    m_e_new : dataseries or list
-        Updated values of total import.
-    df_scen : dataframe
-        Dataframe containing hourly timeseries of energy flows [kWh].
-
-    Returns
-    -------
-    df_scen : dataframe
-        Updated dataframe containing hourly timeseries of energy flows [kWh].
-
-    """
-    
-    df = pd.DataFrame()
-
-    df['m_e'] = m_e_updated
-    df['m_e_ch'] = tech_grid_supply.get_m_e_ch()
-    df['m_e_ch_hydro'] = tech_grid_supply.get_m_e_ch_hydro()
-    df['m_e_ch_nuclear'] = tech_grid_supply.get_m_e_ch_nuclear()
-    df['m_e_ch_wind'] = tech_grid_supply.get_m_e_ch_wind()
-    df['m_e_ch_biomass'] = tech_grid_supply.get_m_e_ch_biomass()
-    df['m_e_ch_other'] = tech_grid_supply.get_m_e_ch_other()
-    df['m_e_cbimport'] = tech_grid_supply.get_m_e_cbimport()
-    
-    # Where m_e = 0, set all imports to 0:
-    df.loc[df['m_e'] == 0, 'm_e_ch'] = 0
-    df.loc[df['m_e'] == 0, 'm_e_ch_hydro'] = 0
-    df.loc[df['m_e'] == 0, 'm_e_ch_nuclear'] = 0
-    df.loc[df['m_e'] == 0, 'm_e_ch_wind'] = 0
-    df.loc[df['m_e'] == 0, 'm_e_ch_biomass'] = 0
-    df.loc[df['m_e'] == 0, 'm_e_ch_other'] = 0
-    df.loc[df['m_e'] == 0, 'm_e_cbimport'] = 0
-    
-    # Update CH-import:
-    # Where the ch-import is currently larger than the total import m_e, it is
-    # downscaled to m_e (using a ratio) and all the ch-import shares are
-    # adapted accordingly.
-    df['tmp_m_e_ch_old'] = df['m_e_ch'].copy(deep = True)
-    df['tmp_m_e_ratio'] = df['m_e']/df['m_e_ch']
-    df.loc[df['m_e']==0,'tmp_m_e_ratio'] = 0
-    
-    #df_scen['tmp_m_e_ratio'].to_csv('tmp_m_e_ratio.csv')
-    
-    df.loc[df['tmp_m_e_ratio']<1,'m_e_ch'] = df['m_e_ch']*df['tmp_m_e_ratio']
-    df.loc[df['tmp_m_e_ratio']<1,'m_e_ch_hydro'] = df['m_e_ch_hydro']*df['tmp_m_e_ratio']
-    df.loc[df['tmp_m_e_ratio']<1,'m_e_ch_nuclear'] = df['m_e_ch_nuclear']*df['tmp_m_e_ratio']
-    df.loc[df['tmp_m_e_ratio']<1,'m_e_ch_wind'] = df['m_e_ch_wind']*df['tmp_m_e_ratio']
-    df.loc[df['tmp_m_e_ratio']<1,'m_e_ch_biomass'] = df['m_e_ch_biomass']*df['tmp_m_e_ratio']
-    df.loc[df['tmp_m_e_ratio']<1,'m_e_ch_other'] = df['m_e_ch_other']*df['tmp_m_e_ratio']
-    
-    # Update cross-border (cb) import:
-    df['m_e_cbimport'] = df['m_e'] - df['m_e_ch']
-
 
 # def update_m_e(m_e_new, df_scen):
 
@@ -442,6 +381,7 @@ def electricity_balance_test(scen_techs,
                               + df_scen['v_e_st']
                               + df_scen['v_e_wte']
                               + df_scen['v_e_bes']
+                              + df_scen['v_e_nat']
                               + df_scen['m_e']
                               + df_scen['d_e_unmet']
                               )
@@ -594,7 +534,17 @@ def electricity_balance_test(scen_techs,
         electricity_baseline_demand - electricity_baseline_demand_split
         ).max()
     # max_diff_11 = diff_11.max()
-    
+
+    # National generation cannot exceed the available (allocated) generation:
+    dict_diff_max[12] = (df_scen['v_e_nat'] - df_scen['v_e_nat_pot']).clip(lower=0).max()
+
+    # National generation is used before cross-border import (no grid import
+    # while national generation is curtailed):
+    dict_diff_max[13] = np.minimum(
+        df_scen['m_e'],
+        (df_scen['v_e_nat_pot'] - df_scen['v_e_nat']).clip(lower=0)
+        ).max()
+
     for nr, diff_max in dict_diff_max.items():
         if diff_max > diff_accepted:
             # print(f"Electricity balance ({nr}) is not fulfilled!")

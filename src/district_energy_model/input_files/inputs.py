@@ -57,6 +57,10 @@ hv_gas = 46.0 # [MJ/kg] Heating value (lower) of gas
 hv_wood = 15.0 # [MJ/kg] Heating value (lower) of wood
 hv_msw = 12.0 # [MJ/kg] Heating value (lower) of municipal solid waste; https://vbsa.ch/artikel/aggregierte-zahlen-der-kehricht-verwertungs-anlagen-der-schweiz
 
+# VAT convention: all costs, prices and tariffs exclude VAT.
+# Known exception: oil_price is based on the Migrol price index, which includes
+# VAT (not adjusted). The VAT basis of many other cost values has not been
+# checked against their sources.
 oil_price = 1.00 # 1.00 # [CHF/l] Oil price
 gas_price = 0.13 #0.15 #0.13 # [CHF/kWh] price of natural gas # see: https://gaspreise.preisueberwacher.ch/web/index.asp
 wood_price = 0.5 # [CHF/kg] price of wood
@@ -65,7 +69,7 @@ dh_tariff = 0.13 # [CHF/kWh_th] district heating tariff
 wh_tariff = 0.01 # [CHF/kWh_th]
 whlt_tariff = 0.01 # [CHF/kWh_th]
 
-grid_tariff_CHFpkWh = 0.29 # [CHF/kWh] electricity tariff
+grid_tariff_CHFpkWh = 0.29 # [CHF/kWh] electricity tariff; used in grid_supply tariff_mode 'const'
 grid_feed_in_tariff_CHFpkWh = 0.06
 interest_rate = 0.025
 
@@ -238,7 +242,7 @@ scen_techs = {
         'eta_overall': 0.23*0.95,
         'lifetime':25,
         'base_capex':2079, #capex per installed kWp power. This is not the same as the peak of the solar PV production; Source: Photovoltaikmarkt:Lionel Bloch, Planair SA Yannick Sauter, Planair SA Florent Jacqmin, Planair SA Preisbeobachtungsstudie 2024 https://pubdb.bfe.admin.ch/de/publication/download/12228capex per installed kWp power. This is not the same as the peak of the solar PV production. Source: Photovoltaikmarkt: Preisbeobachtungsstudie 2024 Lionel Bloch, Planair SA Yannick Sauter, Planair SA Florent Jacqmin, Planair SA Preisbeobachtungsstudie 2024 https://pubdb.bfe.admin.ch/de/publication/download/12227
-        'base_maintenance_cost': 0.03, # Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
+        'base_maintenance_cost': 37.0, # [CHF/kWp/year]
         'interest_rate':interest_rate,
         'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
         'only_use_installed':False,
@@ -250,7 +254,7 @@ scen_techs = {
         'eta_overall': -1.0, #Not used by code.
         'lifetime':25,
         'base_capex':4370, #capex per installed kWp power. upper limit, Quelle: Harnessing solar power in the Alps: A study on the financial viability of mountain PV systems (RePEc:eee:appene:v:375:y:2024:i:c:s0306261924014028)This is not the same as the peak of the solar PV production.
-        'base_maintenance_cost': 13.0,
+        'base_maintenance_cost': 45.0, # [CHF/kWp/year] 
         'interest_rate':interest_rate,
         'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
         'only_use_installed':False,
@@ -265,7 +269,7 @@ scen_techs = {
         'interest_rate':interest_rate,
         'base_capex': 1950, # [CHF/kW_th] Source: Heizkostenrechner vom IGE, V008 (Lauber IWISA, TEP Martin Jakob)
         'base_capex_one_to_one_replacement': 1000, #[CHF/kW_th] does nothing
-        'base_maintenance_cost': 10, # [CHF/kW_th/year]
+        'base_maintenance_cost': 9, # [CHF/kW_th/year]
         'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
         'only_use_installed': False
         },
@@ -305,19 +309,38 @@ scen_techs = {
         'deployment':True,
         # 'deployment':False,
         'kW_max':'inf',
-        'tariff_mode': 'const', # 'const' or 'file'
-        'co2_intensity_mode': 'const',
-        'tariff_timeseries_filepath': '',
-        'co2_intensity_timeseries_filepath': '',
-        'constant_tariff_CHFpkWh':grid_tariff_CHFpkWh, #0.29, # [CHF/kWh] electricity tariff !!! MUST BE CHANGED TO A TIME SERIES
+        'tariff_mode': 'munic_file', # 'munic_file': value of the municipality from a file; 'const': constant_tariff_CHFpkWh; 'timeseries': hourly values from tariff_timeseries_filepath
+        'co2_intensity_mode': 'const', # 'const': constant_co2_intensity; 'file': hourly values from co2_intensity_timeseries_filepath
+        'tariff_munic_filepath': '', # 'munic_file': rows: municipalities (GGDENR); columns: years; values: [CHF/kWh]; '' = <root_dir>/data/electricity/electricity_tariff_munic.feather
+        'tariff_year': 'auto', # 'munic_file': year of the tariff; 'auto' = simulated year, or the last year of the file (with a warning) if the simulated year is not in the file
+        'tariff_timeseries_filepath': '', # 'timeseries': feather (first column) or npy file with 8760 values [CHF/kWh]
+        'co2_intensity_timeseries_filepath': '', # 'file': feather (first column) or npy file with 8760 values [kgCO2/kWh]; a relative path is relative to root_dir
+        'constant_tariff_CHFpkWh':grid_tariff_CHFpkWh, #0.29, # 'const': [CHF/kWh] electricity tariff
+        'tariff_factor':1.0, # [-] factor applied to the tariff in all modes (e.g. for future scenarios)
         'constant_co2_intensity':0.097, # [kgCO2/kWh] Source: Verband Schweizerischer Elektrizitätsunternehmen VSE CO2-Gehalt des Strommix Schweiz https://www.strom.ch/de/media/15408/download
         'lifetime':25,
         'interest_rate':interest_rate
         },
 
+    'national_generation':{ # nat (national generators allocated to the municipality, e.g. from a national model)
+        'deployment':False,
+        'data_dir':'', # directory with one profile file per generator; '' = <root_dir>/data/national_generation/; relative paths are relative to root_dir
+        'export_big_M_kWh':'auto', # [kWh] upper bound of hourly export used in the no-re-export constraint (optimisation); 'auto' or a number
+        'import_big_M_kWh':'auto', # [kWh] upper bound of hourly grid import used in the national-before-import constraint (optimisation); 'auto' or a number; grid_supply kW_max is used if finite
+        'generators':{
+            # One entry per generator (empty by default), e.g.:
+            # 'nuclear':{
+            #     'file':'nuclear.feather', # rows: 8760 h; columns: municipality numbers (BFS); values: allocated generation [kWh]
+            #     'cost_CHFpkWh':'grid_tariff', # [CHF/kWh] cost of used national generation: a number, or 'grid_tariff' for the tariff of grid_supply (default if omitted)
+            #     'co2_intensity':0.0, # [kgCO2/kWh]
+            #     'local_counterparts':[], # local techs contained in this profile (e.g. ['hydro_power']); must be switched off
+            #     },
+            },
+        },
+
     'grid_export':{ # grid
         'deployment':True,
-        'kW_max': None, #Defined in grid_supply
+        'kW_max': None, # not used; the grid connection capacity is grid_supply kW_max (limits import and export)
         'tariff_mode': 'const', # 'const' or 'file'
         'co2_intensity_mode': 'const',
         'tariff_timeseries_filepath': '',
@@ -334,7 +357,7 @@ scen_techs = {
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg': 0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
-        'tes_gamma':0.001,
+        'tes_gamma': 0.00008, # [/h] 0.001,
         'capacity_kWh_max':tes_cap*1e6 if tes_cap != 'inf' else 'inf',
         'force_cap_max':False, # implement max. storage capacity (kWh)
         'chg_dchg_per_cap_max':0.01, # max. charge/discharge (kW) per storage cap (kWh) per timestep
@@ -376,7 +399,7 @@ scen_techs = {
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg': 0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
-        'tes_gamma':0.001,
+        'tes_gamma':0.005, # (Begründung: https://pubdbtest.bfe.admin.ch/de/publication/download/7687 , 1000 Liter ergibt 0.0067, Absenkung wegen reale Speicher besser als Norm, Grössenverteilung
         'capacity_kWh_max':tesdc_cap*1e6 if tesdc_cap != 'inf' else 'inf',
         'chg_dchg_per_cap_max':0.1, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':tesdc_ic,
@@ -396,7 +419,7 @@ scen_techs = {
         'force_asynchronous_prod_con': force_asynchronous_storage,
         # 'deployment':False,
         'eta_chg_dchg':0.95, # 0.95 * 0.95 = 0.9025 round trip efficiency
-        'bes_gamma':0.001,
+        'bes_gamma':7e-5, # 95% nach einem Monat, Wikipedia: LFP
         'capacity_kWh_max':bes_cap*1e6 if bes_cap != 'inf' else 'inf',
         'chg_dchg_per_cap_max':1.0, # max. charge/discharge (kW) per storage cap (kWh) per timestep
         'initial_charge':bes_ic,
@@ -871,11 +894,9 @@ scen_techs = {
     'demand_side':{ # only applies if ['scenarios]['demand_side'] == True
         'simulation_year':{
             'type':'current', # Options: 'current', 'future'
-            'future_year': 2050, # Only relevant if type == future; Options: '2030', '2040', '2050'
+            'future_year': 2050, # Only relevant if type == future; Options: '2030', '2035', '2040', '2050'
             },
         # 'year': 2023, # Options: 2023, 2030, 2040, 2050
-        'rcp_scenario':'RCP26',
-        'ts_type':'tas_median',
         'ev_integration':True,
         'ev_integration_factor':100, # [%] share of electric vehicle in total fleet
         'ev_flexibility': True, # only in combination with optimisation
