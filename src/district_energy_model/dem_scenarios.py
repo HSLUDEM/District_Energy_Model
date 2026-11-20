@@ -10,8 +10,9 @@ Functions to create scenarios for the district energy model.
 
 """
 
+import copy
+
 import numpy as np
-import pandas as pd
 import warnings
 
 from district_energy_model import dem_helper
@@ -421,609 +422,87 @@ def __report_net_storage_discharge(label, q_initial, q_final):
               "not produced (nor paid for) by any technology. Consider "
               "initial_charge = 0.")
 
-def scenario_battery_energy_storage_via_pv(energy_demand, 
-                                           scen_techs, 
-                                           tech_instances):
-    tech_bes = tech_instances['bes']
-    tech_solar_pv = tech_instances['solar_pvrooftop']
-    tech_wind_power = tech_instances['wind_power']
-    tech_biomass = tech_instances['biomass']
-    tech_hydro_power = tech_instances['hydro_power']
-    tech_grid_supply = tech_instances['grid_supply']
-    
-    bes_cap = scen_techs['battery_energy_storage_scenario']['capacity_kWh']
-    bes_ic = scen_techs['battery_energy_storage_scenario']['initial_charge'] 
 
-    if tech_bes.get_cap() != 'inf':
-        if tech_bes.get_cap() < bes_cap:
-            tech_bes.set_cap(bes_cap)
+# Legacy single-storage scenario flag -> (storage technology, settings block
+# with its size and initial charge):
+LEGACY_STORAGE_SCENARIOS = {
+    'battery_energy_storage': ('bes', 'battery_energy_storage_scenario'),
+    'thermal_energy_storage': ('tes_decentralised', 'thermal_energy_storage_scenario'),
+    }
 
 
-
-    if bes_cap > 0:
-        df = pd.DataFrame()
-        len_df = len(tech_bes.get_v_e())
-        
-        # Add columns to df:
-        df['tmp_bes_cap_avl'] = [0.0]*len_df # [kWh] available storage capacity
-
-        tech_bes.update_q_e_i(0, bes_ic*bes_cap)
-        df.loc[0, 'tmp_bes_cap_avl'] = bes_cap - tech_bes.get_q_e()[0]   
-        
-        # Creat lumped variable for renewable energy generation:
-        v_e_renewable = (
-            tech_solar_pv.get_v_e()
-            + tech_wind_power.get_v_e()
-            + tech_biomass.get_v_e()
-            + tech_hydro_power.get_v_e()
-            )
-        
-        # Creat lumped variable for renewable energy export:
-        v_e_exp_renewable = (
-            tech_solar_pv.get_v_e_exp()
-            + tech_wind_power.get_v_e_exp()
-            + tech_biomass.get_v_e_exp()
-            + tech_hydro_power.get_v_e_exp()
-            )
-        for i, hr in enumerate(tech_bes.get_q_e()):
-            if i > 0:
-                #Apply storage loss
-                tech_bes.update_l_q_e_i(i-1, tech_bes.get_q_e()[i-1]*tech_bes.get_gamma() )
-                tech_bes.update_q_e_i(i, tech_bes.get_q_e()[i-1] * (1-tech_bes.get_gamma()))
-                df.loc[i, 'tmp_bes_cap_avl'] = bes_cap - tech_bes.get_q_e()[i]
-            elif i == 0:
-                pass
-
-            if v_e_exp_renewable[i] > 0.0: #charge battery
-
-                #determine allowed amount of charged energy
-                charging_rate = min([bes_cap*tech_bes.get_chg_dchg_per_cap_max(), 
-                                     df.loc[i, 'tmp_bes_cap_avl']/tech_bes.get_eta_chg_dchg(), 
-                                     v_e_exp_renewable[i]])
-                
-                #apply charging
-                tech_bes.update_u_e_i(i, charging_rate)
-                tech_bes.update_v_e_i(i, 0.0)
-                tech_bes.update_q_e_i(i, tech_bes.get_q_e()[i] + charging_rate*tech_bes.get_eta_chg_dchg())
-                tech_bes.update_l_u_e_i(i, tech_bes.get_u_e()[i]*(1.0-tech_bes.get_eta_chg_dchg()))
-                tech_bes.update_l_v_e_i(i, tech_bes.get_v_e()[i]*((1.0 / tech_bes.get_eta_chg_dchg() )-1.0))
-                tech_bes.update_sos_i(i, tech_bes.get_q_e()[i] / bes_cap)
-
-            else: #discharge battery (or leave it at the same charge level)
-                
-                #determine maximum discharging
-                unmet_demand = energy_demand.get_d_e()[i] - v_e_renewable[i]
-                max_discharge_rate = bes_cap*tech_bes.get_chg_dchg_per_cap_max()
-                stored_energy_bes = tech_bes.get_q_e()[i]*tech_bes.get_eta_chg_dchg()
-                discharge_rate = min([unmet_demand, max_discharge_rate, stored_energy_bes])
-
-                #apply discharge
-                tech_bes.update_u_e_i(i, 0.0)
-                tech_bes.update_v_e_i(i, discharge_rate)
-                tech_bes.update_q_e_i(i, tech_bes.get_q_e()[i] - discharge_rate/tech_bes.get_eta_chg_dchg())
-                tech_bes.update_l_u_e_i(i, tech_bes.get_u_e()[i]*(1.0-tech_bes.get_eta_chg_dchg()))
-                tech_bes.update_l_v_e_i(i, tech_bes.get_v_e()[i]*((1.0 / tech_bes.get_eta_chg_dchg() )-1.0))
-                tech_bes.update_sos_i(i, tech_bes.get_q_e()[i] / bes_cap)
-                tech_instances['grid_supply'].update_m_e_i(i, tech_instances['grid_supply'].get_m_e()[i] - discharge_rate)
-            
-    if bes_cap > 0:
-        __report_net_storage_discharge('BES scenario', bes_ic*bes_cap, tech_bes.get_q_e()[-1])
-
-    #Adjust import/export balance
-    dem_eb.get_local_electricity_mix(energy_demand, tech_instances, with_bes = True)
-    tech_grid_supply.update_m_e(tech_grid_supply.get_m_e())
-    #--------------------------------------------------------------------------
-    # Run tests for import:
-    __test_import_balance(tech_grid_supply) 
-
-
-
-
-
-
-def scenario_thermal_energy_storage_via_pv_hp(
-        energy_demand, 
-        scen_techs, 
-        tech_instances
-        ):
-
+def legacy_storage_scenario_config(scen_techs, legacy_scenario, tech_instances):
     """
-    Function to adjust energy system balance in case of thermal energy storage
-    dispatch. The thermal energy storage unit is charged via heat pump, taking
-    electricity from decentralised renewables only (PV, wind, biomass, hydro).
-    
-    Requirements:
-        - scen_techs['tes_decentralised']['deployment'] == True
-        - scen_techs['heat_pump']['deployment'] == True
-    
-    Parameters
-    ----------
-    scen_techs : dictionary
-        Dictionary containing info about technologies.
-    df_scen : pandas dataframe
-        Dictionary with reulting annual values.
-    tech_solar_pv : instance of SolarPV class
-        Instance of solar pv.
-    tech_grid_supply : instance of GridSupply class
-        Instance of grid supply.
+    Prepare a legacy single-storage scenario ('battery_energy_storage' or
+    'thermal_energy_storage') to run as the combined storage scenario
+    (scenario_battery_plus_thermal_energy_storage) with only that storage.
+
+    The storage is sized by the legacy settings block (capacity_kWh,
+    initial_charge), as in the former single-storage scenarios: these are
+    written to the combined scenario's own sizes (storages.<tech>) of the
+    copy; the other storage gets size 0 and does not take part, even if it
+    is deployed. The technologies' settings (capacity_kWh_max = optimiser's
+    maximum, deployment) are not changed. All other settings (losses,
+    efficiency, charge rate, electricity_supply_order, storage_priority,
+    heat_pump_tes_min_electric_power_kW, heat_pump_tes_capacity_factor) are
+    those of the combined scenario.
+
+    scen_techs is not modified (it is saved with the results); the returned
+    deep copy is the configuration of the redirected run.
 
     Returns
     -------
-    n/a
+    dict
+        Copy of scen_techs for scenario_battery_plus_thermal_energy_storage.
     """
-    
-    tech_tesdc = tech_instances['tes_decentralised']
-    tech_solar_pv = tech_instances['solar_pvrooftop']
-    tech_wind_power = tech_instances['wind_power']
-    tech_biomass = tech_instances['biomass']
-    tech_hydro_power = tech_instances['hydro_power']
-    tech_heat_pump = tech_instances['heat_pump']
-    tech_grid_supply = tech_instances['grid_supply']
-    tech_electric_heater = tech_instances['electric_heater']
-    
-    tech_heat_pump.calculate_effective_cops()
+    tech, settings_key = LEGACY_STORAGE_SCENARIOS[legacy_scenario]
 
-    tesdc_cap = scen_techs['thermal_energy_storage_scenario']['capacity_kWh']
-    tesdc_ic = scen_techs['thermal_energy_storage_scenario']['initial_charge']
-    
-    dem_helper.check_number(
-        value=tesdc_cap, 
-        var_name='thermal_energy_storage_scenario.capacity_kWh',
-        check_positive=True
-        )
-    dem_helper.check_number(
-        value=tesdc_ic, 
-        var_name='thermal_energy_storage_scenario.initial_charge',
-        )
-    if not 0.0 <= tesdc_ic <= 1.0:
+    # As before, the storage technology itself must be deployed:
+    dem_helper.check_tech_for_scenario(
+        techs=[tech], scenario=legacy_scenario, scen_techs=scen_techs)
+
+    settings = scen_techs[settings_key]
+    cap = settings['capacity_kWh']
+    ic = settings['initial_charge']
+    # As before: the TES size must be positive (its default 0 means "not
+    # set"), a battery of size 0 is allowed (no storage).
+    min_text = 'positive' if tech == 'tes_decentralised' else 'nonnegative'
+    if (isinstance(cap, bool) or not isinstance(cap, (int, float))
+            or not np.isfinite(cap) or cap < 0
+            or (cap == 0 and tech == 'tes_decentralised')):
         raise ValueError(
-            "thermal_energy_storage_scenario.initial_charge must be between 0 and 1. "
-            f"Selected value: {tesdc_ic}.")
+            f"{settings_key}.capacity_kWh must be a finite {min_text} number "
+            f"in the '{legacy_scenario}' scenario. Selected value: {cap!r}.")
+    if (isinstance(ic, bool) or not isinstance(ic, (int, float))
+            or not 0.0 <= ic <= 1.0):
+        raise ValueError(
+            f"{settings_key}.initial_charge must be between 0 and 1. "
+            f"Selected value: {ic!r}.")
 
-    if tech_tesdc.get_cap() != 'inf':
-        if tech_tesdc.get_cap() < tesdc_cap:
-            tech_tesdc.set_cap(tesdc_cap)
-    
-    if tesdc_cap == 'inf':
-        raise ValueError("TES capacity cannot be 'inf' in manual thermal_energy_storage scenario. Change to numeric value.")
-    
-    if tesdc_cap > 0:
-        # Creat temporary df for calculations:
-        df = pd.DataFrame()
-        
-        len_df = len(tech_tesdc.get_v_h())
-        
-        # Add columns to df:
-        df['tmp_tes_cap_avl'] = [0.0]*len_df # [kWh] available storage capacity
+    combined = 'scenario_battery_plus_thermal_energy_storage'
+    redirected = copy.deepcopy(scen_techs)
+    for flag in LEGACY_STORAGE_SCENARIOS:
+        redirected['scenarios'][flag] = False
+    redirected['scenarios'][combined] = True
+    # Scenario sizes: only this storage takes part (size 0 = not active),
+    # the technologies (capacity_kWh_max, deployment) are not changed:
+    for other, _ in LEGACY_STORAGE_SCENARIOS.values():
+        redirected[combined]['storages'][other] = {
+            'capacity_kWh': float(cap) if other == tech else 0.0,
+            'initial_charge': float(ic) if other == tech else 0.0,
+            }
 
-        # Initialise storage level and available capacity[kWh]:
-        tech_tesdc.update_q_h_i(0, tesdc_ic*tesdc_cap)
-        
-        df.loc[0, 'tmp_tes_cap_avl'] = tesdc_cap - tech_tesdc.get_q_h()[0]        
-        
-        # For code optimisation:
-        case_A_counter = 0
-        case_B_counter = 0
-        case_C_counter = 0
-        
-        # Creat lumped variable for renewable energy generation:
-        v_e_renewable = (
-            tech_solar_pv.get_v_e()
-            + tech_wind_power.get_v_e()
-            + tech_biomass.get_v_e()
-            + tech_hydro_power.get_v_e()
-            )
-        
-        # Creat lumped variable for renewable energy export:
-        v_e_exp_renewable = (
-            tech_solar_pv.get_v_e_exp()
-            + tech_wind_power.get_v_e_exp()
-            + tech_biomass.get_v_e_exp()
-            + tech_hydro_power.get_v_e_exp()
-            )
-        
-        # Loop through hourly timesteps to simulate evolution of storage:   
-        for i, hr in enumerate(tech_tesdc.get_q_h()):
+    try:
+        dem_helper.validate_scenario_battery_plus_thermal_energy_storage(
+            redirected, warn_single_storage=False)
+    except ValueError as e:
+        raise ValueError(
+            f"Scenario '{legacy_scenario}' runs as {combined} with only "
+            f"{tech}: {e}") from e
 
-            # Bring forward TES charging level and available capacity from previous timestep:
-            if i > 0:
-                tech_tesdc.update_q_h_i(i, tech_tesdc.get_q_h()[i-1])
-                df.loc[i, 'tmp_tes_cap_avl'] = tesdc_cap - tech_tesdc.get_q_h()[i]
-                
-            elif i == 0:
-                tech_tesdc.update_q_h_i(i, tesdc_cap*tesdc_ic)
-                # values have been initialised
-                pass
-            # If no renewable electricity is available, check if stored heat can be used for heating (i.e. discharging):
-            if v_e_renewable[i] == 0:
-
-                case_A_counter += 1
-                # print("Case A")
-                
-                if tech_tesdc.get_q_h()[i] > 0 and tech_heat_pump.get_v_h()[i] > 0:
-                    
-                    if tech_tesdc.get_q_h()[i] >= tech_heat_pump.get_v_h()[i]:
-                        # hp operation will be replaced completely with TES discharging:
-                        
-                        # Update tes:
-                        tech_tesdc.update_u_h_i(i, 0.0)
-                        tech_tesdc.update_v_h_i(i, tech_heat_pump.get_v_h()[i])
-                        tech_tesdc.update_q_h_i(
-                            i, 
-                            tech_tesdc.get_q_h()[i] + tech_tesdc.get_u_h()[i] - tech_tesdc.get_v_h()[i]
-                            )
-                        
-                        # Update PV: no change
-                        
-                        # Update heat pump:
-                        tech_heat_pump.update_v_h_i(i, 0.0) # Heat pump operation replaced by TES discharging
-                    
-                        # Electricity balances:
-                        tmp_u_e_hp_tesdchg =\
-                            tech_heat_pump.electricity_input(tech_tesdc.get_v_h()[i],i) # reduced electricity demand due to replacement of heat pump activity
-                        
-                        # Update electricity demand
-                        d_e_i_updated = energy_demand.get_d_e()[i] - tmp_u_e_hp_tesdchg
-                        energy_demand.update_d_e_i(i,d_e_i_updated)
-                        d_e_h_i_updated = energy_demand.get_d_e_h()[i] - tmp_u_e_hp_tesdchg
-                        energy_demand.update_d_e_h_i(i,d_e_h_i_updated)                  
-                        
-                        # TEMPORARY:
-                        if tech_tesdc.get_v_h()[i] < -1e-10:
-                            print(f'v_h_tes_i: {tech_tesdc.get_v_h()[i]}')
-                            raise Exception(f'NEGATIVE v_h_tes_i (3) of {tech_tesdc.get_v_h()[i]}')
-                        elif tech_heat_pump.get_v_h()[i] < -1e-10:
-                            print(f'v_h_hp_i: {tech_heat_pump.get_v_h()[i]}')
-                            raise Exception(f'NEGATIVE v_h_hp_i (3) of {tech_heat_pump.get_v_h()[i]}')
-                            
-                            # TEMPORARY:
-                            if tech_tesdc.get_q_h()[i] < -1e-10:
-                                raise Exception(f'NEGATIVE q_h_tes_i (3b) of {tech_tesdc.get_q_h()[i]}')
-                        
-                        del tmp_u_e_hp_tesdchg
-                    
-                    elif tech_tesdc.get_q_h()[i] > 0 and tech_tesdc.get_q_h()[i] < tech_heat_pump.get_v_h()[i]:
-                        # hp operation will partially be replaced with TES discharging:
-                        
-                        # Update tes:
-                        tech_tesdc.update_u_h_i(i, 0.0)
-                        tech_tesdc.update_v_h_i(i, tech_tesdc.get_q_h()[i])
-                        q_h_tes_new = tech_tesdc.get_q_h()[i] + tech_tesdc.get_u_h()[i] - tech_tesdc.get_v_h()[i]
-                        tech_tesdc.update_q_h_i(i, q_h_tes_new)
-                        
-                        # Update PV: no change
-                        
-                        # Update heat pump:
-                        v_h_hp_new = tech_heat_pump.get_v_h()[i] - tech_tesdc.get_v_h()[i]
-                        tech_heat_pump.update_v_h_i(i, v_h_hp_new) # Heat pump operation partially replaced by TES discharging                    
-                        
-                        # Update electricity import:
-                        tmp_u_e_hp_tesdchg =\
-                            tech_heat_pump.electricity_input(tech_tesdc.get_v_h()[i],i) # reduced electricity demand
-                        # df_scen.loc[i, 'd_e'] = (df_scen.loc[i, 'd_e'] -
-                        #                      tmp_u_e_hp_tesdchg) # reducing the overall electricity demand
-                        # df_scen.loc[i, 'd_e_h'] = (df_scen.loc[i, 'd_e_h'] -
-                        #                        tmp_u_e_hp_tesdchg) # reducing the electrictiy demand for heating
-                        d_e_i_updated = energy_demand.get_d_e()[i] - tmp_u_e_hp_tesdchg
-                        energy_demand.update_d_e_i(i, d_e_i_updated)
-                        d_e_h_i_updated = energy_demand.get_d_e_h()[i] - tmp_u_e_hp_tesdchg
-                        energy_demand.update_d_e_h_i(i, d_e_h_i_updated)
-
-                        #TEMPORARY:
-                        if tech_tesdc.get_v_h()[i] < -1e-10:
-                            print(f'v_h_tes_i: {tech_tesdc.get_v_h()[i]}')
-                            raise Exception(f'NEGATIVE v_h_tes_i (4) of {tech_tesdc.get_v_h()[i]}')
-                        elif tech_heat_pump.get_v_h()[i] < -1e-10:
-                            print(f'v_h_hp_i: {tech_heat_pump.get_v_h()[i]}')
-                            raise Exception(f'NEGATIVE v_h_hp_i (4) of {tech_heat_pump.get_v_h()[i]}')
-                            
-                        #TEMPORARY:
-                        if tech_tesdc.get_q_h()[i] < -1e-10:
-                            raise Exception(f'NEGATIVE q_h_tes_i (4b) of {tech_tesdc.get_q_h()[i]}')
-                        
-                        del tmp_u_e_hp_tesdchg
-            
-            # If renewable el. is available, but no excess, check if stored heat can be used for heating (i.e. discharging):
-            elif v_e_renewable[i] > 0 and v_e_exp_renewable[i] == 0:
-                case_B_counter += 1
-                # print("Case B")
-                
-                # Electricity demand not replacable by TES:
-                tmp_d_e_non_repl = (
-                    energy_demand.get_d_e_baseline()[i]
-                    + tech_electric_heater.get_u_e()[i]
-                    + energy_demand.get_d_e_ev()[i]
-                    )
-                
-                # Demand replacable by TES (heat and electricity):
-                tmp_d_e_repl = tech_heat_pump.get_u_e()[i]
-                tmp_d_h_repl = tech_heat_pump.get_v_h()[i]
-                
-                if tech_tesdc.get_q_h()[i] == 0:
-                    pass
-                
-                elif tmp_d_e_non_repl >= v_e_renewable[i]:
-                    # Renewable el. will be used completely for non-replacable e-demand
-                    # Replacable e-demand will be served by TES.
-                    
-                    if tech_tesdc.get_q_h()[i] >= tmp_d_h_repl:
-                        # Enough energy stored in the TES to cover all of the
-                        # replacable heat demand
-                        
-                        # Update tes:
-                        tech_tesdc.update_u_h_i(i,0.0)
-                        tech_tesdc.update_v_h_i(i,tmp_d_h_repl)
-                        q_h_tes_i_updated = tech_tesdc.get_q_h()[i] - tmp_d_h_repl
-                        tech_tesdc.update_q_h_i(i,q_h_tes_i_updated)
-                        
-                        # Update PV: no change
-                        
-                        # Update heat pump:
-                        tech_heat_pump.update_v_h_i(i,0.0)
-                        
-                        # Update electricity demand                       
-                        tmp_u_e_hp_tesdchg =\
-                            tech_heat_pump.electricity_input(tech_tesdc.get_v_h()[i],i) # reduced electricity demand
-                        d_e_i_updated = energy_demand.get_d_e()[i] - tmp_u_e_hp_tesdchg
-                        d_e_h_i_updated = energy_demand.get_d_e_h()[i] - tmp_u_e_hp_tesdchg
-                        energy_demand.update_d_e_i(i,d_e_i_updated)
-                        energy_demand.update_d_e_h_i(i,d_e_h_i_updated)
-
-                        # TEMPORARY:
-                        if tech_tesdc.get_v_h()[i] < -1e-10:
-                            print(f'v_h_tes_i: {tech_tesdc.get_v_h()[i]}')
-                            raise Exception(f'NEGATIVE v_h_tes_i (5) of {tech_tesdc.get_v_h()[i]}')
-                        elif tech_heat_pump.get_v_h()[i] < -1e-10:
-                            print(f'v_h_hp_i: {tech_heat_pump.get_v_h()[i]}')
-                            raise Exception(f'NEGATIVE v_h_hp_i (5) of {tech_heat_pump.get_v_h()[i]}')
-                        
-                        # TEMPORARY:
-                        if tech_tesdc.get_q_h()[i] < -1e-10:
-                            raise Exception(f'NEGATIVE q_h_tes_i (5b) of {tech_tesdc.get_q_h()[i]}')
-                        
-                        del tmp_u_e_hp_tesdchg
-                    
-                    elif tech_tesdc.get_q_h()[i] < tmp_d_h_repl:
-                        # Not enough energy stored in the TES to cover all of the
-                        # replacable heat demand. Only part of the replacable
-                        # heat demand can be covered by TES.
-                        
-                        # TEMPORARY:
-                        if tech_tesdc.get_q_h()[i] < -1e-10:
-                            raise Exception(f'NEGATIVE q_h_tes_i (6a) of {tech_tesdc.get_q_h()[i]}')
-                        
-                        # Update tes:
-                        tech_tesdc.update_u_h_i(i,0.0)
-                        tech_tesdc.update_v_h_i(i,tech_tesdc.get_q_h()[i]) # the TES is emptied
-                        tech_tesdc.update_q_h_i(i,0.0)
-                        
-                        # Update PV: no change
-                        
-                        # Update heat pump:
-                        tmp_u_e_hp_tesdchg =\
-                            tech_heat_pump.electricity_input(tech_tesdc.get_v_h()[i],i) # reduced electricity demand
-                        v_h_hp_updated = tech_heat_pump.get_v_h()[i] - tech_tesdc.get_v_h()[i]
-                        tech_heat_pump.update_v_h_i(i,v_h_hp_updated)                        
-                        
-                        # Update electricity demand  
-                        d_e_i_updated = energy_demand.get_d_e()[i] - tmp_u_e_hp_tesdchg
-                        d_e_h_i_updated = energy_demand.get_d_e_h()[i] - tmp_u_e_hp_tesdchg
-                        energy_demand.update_d_e_i(i,d_e_i_updated)
-                        energy_demand.update_d_e_h_i(i,d_e_h_i_updated)
-
-                        # TEMPORARY:
-                        if tech_tesdc.get_v_h()[i] < -1e-10:
-                            print(f'v_h_tes_i: {tech_tesdc.get_v_h()[i]}')
-                            raise Exception(f'NEGATIVE v_h_tes_i (6) of {tech_tesdc.get_v_h()[i]}')
-                        elif tech_heat_pump.get_v_h()[i] < -1e-10:
-                            print(f'v_h_hp_i: {tech_heat_pump.get_v_h()[i]}')
-                            raise Exception(f'NEGATIVE v_h_hp_i (6) of {tech_heat_pump.get_v_h()[i]}')
-                        
-                        del tmp_u_e_hp_tesdchg
-                
-                elif tmp_d_e_non_repl < v_e_renewable[i]:
-                    # part of the replacable electricity demand is already covered by renewable el.
-                    
-                    # Part of the repl. el. demand that is covered by renewable el.:
-                    tmp_v_e_ren_for_hp = v_e_renewable[i] - tmp_d_e_non_repl
-                    
-                    # Part of the repl. demand that can be covered by TES:
-                    tmp_d_e_repl_tes = tmp_d_e_repl - tmp_v_e_ren_for_hp
-                    tmp_d_h_repl_tes = tech_heat_pump.heat_output(tmp_d_e_repl_tes,i)
-                    
-                    if tech_tesdc.get_q_h()[i] >= tmp_d_h_repl_tes:
-                        
-                        # Update tes:
-                        tech_tesdc.update_u_h_i(i,0.0)
-                        tech_tesdc.update_v_h_i(i,tmp_d_h_repl_tes)
-                        q_h_tes_i_updated = tech_tesdc.get_q_h()[i] - tmp_d_h_repl_tes
-                        tech_tesdc.update_q_h_i(i,q_h_tes_i_updated)
-                        
-                        # Update PV: no change
-                        
-                        # Update heat pump:
-                        v_h_hp_updated = tech_heat_pump.get_v_h()[i] - tech_tesdc.get_v_h()[i]
-                        tech_heat_pump.update_v_h_i(i,v_h_hp_updated)
-                        
-                        # Update electricity demand:
-                        d_e_i_updated = energy_demand.get_d_e()[i] - tmp_d_e_repl_tes
-                        d_e_h_i_updated = energy_demand.get_d_e_h()[i] - tmp_d_e_repl_tes
-                        energy_demand.update_d_e_i(i,d_e_i_updated)
-                        energy_demand.update_d_e_h_i(i,d_e_h_i_updated)
-
-                        # TEMPORARY:
-                        if tech_tesdc.get_v_h()[i] < -1e-10:
-                            print(f'v_h_tes_i (i={i}): {tech_tesdc.get_v_h()[i]}')
-                            raise Exception(f'NEGATIVE v_h_tes_i (7) of {tech_tesdc.get_v_h()[i]}')
-                        elif tech_heat_pump.get_v_h()[i] < -1e-10:
-                            print(f'v_h_hp_i (i={i}): {tech_heat_pump.get_v_h()[i]}')
-                            raise Exception(f'NEGATIVE v_h_hp_i (7) of {tech_heat_pump.get_v_h()[i]}')
-                        
-                        # TEMPORARY:
-                        if tech_tesdc.get_q_h()[i] < -1e-10:
-                            print(tech_tesdc.get_v_h()[i])
-                            raise Exception(f'NEGATIVE q_h_tes_i (7b) of {tech_tesdc.get_q_h()[i]}')
-                        
-                    elif tech_tesdc.get_q_h()[i] < tmp_d_h_repl_tes:
-                        
-                        # Update tes:
-                        tech_tesdc.update_u_h_i(i,0.0)
-                        tech_tesdc.update_v_h_i(i,tech_tesdc.get_q_h()[i])
-                        tech_tesdc.update_q_h_i(i,0.0)
-                        
-                        # Update PV: no change
-                        
-                        # Update heat pump:
-                        tmp_u_e_hp_tesdchg =\
-                            tech_heat_pump.electricity_input(tech_tesdc.get_v_h()[i],i) # reduced electricity demand
-                        v_h_hp_updated = tech_heat_pump.get_v_h()[i] - tech_tesdc.get_v_h()[i]
-                        tech_heat_pump.update_v_h_i(i,v_h_hp_updated)
-                        
-                        # Update electricity demand
-                        d_e_i_updated = energy_demand.get_d_e()[i] - tmp_u_e_hp_tesdchg
-                        d_e_h_i_updated = energy_demand.get_d_e_h()[i] - tmp_u_e_hp_tesdchg
-                        energy_demand.update_d_e_i(i,d_e_i_updated)
-                        energy_demand.update_d_e_h_i(i,d_e_h_i_updated)
-
-                        # TEMPORARY:
-                        if tech_tesdc.get_v_h()[i] < -1e-10:
-                            print(f'v_h_tes_i: {tech_tesdc.get_v_h()[i]}')
-                            raise Exception(f'NEGATIVE v_h_tes_i (8) of {tech_tesdc.get_v_h()[i]}')
-                        elif tech_heat_pump.get_v_h()[i] < -1e-10:
-                            print(f'v_h_hp_i: {tech_heat_pump.get_v_h()[i]}')
-                            raise Exception(f'NEGATIVE v_h_hp_i (8) of {tech_heat_pump.get_v_h()[i]}')
-                        
-                        # TEMPORARY:
-                        if tech_tesdc.get_q_h()[i] < -1e-10:
-                            print(tech_tesdc.get_v_h()[i])
-                            raise Exception(f'NEGATIVE q_h_tes_i (8b) of {tech_tesdc.get_q_h()[i]}')
-                    
-                    
-                    
-                    del tmp_v_e_ren_for_hp
-                    del tmp_d_e_repl_tes
-                    del tmp_d_h_repl_tes
-                                   
-                del tmp_d_e_non_repl
-                del tmp_d_e_repl
-                del tmp_d_h_repl
-                
-            # check if excess renewable el. is available that can be used to charge TES:
-            elif v_e_exp_renewable[i] > 0:
-                case_C_counter += 1
-                # print("Case C")
-                
-                # Calculate potential heat generation from excess renewable el.:
-                tmp_v_h_hp_ren_exp = tech_heat_pump.heat_output(
-                    v_e_exp_renewable[i],i
-                    )
-            
-                if tmp_v_h_hp_ren_exp <= df.loc[i, 'tmp_tes_cap_avl']:
-                    # There is enough capacity to absorb all excess pv:
-                    
-                    # Update TES:
-                    tech_tesdc.update_u_h_i(i,tmp_v_h_hp_ren_exp)
-                    tech_tesdc.update_v_h_i(i,0.0)
-                    q_h_tes_i_updated = tech_tesdc.get_q_h()[i] + tech_tesdc.get_u_h()[i] - tech_tesdc.get_v_h()[i]
-                    tech_tesdc.update_q_h_i(i,q_h_tes_i_updated)
-                    
-                    # Update renewable share for charging:
-                    tmp_v_e_ren_tescharging = v_e_exp_renewable[i] # electricity for charging TES via hp
-                    
-                    # Update heat pump:
-                    v_h_hp_updated = tech_heat_pump.get_v_h()[i] + tech_tesdc.get_u_h()[i]
-                    tech_heat_pump.update_v_h_i(i,v_h_hp_updated)
-                    
-                    # Update electricity demand:
-                    d_e_i_updated = energy_demand.get_d_e()[i] + tmp_v_e_ren_tescharging
-                    d_e_h_i_updated = energy_demand.get_d_e_h()[i] + tmp_v_e_ren_tescharging
-                    energy_demand.update_d_e_i(i,d_e_i_updated)
-                    energy_demand.update_d_e_h_i(i,d_e_h_i_updated)
-                    
-                    del tmp_v_e_ren_tescharging
-
-                    # TEMPORARY:
-                    if tech_tesdc.get_v_h()[i] < -1e-10:
-                        print(f'v_h_tes_i: {tech_tesdc.get_v_h()[i]}')
-                        raise Exception(f'NEGATIVE v_h_tes_i (1) of {tech_tesdc.get_v_h()[i]}')
-                    elif tech_heat_pump.get_v_h()[i] < -1e-10:
-                        print(f'v_h_hp_i: {tech_heat_pump.get_v_h()[i]}')
-                        raise Exception(f'NEGATIVE v_h_hp_i (1) of {tech_heat_pump.get_v_h()[i]}')
-                        
-                    # TEMPORARY:
-                    if tech_tesdc.get_q_h()[i] < -1e-10:
-                        raise Exception(f'NEGATIVE q_h_tes_i (1b) of {tech_tesdc.get_q_h()[i]}')
-                    
-                elif tmp_v_h_hp_ren_exp > df.loc[i, 'tmp_tes_cap_avl']:
-                    # The TES will be fully charged and excess pv exported:
-                     
-                    # Update tes:
-                    tech_tesdc.update_u_h_i(i,df.loc[i, 'tmp_tes_cap_avl']) # TES is fully charged
-                    tech_tesdc.update_v_h_i(i,0.0)
-                    q_h_tes_i_updated = tech_tesdc.get_q_h()[i] + tech_tesdc.get_u_h()[i] - tech_tesdc.get_v_h()[i]
-                    tech_tesdc.update_q_h_i(i,q_h_tes_i_updated)
-                    
-                    # Update renewable share for charging:
-                    tmp_v_e_ren_tescharging =\
-                        tech_heat_pump.electricity_input(tech_tesdc.get_u_h()[i],i)
-                    
-                    # Update heat pump:
-                    v_h_hp_updated = tech_heat_pump.get_v_h()[i] + tech_tesdc.get_u_h()[i]
-                    tech_heat_pump.update_v_h_i(i,v_h_hp_updated)
-                    
-                    # Update electricity demand:
-                    d_e_i_updated = energy_demand.get_d_e()[i] + tmp_v_e_ren_tescharging
-                    d_e_h_i_updated = energy_demand.get_d_e_h()[i] + tmp_v_e_ren_tescharging
-                    energy_demand.update_d_e_i(i,d_e_i_updated)
-                    energy_demand.update_d_e_h_i(i,d_e_h_i_updated)
-                    
-                    del tmp_v_e_ren_tescharging
-                    
-                    # TEMPORARY:
-                    if tech_tesdc.get_v_h()[i] < -1e-10:
-                        print(f'v_h_tes_i: {tech_tesdc.get_v_h()[i]}')
-                        raise Exception(f'NEGATIVE v_h_tes_i (2) of {tech_tesdc.get_v_h()[i]}')
-                    elif tech_heat_pump.get_v_h()[i] < -1e-10:
-                        print(f'v_h_hp_i: {tech_heat_pump.get_v_h()[i]}')
-                        raise Exception(f'NEGATIVE v_h_hp_i (2) of {tech_heat_pump.get_v_h()[i]}')
-                        
-                        # TEMPORARY:
-                        if tech_tesdc.get_q_h()[i] < -1e-10:
-                            raise Exception(f'NEGATIVE q_h_tes_i (2b) of {tech_tesdc.get_q_h()[i]}')
-                
-                del tmp_v_h_hp_ren_exp
-            
-            tech_tesdc.update_sos_i(i, tech_tesdc.get_q_h()[i] / tesdc_cap)
+    return redirected
 
 
-            # Loop end
-            #------------------------------------------------------------------
-            
-        del df['tmp_tes_cap_avl']
-        
-        __report_net_storage_discharge('TES scenario', tesdc_ic*tesdc_cap, tech_tesdc.get_q_h()[-1])
-        
-        # print(f'No. of case A occurrences: {case_A_counter}')
-        # print(f'No. of case B occurrences: {case_B_counter}')
-        # print(f'No. of case C occurrences: {case_C_counter}')
-            
-    elif tesdc_cap == 0.0:
-        print(" TES capacity (tech_tesdc_cap): 0 kWh.")
-        pass
-    
-    #--------------------------------------------------------------------------
-    # Update electricity mix:
-        
-    dem_eb.get_local_electricity_mix(energy_demand, tech_instances, with_bes = ("bes" in tech_instances.keys()))
-
-    # Update import:
-    tech_grid_supply.update_m_e(tech_grid_supply.get_m_e())
-
-    #--------------------------------------------------------------------------
-    # Run tests for import:
-    __test_import_balance(tech_grid_supply) 
-
-    
 def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, scen_techs):
     """Dispatch each store once per priority pass; all timestep energies are kWh.
 
@@ -1066,17 +545,20 @@ def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, 
 
     # Read the fixed storage properties once. Hourly flows, state and losses
     # are written through the same per-hour setters as the BES-only scenario.
+    # Sizes and initial charges are this scenario's own settings (storages);
+    # the technologies' capacity_kWh_max is only the optimiser's maximum.
+    # The scenario size is also the capacity the cost module charges.
     stores = {}
-    for key in ('bes', 'tes_decentralised'):
-        if not scen_techs[key]['deployment']:
-            continue
+    for key in dem_helper.active_combined_storages(scen_techs):
         tech = tech_instances[key]
-        cap = float(tech.get_cap())
+        size = config['storages'][key]
+        cap = float(size['capacity_kWh'])
+        tech.set_scenario_cap(cap)
         stores[key] = {
             'tech': tech, 'cap': cap, 'eta': tech.get_eta_chg_dchg(),
             'gamma': tech.get_gamma(),
             'limit': cap * scen_techs[key]['chg_dchg_per_cap_max'],
-            'initial': cap * tech.get_ic(),
+            'initial': cap * float(size['initial_charge']),
         }
 
     # Prepare the effective COP once, as in the existing TES-only scenario;
