@@ -156,7 +156,7 @@ class TechCore():
         if self._cap_is_built():
             # Never negative (as in the branch below), e.g. if the existing
             # capacity were ever larger than the selected capacity:
-            return self._capex*(0.0, self.get_cap() - self.existing)
+            return self._capex*max(0.0, self.get_cap() - self.existing)
 
         if hasattr(self, "_capex_one_to_one_replacement"):
             total_capacity = self.get_output().max()
