@@ -241,7 +241,15 @@ class CHPGasTurbine(TechCore):
     
     def get_allow_heat_export(self):
         return self._allow_heat_export
-    
+
+    def get_energy_revenue(self):
+        # Subsidy for exported heat (heat_export_subsidy), as in the optimiser
+        # (Calliope export cost of the heat carrier). The exported heat is only
+        # set by the optimiser (0 in simulations):
+        if not self._allow_heat_export:
+            return 0.0
+        return self._heat_export_subsidy*np.sum(self.get_v_h_waste())
+
     def get_eta_el(self):
         self.num_test(self._eta_el)
         return self._eta_el
