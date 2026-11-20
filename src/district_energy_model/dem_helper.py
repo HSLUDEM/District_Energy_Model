@@ -863,12 +863,11 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
     bes and tes_decentralised exactly once. Disabled storage units remain in
     the configured lists and are skipped during dispatch.
     ``heat_pump_tes_min_electric_power_kW`` is a finite nonnegative electrical
-    power threshold for additional HP-driven TES charging (0 disables it).
-    ``tes_charge_heat_source_order`` is
-    checked only when TES is deployed. It selects heat_pump and/or
-    direct_electric (an independent tank heater, even without building EH).
-    ``tes_direct_max_electric_power_kW`` limits total direct charging power
-    and must be finite and nonnegative; zero disables this charging path.
+    power threshold that additional HP-driven TES charging must exceed
+    (0 disables it). HP is the only charging path in this manual scenario.
+    ``heat_pump_tes_capacity_factor`` is finite and at least 1. It multiplies
+    the annual HP building-heating peak, before any storage operation, to
+    bound total HP output. Building heating uses that capacity first.
 
     This validates configuration only; conversion paths, capacity limits and
     energy balances must also be enforced by the scenario implementation.
@@ -903,6 +902,12 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
     config = scen_techs.get(scenario)
     if not isinstance(config, dict):
         fail('scenario settings must be a separate top-level dictionary.')
+    # Do not silently reinterpret old direct-heater or source-order settings
+    # as HP-only operation. Existing YAML files must remove these options.
+    obsolete = {'tes_charge_heat_source_order', 'tes_direct_max_electric_power_kW'}
+    if obsolete.intersection(config):
+        fail('TES charging now uses only the heat pump. Remove obsolete settings: '
+             + ', '.join(sorted(obsolete.intersection(config))) + '.')
 
     def deployed(tech):
         settings = scen_techs.get(tech)
@@ -984,6 +989,13 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
         fail('heat_pump_tes_min_electric_power_kW must be a finite '
              'nonnegative number in kW (0 disables the threshold).')
 
+    # A factor below one would put the inferred fleet capacity below its own
+    # annual building-heating peak. Reserve above that peak must be explicit.
+    factor = config.get('heat_pump_tes_capacity_factor')
+    if (isinstance(factor, bool) or not isinstance(factor, (int, float))
+            or not math.isfinite(factor) or factor < 1):
+        fail('heat_pump_tes_capacity_factor must be a finite number >= 1.')
+
     generators = ('solar_pvrooftop', 'solar_pvalpine', 'wind_power',
                   'biomass', 'hydro_power')
     order = ordered_sources('electricity_supply_order', generators)
@@ -995,27 +1007,12 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs):
         fail(f'electricity_supply_order omits deployed generators: {missing}.')
 
     if tes_active:
-        key = 'tes_charge_heat_source_order'
-        heat_sources = ordered_sources(key, ('heat_pump', 'direct_electric'))
-        if not heat_sources:
-            fail(f'{key} must not be empty when TES is deployed.')
-        # Validate the independent tank heater's own electrical power limit;
-        # building EH deployment and power do not constrain this charging path.
-        if 'direct_electric' in heat_sources:
-            limit = config.get('tes_direct_max_electric_power_kW')
-            if (isinstance(limit, bool) or not isinstance(limit, (int, float))
-                    or not math.isfinite(limit) or limit < 0):
-                fail('tes_direct_max_electric_power_kW must be a finite '
-                     'nonnegative number (0 disables direct charging).')
-        # HP charging still requires an actual connected HP.
-        if 'heat_pump' in heat_sources and not deployed('heat_pump'):
-            fail('HP charging requires heat_pump.deployment=true.')
         # As in the TES-only scenario, discharge always replaces HP heat;
         # no separate list of eligible building heating technologies is needed.
         if not deployed('heat_pump'):
-            fail('TES discharge requires heat_pump.deployment=true.')
+            fail('TES charging and discharge require heat_pump.deployment=true.')
         if not scen_techs['tes_decentralised']['connections']['heat_pump']:
-            fail('TES discharge requires the TES heat_pump connection.')
+            fail('TES charging and discharge require the TES heat_pump connection.')
         # Zero means no extra HP power; infinity means no configured power cap.
         hp_limit = scen_techs['heat_pump']['kW_th_max']
         try:
