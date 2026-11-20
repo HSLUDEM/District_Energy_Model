@@ -4649,12 +4649,11 @@ def plot_tesdc_sos_hourly(
         timeframe_end='12-31',
         axes_font_size=16,
         title_font_size=24,
-        split_charging_sources=False,
+        show_hp_charging=False,
         ):
-    """Plot stored TESDC heat and, for combined dispatch, charging by source.
+    """Plot stored TESDC heat and, for combined dispatch, HP charging input.
 
-    Stacked bars show HP and independent electric-heater input before TES
-    losses. Stored heat remains one mixed state, without origin attribution.
+    Hourly bars show HP heat input before TES charging losses.
     The existing timeframe arguments remain reserved for future filtering.
     Return the figure as well as writing the requested HTML/SVG outputs.
     """
@@ -4665,48 +4664,32 @@ def plot_tesdc_sos_hourly(
     stored = np.asarray(df_scen.get('q_h_tesdc', np.zeros(len(df_scen))), dtype=float) / 1000
     stored_trace = go.Scatter(x=x, y=stored, mode='lines', name='Stored heat',
                               line=dict(color='#172D42'))
-    if split_charging_sources:
-        # Only combined dispatch guarantees that all non-direct charging is HP
-        # heat. Other scenarios retain the stored-energy plot without guessing.
+    if show_hp_charging:
+        # Combined dispatch charges only through HP. Other TES modes retain
+        # their existing stored-energy plot without assuming a heat source.
         total = df_scen['u_h_tesdc'].to_numpy(dtype=float)
-        direct = df_scen['u_h_tesdc_direct'].to_numpy(dtype=float)
-        if (not np.isfinite(total).all() or not np.isfinite(direct).all()
-                or (direct < -1e-8).any() or (total - direct < -1e-8).any()):
-            raise ValueError('TES charging sources must be finite, nonnegative parts of total input.')
-        hp = np.maximum(total - direct, 0.0) / 1000
-        direct = np.maximum(direct, 0.0) / 1000
+        if not np.isfinite(total).all() or (total < -1e-8).any():
+            raise ValueError('TES charging input must be finite and nonnegative.')
+        hp = np.maximum(total, 0.0) / 1000
         fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
                             vertical_spacing=0.15,
-                            subplot_titles=('Stored heat', 'Charging input by source (before TES losses)'))
+                            subplot_titles=('Stored heat', 'HP charging input (before TES losses)'))
         fig.add_trace(stored_trace, row=1, col=1)
         # Keep one bar per original hourly timestep, even for annual runs.
         # Users can zoom into short periods without losing hourly detail.
-        sources = pd.DataFrame({'hp': hp, 'direct': direct}, index=pd.DatetimeIndex(x))
-        charging, bar_duration, charging_period = sources, 3600000, 'hour'
-        total_heat = float(sources.to_numpy().sum())
-        for key, name, color in [('hp', 'HP to TES', '#0072B2'),
-                                  ('direct', 'Direct electric heater to TES', '#D55E00')]:
-            # Quantities and percentages keep even a genuinely small source
-            # identifiable. Zero sources stay inactive rather than painting over
-            # another source, and opaque bars remain legible in a full-year view.
-            amount = float(sources[key].sum())
-            share = amount / total_heat * 100 if total_heat > 0 else 0.0
-            active = bool(np.any(sources[key].to_numpy() > 1e-11))
-            fig.add_trace(go.Bar(x=charging.index, y=charging[key],
-                                    name=f'{name}: {amount * 1000:.2f} kWh ({share:.1f}%)',
-                                    width=bar_duration * 0.85,
-                                    visible=True if active else 'legendonly',
-                                    marker=dict(color=color, line=dict(width=0)),
-                                    hoverinfo='x+y+name'), row=2, col=1)
-        fig.update_layout(barmode='stack')
+        fig.add_trace(go.Bar(x=x, y=hp,
+                            name=f'HP to TES: {float(hp.sum()) * 1000:.2f} kWh',
+                            width=3600000 * 0.85,
+                            marker=dict(color='#0072B2', line=dict(width=0)),
+                            hoverinfo='x+y+name'), row=2, col=1)
     else:
         fig = go.Figure(data=[stored_trace])
 
     # Match existing TES plots while giving each panel its own energy units.
-    fig.update_layout(title='TESDC - Stored heat and charging sources' if split_charging_sources
+    fig.update_layout(title='TESDC - Stored heat and HP charging' if show_hp_charging
                       else 'TESDC - Stored heat (hourly)', title_x=0.5,
                       title_font_size=title_font_size, plot_bgcolor='white',
-                      height=700 if split_charging_sources else svg_height,
+                      height=700 if show_hp_charging else svg_height,
                       legend=dict(orientation='h', traceorder='normal', x=0, y=-0.18,
                                   font=dict(size=min(axes_font_size, 14))),
                       margin=dict(b=120))
@@ -4715,12 +4698,12 @@ def plot_tesdc_sos_hourly(
                       tickfont=dict(size=axes_font_size), titlefont=dict(size=axes_font_size))
     fig.layout.xaxis.update(dict(axis_style, tickformat='%d %b %H:%M'))
     fig.layout.yaxis.update(dict(axis_style, title='Stored heat [MWh]'))
-    if split_charging_sources:
+    if show_hp_charging:
         fig.layout.xaxis2.update(dict(axis_style, tickformat='%d %b %H:%M'))
-        fig.layout.yaxis2.update(dict(axis_style, title=f'Charging heat [MWh / {charging_period}]'))
+        fig.layout.yaxis2.update(dict(axis_style, title='Charging heat [MWh / hour]'))
     if output_svg:
         fig.write_image(dir_path + '/' + filename + '.svg', width=svg_width,
-                        height=700 if split_charging_sources else svg_height)
+                        height=700 if show_hp_charging else svg_height)
     if output_html:
         fig.write_html(dir_path + '/' + filename + '.html')
     return fig
@@ -6903,7 +6886,7 @@ def plot(
                 dir_path=results_path,
                 output_svg = toggle_svg,
                 output_html = toggle_html,
-                split_charging_sources=combined_storage,
+                show_hp_charging=combined_storage,
                 )
             plot_bes_sos_hourly(
                 df_scen=df_scen,
@@ -7078,7 +7061,7 @@ def plot(
             dir_path=results_path,
             output_svg = toggle_svg,
             output_html = toggle_html,
-            split_charging_sources=combined_storage,
+            show_hp_charging=combined_storage,
             )
         plot_bes_sos_hourly(
             df_scen=df_scen,
