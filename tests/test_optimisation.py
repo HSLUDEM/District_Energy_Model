@@ -772,3 +772,46 @@ def test_local_wood_is_an_annual_budget_in_optimisations(run_dem):
     assert (rem >= 0).all()
     assert rem.sum() == pytest.approx(pot.sum() - s_wd.sum(), rel=1e-6, abs=1e-3)
     assert cost_overview(model)['monetary']['total'] == pytest.approx(model.total_cost()['objective']['total'], rel=1e-6, abs=1)
+
+
+def _calliope_production(model, carrier):
+    # Production of a carrier by supply and conversion techs, weighted by the timestep weights
+    # (denominator of Calliope's total_levelised_cost; in Calliope's (scaled) energy units).
+    md = model.model._model_data
+    ltc = [x for x in md.loc_tech_carriers_supply_conversion_all.values if x.endswith('::' + carrier)]
+    return float((md['carrier_prod'].loc[ltc] * md.timestep_weights).sum())
+
+
+@requires_data
+@requires_solver
+@pytest.mark.parametrize('weights', [{}, {'objective_monetary': 1e-5, 'objective_co2': 1.0}], ids=['monetary', 'co2'])
+def test_levelised_costs_include_tes_site_base_costs(run_dem, weights):
+    # A55: the monetary total contains the TES site base capex and maintenance added by the
+    # custom constraints (not part of Calliope's cost sum); the levelised costs must contain
+    # them as well. Also in CO2-weighted runs (monetary total derived from the objective / 1e-5).
+    cfg = _tes_cfg(_tes_site()) | {'grid_supply': {'tariff_mode': 'const'}, 'optimisation': OPT | weights}
+    model = run_dem(cfg)
+    costs = model.total_cost()
+    site = _tes_site()
+    r, n, days = site['interest_rate'], site['lifetime'], 7
+    base_cost = (site['capex_base'] * r * (1 + r)**n / ((1 + r)**n - 1) + site['maintenance_cost_base']) * days / 365
+    calliope_sum = float(model.model.results['cost'].loc['monetary'].values.sum())
+    assert costs['monetary']['total'] == pytest.approx(calliope_sum + base_cost, rel=1e-6)
+    for carrier in ['heat', 'electricity']:
+        assert costs['monetary'][f'{carrier}_tlc'] * _calliope_production(model, carrier) ==\
+            pytest.approx(costs['monetary']['total'], rel=1e-6), carrier
+        # CO2 levelised costs are unchanged (custom constraints add only monetary costs):
+        assert costs['co2'][f'{carrier}_tlc'] ==\
+            float(model.model.results['total_levelised_cost'].loc[carrier].loc['emissions_co2']), carrier
+
+
+@requires_data
+@requires_solver
+def test_levelised_costs_without_custom_constraint_costs_are_calliope_values(run_dem):
+    # A55: without TES sites, the levelised costs are Calliope's values.
+    model = run_dem({'grid_supply': {'tariff_mode': 'const'}, 'optimisation': OPT})
+    costs = model.total_cost()
+    tlc = model.model.results['total_levelised_cost']
+    for carrier in ['heat', 'electricity']:
+        assert costs['monetary'][f'{carrier}_tlc'] == pytest.approx(float(tlc.loc[carrier].loc['monetary']), rel=1e-9)
+        assert costs['co2'][f'{carrier}_tlc'] == float(tlc.loc[carrier].loc['emissions_co2'])
