@@ -22,6 +22,7 @@ CHANGES THAT MUST BE REVERTED EVENTUALLY:
 
 
 import re
+import warnings
 
 import pandas as pd
 import numpy as np
@@ -2290,8 +2291,9 @@ class CalliopeOptimiser:
             float(tmp_tlc.loc['electricity'].loc['monetary'].values)
         dict_total_costs['monetary']['heat_tlc'] =\
             float(tmp_tlc.loc['heat'].loc['monetary'].values)
-        dict_total_costs['monetary']['total'] =\
+        calliope_cost_sum_monetary =\
             float(opt_results['cost'].loc['monetary'].values.sum())
+        dict_total_costs['monetary']['total'] = calliope_cost_sum_monetary
             
         dict_total_costs['co2']['electricity_tlc'] =\
             float(tmp_tlc.loc['electricity'].loc['emissions_co2'].values)
@@ -2316,6 +2318,21 @@ class CalliopeOptimiser:
                  - objective_co2*dict_total_costs['co2']['total']
                  - self.unmet_demand_penalty
                  )/objective_monetary
+
+        # Calliope's levelised costs use Calliope's own cost sum, which does
+        # not contain costs added by custom constraints (e.g. TES site base
+        # capex/maintenance). Rescale so that tlc = monetary total / production,
+        # consistent with dict_total_costs['monetary']['total']. (Custom
+        # constraints add only monetary costs, so the co2 tlc values are not
+        # affected.)
+        if abs(calliope_cost_sum_monetary) > 1e-9:
+            scale = (dict_total_costs['monetary']['total']
+                     / calliope_cost_sum_monetary)
+            for key in ['electricity_tlc', 'heat_tlc']:
+                dict_total_costs['monetary'][key] *= scale
+        elif abs(dict_total_costs['monetary']['total']) > 1e-9:
+            warnings.warn("Calliope monetary cost sum is zero; monetary tlc "
+                          "values do not include custom-constraint costs.")
 
         return dict_total_costs
     
