@@ -58,6 +58,9 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Compatibility with Calliope version 0.6.10 (previously 0.6.8)
+- Manual storage scenarios `thermal_energy_storage` and `battery_energy_storage` run as `scenario_battery_plus_thermal_energy_storage` with only their storage (size and initial charge from `thermal_energy_storage_scenario` / `battery_energy_storage_scenario`). The TES now has losses, charging/discharging efficiency and a charge rate limit. Both together are still not possible (use the combined scenario). In optimisations these two flags and `scenario_battery_plus_thermal_energy_storage` are ignored with a warning.
+- `scenario_battery_plus_thermal_energy_storage` has its own storage sizes and initial charges (`storages.bes`, `storages.tes_decentralised`: `capacity_kWh`, `initial_charge`; default 0 = not used). A storage takes part if its technology is deployed and its capacity_kWh > 0. The technologies' `capacity_kWh_max` is only the optimiser's maximum.
+- Cost module, `bes` and `tes_decentralised` in simulations: capex and maintenance on the manual scenario capacity; without a manual storage scenario on the highest stored energy (0 if unused), no longer on `capacity_kWh_max`. Optimisations unchanged.
 - Input files structure
 - Required input data
 
