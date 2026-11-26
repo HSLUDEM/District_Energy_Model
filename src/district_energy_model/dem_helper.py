@@ -868,8 +868,8 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs,
     ``scen_techs['scenarios']['scenario_battery_plus_thermal_energy_storage']``.
     Settings belong to
     ``scen_techs['scenario_battery_plus_thermal_energy_storage']``.
-    A missing or disabled scenario is ignored. An enabled scenario requires
-    at least one active storage unit. ``storages`` holds the size
+    A missing or disabled scenario is ignored. With no active storage, warn
+    and continue without storage dispatch. ``storages`` holds the size
     (``capacity_kWh``, finite, >= 0) and the initial charge (``initial_charge``,
     0-1) of ``bes`` and ``tes_decentralised`` in this scenario; a storage is
     active if its technology is deployed and its capacity_kWh is > 0 (see
@@ -986,10 +986,6 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs,
     # Grid supply accounts for residual electricity and its import mix.
     if not deployed('grid_supply'):
         fail('grid_supply.deployment must be true for residual electricity.')
-    if not bes_active and not tes_active:
-        fail('No storage is active. Set storages.bes.capacity_kWh and/or '
-             'storages.tes_decentralised.capacity_kWh > 0 (the technology '
-             'must be deployed).')
 
     # Manual dispatch needs valid storage parameters.
     for tech in active:
@@ -1069,7 +1065,13 @@ def validate_scenario_battery_plus_thermal_energy_storage(scen_techs,
         if math.isnan(hp_limit) or hp_limit < 0:
             fail('heat_pump.kW_th_max must be nonnegative or inf.')
 
-    if warn_single_storage and (not bes_active or not tes_active):
+    # Zero capacity is a valid no-storage reference case, including legacy BES.
+    # Keep all other validation above, then report that dispatch will be skipped.
+    if not active:
+        warnings.warn(
+            f'{scenario}: No storage is active; continuing without storage dispatch.',
+            UserWarning, stacklevel=2)
+    elif warn_single_storage and (not bes_active or not tes_active):
         inactive = 'bes' if not bes_active else 'tes_decentralised'
         warnings.warn(
             f'{scenario}: {inactive} is not active (deployment=False or '

@@ -464,14 +464,12 @@ def legacy_storage_scenario_config(scen_techs, legacy_scenario, tech_instances):
     settings = scen_techs[settings_key]
     cap = settings['capacity_kWh']
     ic = settings['initial_charge']
-    # As before: the TES size must be positive (its default 0 means "not
-    # set"), a battery of size 0 is allowed (no storage).
-    min_text = 'positive' if tech == 'tes_decentralised' else 'nonnegative'
+    # Both legacy scenarios allow zero capacity as a no-storage reference.
+    # The combined validator warns and its controller skips storage dispatch.
     if (isinstance(cap, bool) or not isinstance(cap, (int, float))
-            or not np.isfinite(cap) or cap < 0
-            or (cap == 0 and tech == 'tes_decentralised')):
+            or not np.isfinite(cap) or cap < 0):
         raise ValueError(
-            f"{settings_key}.capacity_kWh must be a finite {min_text} number "
+            f"{settings_key}.capacity_kWh must be a finite nonnegative number "
             f"in the '{legacy_scenario}' scenario. Selected value: {cap!r}.")
     if (isinstance(ic, bool) or not isinstance(ic, (int, float))
             or not 0.0 <= ic <= 1.0):
@@ -520,6 +518,20 @@ def scenario_battery_plus_thermal_energy_storage(energy_demand, tech_instances, 
     omitted = supported.intersection(tech_instances) - set(order)
     if omitted:
         raise ValueError(f'electricity_supply_order omits present generators: {sorted(omitted)}.')
+    # A zero-size reference run needs only the ordinary electricity allocation.
+    # Skip HP COP preparation and storage updates so unused devices cannot
+    # introduce errors or change the building heat supply in this case.
+    if not dem_helper.active_combined_storages(scen_techs):
+        for key in ('bes', 'tes_decentralised'):
+            if key in tech_instances:
+                tech_instances[key].set_scenario_cap(0.0)
+        dem_eb.get_local_electricity_mix(
+            energy_demand, tech_instances, with_bes=False,
+            electricity_supply_order=order)
+        grid = tech_instances['grid_supply']
+        grid.update_m_e(grid.get_m_e())
+        return
+
     demand = np.array(energy_demand.get_d_e(), dtype=float, copy=True)
     heating_electricity = np.array(energy_demand.get_d_e_h(), dtype=float, copy=True)
     count = len(demand)
