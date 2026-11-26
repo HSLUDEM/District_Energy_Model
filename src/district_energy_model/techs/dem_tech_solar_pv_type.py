@@ -71,6 +71,9 @@ class SolarPVType(TechCore):
 
         p_remaining = copy.deepcopy(self._p_max)
 
+        base_capex_per_group = self._get_base_capex_per_group()
+        base_maintenance_per_group = self._get_base_maintenance_cost_per_group()
+
         for i in range(len(self._profiles)):
 
             p_max_profile = self._profiles[i].max() * self._capex_scaling[i]
@@ -94,11 +97,11 @@ class SolarPVType(TechCore):
             tech_dict_instance = copy.deepcopy(self.__tech_dict)
 
             tech_dict_instance['capex'] = (
-                tech_dict_instance['base_capex']
+                base_capex_per_group[i]
                 *self._capex_scaling[i]
                 )
             tech_dict_instance['maintenance_cost'] = (
-                tech_dict_instance['base_maintenance_cost']
+                base_maintenance_per_group[i]
                 *self._capex_scaling[i]
                 )
             tech_dict_instance['kW_max'] = p_max_here
@@ -115,6 +118,61 @@ class SolarPVType(TechCore):
                     )
             )
 
+
+    def _get_base_capex_per_group(self):
+        """
+        Returns the base capex [CHF/kWp] for each group.
+
+        'base_capex' is either a single number (used for all groups) or a
+        list with one value per group that has a cost, i.e. per group that is
+        not fully occupied by existing installations, in group order (for
+        rooftop PV: all groups except the existing group 0). The number of
+        groups is not fixed; it follows the profiles handed over.
+        Fully occupied groups get a capex of 0.
+        """
+        base_capex = self.__tech_dict['base_capex']
+        n_groups = len(self._profiles)
+
+        if not isinstance(base_capex, (list, tuple)):
+            return [base_capex] * n_groups
+
+        cost_groups = [i for i in range(n_groups)
+                       if self._shares_occupied[i] < 1.0]
+        if len(base_capex) != len(cost_groups):
+            raise ValueError(
+                f"solar_{self._techkey}: 'base_capex' list has "
+                f"{len(base_capex)} entries, but {len(cost_groups)} groups "
+                f"have a cost (groups {cost_groups}). Give one value per "
+                "group or a single number."
+                )
+
+        base_capex_per_group = [0.0] * n_groups
+        for i, value in zip(cost_groups, base_capex):
+            base_capex_per_group[i] = value
+        return base_capex_per_group
+
+    def _get_base_maintenance_cost_per_group(self):
+        """
+        Returns the base maintenance cost [CHF/kWp/year] for each group.
+
+        'base_maintenance_cost' is either a single number (used for all
+        groups) or a list with one value per group, in group order, including
+        fully occupied groups (existing installations also pay maintenance).
+        """
+        base_maintenance_cost = self.__tech_dict['base_maintenance_cost']
+        n_groups = len(self._profiles)
+
+        if not isinstance(base_maintenance_cost, (list, tuple)):
+            return [base_maintenance_cost] * n_groups
+
+        if len(base_maintenance_cost) != n_groups:
+            raise ValueError(
+                f"solar_{self._techkey}: 'base_maintenance_cost' list has "
+                f"{len(base_maintenance_cost)} entries, but there are "
+                f"{n_groups} groups. Give one value per group or a single "
+                "number."
+                )
+        return list(base_maintenance_cost)
 
     def update_tech_properties(self, tech_dict):
         
