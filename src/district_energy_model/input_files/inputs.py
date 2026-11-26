@@ -242,7 +242,15 @@ scen_techs = {
         'eta_overall': 0.23*0.95,
         'lifetime':25,
         'base_capex':2079, #capex per installed kWp power. This is not the same as the peak of the solar PV production; Source: Photovoltaikmarkt:Lionel Bloch, Planair SA Yannick Sauter, Planair SA Florent Jacqmin, Planair SA Preisbeobachtungsstudie 2024 https://pubdb.bfe.admin.ch/de/publication/download/12228capex per installed kWp power. This is not the same as the peak of the solar PV production. Source: Photovoltaikmarkt: Preisbeobachtungsstudie 2024 Lionel Bloch, Planair SA Yannick Sauter, Planair SA Florent Jacqmin, Planair SA Preisbeobachtungsstudie 2024 https://pubdb.bfe.admin.ch/de/publication/download/12227
+        # base_capex: one number for all groups, or a list with one value per
+        # group that has a cost, i.e. all groups except the existing group 0
+        # (currently 3 values for groups 1, 2, 3), e.g. [2079, 1800, 2500].
+        # [CHF/kWp installed]
         'base_maintenance_cost': 37.0, # [CHF/kWp/year]
+        # base_maintenance_cost: one number for all groups, or a list with one
+        # value per group including the existing group 0 (currently 4 values
+        # for groups 0, 1, 2, 3), e.g. [37.0, 35.0, 37.0, 40.0].
+        # The number of groups is NUM_GROUPS in dem_solar_preprocessing_switzerland.py.
         'interest_rate':interest_rate,
         'export_subsidy': 0 if force_asynchronous_storage else no_force_asynchronous_storage_export_subsidy,
         'only_use_installed':False,
